@@ -229,6 +229,10 @@ export function useMobileActivity(
     let generation = 0;
     let previousKey: string | undefined;
     const update = () => {
+      // A transcript layout commit can notify the previous subscription before
+      // passive effect cleanup. Never acknowledge it with stale Host/visibility.
+      if (!live || current.current.environmentId !== environmentId) return;
+      const { foreground, assistantVisible } = current.current;
       const visible = readVisibleSession();
       const key = JSON.stringify([foreground, assistantVisible, visible]);
       if (key === previousKey) return;
@@ -247,7 +251,8 @@ export function useMobileActivity(
           ...(visible?.lastCompletedRunId !== undefined ? { lastCompletedRunId: visible.lastCompletedRunId } : {}),
           ...(visible?.pendingInputKey !== undefined ? { pendingInputKey: visible.pendingInputKey } : {}),
         }).then((result) => {
-          if (live && turn === generation)
+          if (live && turn === generation && current.current.environmentId === environmentId
+            && current.current.foreground === foreground && current.current.assistantVisible === assistantVisible)
             setUnreadIds(new Set([...result.unreadIds, ...(activity.current?.manualUnreadIds() ?? [])]));
         }).catch(() => {});
       } else if (foreground && visible && activity.current) {
