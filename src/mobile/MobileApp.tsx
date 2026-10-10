@@ -343,6 +343,9 @@ export function MobileApp() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const aboutTrigger = useRef<HTMLButtonElement>(null);
   const [view, setView] = useState<View>("settings");
+  // Settings is the unpaired fallback, not a page to load before an existing
+  // Host has had a chance to restore Home or its conversation.
+  const [initialRestorePending, setInitialRestorePending] = useState(true);
   // List scope survives navigation, so chat controls need their own entry source.
   const [sessionEntrySource, setSessionEntrySource] = useState<"project" | "other">("other");
   const [assistantOpen, setAssistantOpen] = useState(false);
@@ -784,6 +787,7 @@ export function MobileApp() {
         }
       } finally {
         if (current()) setLoading(false);
+        if (live) setInitialRestorePending(false);
       }
     })();
     const onVisibility = () => setForeground(!document.hidden);
@@ -2280,7 +2284,9 @@ export function MobileApp() {
 
       <MobilePageTransition key={`pages:${client.connection?.endpoint}`} route={route}
         animate={navigationReady.current} visible={!pageOverlayOpen}>
-      {view === "settings" ? (
+      {initialRestorePending && view === "settings" ? (
+        <div className="mobile-loading" role="status">{t("Loading…")}</div>
+      ) : view === "settings" ? (
         <MobileSettings
           page={settingsPage}
           onPageChange={changeSettingsPage}
