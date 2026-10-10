@@ -91,6 +91,24 @@ function touch(type: string, y = 100, x = 100, target: Element = row()) {
   );
 }
 describe("mobile sidebar sessions", () => {
+  it("keeps the glass layer through closing and a rapid reversal, then releases it", () => {
+    render(false);
+    const layer = node.querySelector<HTMLElement>(".mobile-drawer-backdrop")!;
+    expect(layer.dataset.settledClosed).toBe("true");
+    render(true);
+    expect(layer.dataset.settledClosed).toBeUndefined();
+    render(false);
+    act(() => vi.advanceTimersByTime(100));
+    expect(layer.dataset.settledClosed).toBeUndefined();
+    render(true);
+    act(() => vi.advanceTimersByTime(500));
+    expect(layer.dataset.settledClosed).toBeUndefined();
+    render(false);
+    expect(layer.dataset.settledClosed).toBeUndefined();
+    act(() => vi.advanceTimersByTime(410));
+    expect(layer.dataset.settledClosed).toBe("true");
+  });
+
   it("finishes closing and ignores pulls while its owning page is inactive", () => {
     render();
     const panel = node.querySelector<HTMLElement>(".mobile-drawer")!;

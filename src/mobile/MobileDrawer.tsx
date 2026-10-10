@@ -31,7 +31,7 @@ import type {
 } from "../features/connections/model/protocol";
 import { sessionDisplayTitle } from "../features/sessions/model/session";
 import { HarnessIcon } from "../features/sessions/ui/HarnessIcon";
-import { AnimatedCollapse } from "../shared/ui/AnimatedCollapse";
+import { AnimatedCollapse, useCollapseMotion } from "../shared/ui/AnimatedCollapse";
 import { useTranslation } from "../shared/i18n/useTranslation";
 import type { HostConnectionStatus } from "./client";
 import { MobileHostStatus } from "./MobileHostStatus";
@@ -41,7 +41,7 @@ import { useMobileSessionLists, type MobileProjectHistory } from "./sessionListS
 import { sortMobileProjects, sortMobileSessions } from "./sessionList";
 import { useListReorderMotion } from "../shared/hooks/useListReorderMotion";
 import type { MobileSheetPoint } from "./MobileSheet";
-import { MOBILE_SPRINGS, springTransition } from "./motion";
+import { MOBILE_SPRINGS, springDuration, springTransition } from "./motion";
 import {
   canPullDrawerFrom,
   canPushDrawerFrom,
@@ -218,6 +218,9 @@ export const MobileDrawer = memo(function MobileDrawer({
   // While a finger moves the drawer, its position is written straight to the
   // DOM: a React render per pointer move would rebuild every session row.
   const [dragging, setDragging] = useState(false);
+  const releaseDuration = useRef(springDuration(MOBILE_SPRINGS.smooth));
+  const { foldState, finish } = useCollapseMotion(open || dragging, releaseDuration.current);
+  const settledClosed = !open && !dragging && foldState === "closed";
   useLayoutEffect(() => {
     if (active && !covered) return;
     swipe.current = undefined;
@@ -237,6 +240,7 @@ export const MobileDrawer = memo(function MobileDrawer({
   const releaseTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const clearRelease = () => {
     clearTimeout(releaseTimer.current);
+    releaseDuration.current = springDuration(MOBILE_SPRINGS.smooth);
     backdrop.current?.style.removeProperty("--mobile-drawer-easing");
     backdrop.current?.style.removeProperty("--mobile-drawer-duration");
   };
@@ -358,6 +362,7 @@ export const MobileDrawer = memo(function MobileDrawer({
         event.type === "pointercancel" ? 0 : current.velocity * Math.sign(distance),
       );
       clearReleaseRef.current();
+      releaseDuration.current = settle.duration;
       const layer = backdrop.current;
       if (layer) {
         layer.style.setProperty(
@@ -531,6 +536,7 @@ export const MobileDrawer = memo(function MobileDrawer({
       className="mobile-drawer-backdrop"
       data-open={open}
       data-dragging={dragging || undefined}
+      data-settled-closed={settledClosed || undefined}
       inert={!open && !dragging}
       aria-hidden={!open && !dragging}
       onClick={(event) => {
@@ -543,6 +549,9 @@ export const MobileDrawer = memo(function MobileDrawer({
         aria-label={t("Menu")}
         inert={covered}
         tabIndex={-1}
+        onTransitionEnd={(event) => {
+          if (event.target === event.currentTarget && event.propertyName === "transform") finish();
+        }}
         onKeyDown={(event) => {
           if (event.key === "Escape") close();
         }}

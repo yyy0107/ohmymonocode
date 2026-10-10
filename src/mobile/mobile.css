@@ -3924,6 +3924,16 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
 .mobile-drawer-backdrop[data-dragging] .mobile-drawer {
   transition: none;
 }
+/* Release the hidden layers only after the closing spring finishes. A pull
+   enables them immediately, before React commits the gesture state. */
+.mobile-drawer-backdrop[data-settled-closed]:not([data-dragging]) .mobile-drawer {
+  will-change: auto;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.mobile-drawer-backdrop[data-settled-closed]:not([data-dragging])::before {
+  will-change: auto;
+}
 @media (prefers-reduced-motion: reduce) {
   .mobile-drawer,
   .mobile-drawer-backdrop,
