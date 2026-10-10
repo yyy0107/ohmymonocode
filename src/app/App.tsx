@@ -376,6 +376,7 @@ import {
 } from "../features/sessions/model/btw";
 
 import { isEditTool } from "../integrations/harness/core/preview";
+import { sessionEditPaths } from "../features/sessions/model/checkpointEdits";
 import {
   createEditedResendAttempt,
   createEditedResendCoordinator,
@@ -7374,7 +7375,11 @@ function Workspace({
 
         const checkpointTurnId =
           !current.inboxAsk && !orchestrator.forSession(sessionId)
-            ? await beginSessionTurn(sessionId, workCwd)
+            ? await beginSessionTurn(
+                sessionId,
+                workCwd,
+                sessionEditPaths(current.blocks),
+              )
             : undefined;
         if (turnGen.current.get(sessionId) !== gen) {
           if (checkpointTurnId) {
