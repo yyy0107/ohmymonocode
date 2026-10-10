@@ -164,6 +164,9 @@ public final class MonoCodeNotificationService extends Service {
         try {
             if (current == null || executor.isShutdown()) return;
             if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) { stopIfCurrent(current); return; }
+            // The visible WebView already observes activity. Keep the scheduler
+            // alive so background delivery resumes without a second connection.
+            if (MobileActivityTracker.foreground) { failures = 0; return; }
             JSONObject activity = rpc(current);
             if (config != current) return;
             if (!current.environmentId.equals(activity.getString("environmentId"))) { stopIfCurrent(current); return; }
