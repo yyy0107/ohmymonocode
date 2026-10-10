@@ -3959,6 +3959,8 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
   flex-shrink: 0;
   max-height: 60%;
   overflow-y: auto;
+  /* Native gesture arbitration stops at the nearest scroll container. */
+  touch-action: pan-y;
   overscroll-behavior: contain;
   scrollbar-width: none;
   padding-bottom: 8px;
@@ -4030,6 +4032,7 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  touch-action: pan-y;
   overscroll-behavior: contain;
   padding-top: 4px;
   scrollbar-width: none;
