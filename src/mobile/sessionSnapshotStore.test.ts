@@ -62,4 +62,14 @@ describe("mobile session snapshots", () => {
     next.session.pendingQuestion = { requestId: 4, questions: [] };
     expect(sameSessionShell(acknowledged, selectSessionShell(next))).toBe(false);
   });
+
+  it("ignores native sync diagnostics but updates the shell when sending becomes blocked", () => {
+    const first = snapshot();
+    first.nativeStatus = { state: "ready", revision: "one", checkedAt: 1 };
+    const next = snapshot(2);
+    next.nativeStatus = { state: "ready", revision: "two", checkedAt: 2, hostTurn: true };
+    expect(sameSessionShell(selectSessionShell(first), selectSessionShell(next))).toBe(true);
+    next.nativeStatus = { state: "error", reason: "diverged", checkedAt: 3 };
+    expect(sameSessionShell(selectSessionShell(first), selectSessionShell(next))).toBe(false);
+  });
 });

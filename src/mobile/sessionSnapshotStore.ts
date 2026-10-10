@@ -81,7 +81,10 @@ export function selectSessionShell(snapshot: Snapshot, outgoing?: OutgoingMessag
     supportsQueue: snapshot.supportsQueue,
     canSteer: snapshot.canSteer,
     queueSteeringId: snapshot.queueSteeringId,
-    nativeStatus: snapshot.nativeStatus,
+    // Sync timestamps/revisions belong to the status sheet, not the shell.
+    nativeStatus: snapshot.nativeStatus ? {
+      state: snapshot.nativeStatus.state, reason: snapshot.nativeStatus.reason,
+    } : undefined,
     lastCompletedRunId: snapshot.lastCompletedRunId,
     hasBlocks: view.session.blocks.length > 0,
     pendingInputKey: pendingSessionInputKey(session, snapshot.runId),

@@ -179,11 +179,11 @@ export type NativeSourceListing = {
 const BLOCKING_SYNC = new Set(["diverged", "sourceMissing", "sourceAmbiguous", "bindingMismatch"]);
 
 /** Host sync states that keep sending paused until the source or the user changes it. */
-export const nativeSyncBlocked = (status: NativeSyncStatus | undefined): boolean =>
+export const nativeSyncBlocked = (status: Pick<NativeSyncStatus, "state" | "reason"> | undefined): boolean =>
   status?.state === "error" && BLOCKING_SYNC.has(status.reason ?? "");
 
 /** Localized explanation for a blocked Host-managed native conversation. */
-export function nativeSyncNotice(status: NativeSyncStatus | undefined): string | undefined {
+export function nativeSyncNotice(status: Pick<NativeSyncStatus, "state" | "reason"> | undefined): string | undefined {
   if (!nativeSyncBlocked(status)) return undefined;
   if (status?.reason === "diverged")
     return translate(
