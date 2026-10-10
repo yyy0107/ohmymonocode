@@ -256,7 +256,13 @@ fn shared_turns_with_different_edits_do_not_claim_each_others_files() {
     f.store.begin_turn("a", f.cwd(), "first").unwrap();
     f.store.begin_turn("b", f.cwd(), "second").unwrap();
     f.write("a.txt", "edited by a\n");
-    let literal = " literal name .txt ";
+    // Windows strips trailing spaces from file names, so only the leading
+    // space can be exercised there.
+    let literal = if cfg!(windows) {
+        " literal name .txt"
+    } else {
+        " literal name .txt "
+    };
     f.write(literal, "edited by b\n");
     f.store.capture("a", f.cwd(), &["a.txt".into()]).unwrap();
     f.store
