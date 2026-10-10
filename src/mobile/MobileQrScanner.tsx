@@ -1,5 +1,6 @@
+import { MobileSpinner } from "./MobileSpinner";
 import { useEffect, useRef, useState } from "react";
-import { CameraOff, LoaderCircle, ScanQrCode } from "../shared/ui/icons";
+import { CameraOff, ScanQrCode } from "../shared/ui/icons";
 import { useTranslation } from "../shared/i18n/useTranslation";
 
 type ScannerState = "starting" | "scanning" | "denied" | "unavailable";
@@ -110,7 +111,7 @@ export function MobileQrScanner({ active, onDetected }: {
             <ScanQrCode size={30} />
           </span>
           <span className="mobile-qr-loading-label">
-            <LoaderCircle size={16} className="mobile-spin" aria-hidden="true" />
+            <MobileSpinner size={16} className="mobile-spin" aria-hidden="true" />
             <span>{t("Starting camera…")}</span>
           </span>
         </span>

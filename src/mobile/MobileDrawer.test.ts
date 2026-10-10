@@ -94,6 +94,26 @@ function frame() {
   act(() => vi.advanceTimersByTime(16));
 }
 describe("mobile sidebar sessions", () => {
+  it("pauses retained spinners without pausing the drawer's closing transition", () => {
+    const props = { sessions: [{
+      id: "running", title: "Working", projectId: "project", harness: "codex", status: "running", revision: 1, updatedAt: 100,
+    }] };
+    render(false, props);
+    const spinner = node.querySelector(".mobile-spin")!;
+    const layer = node.querySelector<HTMLElement>(".mobile-drawer-backdrop")!;
+    expect(spinner.hasAttribute("data-animation-paused")).toBe(true);
+    render(true, props);
+    expect(spinner.hasAttribute("data-animation-paused")).toBe(false);
+    render(true, { ...props, foreground: false });
+    expect(spinner.hasAttribute("data-animation-paused")).toBe(true);
+    render(true, props);
+    expect(spinner.hasAttribute("data-animation-paused")).toBe(false);
+    render(false, props);
+    expect(spinner.hasAttribute("data-animation-paused")).toBe(true);
+    expect(layer.dataset.settledClosed).toBeUndefined();
+    expect(layer.hasAttribute("data-animation-paused")).toBe(false);
+  });
+
   it("keeps the glass layer through closing and a rapid reversal, then releases it", () => {
     render(false);
     const layer = node.querySelector<HTMLElement>(".mobile-drawer-backdrop")!;

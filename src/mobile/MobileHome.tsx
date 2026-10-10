@@ -1,3 +1,4 @@
+import { MobileSpinner } from "./MobileSpinner";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import type {
   HostProject,
@@ -289,7 +290,7 @@ export function MobileHome({
         )}
         {running && (
           <span className="mobile-home-project-state" role="img" aria-label={t("Working")}>
-            <LoaderCircle size={18} className="mobile-spin" aria-hidden="true" />
+            <MobileSpinner size={18} className="mobile-spin" aria-hidden="true" />
           </span>
         )}
       </span>

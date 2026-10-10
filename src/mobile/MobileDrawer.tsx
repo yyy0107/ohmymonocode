@@ -1,4 +1,5 @@
 import { MobileListPreview } from "./MobileListPreview";
+import { MobileSpinner } from "./MobileSpinner";
 import {
   memo,
   useCallback,
@@ -18,7 +19,6 @@ import {
   File,
   Folder,
   Home,
-  LoaderCircle,
   MessageSquarePlus,
   MoreHorizontal,
   Pin,
@@ -32,6 +32,7 @@ import type {
 import { sessionDisplayTitle } from "../features/sessions/model/session";
 import { HarnessIcon } from "../features/sessions/ui/HarnessIcon";
 import { AnimatedCollapse, useCollapseMotion } from "../shared/ui/AnimatedCollapse";
+import { SurfaceVisibilityContext, useSurfaceVisibility } from "../shared/ui/SurfaceVisibility";
 import { useTranslation } from "../shared/i18n/useTranslation";
 import type { HostConnectionStatus } from "./client";
 import { MobileHostStatus } from "./MobileHostStatus";
@@ -143,6 +144,7 @@ export const MobileDrawer = memo(function MobileDrawer({
   assistantUnreadCount?: number;
 }) {
   const { language, t } = useTranslation();
+  const surfaceVisible = useSurfaceVisibility();
   const open = requestedOpen && active;
   const [moreOpen, setMoreOpen] = useState(false);
   const moreId = useId();
@@ -535,7 +537,7 @@ export const MobileDrawer = memo(function MobileDrawer({
               <span className="mobile-drawer-session-project">{owner.name}</span>
             )}
             {!item.needsInput && (item.status === "running" ? (
-              <LoaderCircle size={16} className="mobile-spin" aria-label={t("Working")} />
+              <MobileSpinner size={16} className="mobile-spin" aria-label={t("Working")} />
             ) : (
               <span>{formatMobileRelativeTime(item.updatedAt, now, language)}</span>
             ))}
@@ -552,6 +554,7 @@ export const MobileDrawer = memo(function MobileDrawer({
     );
   };
   return (
+    <SurfaceVisibilityContext.Provider value={surfaceVisible && open && foreground && !covered}>
     <div
       ref={backdrop}
       className="mobile-drawer-backdrop"
@@ -662,7 +665,7 @@ export const MobileDrawer = memo(function MobileDrawer({
             <p className="mobile-drawer-empty">{t("Couldn’t load projects")}</p>
           ) : projectsPending || treeLoading ? (
             <div className="mobile-loading mobile-drawer-group-status" role="status">
-              <LoaderCircle size={15} className="mobile-spin" />
+              <MobileSpinner size={15} className="mobile-spin" />
               {t("Loading conversations…")}
             </div>
           ) : !tree.length ? (
@@ -717,6 +720,7 @@ export const MobileDrawer = memo(function MobileDrawer({
         </button>
       </nav>
     </div>
+    </SurfaceVisibilityContext.Provider>
   );
 }, (previous, next) => {
   // Closed drawers retain their last rendered preview while chat streams and

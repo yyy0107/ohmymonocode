@@ -1,7 +1,8 @@
+import { MobileSpinner } from "./MobileSpinner";
 import { useEffect, useRef } from "react";
 import type { Skill } from "../features/skills/model/skillTypes";
 import { HARNESS_TITLE } from "../features/sessions/model/session";
-import { LoaderCircle, Sparkles } from "../shared/ui/icons";
+import { Sparkles } from "../shared/ui/icons";
 import { useTranslation } from "../shared/i18n/useTranslation";
 
 export function MobileSkillList({
@@ -34,7 +35,7 @@ export function MobileSkillList({
     <>
       {loading && (
         <p className="mobile-skill-status" role="status">
-          <LoaderCircle className="mobile-spin" size={16} />
+          <MobileSpinner className="mobile-spin" size={16} />
           {t("Loading skills and commands…")}
         </p>
       )}

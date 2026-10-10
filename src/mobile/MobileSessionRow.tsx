@@ -1,3 +1,4 @@
+import { MobileSpinner } from "./MobileSpinner";
 import type { ButtonHTMLAttributes } from "react";
 import type { HostSessionSummary } from "../features/connections/model/protocol";
 import { sessionDisplayTitle } from "../features/sessions/model/session";
@@ -5,7 +6,7 @@ import { sessionRecencyAt } from "../features/sessions/model/sessionActivity";
 import { HarnessIcon } from "../features/sessions/ui/HarnessIcon";
 import { SessionWorktreeIcon } from "../features/sessions/ui/SessionWorktreeIcon";
 import { useTranslation } from "../shared/i18n/useTranslation";
-import { LoaderCircle, Pin, TriangleAlert } from "../shared/ui/icons";
+import { Pin, TriangleAlert } from "../shared/ui/icons";
 import { formatMobileRelativeTime } from "./relativeTime";
 
 /** One conversation in a list page: its agent, title, then its state or age. */
@@ -50,7 +51,7 @@ export function MobileSessionRow({
       {hostName && <small className="mobile-home-session-host">{hostName}</small>}
       {state === "running" ? (
         <span className="mobile-home-session-state" role="img" aria-label={t("Working")}>
-          <LoaderCircle size={18} className="mobile-spin" aria-hidden="true" />
+          <MobileSpinner size={18} className="mobile-spin" aria-hidden="true" />
         </span>
       ) : state === "input" ? (
         <span className="mobile-home-session-state" role="img" aria-label={t("Needs input")}>

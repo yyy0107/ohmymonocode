@@ -1,3 +1,4 @@
+import { MobileSpinner } from "./MobileSpinner";
 import { usePreferenceState } from "../features/settings/model/usePreferenceState";
 import type { MobileNotesHandle } from "./MobileNotes";
 import {
@@ -48,7 +49,6 @@ import {
   Folder,
   FolderPlus,
   Info,
-  LoaderCircle,
   PanelLeft,
   RefreshCw,
   Search,
@@ -2486,7 +2486,7 @@ export function MobileApp() {
             />
           ) : loading ? (
             <div className="mobile-loading">
-              <LoaderCircle className="mobile-spin" size={20} />
+              <MobileSpinner className="mobile-spin" size={20} />
               {t("Loading conversation…")}
             </div>
           ) : !project ? (
