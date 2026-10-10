@@ -442,7 +442,7 @@ describe("mobile sidebar recents", () => {
   it("holds uncached history in loading state until it arrives", async () => {
     const responses = new Map<string, (sessions: HostSessionSummary[]) => void>();
     const loadSessions = (id: string) => new Promise<HostSessionSummary[]>((done) => { responses.set(id, done); });
-    render(true, { projects, project, sessions: [], loadSessions });
+    await act(async () => render(true, { projects, project, sessions: [], loadSessions }));
     expect(recentIds()).toHaveLength(0);
     expect(node.querySelector('.mobile-drawer-sessions .mobile-loading[role="status"]')).not.toBeNull();
     await act(async () => {
@@ -523,7 +523,7 @@ describe("mobile sidebar recents", () => {
     expect(recentIds()).toEqual(["android-chat"]);
     expect(node.querySelector("button.mobile-drawer-group-status")).toBeNull();
   });
-  it("ignores older history requests after reopening the drawer", async () => {
+  it("shares an in-flight history request on reopening and refreshes at the next interval", async () => {
     let resolveOld!: (sessions: HostSessionSummary[]) => void;
     const old = new Promise<HostSessionSummary[]>((resolve) => {
       resolveOld = resolve;
@@ -536,9 +536,13 @@ describe("mobile sidebar recents", () => {
     await act(async () => render(true, props));
     await act(async () => render(false, props));
     await act(async () => render(true, props));
+    expect(loadSessions).toHaveBeenCalledTimes(1);
     await act(async () =>
-      resolveOld([session("android", 50, { title: "Stale history" })]),
+      resolveOld([session("android", 50, { title: "First response" })]),
     );
+    expect(node.querySelector('[data-session-id="android-chat"] strong')?.textContent).toBe("First response");
+    await act(async () => vi.advanceTimersByTimeAsync(3_000));
+    expect(loadSessions).toHaveBeenCalledTimes(2);
     expect(
       node.querySelector('[data-session-id="android-chat"] strong')?.textContent,
     ).toBe("android chat");

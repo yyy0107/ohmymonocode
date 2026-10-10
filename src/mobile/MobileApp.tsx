@@ -101,6 +101,7 @@ import { normalizePairingCode } from "./pairing";
 import { MobileSheet, SHEET_WIDTH, type MobileSheetPoint } from "./MobileSheet";
 import { MobileProjectPicker } from "./MobileProjectPicker";
 import { MobileDrawer } from "./MobileDrawer";
+import { sessionListStore } from "./sessionListStore";
 import { MobileHome } from "./MobileHome";
 import { MobileHomeMenu } from "./MobileHomeMenu";
 import { MobileHeaderSearch } from "./MobileHeaderSearch";
@@ -539,6 +540,23 @@ export function MobileApp() {
   );
   // Each paired address is its own connection, even when it reaches the same Host.
   const connectionKey = client.connection?.endpoint;
+  // Loader identity scopes shared list subscriptions to one paired Host. An
+  // outgoing page cannot start a request on the newly selected connection.
+  const listEnvironment = client.connection?.environmentId;
+  const onDrawerLoadSessions = useCallback(async (projectId: string) => {
+    const current = () => client.connection?.endpoint === connectionKey && client.connection?.environmentId === listEnvironment;
+    if (!current()) throw new Error(translate("Host connection changed."));
+    const result = await client.sessions(projectId);
+    if (!current()) throw new Error(translate("Host connection changed."));
+    return result;
+  }, [connectionKey, listEnvironment, connectionRevision]);
+  const onCachedSessions = useCallback((projectId: string) =>
+    client.connection?.endpoint === connectionKey && client.connection?.environmentId === listEnvironment
+      ? client.cachedSessions?.(projectId) : undefined,
+  [connectionKey, listEnvironment, connectionRevision]);
+  const lists = useMemo(() => sessionListStore(onDrawerLoadSessions), [onDrawerLoadSessions]);
+  const listRunning = useRef(false);
+  listRunning.current = sessions.some((item) => item.status === "running");
   const previousConnection = useRef(connectionKey);
   const hostScopeReady = previousConnection.current === connectionKey;
   useEffect(() => {
@@ -779,6 +797,19 @@ export function MobileApp() {
   }, []);
 
   useEffect(() => {
+    if (!connected || hostStatus.state !== "connected" || !foreground || pageOverlayOpen || !drawerOpen || !project) return;
+    const ids = [project.id];
+    lists.seed(ids, onCachedSessions, true);
+    const changed = () => {
+      const history = lists.getSnapshot()[project.id];
+      if (history?.sessions) setSessions(history.sessions);
+      if (history?.failed) setPollError(message(history.error));
+    };
+    changed();
+    return lists.subscribe(ids, changed, true);
+  }, [connected, hostStatus.state, foreground, pageOverlayOpen, drawerOpen, project?.id, lists, onCachedSessions]);
+
+  useEffect(() => {
     if (!connected || hostStatus.state !== "connected" || !foreground || pageOverlayOpen || (view === "settings" && !drawerOpen)) return;
     let live = true;
     const turn = navigation.current;
@@ -790,20 +821,14 @@ export function MobileApp() {
     const poll = async () => {
       let running = false;
       try {
-        let listRunning = false;
         if (drawerOpen || view === "home") {
-          const [items, history] = await Promise.all([
-            client.projects(),
-            drawerOpen && project ? client.sessions(project.id) : undefined,
-          ]);
+          const items = await client.projects();
           if (current()) {
             setProjects(items);
             setProjectListState("ready");
             setProject((selected) => selected ?? items[0]);
             setHostError("");
-            if (history) setSessions(history);
           }
-          listRunning = !!history?.some((item) => item.status === "running");
         }
         if (view === "chat" && sessionId) {
           const result = await client.session(sessionId);
@@ -820,7 +845,7 @@ export function MobileApp() {
           }
           running = result.status === "running";
         }
-        if (!running && listRunning) running = true;
+        if (!running && drawerOpen && listRunning.current) running = true;
         if (current()) {
           failures = 0;
           setPollError("");
@@ -1625,6 +1650,8 @@ export function MobileApp() {
       const summary = await client.updateSession(ownerId, id, patch);
       const result = view === "chat" && id === sessionId ? await client.session(id, summary.revision) : undefined;
       if (navigation.current === turn) {
+        lists.seed([ownerId], onCachedSessions, true);
+        lists.refresh([ownerId]);
         setHomeRefreshKey((value) => value + 1);
         setHomeActionSession((current) => current?.id === id ? summary : current);
         if (result) {
@@ -1912,12 +1939,6 @@ export function MobileApp() {
       refreshSavedHosts();
     }
   };
-  const onDrawerLoadSessions = useStableCallback((projectId: string) =>
-    client.sessions(projectId),
-  );
-  const onCachedSessions = useStableCallback((projectId: string) =>
-    client.cachedSessions?.(projectId),
-  );
   // A conversation in another project opens that project with it, like a
   // restored location: history loads for the drawer while the chat opens.
   const onDrawerSession = useStableCallback((id: string, owner: HostProject) => {

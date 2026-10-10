@@ -228,17 +228,17 @@ describe("mobile conversation loading UI", () => {
     expect(node.querySelector(".mobile-assistant-overlay")).not.toBeNull();
     expect(host.session).not.toHaveBeenCalled();
   });
-  it("lets the visible drawer own list polling while Home is covered and resumes Home immediately", async () => {
+  it("shares fresh lists across Home and the drawer without extra requests on either handoff", async () => {
     await mount();
     host.sessions.mockClear();
     await act(async () => node.querySelector<HTMLButtonElement>('header [aria-label="Menu"]')!.click());
-    expect(host.sessions).toHaveBeenCalledTimes(1);
+    expect(host.sessions).not.toHaveBeenCalled();
     host.sessions.mockClear();
     await act(async () => vi.advanceTimersByTimeAsync(3_000));
     expect(host.sessions).toHaveBeenCalledTimes(1);
     host.sessions.mockClear();
     await act(async () => node.querySelector<HTMLDivElement>(".mobile-drawer-backdrop")!.click());
-    expect(host.sessions).toHaveBeenCalledTimes(1);
+    expect(host.sessions).not.toHaveBeenCalled();
   });
 
   it("keeps keystrokes inside the composer and sends the latest draft without rendering the shell", async () => {

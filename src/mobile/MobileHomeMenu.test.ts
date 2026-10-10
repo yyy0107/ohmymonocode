@@ -19,7 +19,7 @@ function deferred<T>() {
   return { promise, resolve };
 }
 const cache = new Map<string, HostSessionSummary[]>();
-const loadSessions = vi.fn<(id: string) => Promise<HostSessionSummary[]>>();
+let loadSessions = vi.fn<(id: string) => Promise<HostSessionSummary[]>>();
 const cachedSessions = (id: string) => cache.get(id);
 const onProject = vi.fn(), onClose = vi.fn();
 let root: Root;
@@ -32,7 +32,7 @@ beforeEach(() => {
   cache.clear();
   cache.set("alpha", [session("alpha", 10)]);
   cache.set("beta", [session("beta", 100)]);
-  loadSessions.mockReset();
+  loadSessions = vi.fn<(id: string) => Promise<HostSessionSummary[]>>();
   onProject.mockClear();
   onClose.mockClear();
   node = document.createElement("div");
@@ -86,7 +86,7 @@ describe("mobile header project menu", () => {
 
   it("only refreshes while open in the foreground, ignores late responses and rereads cache on reopen", async () => {
     const pending = deferred<HostSessionSummary[]>();
-    loadSessions.mockReturnValue(pending.promise);
+    loadSessions.mockImplementation((id) => id === "alpha" ? pending.promise : Promise.resolve(cache.get(id) ?? []));
     await render({ open: false });
     await act(async () => vi.advanceTimersByTimeAsync(3000));
     expect(loadSessions).not.toHaveBeenCalled();

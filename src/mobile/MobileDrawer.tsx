@@ -37,6 +37,7 @@ import type { HostConnectionStatus } from "./client";
 import { MobileHostStatus } from "./MobileHostStatus";
 import { lightImpact } from "./haptics";
 import { formatMobileRelativeTime } from "./relativeTime";
+import { useMobileSessionLists, type MobileProjectHistory } from "./sessionListStore";
 import { sortMobileProjects, sortMobileSessions } from "./sessionList";
 import { useListReorderMotion } from "../shared/hooks/useListReorderMotion";
 import type { MobileSheetPoint } from "./MobileSheet";
@@ -49,11 +50,7 @@ import {
   settleDrawerOpen,
 } from "./drawerGesture";
 
-interface ProjectHistory {
-  sessions?: HostSessionSummary[];
-  loading: boolean;
-  failed: boolean;
-}
+type ProjectHistory = MobileProjectHistory;
 
 interface Swipe {
   id: number;
@@ -154,28 +151,12 @@ export const MobileDrawer = memo(function MobileDrawer({
     project && !projects.some((item) => item.id === project.id)
       ? [project, ...projects]
       : projects, [project, projects]);
-  const projectIds = useMemo(() => JSON.stringify(treeProjects.map((item) => item.id)), [treeProjects]);
-  const [histories, setHistories] = useState<
-    Record<string, ProjectHistory | undefined>
-  >(() => Object.fromEntries(treeProjects.flatMap((item) => {
-    const sessions = cachedSessions?.(item.id);
-    return sessions ? [[item.id, { sessions, loading: false, failed: false }]] : [];
-  })));
-  // Home and chat can refresh the shared cache while the drawer stays closed.
-  useLayoutEffect(() => {
-    const ids: string[] = JSON.parse(projectIds);
-    setHistories((current) => {
-      let next = current;
-      for (const id of ids) {
-        if (!open && current[id]) continue;
-        const sessions = cachedSessions?.(id);
-        if (sessions && current[id]?.sessions !== sessions)
-          next = { ...next, [id]: { sessions, loading: false, failed: false } };
-      }
-      return next;
-    });
-  }, [open, projectIds, cachedSessions, refreshKey]);
-  const historyTurn = useRef<Record<string, number>>({});
+  // The current project has a faster subscription owned by the app.
+  const historyIds = useMemo(() => JSON.stringify(treeProjects.filter((item) => item.id !== project?.id)
+    .map((item) => item.id)), [treeProjects, project?.id]);
+  const { histories, refresh: readHistories } = useMobileSessionLists({
+    idsKey: historyIds, enabled: open && foreground, visible: open, loadSessions, cachedSessions, refreshKey,
+  });
   const panel = useRef<HTMLElement>(null);
   const backdrop = useRef<HTMLDivElement>(null);
   const sessionsList = useRef<HTMLDivElement>(null);
@@ -288,58 +269,6 @@ export const MobileDrawer = memo(function MobileDrawer({
         trigger.focus({ preventScroll: true });
     };
   }, [open]);
-  const readHistory = useCallback(
-    async (projectId: string, isCurrent: () => boolean = () => true) => {
-      const turn = (historyTurn.current[projectId] ?? 0) + 1;
-      historyTurn.current[projectId] = turn;
-      // Refresh known rows silently. Toggling loading on every poll rebuilt the
-      // entire list twice even when the client returned the same cached array.
-      setHistories((current) => current[projectId]?.sessions ||
-        (current[projectId]?.loading && !current[projectId]?.failed) ? current : ({
-          ...current,
-          [projectId]: { ...current[projectId], loading: true, failed: false },
-        }));
-      try {
-        const sessions = await loadSessions(projectId);
-        if (isCurrent() && historyTurn.current[projectId] === turn)
-          setHistories((current) => current[projectId]?.sessions === sessions &&
-            !current[projectId]?.loading && !current[projectId]?.failed ? current : ({
-              ...current,
-              [projectId]: { sessions, loading: false, failed: false },
-            }));
-      } catch {
-        if (isCurrent() && historyTurn.current[projectId] === turn)
-          setHistories((current) => current[projectId]?.failed && !current[projectId]?.loading ? current : ({
-            ...current,
-            [projectId]: {
-              ...current[projectId],
-              loading: false,
-              failed: true,
-            },
-          }));
-      }
-    },
-    [loadSessions],
-  );
-  // Every project feeds the flat Pinned and Recents lists.
-  // The app already polls the current project's list.
-  useEffect(() => {
-    if (!open || !foreground) return;
-    const ids: string[] = JSON.parse(projectIds);
-    let live = true;
-    let timer: ReturnType<typeof setTimeout>;
-    const refresh = async () => {
-      await Promise.allSettled(
-        ids.filter((id) => id !== project?.id).map((id) => readHistory(id, () => live)),
-      );
-      if (live) timer = setTimeout(refresh, 3_000);
-    };
-    void refresh();
-    return () => {
-      live = false;
-      clearTimeout(timer);
-    };
-  }, [open, foreground, projectIds, project?.id, readHistory]);
   // One gesture pipeline: a pull on the conversation opens the drawer, a push
   // anywhere on screen closes it. The drawer follows the finger
   // and settles by distance or flick speed.
@@ -740,7 +669,7 @@ export const MobileDrawer = memo(function MobileDrawer({
                   key={item.id}
                   type="button"
                   className="mobile-drawer-empty mobile-drawer-group-status"
-                  onClick={() => readHistory(item.id)}
+                  onClick={() => readHistories([item.id])}
                 >
                   {t("Couldn’t load sessions")} · {item.name} · {t("Retry")}
                 </button>
