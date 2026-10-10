@@ -90,6 +90,9 @@ function touch(type: string, y = 100, x = 100, target: Element = row()) {
     ),
   );
 }
+function frame() {
+  act(() => vi.advanceTimersByTime(16));
+}
 describe("mobile sidebar sessions", () => {
   it("keeps the glass layer through closing and a rapid reversal, then releases it", () => {
     render(false);
@@ -115,6 +118,7 @@ describe("mobile sidebar sessions", () => {
     Object.defineProperty(panel, "offsetWidth", { value: 300 });
     touch("pointerdown", 100, 250);
     touch("pointermove", 100, 100);
+    frame();
     expect(panel.style.transform).toBe("translateX(-150px)");
     const { onOpenChange } = render(true, { active: false });
     expect(node.querySelector(".mobile-drawer")).toBe(panel);
@@ -175,7 +179,7 @@ describe("mobile sidebar sessions", () => {
     act(() => row().click());
     expect(onSession).toHaveBeenCalledOnce();
   });
-  it("opens actions for a pinned conversation from another project", () => {
+  it("opens actions for a pinned conversation from another project", async () => {
     const other = { id: "other", name: "Other", cwd: "/other" };
     const pinned: HostSessionSummary = {
       id: "other-pinned",
@@ -195,7 +199,9 @@ describe("mobile sidebar sessions", () => {
     touch("pointerdown", 100, 100, target);
     act(() => vi.advanceTimersByTime(450));
     expect(onSessionActions).toHaveBeenCalledExactlyOnceWith(pinned, target, { x: 100, y: 100 });
+    await act(async () => {});
   });
+
   it("leaves scroll gestures to the list without opening actions or navigating", () => {
     const { onSession, onSessionActions } = render();
     touch("pointerdown");
@@ -267,13 +273,47 @@ describe("mobile sidebar sessions", () => {
     touch("pointerdown", 100, 250);
     touch("pointermove", 100, 200);
     touch("pointermove", 100, 100);
+    frame();
     expect(panel.style.transform).toBe("translateX(-150px)");
     act(() => vi.advanceTimersByTime(100));
     touch("pointermove", 100, 230);
+    frame();
     expect(panel.style.transform).toBe("translateX(-20px)");
     touch("pointerup", 100, 230);
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(lightImpact).not.toHaveBeenCalled();
+  });
+  it("coalesces moves and flushes the last touch on cancel without a late frame", () => {
+    const { onOpenChange } = render();
+    const panel = node.querySelector<HTMLElement>(".mobile-drawer")!;
+    Object.defineProperty(panel, "offsetWidth", { value: 300 });
+    const write = vi.spyOn(panel.style, "setProperty");
+    const positions = () => write.mock.calls.filter(([key]) => key === "transform").map(([, value]) => value);
+    touch("pointerdown", 100, 250);
+    touch("pointermove", 100, 200);
+    touch("pointermove", 100, 100);
+    expect(positions()).toEqual([]);
+    frame();
+    expect(positions()).toEqual(["translateX(-150px)"]);
+    touch("pointermove", 100, 230);
+    // Native cancellation need not contain the last touch's coordinates.
+    touch("pointercancel", 0, 0);
+    expect(positions()).toEqual(["translateX(-150px)", "translateX(-20px)"]);
+    expect(panel.style.transform).toBe("");
+    frame();
+    expect(positions()).toHaveLength(2);
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+  it("discards a pending drag frame when a covering surface takes ownership", () => {
+    render();
+    const panel = node.querySelector<HTMLElement>(".mobile-drawer")!;
+    Object.defineProperty(panel, "offsetWidth", { value: 300 });
+    touch("pointerdown", 100, 250);
+    touch("pointermove", 100, 100);
+    render(true, { covered: true });
+    frame();
+    expect(panel.style.transform).toBe("");
+    expect(panel.parentElement!.dataset.dragging).toBeUndefined();
   });
   it("hands the settled position back to the stylesheet when a drag ends", () => {
     render();
@@ -290,6 +330,7 @@ describe("mobile sidebar sessions", () => {
     touch("pointerdown", 100, 250);
     touch("pointermove", 100, 200);
     touch("pointermove", 100, 100);
+    frame();
     expect(backdrop.dataset.dragging).toBe("true");
     expect(progress()).toBe("0.5");
     act(() => vi.advanceTimersByTime(100));

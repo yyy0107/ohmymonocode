@@ -215,8 +215,8 @@ export const MobileDrawer = memo(function MobileDrawer({
     };
     hold.current = press;
   };
-  // While a finger moves the drawer, its position is written straight to the
-  // DOM: a React render per pointer move would rebuild every session row.
+  // While a finger moves the drawer, write at most once per animation frame;
+  // a React render per pointer move would rebuild every session row.
   const [dragging, setDragging] = useState(false);
   const releaseDuration = useRef(springDuration(MOBILE_SPRINGS.smooth));
   const { foldState, finish } = useCollapseMotion(open || dragging, releaseDuration.current);
@@ -278,6 +278,20 @@ export const MobileDrawer = memo(function MobileDrawer({
   // and settles by distance or flick speed.
   useEffect(() => {
     if (!active || covered) return;
+    let moveFrame: number | undefined;
+    const cancelMove = () => {
+      if (moveFrame !== undefined) cancelAnimationFrame(moveFrame);
+      moveFrame = undefined;
+    };
+    const placeDrag = () => {
+      moveFrame = undefined;
+      const current = swipe.current;
+      if (!current?.dragging) return;
+      followRef.current(
+        clampDrawer(current.origin + current.last.x - current.x, current.width),
+        current.width,
+      );
+    };
     const begin = (event: PointerEvent) => {
       // A new touch means the previous drag produced no click to swallow.
       dragClickUntil.current = 0;
@@ -334,20 +348,26 @@ export const MobileDrawer = memo(function MobileDrawer({
       if (elapsed > 0)
         current.velocity = (event.clientX - current.last.x) / elapsed;
       current.last = { x: event.clientX, t: event.timeStamp };
-      followRef.current(
-        clampDrawer(current.origin + dx, current.width),
-        current.width,
-      );
+      moveFrame ??= requestAnimationFrame(placeDrag);
     };
     const end = (event: PointerEvent) => {
       const current = swipe.current;
       if (!current || current.id !== event.pointerId) return;
+      if (!current.dragging) {
+        swipe.current = undefined;
+        return;
+      }
+      // A cancelled pointer may carry no coordinates. Keep the last actual
+      // touch, and flush pending input before the spring takes over.
+      if (event.type !== "pointercancel") current.last.x = event.clientX;
+      cancelMove();
+      placeDrag();
+      if (panel.current) getComputedStyle(panel.current).transform;
       swipe.current = undefined;
-      if (!current.dragging) return;
       // A drag may start on a button; the click that follows must not land.
       dragClickUntil.current = Date.now() + 400;
       const translate = clampDrawer(
-        current.origin + event.clientX - current.x,
+        current.origin + current.last.x - current.x,
         current.width,
       );
       const open =
@@ -403,6 +423,7 @@ export const MobileDrawer = memo(function MobileDrawer({
     document.addEventListener("pointerup", end, true);
     document.addEventListener("pointercancel", end, true);
     return () => {
+      cancelMove();
       document.removeEventListener("pointerdown", begin, true);
       document.removeEventListener("touchmove", holdTouch, true);
       document.removeEventListener("click", swallowClick, true);
