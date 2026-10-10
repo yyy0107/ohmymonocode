@@ -95,7 +95,7 @@ async function click(label: string, scope: Element = node) {
       label,
   );
   expect(target, `button ${label}`).toBeDefined();
-  await act(async () => target!.click());
+  await act(async () => { target!.click(); await vi.dynamicImportSettled(); });
 }
 async function pick() {
   const dialog = node.querySelector('[role="dialog"]')!;

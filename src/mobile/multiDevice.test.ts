@@ -96,7 +96,7 @@ const button = (label: string) => [...node.querySelectorAll<HTMLButtonElement>("
 const mount = () => act(async () => root.render(createElement(MobileApp)));
 async function picker() {
   await act(async () => button("Menu").click());
-  await act(async () => button("Switch device").click());
+  await act(async () => { button("Switch device").click(); await vi.dynamicImportSettled(); });
 }
 async function switchTo(name: string) {
   await picker();
@@ -128,7 +128,7 @@ it.each([false, true])("keeps unseen replies ready for the drawer after leaving 
   const badge = () => active(".mobile-drawer-assistant")?.querySelector(".mobile-drawer-assistant-badge");
   await mount();
   await act(async () => button("Menu").click());
-  await act(async () => button("My assistant").click());
+  await act(async () => { button("My assistant").click(); await vi.dynamicImportSettled(); });
   messages = [{ id: "seen", kind: "assistant", revision: 1, createdAt: 1, text: "Seen reply" }];
   await act(async () => vi.advanceTimersByTimeAsync(2000));
   expect(localStorage.getItem("monocode.assistant-read:a")).toBe("1");

@@ -223,6 +223,7 @@ describe("mobile conversation loading UI", () => {
     host.session.mockClear();
     const options = host.activity.mock.calls.at(-1)![0];
     await act(async () => options.onOpen({ environmentId: "host", kind: "assistant" }));
+    await act(async () => vi.dynamicImportSettled());
     expect(host.activity.mock.calls.at(-1)![0].assistantVisible).toBe(true);
     expect(node.querySelector('.mobile-assistant-overlay[aria-hidden="true"]')).toBeNull();
     expect(node.querySelector(".mobile-assistant-overlay")).not.toBeNull();
@@ -411,7 +412,10 @@ describe("mobile conversation loading UI", () => {
     await mount();
     const showMenu = async () => {
       const row = node.querySelector<HTMLButtonElement>('[data-session-id="other-chat"]')!;
-      await act(async () => row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 90, clientY: 220 })));
+      await act(async () => {
+        row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 90, clientY: 220 }));
+        await vi.dynamicImportSettled();
+      });
     };
     const action = (name: string) => [...node.querySelectorAll<HTMLButtonElement>('.mobile-session-actions button')].find((button) => button.textContent === name)!;
     await showMenu();

@@ -21,7 +21,7 @@ import {
 } from "../shared/ui/icons";
 import { MobileSheet } from "./MobileSheet";
 import { MobileSheetPresence } from "./MobileSheetPresence";
-import { MobileDiffCounts } from "./MobileGitReviewSheet";
+import { MobileDiffCounts } from "./MobileDiffCounts";
 import type { MobileGitIndexState } from "./useMobileGitIndex";
 import "./mobileSessionProgress.css";
 

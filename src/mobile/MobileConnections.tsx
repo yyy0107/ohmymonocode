@@ -10,7 +10,7 @@ import { useTranslation } from "../shared/i18n/useTranslation";
 import { MobileSheet, type MobileSheetPoint } from "./MobileSheet";
 import { hostStatusLabel } from "./MobileHostStatus";
 import type { HostConnectionStatus } from "./client";
-import type { MobilePreferencePanel } from "./MobileSettings";
+import type { MobilePreferencePanel } from "./mobileSettingsRoutes";
 import {
   CONNECTION_ICONS,
   useConnectionAppearance,

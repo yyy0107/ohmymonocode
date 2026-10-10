@@ -1,5 +1,5 @@
 import { usePreferenceState } from "../features/settings/model/usePreferenceState";
-import { MobileNotes, type MobileNotesHandle } from "./MobileNotes";
+import type { MobileNotesHandle } from "./MobileNotes";
 import {
   appendNoteReference,
   noteSourceProject,
@@ -7,7 +7,7 @@ import {
 } from "../features/notes/notesText";
 import { useConnectionAppearance, saveConnectionAppearance, removeConnectionAppearance } from "./connectionAppearance";
 import { connectionErrorMessage } from "./connectionError";
-import { MobileAssistant, type MobileAssistantHandle } from "./MobileAssistant";
+import type { MobileAssistantHandle } from "./MobileAssistant";
 import { useMobileAssistantUnread } from "./useMobileAssistantUnread";
 import { resolveAssistantTarget } from "../features/assistant/model/assistantNavigation";
 import { delegateSession } from "../features/assistant/model/delegateSession";
@@ -83,8 +83,6 @@ import {
   loadMobileProjectDefaults,
   type MobileAgentDefaults as AgentDefaults,
 } from "./agentDefaults";
-import { MobileAgentDefaults } from "./MobileAgentDefaults";
-import { MobileProviderAccounts } from "./MobileProviderAccounts";
 import type { HostModelCatalog } from "../features/connections/model/protocol";
 import {
   MobileClient,
@@ -96,33 +94,28 @@ import {
 } from "./client";
 import type { MobileComposerPanel } from "./MobileComposer";
 import { createMobileDraft, MobileDraftComposer } from "./MobileDraftComposer";
-import { MobileConnectionSheet } from "./MobileConnectionSheet";
 import { normalizePairingCode } from "./pairing";
 import { MobileSheet, SHEET_WIDTH, type MobileSheetPoint } from "./MobileSheet";
-import { MobileProjectPicker } from "./MobileProjectPicker";
 import { MobileDrawer } from "./MobileDrawer";
 import { sessionListStore } from "./sessionListStore";
 import { MobileHome } from "./MobileHome";
 import { MobileHomeMenu } from "./MobileHomeMenu";
 import { MobileHeaderSearch } from "./MobileHeaderSearch";
 import {
-  MobileSettings,
   mobileSettingsTitle,
   mobileSettingsParent,
   type MobilePreferencePanel,
   type MobileSettingsPage,
-} from "./MobileSettings";
+} from "./mobileSettingsRoutes";
 import { readLastLocation, saveLastLocation } from "./lastLocation";
 import { initializeMobileWorkspace, saveMobileWorkspace, flushMobileWorkspace, stopMobileWorkspace, mobileWorkspacePending } from "./hostWorkspace";
 import { initializeHostConnections, stopHostConnections } from "../features/connections/model/hostConnections";
 import type { WorkspaceLocation } from "../features/connections/model/hostWorkspace";
 import { connectHostPreferences } from "../features/settings/model/hostPreferences";
 import { SharedStateStatus } from "../features/settings/ui/SharedStateStatus";
-import { MobileSharedConnections } from "./MobileSharedConnections";
 import { activePreferenceStore, subscribeSharedPreferences } from "../features/settings/model/sharedPreferences";
 import { useMobileActivity } from "./useMobileActivity";
 import { MobileHostStatus } from "./MobileHostStatus";
-import { MobileHostPicker } from "./MobileHostPicker";
 import { MobileDeviceChips, type MobileHomeScope } from "./MobileDeviceChips";
 import { useMobileHostDirectory } from "./useMobileHostDirectory";
 import { MobileHostUnavailable } from "./MobileHostUnavailable";
@@ -175,7 +168,6 @@ import {
   loadSoundsEnabled,
   saveSoundsEnabled,
 } from "../features/settings/model/sounds";
-import { MobileArchive } from "./MobileArchive";
 import { mobileStorage } from "./storage";
 import { useStableCallback } from "./useStableCallback";
 import {
@@ -199,6 +191,19 @@ import { GradientBlurBackground } from "../features/settings/ui/GradientBlurBack
 import { loadProjectChatBackgroundSettings, projectChatBackgroundRevision, projectChatBackgroundImageRevision, subscribeProjectChatBackground } from "../features/projects/model/projectChatBackground";
 import { useProjectBackgroundEffect } from "../features/projects/ui/useProjectBackgroundEffect";
 import { dismissImageLightbox } from "../shared/ui/ImageLightbox";
+
+import { lazyMobilePage, lazyMobileSheet } from "./mobileLazy";
+
+const MobileSettings = lazyMobilePage(async () => ({ default: (await import("./MobileSettings")).MobileSettings }));
+const MobileNotes = lazyMobilePage(async () => ({ default: (await import("./MobileNotes")).MobileNotes }));
+const MobileAssistant = lazyMobilePage(async () => ({ default: (await import("./MobileAssistant")).MobileAssistant }));
+const MobileAgentDefaults = lazyMobilePage(async () => ({ default: (await import("./MobileAgentDefaults")).MobileAgentDefaults }));
+const MobileProviderAccounts = lazyMobilePage(async () => ({ default: (await import("./MobileProviderAccounts")).MobileProviderAccounts }));
+const MobileSharedConnections = lazyMobilePage(async () => ({ default: (await import("./MobileSharedConnections")).MobileSharedConnections }));
+const MobileArchive = lazyMobilePage(async () => ({ default: (await import("./MobileArchive")).MobileArchive }));
+const MobileConnectionSheet = lazyMobileSheet(async () => ({ default: (await import("./MobileConnectionSheet")).MobileConnectionSheet }));
+const MobileProjectPicker = lazyMobileSheet(async () => ({ default: (await import("./MobileProjectPicker")).MobileProjectPicker }));
+const MobileHostPicker = lazyMobileSheet(async () => ({ default: (await import("./MobileHostPicker")).MobileHostPicker }));
 
 const client = new MobileClient(mobileStorage);
 

@@ -6,10 +6,12 @@ import { contextRatio } from "../features/sessions/model/contextUsage";
 import { Computer } from "../shared/ui/icons";
 import { useSurfaceVisibility } from "../shared/ui/SurfaceVisibility";
 import { MobileTranscript } from "./MobileTranscript";
-import { MobileSessionActions } from "./MobileSessionActions";
-import { MobileSessionStatus } from "./MobileSessionStatus";
 import { mobileContextUsage } from "./contextUsage";
 import { useSessionSnapshot, type SessionSnapshotStore } from "./sessionSnapshotStore";
+import { lazyMobileSheet } from "./mobileLazy";
+
+const MobileSessionActions = lazyMobileSheet(async () => ({ default: (await import("./MobileSessionActions")).MobileSessionActions }));
+const MobileSessionStatus = lazyMobileSheet(async () => ({ default: (await import("./MobileSessionStatus")).MobileSessionStatus }));
 
 const identity = (snapshot: HostSession | undefined) => snapshot;
 

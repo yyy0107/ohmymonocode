@@ -32,7 +32,7 @@ import {
   type MobileAgentDefaults as Defaults,
   type MobileDefaultsHost,
 } from "./agentDefaults";
-import type { MobilePreferencePanel } from "./MobileSettings";
+import type { MobilePreferencePanel } from "./mobileSettingsRoutes";
 import type { MobileClient } from "./client";
 import { MobileAgentDefaultsStatus } from "./MobileAgentDefaultsStatus";
 import { usePreferenceState } from "../features/settings/model/usePreferenceState";
