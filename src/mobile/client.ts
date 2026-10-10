@@ -42,6 +42,7 @@ import {
   reuseRemoteAttachmentPreviews,
   withRemoteAttachmentPreviews,
 } from "../features/connections/model/remoteAttachmentPreviews";
+import { withoutSessionPreviewData } from "./sessionPreviewCache";
 import type { MobileStorage } from "./storage";
 import { translate } from "../shared/i18n/language";
 import type { NativeSessionAccess } from "../integrations/harness/core/nativeSessions";
@@ -242,6 +243,9 @@ export class MobileClient {
     });
   }
   private snapshots = new Map<string, HostSession>();
+  // Eight conversations retain text; only the current and most recently read
+  // conversation retain downloaded images. Late hydration never changes recency.
+  private previewSessions = new Set<string>();
   private sessionLoads = new Map<string, Promise<HostSession>>();
   private previewLoads = new Map<string, Promise<HostSession | undefined>>();
   private catalogs = new Map<string, { value: HostModelCatalog; expires: number }>();
@@ -265,6 +269,7 @@ export class MobileClient {
     this.cancelSummaryWrite();
     this.cacheEpoch += 1;
     this.snapshots.clear();
+    this.previewSessions.clear();
     this.sessionLoads.clear();
     this.previewLoads.clear();
     this.catalogs.clear();
@@ -277,6 +282,7 @@ export class MobileClient {
     this.summaryTurns.clear();
   }
   private rememberSession(value: HostSession): HostSession {
+    if (!this.previewSessions.has(value.session.id)) value = withoutSessionPreviewData(value);
     this.snapshots.delete(value.session.id);
     this.snapshots.set(value.session.id, value);
     if (this.snapshots.size > 8)
@@ -308,10 +314,23 @@ export class MobileClient {
   cachedSession(sessionId: string): HostSession | undefined {
     const value = this.snapshots.get(sessionId);
     if (value) {
+      this.retainSessionPreviews(sessionId);
       this.snapshots.delete(sessionId);
       this.snapshots.set(sessionId, value);
     }
     return value;
+  }
+  private retainSessionPreviews(sessionId: string) {
+    this.previewSessions.delete(sessionId);
+    this.previewSessions.add(sessionId);
+    if (this.previewSessions.size <= 2) return;
+    const oldest = this.previewSessions.values().next().value!;
+    this.previewSessions.delete(oldest);
+    const snapshot = this.snapshots.get(oldest);
+    if (snapshot) this.snapshots.set(oldest, withoutSessionPreviewData(snapshot));
+    // In-flight transfer promises are shared only until they settle in
+    // remoteAttachmentPreviews. They must not repopulate this evicted preview.
+    this.previewLoads.delete(oldest);
   }
   private dispatching = false;
   private switchAttempt = 0;
@@ -781,6 +800,7 @@ export class MobileClient {
     this.nextSummaryTurn(projectId);
     if (sessions) this.rememberSummaries(projectId, sessions.filter((item) => item.id !== sessionId));
     this.snapshots.delete(sessionId);
+    this.previewSessions.delete(sessionId);
     this.sessionLoads.delete(sessionId);
     this.previewLoads.delete(sessionId);
   }
@@ -902,6 +922,7 @@ export class MobileClient {
   }
 
   async session(sessionId: string, minimumRevision?: number): Promise<HostSession> {
+    this.retainSessionPreviews(sessionId);
     const existing = this.sessionLoads.get(sessionId);
     if (existing) {
       const result = await existing;
@@ -939,7 +960,7 @@ export class MobileClient {
     if (existing) return existing;
     const known = this.snapshots.get(sessionId);
     const connection = this.connection;
-    if (!known || !connection || ![...walkTranscript(known.session.blocks)].some((block) =>
+    if (!known || !connection || !this.previewSessions.has(sessionId) || ![...walkTranscript(known.session.blocks)].some((block) =>
       block.attachments?.some((file) => file.kind === "image" &&
         file.data === undefined && !file.previewUrl && file.size <= MOBILE_ATTACHMENT_BYTES)))
       return known;

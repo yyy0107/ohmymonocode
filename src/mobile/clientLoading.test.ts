@@ -100,6 +100,65 @@ describe("mobile loading critical path", () => {
     expect(client.cachedSession("session")).toBe(await first);
   });
 
+  it("keeps two conversations' image bytes while retaining older text and rehydrating on return", async () => {
+    const { client, rpc } = await setup((method, params) => {
+      if (method === "attachments.read") return { data: "YWJj", size: 3, offset: 3 };
+      const value = snapshot(1, params.sessionId);
+      // Nested agent output needs the same memory budget as top-level images.
+      value.session.blocks.push({ id: "agent", role: "tool", text: "Explore", agentRun: {
+        name: "Explore", steps: [], transcript: [{ ...value.session.blocks[0], id: "nested" }],
+      } });
+      return { kind: "snapshot", value };
+    });
+    await client.session("first");
+    const retained = await client.sessionPreviews("first");
+    for (const id of ["second", "third"]) {
+      await client.session(id);
+      await client.sessionPreviews(id);
+    }
+    expect(client.cachedSession("second")?.session.blocks[0].attachments?.[0].data).toBe("YWJj");
+    expect(client.cachedSession("third")?.session.blocks[0].attachments?.[0].data).toBe("YWJj");
+    const older = client.cachedSession("first")!;
+    expect(older.session.blocks[0].text).toBe("Visible text");
+    expect(older.session.blocks[0].attachments?.[0]).toEqual(snapshot().session.blocks[0].attachments?.[0]);
+    expect(older.session.blocks[1].agentRun?.transcript?.[0].attachments?.[0].data).toBeUndefined();
+    // Stripping the cache never mutates a departing page's retained snapshot.
+    expect(retained?.session.blocks[0].attachments?.[0].data).toBe("YWJj");
+    expect((await client.sessionPreviews("first"))?.session.blocks[0].attachments?.[0].data).toBe("YWJj");
+    const images = (rpc as ReturnType<typeof vi.fn>).mock.calls.filter((call) =>
+      (call[2] as any).method === "attachments.read");
+    expect(images).toHaveLength(4);
+  });
+
+  it("does not restore evicted preview bytes when an old image transfer completes", async () => {
+    const image = deferred<any>();
+    const { client } = await setup((method, params) => method === "attachments.read"
+      ? image.promise : { kind: "snapshot", value: snapshot(1, params.sessionId) });
+    await client.session("first");
+    const pending = client.sessionPreviews("first");
+    await client.session("second");
+    await client.session("third");
+    image.resolve({ data: "YWJj", size: 3, offset: 3 });
+    expect(await pending).toBeUndefined();
+    expect(client.cachedSession("first")?.session.blocks[0].attachments?.[0].data).toBeUndefined();
+    expect((await client.sessionPreviews("first"))?.session.blocks[0].attachments?.[0].data).toBe("YWJj");
+  });
+
+  it("does not reuse completed image data when another Host has the same session and attachment IDs", async () => {
+    let data = "YWJj";
+    const { client, rpc } = await setup((method, params) => method === "attachments.read"
+      ? { data, size: 3, offset: 3 } : { kind: "snapshot", value: snapshot(1, params.sessionId) });
+    await client.session("session");
+    await client.sessionPreviews("session");
+    await client.connect("http://second-host", "123");
+    data = "ZGVm";
+    expect((await client.session("session")).session.blocks[0].attachments?.[0].data).toBeUndefined();
+    expect((await client.sessionPreviews("session"))?.session.blocks[0].attachments?.[0].data).toBe("ZGVm");
+    const images = (rpc as ReturnType<typeof vi.fn>).mock.calls.filter((call) =>
+      (call[2] as any).method === "attachments.read");
+    expect(images).toHaveLength(2);
+  });
+
   it("merges late image bytes into the newest revision without restoring removed blocks", async () => {
     const image = deferred<any>();
     let value = snapshot();
