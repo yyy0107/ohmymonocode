@@ -64,6 +64,7 @@ interface Swipe {
   dragging: boolean;
   last: { x: number; t: number };
   velocity: number;
+  release: () => void;
 }
 
 // Memoized: the drawer stays mounted under the conversation, and typing in
@@ -163,6 +164,11 @@ export const MobileDrawer = memo(function MobileDrawer({
   const backdrop = useRef<HTMLDivElement>(null);
   const sessionsList = useRef<HTMLDivElement>(null);
   const swipe = useRef<Swipe>(undefined);
+  const clearSwipe = () => {
+    const current = swipe.current;
+    swipe.current = undefined;
+    current?.release();
+  };
   const dragClickUntil = useRef(0);
   const hold = useRef<{
     pointerId: number;
@@ -186,7 +192,7 @@ export const MobileDrawer = memo(function MobileDrawer({
       clearTimeout(hold.current.timer);
       hold.current.opened = true;
     }
-    swipe.current = undefined;
+    clearSwipe();
     setDragging(false);
     onSessionActions(summary, trigger, point);
   };
@@ -225,7 +231,7 @@ export const MobileDrawer = memo(function MobileDrawer({
   const settledClosed = !open && !dragging && foldState === "closed";
   useLayoutEffect(() => {
     if (active && !covered) return;
-    swipe.current = undefined;
+    clearSwipe();
     cancelHold();
     setDragging(false);
   }, [active, covered]);
@@ -294,6 +300,12 @@ export const MobileDrawer = memo(function MobileDrawer({
         current.width,
       );
     };
+    // Touch Events stay on their original target even if a list refresh removes
+    // it. Keep preventing native scrolling there after the drawer owns the drag;
+    // the document listener alone stops receiving those detached-target events.
+    const holdTouch = (event: Event) => {
+      if (swipe.current?.dragging && event.cancelable) event.preventDefault();
+    };
     const begin = (event: PointerEvent) => {
       // A new touch means the previous drag produced no click to swallow.
       dragClickUntil.current = 0;
@@ -307,6 +319,8 @@ export const MobileDrawer = memo(function MobileDrawer({
       const settling = element
         .getAnimations?.()
         .some((animation) => animation.playState === "running");
+      const target = event.target instanceof Element ? event.target : undefined;
+      target?.addEventListener("touchmove", holdTouch, { capture: true, passive: false });
       swipe.current = {
         id: event.pointerId,
         x: event.clientX,
@@ -319,6 +333,12 @@ export const MobileDrawer = memo(function MobileDrawer({
         dragging: false,
         last: { x: event.clientX, t: event.timeStamp },
         velocity: 0,
+        release: () => {
+          cancelMove();
+          target?.removeEventListener("touchmove", holdTouch, true);
+          if (element.hasPointerCapture?.(event.pointerId))
+            element.releasePointerCapture(event.pointerId);
+        },
       };
     };
     const move = (event: PointerEvent) => {
@@ -333,10 +353,13 @@ export const MobileDrawer = memo(function MobileDrawer({
         );
         if (intent === "undecided") return;
         if (intent === "scroll") {
-          swipe.current = undefined;
+          clearSwipe();
           return;
         }
         current.dragging = true;
+        // Session rows (including their status label) can be replaced mid-drag.
+        // Route the pointer stream through the stable drawer panel instead.
+        panel.current?.setPointerCapture?.(event.pointerId);
         // The gesture now belongs to the drawer, not to text selection or a
         // pending long press on a session row.
         window.getSelection()?.removeAllRanges();
@@ -356,7 +379,7 @@ export const MobileDrawer = memo(function MobileDrawer({
       const current = swipe.current;
       if (!current || current.id !== event.pointerId) return;
       if (!current.dragging) {
-        swipe.current = undefined;
+        clearSwipe();
         return;
       }
       // A cancelled pointer may carry no coordinates. Keep the last actual
@@ -365,7 +388,7 @@ export const MobileDrawer = memo(function MobileDrawer({
       cancelMove();
       placeDrag();
       if (panel.current) getComputedStyle(panel.current).transform;
-      swipe.current = undefined;
+      clearSwipe();
       // A drag may start on a button; the click that follows must not land.
       dragClickUntil.current = Date.now() + 400;
       const translate = clampDrawer(
@@ -412,9 +435,6 @@ export const MobileDrawer = memo(function MobileDrawer({
     // Once the drawer owns a drag, keep the browser from turning the same
     // touch into a scroll or navigation, which would cancel the pointer and
     // snap the drawer back mid-gesture.
-    const holdTouch = (event: TouchEvent) => {
-      if (swipe.current?.dragging && event.cancelable) event.preventDefault();
-    };
     document.addEventListener("pointerdown", begin, true);
     document.addEventListener("touchmove", holdTouch, {
       capture: true,
@@ -432,7 +452,7 @@ export const MobileDrawer = memo(function MobileDrawer({
       document.removeEventListener("pointermove", move, true);
       document.removeEventListener("pointerup", end, true);
       document.removeEventListener("pointercancel", end, true);
-      swipe.current = undefined;
+      clearSwipe();
     };
   }, [active, covered]);
 

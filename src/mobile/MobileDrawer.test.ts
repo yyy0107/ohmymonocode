@@ -93,6 +93,18 @@ function touch(type: string, y = 100, x = 100, target: Element = row()) {
 function frame() {
   act(() => vi.advanceTimersByTime(16));
 }
+function touchMove(target: Element) {
+  const event = new Event("touchmove", { bubbles: true, cancelable: true });
+  act(() => target.dispatchEvent(event));
+  return event.defaultPrevented;
+}
+function captureOn(panel: HTMLElement) {
+  const captured = new Set<number>();
+  panel.setPointerCapture = vi.fn((id) => { captured.add(id); });
+  panel.hasPointerCapture = (id) => captured.has(id);
+  panel.releasePointerCapture = vi.fn((id) => { captured.delete(id); });
+  return captured;
+}
 describe("mobile sidebar sessions", () => {
   it("pauses retained spinners without pausing the drawer's closing transition", () => {
     const props = { sessions: [{
@@ -374,6 +386,63 @@ describe("mobile sidebar sessions", () => {
     touch("pointerup", 100, 60);
     expect(move()).toBe(false);
   });
+  it("finishes a drag when a session refresh replaces the original touch target", () => {
+    const summary: HostSessionSummary = {
+      id: "recent", title: "Recent conversation", projectId: "project", harness: "codex",
+      status: "idle", revision: 1, updatedAt: 100,
+    };
+    const onOpenChange = vi.fn();
+    render(true, { sessions: [summary], onOpenChange });
+    const panel = node.querySelector<HTMLElement>(".mobile-drawer")!;
+    Object.defineProperty(panel, "offsetWidth", { value: 300 });
+    const captured = captureOn(panel);
+    const target = row().querySelector("small > span")!;
+    touch("pointerdown", 100, 250, target);
+    touch("pointermove", 100, 200, target);
+    expect(captured.has(1)).toBe(true);
+
+    render(true, { sessions: [{ ...summary, status: "running", revision: 2 }], onOpenChange });
+    expect(target.isConnected).toBe(false);
+    expect(row().querySelector(".mobile-spin")).not.toBeNull();
+    // Native Touch Events remain on this detached span. Pointer capture only
+    // routes Pointer Events, so it cannot replace this preventDefault path.
+    expect(touchMove(target)).toBe(true);
+    touch("pointermove", 100, 20, panel);
+    touch("pointerup", 100, 20, panel);
+    expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+    expect(captured.size).toBe(0);
+    expect(touchMove(target)).toBe(false);
+  });
+  it.each(["pointerup", "pointercancel", "tap", "scroll", "covered", "inactive", "unmount", "longpress"])(
+    "releases the original touch target and pointer capture after %s",
+    (exit) => {
+      render();
+      const panel = node.querySelector<HTMLElement>(".mobile-drawer")!;
+      const captured = captureOn(panel);
+      const target = row().querySelector("small > span")!;
+      touch("pointerdown", 100, 250, target);
+      if (!["tap", "scroll", "longpress"].includes(exit)) {
+        touch("pointermove", 100, 200, target);
+        expect(captured.has(1)).toBe(true);
+      }
+      if (exit === "scroll") touch("pointermove", 160, 250, target);
+      else if (exit === "covered") render(true, { covered: true });
+      else if (exit === "inactive") render(true, { active: false });
+      else if (exit === "unmount") act(() => root.render(null));
+      else if (exit === "longpress") act(() => vi.advanceTimersByTime(450));
+      else touch(exit === "tap" ? "pointerup" : exit, 100, 200, panel);
+      expect(captured.size).toBe(0);
+
+      render();
+      target.remove();
+      // A later drag must not reactivate a leaked listener on the old target.
+      touch("pointerdown", 100, 250);
+      touch("pointermove", 100, 200);
+      expect(touchMove(row())).toBe(true);
+      expect(touchMove(target)).toBe(false);
+      touch("pointercancel", 100, 200);
+    },
+  );
   it("leaves pushes on a sheet above the drawer alone", () => {
     const { onOpenChange } = render();
     const sheet = document.createElement("div");
