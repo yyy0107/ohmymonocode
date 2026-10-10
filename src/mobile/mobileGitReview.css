@@ -167,9 +167,3 @@ html.theme-light .mobile-git-action[data-confirming] {
   --diffs-addition-color-override: #199f73;
   --diffs-deletion-color-override: #d84444;
 }
-.mobile-progress-git-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}

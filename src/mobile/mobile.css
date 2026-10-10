@@ -43,6 +43,10 @@ body,
      flash ignores capsule corners and lands a frame late. */
   -webkit-tap-highlight-color: transparent;
 }
+/* This visibility wrapper belongs to the shell, including before Assistant loads. */
+.mobile-assistant-background {
+  display: contents;
+}
 html.theme-light .mobile-app {
   --mobile-accent: #007aff;
   --mobile-card: #fff;
