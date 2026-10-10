@@ -4,6 +4,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { useMobileActivity } from "./useMobileActivity";
 import type { MobileClient } from "./client";
+import type { HostSession } from "../features/connections/model/protocol";
+import { createSessionSnapshotStore } from "./sessionSnapshotStore";
 
 const native = vi.hoisted(() => ({
   permission: "granted",
@@ -86,6 +88,32 @@ async function render() {
   });
 }
 describe("Android activity notification bridge", () => {
+  it("acknowledges streamed revisions only after visible commits without rerendering unchanged unread state", async () => {
+    const initial: HostSession = { projectId: "project", revision: 1, updatedAt: 1, status: "running",
+      session: { id: "one", cwd: "/project", title: "One", harness: "codex", model: "codex:model",
+        modelSettings: {}, runtimeMode: "supervised", blocks: [] } };
+    const snapshots = createSessionSnapshotStore(initial);
+    options = { ...options, snapshots, visibleSession: { id: "one", projectId: "project", revision: 1 } };
+    const commits = vi.fn();
+    function Reader() {
+      latest = useMobileActivity(client, options);
+      commits();
+      return null;
+    }
+    await act(async () => root.render(createElement(Reader)));
+    expect(native.visible).toHaveBeenLastCalledWith(expect.objectContaining({ sessionId: undefined }));
+    await act(async () => snapshots.markRendered(initial));
+    expect(native.visible).toHaveBeenLastCalledWith(expect.objectContaining({ sessionId: "one", revision: 1 }));
+    native.visible.mockClear();
+    commits.mockClear();
+    const next = { ...initial, revision: 2, updatedAt: 2 };
+    await act(async () => snapshots.set(next));
+    expect(native.visible).not.toHaveBeenCalled();
+    await act(async () => snapshots.markRendered(next));
+    expect(native.visible).toHaveBeenLastCalledWith(expect.objectContaining({ sessionId: "one", revision: 2 }));
+    expect(commits).not.toHaveBeenCalled();
+  });
+
   it("shares assistant delivery and visibility with the background receiver and routes assistant clicks", async () => {
     const assistant = { id: "assistant", name: "Personal assistant", revision: 2,
       latest: { id: "reply", revision: 2, kind: "reply" as const, text: "Finished" } };

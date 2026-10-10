@@ -8,10 +8,13 @@ import type {
 type QueueCommand = Extract<HostCommand, { type: "queue" }>;
 // Shared so an empty queue keeps one identity across renders.
 const NO_MESSAGES: NonNullable<HostSession["session"]["queuedMessages"]> = [];
+type QueueSnapshot = Pick<HostSession, "status" | "runId" | "canSteer" | "queueSteeringId"> & {
+  session: Pick<HostSession["session"], "id" | "queuedMessages" | "queueStatus" | "editingQueuedMessageId">;
+};
 /** One edit lease per view. Queue mutations use the same durable command journal
  * as sends; renewable edit leases use ordinary, idempotent RPC requests. */
 export function useHostQueue(
-  snapshot: HostSession | undefined,
+  snapshot: QueueSnapshot | undefined,
   request: (
     command: QueueCommand,
     transient: boolean,

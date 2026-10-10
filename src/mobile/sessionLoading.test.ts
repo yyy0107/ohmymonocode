@@ -22,7 +22,7 @@ const host = vi.hoisted(() => ({
   sessions: vi.fn(), models: vi.fn(), session: vi.fn(), nativeAccess: vi.fn(), dispatch: vi.fn(),
   cache: new Map<string, HostSession>(),
   summaries: new Map<string, HostSessionSummary[]>(),
-  activity: vi.fn(), updateSession: vi.fn(), markUnread: vi.fn(),
+  activity: vi.fn(), commits: vi.fn(), updateSession: vi.fn(), markUnread: vi.fn(),
   rpc: vi.fn(),
 }));
 vi.mock("./client", () => ({
@@ -57,7 +57,10 @@ vi.mock("./useMobileActivity", () => ({
     return { unreadIds: new Set(), markUnread: host.markUnread, permission: "unsupported", enabled: false };
   },
 }));
-vi.mock("./MobileAppUpdates", () => ({ useMobileAppUpdates: () => ({}) }));
+vi.mock("./MobileAppUpdates", async () => {
+  const { useLayoutEffect } = await import("react");
+  return { useMobileAppUpdates: () => { useLayoutEffect(() => { host.commits(); }); return {}; } };
+});
 vi.mock("./MobileTranscript", () => ({
   MobileTranscript: ({ snapshot, disabled }: { snapshot: HostSession; disabled: boolean }) =>
     createElement("button", { "data-transcript": true, disabled }, snapshot.session.blocks[0]?.text),
@@ -158,6 +161,35 @@ async function open(id: string) {
 }
 
 describe("mobile conversation loading UI", () => {
+  it("updates streaming text and context without committing the shell, then reflects title and run changes", async () => {
+    let current: HostSession = { ...snapshot(), status: "running", runId: "run", supportsQueue: true };
+    host.session.mockImplementation(async () => current);
+    await mount();
+    await open("one");
+    // Begin after navigation and its initial confirmation have settled.
+    await act(async () => vi.advanceTimersByTimeAsync(500));
+    host.commits.mockClear();
+    for (let revision = 2; revision <= 4; revision++) {
+      current = { ...current, revision, updatedAt: revision,
+        session: { ...current.session, modelSettings: {}, context: { used: revision * 100, window: 1000 },
+          blocks: [{ id: "reply", role: "assistant", text: `Streaming ${revision}`, streaming: true }] } };
+      await act(async () => vi.advanceTimersByTimeAsync(250));
+      expect(transcript()?.textContent).toBe(`Streaming ${revision}`);
+    }
+    expect(host.commits).not.toHaveBeenCalled();
+    current = { ...current, revision: 5, status: "idle", runId: undefined,
+      session: { ...current.session, title: "Finished conversation" } };
+    await act(async () => vi.advanceTimersByTimeAsync(250));
+    expect(node.querySelector("header")?.textContent).toContain("Finished conversation");
+    expect(activePage().querySelector<HTMLButtonElement>("[data-stop]")?.disabled).toBe(true);
+    const second = snapshot("two", 7);
+    host.cache.set("two", second);
+    host.session.mockImplementation(async (id: string) => id === "two" ? second : current);
+    await open("two");
+    expect(transcript()?.textContent).toBe("two revision 7");
+    expect(node.querySelector('[data-page-active="false"] [data-transcript]')?.textContent).toBe("Streaming 4");
+  });
+
   it("keeps the focused draft editable while attachments are read, but blocks sending and another picker", async () => {
     const reading = deferred<Attachment[]>();
     vi.spyOn(attachmentFiles, "readMobileAttachments").mockReturnValueOnce(reading.promise);

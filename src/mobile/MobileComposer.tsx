@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Keyboard } from "@capacitor/keyboard";
 import {
@@ -147,7 +147,7 @@ function MobileComposerAttachments({ attachments, onRemove }: {
   </div>;
 }
 
-export function MobileComposer(props: Props) {
+export const MobileComposer = memo(function MobileComposer(props: Props) {
   const { t } = useTranslation();
   const area = useRef<HTMLTextAreaElement>(null);
   const form = useRef<HTMLFormElement>(null);
@@ -865,4 +865,4 @@ export function MobileComposer(props: Props) {
       </MobileSheet>
     </>
   );
-}
+});

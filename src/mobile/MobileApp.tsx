@@ -14,7 +14,6 @@ import { delegateSession } from "../features/assistant/model/delegateSession";
 import { useHostQueue } from "../features/connections/ui/useHostQueue";
 import {
   outgoingPlacement,
-  withOutgoing,
   type OutgoingMessage,
 } from "../features/connections/model/outgoing";
 import { consumePlanCommand } from "../features/sessions/model/plan";
@@ -63,14 +62,14 @@ import {
   type Block,
   type QueuedMessage,
 } from "../features/sessions/model/session";
-import { pendingSessionInputKey } from "../features/sessions/model/sessionActivity";
 import type {
   HostProject,
   HostSession,
   HostSessionSummary,
   HostCommand,
 } from "../features/connections/model/protocol";
-import { MobileTranscript } from "./MobileTranscript";
+import { MobileSessionTranscript, MobileSessionContextRing, MobileSnapshotActions, MobileSnapshotStatus } from "./MobileSessionViews";
+import { createSessionSnapshotStore, useSessionSnapshot, selectSessionShell, sameSessionShell, type MobileSessionShell } from "./sessionSnapshotStore";
 import { createMobileGitSource } from "./mobileGit";
 import { createMobileSessionChangesSource } from "./mobileSessionChanges";
 import { useMobileAppUpdates } from "./MobileAppUpdates";
@@ -97,11 +96,6 @@ import {
 } from "./client";
 import type { MobileComposerPanel } from "./MobileComposer";
 import { createMobileDraft, MobileDraftComposer } from "./MobileDraftComposer";
-import { MobileSessionActions } from "./MobileSessionActions";
-import { MobileSessionStatus } from "./MobileSessionStatus";
-import { MeterRing } from "../features/sessions/ui/ContextMeter";
-import { contextRatio } from "../features/sessions/model/contextUsage";
-import { mobileContextUsage } from "./contextUsage";
 import { MobileConnectionSheet } from "./MobileConnectionSheet";
 import { normalizePairingCode } from "./pairing";
 import { MobileSheet, SHEET_WIDTH, type MobileSheetPoint } from "./MobileSheet";
@@ -213,7 +207,7 @@ const client = new MobileClient(mobileStorage);
  * and a running Host turn already holds the shared lock.
  */
 function nativeWriteBlocked(
-  snapshot: HostSession | undefined,
+  snapshot: MobileSessionShell | undefined,
   access: NativeSessionAccess | undefined,
 ): boolean {
   if (!snapshot?.session.nativeSession) return false;
@@ -405,7 +399,8 @@ export function MobileApp() {
   const [chatPageKey, setChatPageKey] = useState("draft");
   const chatPageIdentity = useRef(chatPageKey);
   chatPageIdentity.current = chatPageKey;
-  const [snapshot, setSnapshot] = useState<HostSession>();
+  const [snapshotStore] = useState(createSessionSnapshotStore);
+  const setSnapshot = snapshotStore.set;
   const [nativeAccessResult, setNativeAccessResult] = useState<{
     key: string;
     value: NativeSessionAccess | undefined;
@@ -417,6 +412,10 @@ export function MobileApp() {
   const [sendingMessage, setSendingMessage] = useState<SendingMessage>();
   const sendingRef = useRef<SendingMessage>(undefined);
   sendingRef.current = sendingMessage;
+  const selectShell = useCallback((value: HostSession | undefined) => selectSessionShell(
+    value, sendingMessage?.sessionId === value?.session.id ? sendingMessage?.outgoing : undefined,
+  ), [sendingMessage]);
+  const snapshot = useSessionSnapshot(snapshotStore, selectShell, sameSessionShell);
   // A new conversation keeps the transcript its sending copy mounted.
   const transcriptKeys = useRef(new Map<string, string>());
   const [catalog, setCatalog] = useState<HostModelCatalog>();
@@ -885,17 +884,24 @@ export function MobileApp() {
   });
 
   useEffect(() => {
-    if (!connected || !foreground || pageOverlayOpen || view !== "chat" || !snapshot) return;
+    if (!connected || !foreground || pageOverlayOpen || view !== "chat") return;
     let live = true;
-    void client.sessionPreviews(snapshot.session.id).then((result) => {
-      if (live && result)
-        setSnapshot((previous) =>
-          previous?.session.id === result.session.id && previous.revision <= result.revision
-            ? result : previous,
-        );
-    });
-    return () => { live = false; };
-  }, [connected, foreground, pageOverlayOpen, view, snapshot]);
+    let request = 0;
+    const hostId = client.connection?.endpoint;
+    const hydrate = () => {
+      const value = snapshotStore.get();
+      const turn = ++request;
+      if (!value) return;
+      void client.sessionPreviews(value.session.id).then((result) => {
+        if (live && turn === request && hostId === client.connection?.endpoint && result)
+          setSnapshot((previous) => previous?.session.id === result.session.id
+            && previous.revision <= result.revision ? result : previous);
+      }).catch(() => {});
+    };
+    const unsubscribe = snapshotStore.subscribe(hydrate);
+    hydrate();
+    return () => { live = false; unsubscribe(); };
+  }, [connected, connectionKey, foreground, pageOverlayOpen, view, snapshotStore]);
 
   useEffect(() => {
     const environmentId = client.connection?.environmentId;
@@ -1166,12 +1172,13 @@ export function MobileApp() {
     }
   };
   const activity = useMobileActivity(client, {
+    snapshots: snapshotStore,
     connected,
     foreground,
     assistantVisible: assistantOpen && !notesOpen,
     visibleSession: view === "chat" && !pageOverlayOpen && !drawerOpen && !loading && sessionConfirmed && snapshot && snapshot.session.id === sessionId
-      ? { id: snapshot.session.id, projectId: snapshot.projectId, revision: snapshot.revision,
-          lastCompletedRunId: snapshot.lastCompletedRunId, pendingInputKey: pendingSessionInputKey(snapshot.session, snapshot.runId) }
+      ? { id: snapshot.session.id, projectId: snapshot.projectId, revision: snapshotStore.get()!.revision,
+          lastCompletedRunId: snapshot.lastCompletedRunId, pendingInputKey: snapshot.pendingInputKey }
       : undefined,
     language,
     onOpen: async (target) => {
@@ -1309,16 +1316,10 @@ export function MobileApp() {
     },
     [],
   );
-  // Messages on their way show where the Host will record them.
-  const hostView = useMemo(() => {
-    const message = sendingMessage;
-    if (!snapshot)
-      return message && !message.sessionId && project?.id === message.placeholder?.projectId
-        ? message.placeholder
-        : undefined;
-    return withOutgoing(snapshot, message?.sessionId === snapshot.session.id ? message.outgoing : undefined);
-  }, [sendingMessage, snapshot, project?.id]);
-  const queue = useHostQueue(snapshot && hostView, queueRequest);
+  const placeholder = !snapshot && sendingMessage && !sendingMessage.sessionId
+    && project?.id === sendingMessage.placeholder?.projectId ? sendingMessage.placeholder : undefined;
+  const transcriptSessionId = snapshot?.session.id ?? placeholder?.session.id;
+  const queue = useHostQueue(snapshot, queueRequest);
   const restoreQueuedMessage = useStableCallback(async (queued: QueuedMessage) => {
     if (!sessionId) return;
     const generation = navigation.current;
@@ -1419,7 +1420,7 @@ export function MobileApp() {
         id: commandId,
         text: parsed.text,
         startedAt: Date.now(),
-        placement: sessionId ? outgoingPlacement(snapshot, followUpBehavior) : "transcript",
+        placement: sessionId ? outgoingPlacement(snapshotStore.get(), followUpBehavior) : "transcript",
         ...(attachments.length ? { attachments } : {}),
       };
       const block: Block = {
@@ -1791,9 +1792,6 @@ export function MobileApp() {
     if (!project) return Promise.reject(new Error("Open a project first."));
     return client.skills(project.id, skillHarness, sessionId, refresh);
   }, [project?.id, skillHarness, sessionId]);
-  const contextRing = loading
-    ? null
-    : contextRatio(mobileContextUsage(snapshot?.session, catalog));
   // Controls float above scrolling content; Home uses a plain title menu.
   const floatingHeader = true;
   const homeProject = projects.find((item) => item.id === homeProjectId);
@@ -1838,7 +1836,7 @@ export function MobileApp() {
   // A finished plan asks to be implemented from the composer's place. Typing
   // in the composer folds the panel away; leaving it empty brings it back.
   const planDecisionId = usePlanDecision(
-    snapshot?.session.blocks,
+    snapshotStore.get()?.session.blocks,
     !!snapshot && snapshot.status !== "running" && !pendingQuestion && !nativeReadOnly,
   );
   const [collapsedPlan, setCollapsedPlan] = useState<string>();
@@ -2000,6 +1998,47 @@ export function MobileApp() {
     // before any underlying row or toolbar action can run.
     if (close) setSearchOpen(false);
   };
+  const onComposerSend = useStableCallback(() => void send());
+  const onComposerStop = useStableCallback(() => {
+    if (sessionId && snapshot?.runId)
+      void dispatch({ type: "cancel", commandId: crypto.randomUUID(), sessionId, runId: snapshot.runId });
+  });
+  const onComposerConfiguration = useStableCallback((next: MobileConfiguration) => {
+    if (!sessionId) {
+      if (next.model) draftConfigurationChanged.current = true;
+      setConfiguration(next);
+    } else {
+      void dispatch({ type: "configure", commandId: crypto.randomUUID(), sessionId,
+        ...(snapshot && (snapshot.session.pendingConfiguration || next.harness !== snapshot.session.harness)
+          ? { harness: next.harness } : {}),
+        model: next.model, modelSettings: next.modelSettings, runtimeMode: next.runtimeMode });
+    }
+  });
+  const onComposerExpand = useStableCallback(() => {
+    if (questionOpen) onQuestionOpenChange(false);
+    else if (planDecisionId) setCollapsedPlan(planDecisionId);
+  });
+  const onComposerProject = useStableCallback((item: HostProject) => void openProject(item, "chat"));
+  const onComposerFiles = useStableCallback((files: File[]) => void addFiles(files));
+  const onComposerRemoveAttachment = useCallback((id: string) =>
+    setAttachments((current) => current.filter((item) => item.id !== id)), []);
+  const queueDisabled = nativeReadOnly || busy || !!pending || loading || !sessionConfirmed;
+  const composerQueue = useMemo(() => <MobileMessageQueue
+    key={snapshot?.session.id}
+    {...queue}
+    onOverlayChange={onQueueOverlayChange}
+    onRestore={restoreQueuedMessage}
+    disabled={queueDisabled}
+  />, [snapshot?.session.id, queue.messages, queue.status, queue.canSteer, queue.canResume,
+    queue.canReorder, queue.onReorder, queue.onDelete, queue.onEdit, queue.onEditingChange,
+    queue.onSteer, queue.onResume, onQueueOverlayChange, restoreQueuedMessage, queueDisabled]);
+  const canCreateWorktree = client.hasCapability("git.worktreeCreate");
+  const composerWorkspace = useMemo(() => canCreateWorktree && project ? {
+    value: workspace, onChange: setWorkspace,
+    loadBranches: () => client.branches(project.id),
+    loadWorktrees: () => client.worktrees(project.id),
+    creating: worktreeCreation?.status === "creating",
+  } : undefined, [canCreateWorktree, project?.id, workspace, worktreeCreation?.status]);
   const projectsUnavailable = projectListState === "failed" || hostStatus.state === "failed" || hostStatus.state === "disconnected";
   const projectsPending = projectListState === "loading" && !projectsUnavailable;
   // An unreachable device keeps Home's device row with a centered retry state.
@@ -2149,11 +2188,7 @@ export function MobileApp() {
                 setSessionStatusOpen(true);
               }}
             >
-              {contextRing === null ? (
-                <Computer size={24} />
-              ) : (
-                <MeterRing ratio={contextRing} size={20} stroke={2.25} />
-              )}
+              <MobileSessionContextRing store={snapshotStore} catalog={catalog} loading={loading} />
             </IconButton>
             <IconButton
               label="Session actions"
@@ -2396,13 +2431,17 @@ export function MobileApp() {
           data-project-chat-background={!!projectBackground}
           data-project-background-effect={projectBackground?.effect}
           data-project-background-scope={projectBackground?.scope}
-          data-session-empty={!hostView?.session.blocks.length}
+          data-session-empty={!(snapshot?.hasBlocks || placeholder?.session.blocks.length)}
           style={projectBackgroundStyle}>
           {(projectBackground?.effect === "gradient-blur" || (!projectBackground && backgroundPath && backgroundEffect === "gradient-blur")) && <GradientBlurBackground />}
-          {hostView ? (
-            <MobileTranscript
-              key={transcriptKeys.current.get(hostView.session.id) ?? hostView.session.id}
-              snapshot={hostView}
+          {transcriptSessionId ? (
+            <MobileSessionTranscript
+              key={transcriptKeys.current.get(transcriptSessionId) ?? transcriptSessionId}
+              store={snapshotStore}
+              sessionId={transcriptSessionId}
+              initialSnapshot={snapshotStore.get()}
+              placeholder={placeholder}
+              outgoing={sendingMessage?.sessionId === snapshot?.session.id ? sendingMessage?.outgoing : undefined}
               active={!drawerOpen && !pageOverlayOpen && !hostPickerOpen}
               onOverlayChange={onTranscriptOverlayChange}
               gitSource={gitSource}
@@ -2457,25 +2496,14 @@ export function MobileApp() {
           {project && <MobileDraftComposer
             progressSlot={setProgressDock}
             compact={questionOpen || planDecisionOpen}
-            onExpand={() => {
-              if (questionOpen) onQuestionOpenChange(false);
-              else if (planDecisionId) setCollapsedPlan(planDecisionId);
-            }}
-            queue={
-              <MobileMessageQueue
-                key={snapshot?.session.id}
-                {...queue}
-                onOverlayChange={onQueueOverlayChange}
-                onRestore={restoreQueuedMessage}
-                disabled={nativeReadOnly || busy || !!pending || loading || !sessionConfirmed}
-              />
-            }
+            onExpand={onComposerExpand}
+            queue={composerQueue}
             draft={draft}
             skillsContextKey={skillContextKey}
             loadSkills={loadSkillCatalog}
             canCompact={!!snapshot && snapshot.status === "idle" && !nativeReadOnly && ["codex", "claude", "grok", "opencode", "pi", "omp"].includes(snapshot.session.harness)}
             configuration={
-              snapshot ? configurationForSession(snapshot) : configuration
+              snapshot ? snapshot.configuration : configuration
             }
             catalog={catalog}
             catalogLoading={catalogLoading}
@@ -2510,55 +2538,20 @@ export function MobileApp() {
                   ))
             }
             canStop={!busy && !pending && sessionConfirmed && !!snapshot?.runId}
-            onSend={() => void send()}
-            onStop={() => {
-              if (sessionId && snapshot?.runId)
-                void dispatch({
-                  type: "cancel",
-                  commandId: crypto.randomUUID(),
-                  sessionId,
-                  runId: snapshot.runId,
-                });
-            }}
-            onConfigurationChange={(next) => {
-              if (!sessionId) {
-                if (next.model) draftConfigurationChanged.current = true;
-                setConfiguration(next);
-              }
-              else
-                void dispatch({
-                  type: "configure",
-                  commandId: crypto.randomUUID(),
-                  sessionId,
-                  ...(snapshot && (snapshot.session.pendingConfiguration || next.harness !== snapshot.session.harness)
-                    ? { harness: next.harness }
-                    : {}),
-                  model: next.model,
-                  modelSettings: next.modelSettings,
-                  runtimeMode: next.runtimeMode,
-                });
-            }}
+            onSend={onComposerSend}
+            onStop={onComposerStop}
+            onConfigurationChange={onComposerConfiguration}
             panel={composerPanel}
             onPanelChange={setComposerPanel}
             project={project}
             projects={projects}
-            onProjectChange={(item) => void openProject(item, "chat")}
+            onProjectChange={onComposerProject}
             attachments={attachments}
-            onFiles={(files) => void addFiles(files)}
-            onRemoveAttachment={(id) =>
-              setAttachments((current) =>
-                current.filter((item) => item.id !== id),
-              )
-            }
+            onFiles={onComposerFiles}
+            onRemoveAttachment={onComposerRemoveAttachment}
             planMode={planMode}
             onPlanModeChange={setPlanMode}
-            workspace={client.hasCapability("git.worktreeCreate") ? {
-              value: workspace,
-              onChange: setWorkspace,
-              loadBranches: () => client.branches(project.id),
-              loadWorktrees: () => client.worktrees(project.id),
-              creating: worktreeCreation?.status === "creating",
-            } : undefined}
+            workspace={composerWorkspace}
           />}
         </main>
       )}
@@ -2622,10 +2615,11 @@ export function MobileApp() {
       </MobileSheetPresence>
       <MobileSheetPresence open={sessionActionsOpen && view !== "settings" && !!(sessionActionsTarget ? sessionActionsSummary : snapshot)}>
       {(sessionActionsTarget ? sessionActionsSummary : snapshot) ? (
-        <MobileSessionActions
+        <MobileSnapshotActions
           key={sessionActionsTarget ?? sessionId ?? "draft"}
           open={sessionActionsOpen}
-          snapshot={sessionActionsTarget ? undefined : snapshot}
+          store={snapshotStore}
+          currentSession={!sessionActionsTarget}
           summary={sessionActionsSummary}
           anchor={sessionActionsTrigger}
           anchorPoint={sessionActionsPoint}
@@ -2662,8 +2656,8 @@ export function MobileApp() {
       </MobileSheetPresence>
       <MobileSheetPresence open={sessionStatusOpen && view === "chat" && !!snapshot}>
       {snapshot ? (
-        <MobileSessionStatus
-          snapshot={snapshot}
+        <MobileSnapshotStatus
+          store={snapshotStore}
           catalog={catalog}
           hostName={connectionName}
           hostStatus={hostStatus}
