@@ -370,9 +370,35 @@ html .popover-backdrop.popover-backdrop::before {
   inset: -1.5px;
   padding: 2px;
 }
-/* An empty function list removes only the SVG lens. Surfaces that already
-   disable backdrop-filter (solid sheets, nested composers) stay unchanged. */
-html[data-mobile-glass-motion] {
+/* Motion changes only the glass surfaces, without invalidating inherited
+   properties throughout the transcript. Omit the initial value so var() keeps
+   its refraction fallback outside motion. */
+@property --mobile-glass-motion-refraction {
+  syntax: "*";
+  inherits: false;
+}
+/* An empty function list removes only the SVG lens. Existing backdrop-filter:
+   none rules on solid sheets and nested composers retain their priority. Keep
+   positive classes at each selector's right edge: a bare :not() makes a root
+   attribute change invalidate every element, even outside the header. */
+html[data-mobile-glass="liquid"][data-mobile-glass-motion] :is(
+    .mobile-header[data-floating="true"] > .mobile-icon-button:not([data-capsule="false"]),
+    .mobile-header[data-floating="true"] > .mobile-header-title:not([data-capsule="false"]),
+    .mobile-header[data-floating="true"] > .mobile-header-actions:not([data-capsule="false"]),
+    .mobile-header[data-floating="true"] > .mobile-header-search:not([data-capsule="false"]),
+    .mobile-header[data-floating="true"] > .mobile-header-logo:not([data-capsule="false"]),
+    .mobile-composer,
+    .mobile-composer-card > .mobile-composer-context,
+    .mobile-composer-card > .mobile-composer-input,
+    .mobile-jump,
+    .mobile-queue-pill,
+    .mobile-progress-capsule,
+    .mobile-glass-preview-chip,
+    .mobile-drawer,
+    .mobile-sheet,
+    .mobile-shared-question,
+    .popover-backdrop
+  ) {
   --mobile-glass-motion-refraction: ;
 }
 /* Solid restores opaque surfaces without paying for backdrop filters. */
