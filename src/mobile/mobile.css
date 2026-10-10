@@ -290,7 +290,7 @@ html .popover-backdrop.popover-backdrop {
   -webkit-backdrop-filter: blur(var(--mobile-glass-surface-blur, var(--mobile-glass-blur)))
     saturate(var(--mobile-glass-saturation))
     brightness(var(--mobile-glass-brightness));
-  backdrop-filter: var(--mobile-glass-refraction, )
+  backdrop-filter: var(--mobile-glass-motion-refraction, var(--mobile-glass-refraction, ))
     blur(var(--mobile-glass-surface-blur, var(--mobile-glass-blur)))
     saturate(var(--mobile-glass-saturation))
     brightness(var(--mobile-glass-brightness));
@@ -365,6 +365,11 @@ html .popover-backdrop.popover-backdrop::before {
 html .popover-backdrop.popover-backdrop::before {
   inset: -1.5px;
   padding: 2px;
+}
+/* An empty function list removes only the SVG lens. Surfaces that already
+   disable backdrop-filter (solid sheets, nested composers) stay unchanged. */
+html[data-mobile-glass-motion] {
+  --mobile-glass-motion-refraction: ;
 }
 /* Solid restores opaque surfaces without paying for backdrop filters. */
 html[data-mobile-glass="solid"] :is(
