@@ -263,11 +263,6 @@ export function ModelPicker({
     getModelSnapshot,
     getModelSnapshot,
   );
-  // Until a real list arrives the trigger shows a fallback model, so say it
-  // is still loading. A cached list refreshing in the background is not.
-  const triggerLoading =
-    source.loading?.(harness) === true &&
-    (source.id != null || !hasLiveCatalog(harness));
   const availabilityVersion = useSyncExternalStore(
     subscribeHarnessAvailability,
     getHarnessAvailabilitySnapshot,
@@ -366,6 +361,15 @@ export function ModelPicker({
     projectVersion,
     project,
   ]);
+  // Show loading on the trigger rather than only inside the opened menu:
+  // agents are still being detected, or a selectable agent has no real model
+  // list yet. A cached list refreshing in the background is not loading.
+  const harnessLoading = (id: HarnessId) =>
+    source.loading?.(id) === true && (source.id != null || !hasLiveCatalog(id));
+  const triggerLoading =
+    !source.probed() ||
+    harnessLoading(harness) ||
+    pickerHarnesses.some(harnessLoading);
   const providerKey = pickerHarnesses.join(",");
   const visibleTab = coerceModelPickerTab(tab, (id) =>
     pickerHarnesses.includes(id),

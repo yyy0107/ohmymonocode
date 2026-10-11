@@ -447,6 +447,30 @@ describe("model picker", () => {
     expect(spinner()).toBeNull();
   });
 
+  it("spins on the trigger while another selectable agent's catalog loads", () => {
+    act(() => {
+      setHarnessModels("grok", [{ id: "grok:grok-4.6", name: "Grok 4.6", harness: "grok" }]);
+    });
+    const done = beginCatalogLoad("codex");
+    act(() =>
+      root.render(
+        createElement(ModelPicker, {
+          harness: "grok",
+          model: "grok:grok-4.6",
+          values: {},
+          onChange: vi.fn(),
+          onSettingsChange: vi.fn(),
+        }),
+      ),
+    );
+    const spinner = () =>
+      container.querySelector('[data-model-picker-trigger] [aria-label="Loading models…"]');
+    expect(spinner()).not.toBeNull();
+
+    act(() => done());
+    expect(spinner()).toBeNull();
+  });
+
   it("lists Claude Opus 5.5 after Opus 5 in the built-in Claude catalog", () => {
     act(() =>
       root.render(
