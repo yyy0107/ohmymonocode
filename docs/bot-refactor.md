@@ -97,8 +97,8 @@ without an assigned project each Thread receives its own working directory.
 
 Read Soul and memory at every turn boundary. Resident loading is capped at 200
 lines or 24 KiB UTF-8, whichever comes first, without silently truncating the
-stored file. Surface budgets and truncation. Bound the topic-name index (initial
-limit 40 topics/2,000 characters); load topic bodies, archive and logs on demand.
+stored file. Surface budgets and truncation. Bound the topic-name index (100
+topics/8,000 characters); load topic bodies, archive and logs on demand.
 
 For user input of at least eight Unicode characters, recall at most four topic
 notes and four passages from other direct Threads of the same Bot, at most 1,000
@@ -204,8 +204,9 @@ commands/results and deferred checks, including manual visual checks.
 | 0 | Roadmap recorded | `6f1e17c0` | Baseline, branch and unrelated-file inspection; documentation requires no tests |
 | 1 | Desktop shell complete | `df30c960` | Targeted UI/Host tests, TypeScript and local browser checks below |
 | 2 | Isolated Bots/Threads complete | `cf4e906e` | Scoped persistence, RPC, desktop and compatibility checks below |
-| 3 | File-backed memory complete | This stage's named commit (see git log) | File durability, recall, UI and compatibility checks below |
-| 4–8 | Not started | — | None |
+| 3 | File-backed memory complete | `5159556a` | File durability, recall, UI and compatibility checks below |
+| 4 | Concurrent runtime complete | `feat(bots): add scoped concurrent runtime` | Runtime, resource, provider and compatibility checks below |
+| 5–8 | Not started | — | None |
 
 Stage 1 verification (Node 24.16.0, Vitest 3.2.7, Vite 7.3.6):
 
@@ -366,3 +367,58 @@ Additional migration recovery details:
   aliases, journals and history form the recoverable file-memory state. Do not
   delete pending journals to clear an error. Restart/read retries settle them
   using the SQLite commit marker. The service preserves a newer external edit.
+
+
+Stage 4 checks:
+
+- Initial runtime HTTP RPC selection: 1 passed (default three slots, invalid
+  limits, run state transition, scoped lookup and pagination bound).
+- Native RPC allowlist plus native writes honoring Host execution leases:
+  `CARGO_TARGET_DIR=/projects/monocode/target npm run check:rust` passed
+  (format, Clippy, 603 tests passed / 1 ignored). Mounted read buffers and
+  unrelated paths remain available; parent/child writes and integrations wait
+  for the Host turn. No application package/build was run.
+
+Stage 4 runtime and adapter verification:
+
+- Assistant runtime: 60 passed. BotManager: 13 passed (three slots, fourth
+  queued, approval occupancy, scoped cancellation, next-turn configuration,
+  shared-directory admission, restart and failed native-cache recovery).
+  New scoped run-history Store selection: 1 passed.
+- Provider/core protocol and adapter selections: 352 passed, covering native
+  system instructions and both Pi/OMP attachment and generated-image paths.
+  Host engine context/spoof/cancellation/image selection: 7 passed.
+- Resource/checkout/control selection: 40 passed; existing orchestration review
+  and workspace capture selections: 4 passed. Dynamic workflow parent awaiting
+  its own child: 1 passed. Resource reentry requires Host-owned lineage and the
+  same process; unrelated owners, overlapping directories and native writes
+  remain excluded. External unmanaged programs are outside these guards.
+- Final runtime HTTP selection including forged public botContext: 1 passed.
+  Localization: 5 passed. Web and Host TypeScript and diff checks passed.
+- Bot turns stop their CLI process after settlement, retain native conversation
+  identity, and issue a fresh control grant at the next turn. The grant tests use
+  real subprocess/socket I/O with a Node RPC fixture, not model inference.
+
+Installed CLI evidence (read-only commands, no model turns):
+
+| CLI | Observed version | Configuration evidence |
+| --- | --- | --- |
+| Codex | codex-cli 0.159.2 | Generated experimental app-server schema: ThreadStartParams and ThreadResumeParams support developerInstructions |
+| Claude | 2.1.296 (Claude Code) | Help lists --append-system-prompt |
+| Pi | 1.1.0 | Help lists --append-system-prompt |
+| OMP | omp/18.6.0 | Help lists --append-system-prompt |
+| OpenCode | Unavailable | --version failed because its postinstall had not run; environment was not modified |
+
+Stage 4 capability boundary: Codex/Claude/Pi/OMP use native system instruction
+channels. Cursor/Grok/OpenCode/FX/Hermes/Antigravity receive a marked context
+block. Host tools use the scoped control CLI; the Host MCP bridge is not yet
+configured, so every adapter reports MCP unavailable. Host action permissions do
+not restrict a CLI's built-in tools or separately configured user MCP servers.
+Actual model inference, real CLI conversations, and unlisted adapters remain
+unverified. No application build, publication, push or merge was run.
+
+- Final Pi/OMP subprocess grant/history and requested-configuration selections:
+  4 passed. A discovered Pi regression was fixed: compare the persisted requested
+  model configuration, not the provider-normalized model name. Genuine model
+  changes still rotate the cache on the next turn. Host TypeScript passed again
+  after this fix.

@@ -44,6 +44,12 @@ import {
 } from "./claudeProtocol";
 
 describe("runtimeModeToPermission", () => {
+  it("appends a Bot Soul without replacing the provider's base system prompt", () => {
+    const args = buildClaudeSpawnArgs({ systemInstructions: "Identity and Soul" });
+    expect(args).toContain("--append-system-prompt");
+    expect(args[args.indexOf("--append-system-prompt") + 1]).toBe("Identity and Soul");
+    expect(args).not.toContain("--system-prompt");
+  });
   it("maps runtime modes onto Claude permission flags", () => {
     expect(runtimeModeToPermission("supervised")).toBe("default");
     expect(runtimeModeToPermission("auto-accept-edits")).toBe("acceptEdits");

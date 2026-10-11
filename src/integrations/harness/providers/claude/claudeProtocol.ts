@@ -241,6 +241,7 @@ function normalizeImageMime(mime: string): string {
 }
 
 export function buildClaudeSpawnArgs(input: {
+  systemInstructions?: string;
   model?: string;
   effort?: string;
   permissionMode?: ClaudePermissionMode;
@@ -280,6 +281,7 @@ export function buildClaudeSpawnArgs(input: {
     args.push(`--setting-sources=${CLAUDE_SETTING_SOURCES}`);
     args.push("--settings", JSON.stringify(settings));
   }
+  if (input.systemInstructions) args.push("--append-system-prompt", input.systemInstructions);
   if (input.model) args.push("--model", input.model);
   if (input.effort) args.push("--effort", input.effort);
   if (input.permissionMode) {

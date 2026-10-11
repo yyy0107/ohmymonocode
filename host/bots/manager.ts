@@ -1,8 +1,10 @@
+import { dirname, join } from "node:path";
 import type { HostEngine } from "../engine";
 import { HostAssistant, type AssistantRuntimeOptions } from "../assistant";
 import { AssistantStore, signature } from "../assistant/store";
 import { fields, id, object } from "../assistant/policy";
 import { BotStore } from "./store";
+import { HostResourceGuard } from "./resources";
 import type { BotScope, BotsSnapshot } from "../../src/features/assistant/model/bots";
 import type { HostModelCatalog, HostSession, RemoteProvider } from "../../src/features/connections/model/protocol";
 import type { TurnOrigin } from "../../src/features/sessions/model/session";
@@ -15,7 +17,8 @@ export class BotManager {
   readonly defaultAssistant: HostAssistant;
   readonly ready: Promise<void>;
   private readonly runtimes = new Map<string, HostAssistant>();
-  private readonly leases = new Map<string, string>();
+  private readonly leases = new Map<string, Map<string, string>>();
+  private readonly resources: HostResourceGuard;
   private readonly blocked = new Set<string>();
   private readonly blockedThreads = new Set<string>();
   private timer?: ReturnType<typeof setInterval>;
@@ -57,6 +60,7 @@ export class BotManager {
     private readonly options: Pick<AssistantRuntimeOptions, "entry" | "node"> = {},
   ) {
     this.store = new BotStore(engine.store);
+    this.resources = new HostResourceGuard(engine.store);
     this.defaultAssistant = this.createRuntime(this.store.defaultScope());
     for (const bot of this.store.listBots(true))
       for (const thread of this.store.listThreads(bot.id, true))
@@ -82,18 +86,28 @@ export class BotManager {
       store: new AssistantStore(this.engine.store, this.store.getThread(scope.botId, scope.threadId) ? scope : undefined),
       managed: {
         automatic: () => this.store.getBot(scope.botId)?.defaultThreadId === scope.threadId,
-        acquire: () => {
+        acquire: (run, config) => {
           const bot = this.store.getBot(scope.botId), thread = this.store.getThread(scope.botId, scope.threadId);
           if (this.closing || this.blocked.has(scope.botId) || this.blockedThreads.has(key) || !bot?.enabled || bot.paused || !thread ||
               bot.archivedAt !== undefined || thread.archivedAt !== undefined) return false;
-          const owner = this.leases.get(scope.botId);
-          if (owner && owner !== scope.threadId) return false;
-          this.leases.set(scope.botId, scope.threadId);
+          const owners = this.leases.get(scope.botId) ?? new Map<string, string>();
+          const previous = owners.get(scope.threadId);
+          if (previous) return previous === run.id;
+          if (owners.size >= (bot.maxConcurrentRuns ?? 3)) return false;
+          // The stable Thread parent also covers a fresh provider generation;
+          // lock before dispatch so overlap waits in the queue rather than failing a run.
+          const workingDirectory = config.workingDirectory ?? join(dirname(this.engine.store.attachmentDir), "bots", scope.botId, "threads", scope.threadId);
+          if (!this.resources.acquire(run.id, { workingDirectory, computer: config.tools?.computer === true })) return false;
+          owners.set(scope.threadId, run.id);
+          this.leases.set(scope.botId, owners);
           return true;
         },
         release: () => {
-          if (this.leases.get(scope.botId) !== scope.threadId) return;
-          this.leases.delete(scope.botId);
+          const owners = this.leases.get(scope.botId), runId = owners?.get(scope.threadId);
+          if (!runId) return;
+          this.resources.release(runId);
+          owners!.delete(scope.threadId);
+          if (!owners!.size) this.leases.delete(scope.botId);
           if (!this.closing) setImmediate(() => this.tick());
         },
       },
@@ -182,6 +196,13 @@ export class BotManager {
       fields(raw, ["botId", "includeArchived"]);
       if (raw.includeArchived !== undefined && typeof raw.includeArchived !== "boolean") throw new Error("Invalid archive filter");
       return this.store.listThreads(this.botScope(raw).botId, raw.includeArchived === true);
+    }
+    if (method === "botThreads.runs") {
+      fields(raw, ["botId", "threadId", "limit", "before"]);
+      const scope = this.scope(raw);
+      const before = raw.before === undefined ? undefined : object(raw.before);
+      if (before) fields(before, ["createdAt", "id"]);
+      return this.store.runs(scope, raw.limit as number | undefined, before as { createdAt: number; id: string } | undefined);
     }
     if (["botMemory.list", "botMemory.read", "botMemory.log"].includes(method)) {
       fields(raw, method === "botMemory.list" ? ["botId"] : method === "botMemory.read" ? ["botId", "path"] : ["botId", "path", "limit"]);
@@ -382,6 +403,7 @@ export class BotManager {
     if (this.engine.store.onSessionSave === this.observeSession) this.engine.store.onSessionSave = undefined;
     if (this.engine.authorizeAssistantQueued === this.authorizeQueued) this.engine.authorizeAssistantQueued = undefined;
     await Promise.all([...this.runtimes.values()].map(runtime => runtime.close()));
+    this.resources.close();
     this.leases.clear();
   }
 }

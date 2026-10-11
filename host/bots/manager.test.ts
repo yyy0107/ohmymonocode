@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
@@ -6,13 +6,15 @@ import { HostStore } from "../store";
 import { HostEngine } from "../engine";
 import type { HostProvider } from "../providers";
 import type { SendTurnInput } from "../../src/integrations/harness/core/types";
-import type { BotScope, BotThread, BotView, BotsSnapshot } from "../../src/features/assistant/model/bots";
+import type { BotRuns, BotScope, BotThread, BotView, BotsSnapshot } from "../../src/features/assistant/model/bots";
+import { AssistantStore } from "../assistant/store";
+import { BotStore } from "./store";
 import type { BotMemoryChange, BotMemoryDocument } from "../../src/features/assistant/model/botMemory";
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0)) await cleanup(); });
 
-async function setup() {
+async function setup({ serial = true }: { serial?: boolean } = {}) {
   const directory = mkdtempSync(join(tmpdir(), "bot-manager-"));
   const store = new HostStore(join(directory, "host.db"));
   const turns: { input: SendTurnInput; finish: () => void }[] = [];
@@ -28,7 +30,7 @@ async function setup() {
   engine.bots.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }, { id: "next", name: "Next" }] }, errors: {} }));
   const createBot = async (name: string) => {
     const created = await engine.bots.rpc("bots.create", {
-      commandId: `create-${name}`, patch: { name, harness: "codex", model: "test", triggers: { user: true, event: false, schedule: false } },
+      commandId: `create-${name}`, patch: { name, harness: "codex", model: "test", ...(serial ? { maxConcurrentRuns: 1 } : {}), triggers: { user: true, event: false, schedule: false } },
     }) as { bot: BotView; thread: BotThread };
     return { botId: created.bot.id, threadId: created.thread.id };
   };
@@ -37,7 +39,7 @@ async function setup() {
     return { botId, threadId: thread.id };
   };
   const send = (scope: BotScope, text: string, commandId = "send") => engine.bots.rpc("botThreads.send", { ...scope, text, commandId });
-  return { store, engine, provider, turns, createBot, createThread, send };
+  return { directory, store, engine, provider, turns, createBot, createThread, send };
 }
 
 it("scopes memory CAS, command retries and undo to their Bot without requiring a thread", async () => {
@@ -78,7 +80,8 @@ it("reloads Soul and bounded memory at turn boundaries without automatically loa
   engine.bots.assistant(sibling).store.message({ id: "earlier", kind: "assistant", text: "Deployment procedures need two checks." });
   await send(scope, "Explain deployment procedures", "first");
   await vi.waitFor(() => expect(turns).toHaveLength(1));
-  expect(turns[0].input.text).toContain("User-authored Bot identity (SOUL.md):\nRespond with careful evidence.");
+  expect(turns[0].input.botContext?.systemInstructions).toContain("User-authored Bot identity (SOUL.md):\nRespond with careful evidence.");
+  expect(turns[0].input.botContext?.systemInstructions).not.toContain("Resident preference");
   expect(turns[0].input.text).toContain("Memory truncated:");
   expect(turns[0].input.text).not.toMatch(/OUTSIDE_RESIDENT_BUDGET|LOG_MUST_STAY_ON_DEMAND/);
   const currentInput = turns[0].input.text.split("Current input (user):")[1];
@@ -91,8 +94,8 @@ it("reloads Soul and bounded memory at turn boundaries without automatically loa
   await send(scope, "Explain deployment procedures again", "second");
   await vi.waitFor(() => expect(turns).toHaveLength(2));
   expect(turns[1].input.sessionId).not.toBe(turns[0].input.sessionId);
-  expect(turns[1].input.text).toContain("Respond with concise evidence.");
-  expect(turns[1].input.text).not.toContain("Respond with careful evidence.");
+  expect(turns[1].input.botContext?.systemInstructions).toContain("Respond with concise evidence.");
+  expect(turns[1].input.botContext?.systemInstructions).not.toContain("Respond with careful evidence.");
   expect(turns[1].input.text).toContain("<previous_conversation>");
   expect(turns[1].input.text).not.toContain("LOG_MUST_STAY_ON_DEMAND");
 });
@@ -119,6 +122,125 @@ it("serializes sibling threads while another Bot runs, preserving scopes and cal
   expect(turns[2].input.cwd).not.toBe(turns[0].input.cwd);
   const snapshot = await engine.bots.rpc("bots.list", {}) as BotsSnapshot;
   expect(snapshot.bots.find(bot => bot.id === first.botId)?.lifecycle).toBe("running");
+});
+
+it("defaults to three slots, persists the fourth queue and retains approval leases until a scoped cancellation", async () => {
+  const { engine, turns, createBot, createThread, send } = await setup({ serial: false });
+  const first = await createBot("Concurrent");
+  const scopes = [first];
+  for (let index = 1; index < 4; index++) scopes.push(await createThread(first.botId, `Slot ${index}`));
+  for (const [index, scope] of scopes.entries()) await send(scope, `Unique concurrent task ${index}`);
+  await vi.waitFor(() => expect(turns).toHaveLength(3));
+  const runtime = engine.bots.assistant(first), active = runtime.currentRun!;
+  const firstTurn = turns.find(turn => turn.input.sessionId === active.brainSessionId)!;
+  firstTurn.input.onEvent({ type: "session.providerBound", providerSessionId: "native-concurrent" });
+  firstTurn.input.onEvent({ type: "approval.requested", requestId: 19, title: "Allow?" });
+  const approved = (await engine.bots.rpc("botThreads.runs", first) as BotRuns).runs[0];
+  expect(approved).toMatchObject({ id: active.id, status: "waiting_approval", brainSessionId: firstTurn.input.sessionId, providerSessionId: "native-concurrent" });
+  expect(approved.hostRunId).toBeTruthy();
+  expect((await engine.bots.rpc("botThreads.runs", scopes[3]) as BotRuns).runs[0]).toMatchObject({ status: "queued" });
+  await engine.bots.assistant(scopes[3]).managedTick();
+  expect(turns).toHaveLength(3);
+  await engine.bots.rpc("botThreads.cancel", { ...scopes[1], commandId: "cancel-second" });
+  await vi.waitFor(() => expect(turns).toHaveLength(4));
+  expect(runtime.currentRun?.id).toBe(active.id);
+  expect(runtime.currentRun?.status).toBe("waiting_approval");
+  expect((await engine.bots.rpc("botThreads.runs", scopes[1]) as BotRuns).runs[0].status).toBe("cancelled");
+  expect(engine.bots.assistant(scopes[2]).currentRun?.status).toBe("running");
+});
+
+it("snapshots tools and execution directory for each run and applies changes to the next one", async () => {
+  const { directory, engine, turns, createBot, send } = await setup();
+  const scope = await createBot("Run config"), runtime = engine.bots.assistant(scope);
+  await send(scope, "First run settings", "first");
+  await vi.waitFor(() => expect(turns).toHaveLength(1));
+  const firstRun = runtime.currentRun!, destination = join(directory, "execution");
+  mkdirSync(destination);
+  await engine.bots.rpc("bots.configure", { botId: scope.botId, commandId: "configuration", expectedRevision: engine.bots.store.getBot(scope.botId)!.revision,
+    patch: { workingDirectory: destination, tools: { enabledActions: ["memory.read"], computer: false }, maxConcurrentRuns: 3 } });
+  expect(runtime.currentRun?.config?.tools).toBeUndefined();
+  expect(() => runtime.assertActionEnabled("projects.list")).not.toThrow();
+  await send(scope, "Next run settings", "next");
+  turns[0].finish();
+  await vi.waitFor(() => expect(turns).toHaveLength(2));
+  expect(turns[1].input.cwd).toBe(destination);
+  expect(turns[1].input.sessionId).not.toBe(turns[0].input.sessionId);
+  expect(runtime.currentRun?.config).toMatchObject({ workingDirectory: destination, tools: { enabledActions: ["memory.read"] } });
+  expect(() => runtime.assertActionEnabled("projects.list")).toThrow(/not enabled/);
+  expect(() => runtime.assertActionEnabled("memory.read")).not.toThrow();
+  expect(runtime.currentRun?.capabilities).toMatchObject({ systemInstructions: "native", toolBridge: "control-cli" });
+  expect(engine.bots.store.run(scope, firstRun.id)).toMatchObject({ status: "completed", config: { workingDirectory: turns[0].input.cwd } });
+  await engine.bots.rpc("bots.configure", { botId: scope.botId, commandId: "reset-directory", expectedRevision: engine.bots.store.getBot(scope.botId)!.revision, patch: { workingDirectory: null } });
+  expect(engine.bots.store.getBot(scope.botId)?.workingDirectory).toBeUndefined();
+});
+
+it("queues a shared execution directory without occupying another Bot's unrelated slot", async () => {
+  const { directory, engine, turns, createBot, createThread, send } = await setup({ serial: false });
+  const one = await createBot("Shared first"), two = await createBot("Shared second"), independent = await createBot("Separate");
+  const shared = join(directory, "shared-project");
+  mkdirSync(shared);
+  for (const scope of [one, two]) await engine.bots.rpc("bots.configure", {
+    botId: scope.botId, commandId: "working-directory", expectedRevision: engine.bots.store.getBot(scope.botId)!.revision, patch: { workingDirectory: shared },
+  });
+  const sibling = await createThread(one.botId, "Same shared project");
+  await send(one, "Own the shared directory");
+  await vi.waitFor(() => expect(turns).toHaveLength(1));
+  await send(two, "Wait for the directory");
+  await send(sibling, "Also wait for the directory");
+  await send(independent, "Use an independent directory");
+  await vi.waitFor(() => expect(turns).toHaveLength(2));
+  expect(engine.bots.store.runs(two).runs[0].status).toBe("queued");
+  expect(engine.bots.store.runs(sibling).runs[0].status).toBe("queued");
+  await engine.bots.rpc("botThreads.cancel", { ...one, commandId: "release" });
+  await vi.waitFor(() => expect(turns).toHaveLength(3));
+  expect(turns.filter(turn => turn.input.cwd === shared)).toHaveLength(2);
+  expect(engine.bots.assistant(independent).currentRun?.status).toBe("running");
+});
+
+it("recovers queued inputs after restart while interrupting prior runs and preserving unknown side effects", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "bot-restart-")), store = new HostStore(join(directory, "host.db"));
+  const bots = new BotStore(store), scope = bots.createBot({ harness: "codex", model: "test", triggers: { user: true, event: false, schedule: false } });
+  const assistant = new AssistantStore(store, scope);
+  const old = assistant.receive("old", "Previously running task", []);
+  const oldWakeup = assistant.wakeup(old.wakeupId!)!, run = bots.queuedRun(scope, oldWakeup);
+  assistant.claim(oldWakeup.id);
+  bots.updateRun(scope, run.id, { status: "running", startedAt: Date.now() });
+  assistant.putAction({ id: "unknown-action", requestId: "unknown-request", action: "workspace.run", state: "executing",
+    origin: { kind: "assistant", assistantId: scope.botId, wakeupId: oldWakeup.id, actionId: "unknown-action", rootCauseId: oldWakeup.rootCauseId } } as never);
+  const queued = assistant.receive("queued", "Independent queued request", []);
+  store.close();
+  const reopened = new HostStore(join(directory, "host.db"));
+  const turns: SendTurnInput[] = [];
+  const provider: HostProvider = { send: vi.fn(async input => { turns.push(input); }), stop: vi.fn(), cancel: vi.fn(), bind: vi.fn(), approve: vi.fn(), answer: vi.fn() };
+  const engine = new HostEngine(reopened, { codex: provider });
+  cleanups.push(async () => { await engine.close(); reopened.close(); rmSync(directory, { recursive: true, force: true }); });
+  await Promise.all([engine.ready, engine.workflows.ready]);
+  await vi.waitFor(() => expect(turns).toHaveLength(1));
+  await vi.waitFor(() => expect(engine.bots.store.runs(scope).runs.find(value => value.wakeupId === queued.wakeupId)?.status).toBe("completed"));
+  expect(engine.bots.store.run(scope, run.id)?.status).toBe("interrupted");
+  expect(engine.bots.assistant(scope).store.wakeup(oldWakeup.id)?.state).toBe("interrupted");
+  expect(engine.bots.assistant(scope).store.action("unknown-request")?.state).toBe("unknown");
+  expect(turns[0].text.split("Current input (user):")[1]).toContain("Independent queued request");
+  expect(turns[0].text.split("Current input (user):")[1]).not.toContain("Previously running task");
+});
+
+it("replaces an invalid native session on a new input without replaying its failed turn", async () => {
+  const { engine, turns, createBot, send } = await setup();
+  const scope = await createBot("Native cache"), runtime = engine.bots.assistant(scope);
+  await send(scope, "The original request", "original");
+  await vi.waitFor(() => expect(turns).toHaveLength(1));
+  const runId = runtime.currentRun!.id, brainId = turns[0].input.sessionId;
+  turns[0].input.onEvent({ type: "session.error", message: "Native session no longer exists" });
+  turns[0].finish();
+  await vi.waitFor(() => expect(engine.bots.store.run(scope, runId)?.status).toBe("interrupted"));
+  await runtime.managedTick();
+  expect(turns).toHaveLength(1);
+  await send(scope, "Inspect the prior failure before continuing", "new-input");
+  await vi.waitFor(() => expect(turns).toHaveLength(2));
+  expect(turns[1].input.sessionId).not.toBe(brainId);
+  expect(turns[1].input.text).toContain("<previous_conversation>");
+  expect(turns[1].input.text.split("Current input (user):")[1]).toBe("\nInspect the prior failure before continuing");
+  expect(engine.bots.store.run(scope, runId)?.status).toBe("interrupted");
 });
 
 it("keeps approval and cancellation scoped, with pending approval occupying its Bot slot", async () => {

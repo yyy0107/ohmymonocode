@@ -110,6 +110,12 @@ export type AssistantActivity = {
   sessionTitle?: string;
   at: number;
 };
+export type BotToolConfiguration = {
+  /** Omitted means all Host assistant actions allowed by the current policy. */
+  enabledActions?: string[];
+  /** A run which uses the Host computer must hold its exclusive resource lease. */
+  computer?: boolean;
+};
 export type AssistantView = {
   id: string;
   name: string;
@@ -129,6 +135,11 @@ export type AssistantView = {
   harness: RemoteProvider;
   model: string;
   modelSettings: Record<string, string>;
+  /** Defaults to three concurrent Threads; each Thread still runs one turn at a time. */
+  maxConcurrentRuns?: number;
+  /** Optional absolute execution directory, separate from the Bot memory workspace. */
+  workingDirectory?: string;
+  tools?: BotToolConfiguration;
   runtimeMode: RuntimeMode;
   targetRuntimeMode: RuntimeMode;
   policy: AssistantPolicy;
@@ -192,6 +203,8 @@ export type AssistantPatch = Partial<
     | "harness"
     | "model"
     | "modelSettings"
+    | "maxConcurrentRuns"
+    | "tools"
     | "runtimeMode"
     | "targetRuntimeMode"
     | "policy"
@@ -201,7 +214,7 @@ export type AssistantPatch = Partial<
     | "maxAutoTurns"
     | "chainWindowMinutes"
   >
->;
+> & { workingDirectory?: string | null };
 type MessageBase = {
   id: string;
   revision: number;

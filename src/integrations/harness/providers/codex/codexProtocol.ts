@@ -100,6 +100,7 @@ export function buildThreadStartParams(input: {
   controlsAgents?: boolean;
   model?: string;
   serviceTier?: string;
+  systemInstructions?: string;
 }): Record<string, unknown> {
   const config = runtimeModeToCodexConfig(
     input.runtimeMode,
@@ -107,6 +108,7 @@ export function buildThreadStartParams(input: {
   );
   return {
     cwd: input.cwd,
+    ...(input.systemInstructions ? { developerInstructions: input.systemInstructions } : {}),
     approvalPolicy: config.approvalPolicy,
     sandbox: config.sandbox,
     sandboxPolicy: config.sandboxPolicy,

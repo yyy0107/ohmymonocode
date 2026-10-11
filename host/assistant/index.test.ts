@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
@@ -16,8 +16,9 @@ afterEach(async () => {
   for (const fn of cleanup.splice(0)) await fn();
 });
 async function setup(options: { steer?: boolean } = {}) {
-  const directory = mkdtempSync(join(tmpdir(), "assistant-runtime-")),
-    store = new HostStore(join(directory, "host.db"));
+  const dataDirectory = mkdtempSync(join(tmpdir(), "assistant-runtime-")), directory = join(dataDirectory, "project"),
+    store = new HostStore(join(dataDirectory, "host.db"));
+  mkdirSync(directory);
   const project = store.addProject(directory, "Test project");
   const turns: { input: SendTurnInput; finish: () => void }[] = [];
   const provider: HostProvider = {
@@ -39,7 +40,7 @@ async function setup(options: { steer?: boolean } = {}) {
   cleanup.push(async () => {
     await engine.close();
     store.close();
-    rmSync(directory, { recursive: true, force: true });
+    rmSync(dataDirectory, { recursive: true, force: true });
   });
   await engine.ready;
   engine.assistant.setCatalog(

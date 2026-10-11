@@ -1,6 +1,37 @@
 import { connect } from "node:net";
-import { expect, it, vi } from "vitest";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, expect, it, vi } from "vitest";
 import { HostControl } from "../control";
+import { HostStore } from "../store";
+import { HostEngine } from "../engine";
+import { HostResourceGuard } from "../bots/resources";
+import { executeAssistantAction } from "./control";
+import type { HostProvider } from "../providers";
+
+const resourceCleanups: Array<() => Promise<void>> = [];
+afterEach(async () => { for (const cleanup of resourceCleanups.splice(0)) await cleanup(); });
+async function resourceFixture() {
+  const directory = mkdtempSync(join(tmpdir(), "assistant-control-resources-"));
+  const cwd = join(directory, "project"); mkdirSync(cwd);
+  const store = new HostStore(join(directory, "host.db"));
+  const project = store.addProject(cwd, "Project");
+  const turns: Array<() => void> = [];
+  const provider: HostProvider = { send: vi.fn(() => new Promise<void>((resolve) => turns.push(resolve))),
+    stop: vi.fn(async () => { turns.forEach((resolve) => resolve()); }), cancel: vi.fn(async () => { turns.forEach((resolve) => resolve()); }), bind: vi.fn() };
+  const engine = new HostEngine(store, { codex: provider });
+  const guard = new HostResourceGuard(store);
+  resourceCleanups.push(async () => { guard.close(); await engine.close(); store.close(); rmSync(directory, { recursive: true, force: true }); });
+  await engine.ready;
+  engine.assistant.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }] }, errors: {} }));
+  await engine.assistant.rpc("assistant.configure", { commandId: "setup", expectedRevision: 0,
+    patch: { harness: "codex", model: "test", triggers: { user: true, event: false, schedule: false } } });
+  await engine.assistant.rpc("assistant.send", { commandId: "start", text: "Check the workspace" });
+  await vi.waitFor(() => expect(turns).toHaveLength(1));
+  const path = join(cwd, "note.txt"); writeFileSync(path, "before");
+  return { engine, store, project, path, cwd, guard };
+}
 
 async function call(
   environment: Record<string, string>,
@@ -83,4 +114,40 @@ it("suppresses a read result when its grant is revoked during an await", async (
   } finally {
     await assistant.close();
   }
+});
+
+it("allows control reads but refuses writes and Git changes until a competing turn releases the checkout", async () => {
+  const f = await resourceFixture();
+  expect(f.guard.acquire("other-run", { workingDirectory: f.cwd })).toBe(true);
+  expect(await executeAssistantAction(f.engine.assistant, "read-busy", "files.read", {
+    projectId: f.project.id, args: { path: f.path },
+  }, () => true)).toBe("before");
+  const input = { projectId: f.project.id, args: { path: f.path, content: "after" } };
+  await expect(executeAssistantAction(f.engine.assistant, "write-busy", "files.write", input, () => true)).rejects.toMatchObject({ code: "RESOURCE_BUSY" });
+  expect(f.engine.assistant.store.action("write-busy")?.state).toBe("failed");
+  await expect(executeAssistantAction(f.engine.assistant, "git-busy", "git.action", {
+    projectId: f.project.id, command: "git_stage_all", args: { cwd: f.cwd },
+  }, () => true)).rejects.toMatchObject({ code: "RESOURCE_BUSY" });
+  expect(readFileSync(f.path, "utf8")).toBe("before");
+  f.guard.release("other-run");
+  // Refusal had no side effect, so the stable request can be retried safely.
+  await executeAssistantAction(f.engine.assistant, "write-busy", "files.write", input, () => true);
+  expect(readFileSync(f.path, "utf8")).toBe("after");
+});
+
+it("reenters a trusted Bot turn lease and retains withIdleProject plus the outer reservation", async () => {
+  const f = await resourceFixture();
+  const runId = f.engine.assistant.currentRun!.id;
+  expect(f.guard.acquire(runId, { workingDirectory: f.cwd })).toBe(true);
+  const idle = vi.spyOn(f.engine, "withIdleProject");
+  await executeAssistantAction(f.engine.assistant, "own-write", "files.write", {
+    projectId: f.project.id, args: { path: f.path, content: "same run" },
+  }, () => true);
+  expect(readFileSync(f.path, "utf8")).toBe("same run");
+  expect(idle).toHaveBeenCalledWith(f.project.id, expect.any(Function));
+  const outsider = new HostResourceGuard(f.store);
+  expect(outsider.acquire("foreign", { workingDirectory: f.cwd })).toBe(false);
+  f.guard.release(runId);
+  expect(outsider.acquire("foreign", { workingDirectory: f.cwd })).toBe(true);
+  outsider.close();
 });

@@ -79,6 +79,7 @@ const waitFor = async (pred: () => boolean, label: string) => {
 async function startTurn(
   sessionId: string,
   options: {
+    botContext?: import("../../core/botContext").HarnessBotContext;
     runtimeMode?: RuntimeMode;
     intent?: TurnIntent;
     providerAccountId?: string;
@@ -92,6 +93,7 @@ async function startTurn(
     model: "claude:claude-sonnet-5",
     modelSettings: {},
     runtimeMode: options.runtimeMode ?? "supervised",
+    botContext: options.botContext,
     intent: options.intent,
     providerAccountId: options.providerAccountId,
     claudeHooks: options.claudeHooks,
@@ -285,6 +287,16 @@ afterEach(async () => {
 });
 
 describe("claude native context reads", () => {
+  it("delivers a trusted Bot Soul through the system flag and keeps user messages separate", async () => {
+    const { turn } = await startTurn("bot-native", { botContext: { scope: { botId: "bot", threadId: "thread", runId: "run" }, systemInstructions: "Identity and Soul", contextFingerprint: "stable" } });
+    expect(spawned[0]).toEqual(expect.arrayContaining(["--append-system-prompt", "Identity and Soul"]));
+    const prompt = JSON.stringify(parse().find(m => m.type === "user"));
+    expect(prompt).toContain("explore the codebase");
+    expect(prompt).not.toContain("Identity and Soul");
+    emit({ type: "result", subtype: "success", session_id: "sess_1" });
+    await turn;
+  });
+
   it("does not query versions that cannot guarantee a local summary", async () => {
     contextVersion = "2.1.256";
     const { events, turn } = await startTurn("s1");

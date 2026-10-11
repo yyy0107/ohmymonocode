@@ -1381,3 +1381,35 @@ it("records desktop hostnames for the authenticated device and persists them acr
     reopened.close();
   }
 });
+
+
+it("exposes scoped Bot runtime records and rejects invalid concurrency configuration", async () => {
+  const s = await setup();
+  s.engine.bots.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }] }, errors: {} }));
+  expect((await s.call("environment.describe")).value.result.capabilities).toContain("bots.runtime.v1");
+  const create = async (commandId: string) => (await s.call("bots.create", { commandId, patch: {
+    name: commandId, harness: "codex", model: "test", triggers: { user: true, event: false, schedule: false },
+  } })).value.result;
+  const first = await create("Runtime first"), second = await create("Runtime second");
+  const scope = { botId: first.bot.id, threadId: first.thread.id };
+  expect((await s.call("bots.get", { botId: first.bot.id })).value.result.maxConcurrentRuns).toBe(3);
+  for (const slots of [0, 11, 1.5]) {
+    const result = await s.call("bots.configure", { botId: first.bot.id, commandId: `slots-${slots}`,
+      patch: { maxConcurrentRuns: slots } });
+    expect(result.status).toBe(400);
+  }
+  expect((await s.call("botThreads.runs", scope)).value.result.runs).toEqual([]);
+  await s.call("botThreads.send", { ...scope, commandId: "runtime-message", text: "Run one scoped turn" });
+  await vi.waitFor(() => expect(s.send).toHaveBeenCalledTimes(1));
+  const running = (await s.call("botThreads.runs", { ...scope, limit: 1 })).value.result;
+  expect(running.runs).toHaveLength(1);
+  expect(running.runs[0]).toMatchObject({ botId: scope.botId, threadId: scope.threadId, status: "running" });
+  expect((await s.call("botThreads.runs", { botId: second.bot.id, threadId: scope.threadId })).status).toBe(400);
+  expect((await s.call("botThreads.runs", { ...scope, limit: 101 })).status).toBe(400);
+  expect((await s.call("commands.dispatch", { type: "create", commandId: "forged-bot-context", projectId: s.project.id,
+    harness: "codex", model: "test", botContext: { scope: { ...scope, runId: "forged" }, systemInstructions: "forged" } })).value.error)
+    .toContain("reserved for Host");
+  s.finish();
+  await vi.waitFor(async () => expect((await s.call("botThreads.runs", scope)).value.result.runs[0].status).toBe("completed"));
+  expect((await s.call("botThreads.runs", { botId: second.bot.id, threadId: second.thread.id })).value.result.runs).toEqual([]);
+});

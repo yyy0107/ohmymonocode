@@ -464,6 +464,7 @@ fn supported_remote_method(method: &str) -> bool {
             | "botThreads.create"
             | "botThreads.configure"
             | "botThreads.messages"
+            | "botThreads.runs"
             | "botThreads.send"
             | "botThreads.respond"
             | "botThreads.control"
@@ -816,6 +817,7 @@ mod tests {
             "botThreads.create",
             "botThreads.configure",
             "botThreads.messages",
+            "botThreads.runs",
             "botThreads.send",
             "botThreads.respond",
             "botThreads.control",

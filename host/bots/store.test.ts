@@ -238,3 +238,24 @@ it("preserves a legacy Bot pause independently from later Thread runtime updates
   expect(bots.getThread(sibling.botId, sibling.threadId)?.lifecycle).toBe("disabled");
   expect(sibling.get()?.lifecycle).toBe("running");
 });
+
+it("persists run attempts with scoped lookup, stable history cursors and independent interruption", () => {
+  const { host } = setup(), bots = new BotStore(host);
+  const first = bots.createBot({ harness: "codex", model: "test" }), sibling = bots.createThread(first.botId);
+  const one = bots.queuedRun(first, { id: "shared-wakeup", attempts: 0, createdAt: 10 });
+  expect(bots.queuedRun(first, { id: "shared-wakeup", attempts: 0, createdAt: 10 }).id).toBe(one.id);
+  const two = bots.queuedRun(sibling, { id: "shared-wakeup", attempts: 0, createdAt: 10 });
+  expect(two.id).not.toBe(one.id);
+  expect(bots.run(sibling, one.id)).toBeUndefined();
+  expect(() => bots.updateRun(sibling, one.id, { status: "completed" })).toThrow(/does not belong/);
+  bots.updateRun(first, one.id, { status: "waiting_approval", startedAt: 11 });
+  bots.updateRun(sibling, two.id, { status: "running", startedAt: 11 });
+  bots.interruptRuns(first);
+  expect(bots.run(first, one.id)).toMatchObject({ status: "interrupted", endedAt: expect.any(Number) });
+  expect(bots.run(sibling, two.id)?.status).toBe("running");
+  const retry = bots.queuedRun(first, { id: "shared-wakeup", attempts: 1, createdAt: 12 });
+  const page = bots.runs(first, 1);
+  expect(page).toMatchObject({ hasMore: true, runs: [{ id: retry.id, attempt: 2 }] });
+  expect(bots.runs(first, 1, page.next).runs.map(run => run.id)).toEqual([one.id]);
+  expect(() => bots.runs(first, 0)).toThrow(/limit/);
+});

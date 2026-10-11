@@ -66,6 +66,20 @@ return { plan, out };
 `;
 
 describe("Host dynamic workflows", () => {
+  it("lets an active parent await its trusted workflow workers on the same checkout", async () => {
+    const { engine, store, parentId, claude, codex } = setup();
+    let result: unknown;
+    vi.mocked(claude.send).mockImplementationOnce(async () => {
+      const submitted = await engine.workflows.submit(parentId, { script: SCRIPT, name: "Parent-owned workflow" }, "user") as { runId: string };
+      result = await engine.workflows.wait(submitted.runId, 20);
+    });
+    engine.command({ type: "send", commandId: "parent-with-workflow", sessionId: parentId, text: "Run the workflow and wait" });
+    await vi.waitFor(() => expect(store.session(parentId).status).toBe("idle"), { timeout: 20_000 });
+    expect(result).toMatchObject({ status: "completed", settled: true });
+    expect(claude.send).toHaveBeenCalledTimes(2);
+    expect(codex.send).toHaveBeenCalledTimes(1);
+  }, 30_000);
+
   it("runs each agent on its own provider runtime and projects the run into the parent", async () => {
     const { engine, store, parentId, claude, codex } = setup();
     const submitted = await engine.workflows.submit(parentId, { script: SCRIPT, name: "Plan and build" }, "user");

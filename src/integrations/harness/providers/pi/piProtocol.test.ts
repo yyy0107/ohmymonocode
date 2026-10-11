@@ -46,6 +46,10 @@ it("keeps valid final PNG content and reports unsupported images", () => {
 import { OMP_FLAVOR, PI_FLAVOR } from "./piFlavor";
 
 describe("buildPiSpawnArgs", () => {
+  it.each([PI_FLAVOR, OMP_FLAVOR])("delivers %s Bot instructions through the native system channel", flavor => {
+    const args = buildPiSpawnArgs(flavor, { systemInstructions: "Identity and Soul", resume: "prior" });
+    expect(args).toEqual(["--mode", "rpc", "--append-system-prompt", "Identity and Soul", flavor.resumeFlag, "prior"]);
+  });
   it("starts RPC without stripping the user's extensions", () => {
     expect(buildPiSpawnArgs(PI_FLAVOR, {})).toEqual(["--mode", "rpc"]);
     expect(

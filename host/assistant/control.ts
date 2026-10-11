@@ -37,6 +37,7 @@ import {
 import { WorkspaceCommands } from "../workspace-commands";
 import { hostWorktrees } from "../git-worktrees";
 import { summary } from "../store";
+import { HOST_RESOURCE_BUSY_MESSAGE, withHostResources } from "../bots/resources";
 import type {
   AssistantAction,
   AssistantPermission,
@@ -608,6 +609,7 @@ export async function executeAssistantAction(
 ): Promise<unknown> {
   id(requestId, "request ID");
   object(input);
+  assistant.assertActionEnabled(action);
   const engine = assistant.engine,
     store = assistant.store;
   const config = store.get()!;
@@ -731,11 +733,14 @@ export async function executeAssistantAction(
       throw new Error(
         "unknown-outcome: inspect the existing effect before continuing",
       );
-    if (previous.state === "failed")
+    // Resource refusal happened before effects. Retrying the same control
+    // request is safe after the other run releases its lease.
+    if (previous.state === "failed" && previous.error !== HOST_RESOURCE_BUSY_MESSAGE)
       throw new Error(previous.error ?? "The previous operation failed");
-    return readableResult(assistant, previous);
+    if (previous.state !== "failed") return readableResult(assistant, previous);
   }
   const wakeup = assistant.currentWakeup();
+  const resourceOwner = assistant.currentRun?.id ?? `assistant-action:${randomUUID()}`;
   const record: AssistantAction = {
     id: randomUUID(),
     requestId,
@@ -1143,8 +1148,24 @@ export async function executeAssistantAction(
           throw new Error("Workspace path belongs to another project");
       }
       requireAccess();
-      external = !permission.endsWith(".read");
-      result = await workspace.run(command, args);
+      if (permission.endsWith(".read")) result = await workspace.run(command, args);
+      else {
+        // A copy only mutates its destination. Git operations reserve their
+        // checkout root because changing the index/branch affects every file.
+        const inputs = command === "copy_path" ? [args.destParent]
+          : command === "move_path" ? [args.from, args.destParent]
+          : command === "create_path" ? [args.parent]
+          : command === "rename_path" ? [args.path]
+          : [args.cwd ?? args.path];
+        const writes = await Promise.all(inputs.map((path) => workspace.resourcePath(path)));
+        const reserved = command.startsWith("git_") ? writes.map((path) =>
+          roots.filter((root) => inRoot(path, root)).sort((a, b) => b.length - a.length)[0] ?? path) : writes;
+        result = await withHostResources(engine.store, resourceOwner, { paths: reserved }, async () => {
+          requireAccess();
+          external = true;
+          return workspace.run(command, args);
+        });
+      }
     }
     if (!recorded) persistResult(result);
     if (action === "sessions.delete") assistant.refreshCards();

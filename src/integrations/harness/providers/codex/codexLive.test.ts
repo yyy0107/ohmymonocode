@@ -100,6 +100,7 @@ const waitFor = async (pred: () => boolean, label: string) => {
 async function startTurn(
   sessionId: string,
   options: {
+    botContext?: import("../../core/botContext").HarnessBotContext;
     runtimeMode?: RuntimeMode;
     intent?: TurnIntent;
     resume?: boolean;
@@ -127,6 +128,7 @@ async function startTurn(
     modelSettings: {},
     providerAccountId: options.providerAccountId,
     runtimeMode: options.runtimeMode ?? "supervised",
+    botContext: options.botContext,
     controlsAgents: options.controlsAgents,
     intent: options.intent,
     text: "summarize the changelog",
@@ -163,6 +165,16 @@ async function startTurn(
 }
 
 describe("codex live turn sequence", () => {
+  it("delivers a trusted Bot Soul as developer instructions and leaves reference text in turn input", async () => {
+    const { turn } = await startTurn("bot-native", { botContext: { scope: { botId: "bot", threadId: "thread", runId: "run" }, systemInstructions: "Identity and Soul", contextFingerprint: "stable" } });
+    expect(parse().find(m => m.method === "thread/start")!.params).toMatchObject({ developerInstructions: "Identity and Soul" });
+    const prompt = JSON.stringify(parse().find(m => m.method === "turn/start")!.params);
+    expect(prompt).toContain("summarize the changelog");
+    expect(prompt).not.toContain("Identity and Soul");
+    notify("turn/completed", { turn: { id: "turn_1", status: "completed" } });
+    await turn;
+  });
+
   it("reads native names without another turn and forwards late name notifications", async () => {
     const { events, turn } = await startTurn("native-title");
     const reading = readCodexSessionTitle({ sessionId: "native-title", providerSessionId: "thr_1", cwd: "/repo" });

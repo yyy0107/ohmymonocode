@@ -386,6 +386,7 @@ export function createHostServer(
                 "bots.v1",
                 "botThreads.v1",
                 "botMemory.v1",
+                "bots.runtime.v1",
                 "im.feishu.v1",
                 "resources",
                 "workflows.v1",
@@ -682,6 +683,7 @@ export function createHostServer(
           case "botThreads.create":
           case "botThreads.configure":
           case "botThreads.messages":
+          case "botThreads.runs":
           case "botThreads.send":
           case "botThreads.respond":
           case "botThreads.control":

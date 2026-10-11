@@ -31,6 +31,7 @@ import {
   claimCheckoutResource,
   initCheckoutGuards,
   withCheckoutIntegration,
+  withCheckoutOwner,
   withCheckoutRemoval,
 } from "./checkout-guards";
 
@@ -815,8 +816,8 @@ export class HostOrchestrationWorkspace {
     const paths = removingWorker
       ? [manifest.leadCwd]
       : [manifest.leadCwd, manifest.workerCwd];
-    return withCheckoutIntegration(this.store, paths, () =>
-      this.applyReserved(task, manifest),
+    return withCheckoutOwner(this.store, `orchestration:${run.leadId}`, () =>
+      withCheckoutIntegration(this.store, paths, () => this.applyReserved(task, manifest)),
     );
   }
   private async applyReserved(task: OrchestrationTask, manifest: Manifest) {

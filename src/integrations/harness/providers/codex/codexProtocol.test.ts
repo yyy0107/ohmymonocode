@@ -14,6 +14,10 @@ import {
 import { parseCodexModelList } from "./codexCatalog";
 
 describe("runtimeModeToCodexConfig", () => {
+  it("uses developer instructions for a Bot without touching the user prompt channel", () => {
+    expect(buildThreadStartParams({ cwd: "/repo", runtimeMode: "supervised", systemInstructions: "Identity and Soul" })).toMatchObject({ developerInstructions: "Identity and Soul" });
+    expect(buildThreadStartParams({ cwd: "/repo", runtimeMode: "supervised" })).not.toHaveProperty("developerInstructions");
+  });
   it("maps supervised to untrusted read-only", () => {
     expect(runtimeModeToCodexConfig("supervised")).toEqual({
       approvalPolicy: "untrusted",

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { mkdir } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { mkdir, realpath, stat } from "node:fs/promises";
+import { dirname, isAbsolute, join } from "node:path";
 import type { HostEngine } from "../engine";
 import { HostControl } from "../control";
 import {
@@ -38,6 +38,7 @@ import {
 import { parseRemoteAttachments, resolveAttachments } from "../attachments";
 import { rotationReason } from "./rotation";
 import { recallBotMemory } from "../bots/recall";
+import type { BotRun, BotRunStatus } from "../../src/features/assistant/model/bots";
 import { matchPlaybook } from "./playbooks";
 import { dueDiaryDays, enqueueDiaries } from "./diary";
 import {
@@ -61,6 +62,7 @@ import {
   buildBrainPrompt,
   privateReplyPart,
   STEER_PREFIX,
+  PERSONA_PRESETS,
   replyMessageId,
   splitReply,
 } from "./prompt";
@@ -79,13 +81,16 @@ export type AssistantRuntimeOptions = {
   node?: string;
   store?: AssistantStore;
   managed?: {
-    acquire: () => boolean;
+    acquire: (run: BotRun, config: AssistantRecord) => boolean;
     release: () => void;
     automatic: () => boolean;
   };
 };
-function runtimeConfiguration(value: { harness: string; model: string; runtimeMode?: string; modelSettings?: Record<string, string> }): string {
+function providerConfiguration(value: { harness: string; model: string; runtimeMode?: string; modelSettings?: Record<string, string> }): string {
   return signature([value.harness, value.model, value.runtimeMode, value.modelSettings ?? {}]);
+}
+function runtimeConfiguration(value: AssistantRecord): string {
+  return signature([providerConfiguration(value), value.workingDirectory, value.tools]);
 }
 export class HostAssistant {
   readonly store: AssistantStore;
@@ -93,6 +98,8 @@ export class HostAssistant {
   readonly ready: Promise<void>;
   private timer?: ReturnType<typeof setInterval>;
   private active?: Wakeup;
+  private activeRun?: BotRun;
+  get currentRun(): BotRun | undefined { return this.activeRun && this.store.bots.run(this.store.scope, this.activeRun.id); }
   /** Retains attribution when finalizing a turn throws after clearing active. */
   private tickingWakeupId?: string;
   /** The memory version shown to the brain in the running turn, if any. */
@@ -137,6 +144,7 @@ export class HostAssistant {
           !authorize()
         )
           throw new Error("Assistant control is inactive");
+        this.assertActionEnabled(action);
         return executeAssistantAction(this, request, action, input, () => {
           const current = this.store.get();
           return (
@@ -164,13 +172,25 @@ export class HostAssistant {
     if (!options.managed) engine.store.onSessionSave = (previous, next, event) =>
       this.observe(previous, next, event);
     this.ready = Promise.all([parentReady, this.control.ready]).then(() => {
-      this.store.recover();
+      this.store.host.transaction(() => {
+        this.store.bots.interruptRuns(this.store.scope);
+        this.store.recover();
+        const config = this.store.get();
+        if (config?.lifecycle === "interrupted" && config.enabled && !config.paused &&
+            this.store.wakeups().some(wakeup => wakeup.state === "pending" || wakeup.state === "backoff"))
+          this.store.update({ lifecycle: "idle", brainSessionId: undefined, brainBaseline: undefined, brainGeneration: config.brainGeneration + 1 });
+        this.syncQueuedRuns();
+      });
       if (options.managed) return;
       this.timer = setInterval(() => {
         void this.tick().catch((error) => this.fail(error));
       }, 1000);
       this.timer.unref?.();
     });
+  }
+  assertActionEnabled(action: string): void {
+    const enabled = this.currentRun?.config?.tools?.enabledActions;
+    if (enabled && !enabled.includes(action)) throw new Error("This action is not enabled for the current Bot run");
   }
   setCatalog(
     available: () => Promise<RemoteProvider[]>,
@@ -302,6 +322,9 @@ export class HostAssistant {
     }
     resolveAttachments(this.engine.store, attachments);
     const receipt = this.store.receive(id(raw.commandId), text, attachments, source);
+    if (!config.paused && ["interrupted", "failed"].includes(config.lifecycle))
+      this.store.update({ lifecycle: "idle", error: undefined, brainSessionId: undefined, brainBaseline: undefined, brainGeneration: config.brainGeneration + 1 });
+    this.syncQueuedRuns();
     // Attachments keep the queued path; provider steering differs for files.
     if (!attachments.length && receipt.wakeupId)
       await this.steerInput(receipt.wakeupId, text);
@@ -641,6 +664,9 @@ export class HostAssistant {
       "harness",
       "model",
       "modelSettings",
+      "workingDirectory",
+      "maxConcurrentRuns",
+      "tools",
       "runtimeMode",
       "targetRuntimeMode",
       "policy",
@@ -651,6 +677,21 @@ export class HostAssistant {
       "chainWindowMinutes",
     ]);
     if (patch.name !== undefined) id(patch.name, "name", 100);
+    if (patch.maxConcurrentRuns !== undefined && (!Number.isSafeInteger(patch.maxConcurrentRuns) || Number(patch.maxConcurrentRuns) < 1 || Number(patch.maxConcurrentRuns) > 10))
+      throw new Error("Concurrent run limit must be between 1 and 10");
+    if (patch.workingDirectory !== undefined && patch.workingDirectory !== null) {
+      const directory = id(patch.workingDirectory, "working directory", 4000);
+      if (!isAbsolute(directory) || !(await stat(directory)).isDirectory()) throw new Error("Working directory must be an existing absolute directory");
+      patch.workingDirectory = await realpath(directory);
+    }
+    if (patch.tools !== undefined) {
+      const tools = object(patch.tools);
+      fields(tools, ["enabledActions", "computer"]);
+      if ((tools.computer !== undefined && typeof tools.computer !== "boolean") ||
+          (tools.enabledActions !== undefined && (!Array.isArray(tools.enabledActions) ||
+            tools.enabledActions.some(action => !ASSISTANT_ACTIONS.includes(action as never)) ||
+            new Set(tools.enabledActions).size !== tools.enabledActions.length))) throw new Error("Invalid Bot tools configuration");
+    }
     if (patch.persona !== undefined) {
       const persona = object(patch.persona);
       fields(persona, ["preset", "style", "userName"]);
@@ -845,11 +886,13 @@ export class HostAssistant {
       });
     }
     return this.engine.store.transaction(() => {
+      const { workingDirectory, ...configuration } = patch;
       if (!current) this.store.initialize(patch as AssistantPatch);
       else
         this.store.update(
           {
-            ...(patch as AssistantPatch),
+            ...configuration,
+            ...("workingDirectory" in patch ? { workingDirectory: workingDirectory ?? undefined } : {}),
             policyVersion:
               this.store.get()!.policyVersion + (patch.policy ? 1 : 0),
           },
@@ -863,10 +906,10 @@ export class HostAssistant {
   private async brain(): Promise<string | undefined> {
     const config = this.store.get()!;
     if (config.brainSessionId) return config.brainSessionId;
-    const cwd = this.options.managed
+    const cwd = config.workingDirectory ?? (this.options.managed
       ? join(dirname(this.engine.store.attachmentDir), "bots", config.id, "threads", this.store.threadId, String(config.brainGeneration))
-      : join(dirname(this.engine.store.attachmentDir), "assistant-workspace", config.id, String(config.brainGeneration));
-    await mkdir(cwd, { recursive: true, mode: 0o700 });
+      : join(dirname(this.engine.store.attachmentDir), "assistant-workspace", config.id, String(config.brainGeneration)));
+    if (!config.workingDirectory) await mkdir(cwd, { recursive: true, mode: 0o700 });
     const current = this.store.get();
     if (
       !current?.enabled ||
@@ -912,6 +955,29 @@ export class HostAssistant {
       return receipt.sessionId;
     });
   }
+  private syncQueuedRuns(): void {
+    if (!this.store.get()) return;
+    this.store.host.transaction(() => {
+      const wakeups = new Map(this.store.wakeups().map(wakeup => [wakeup.id, wakeup]));
+      for (const wakeup of wakeups.values())
+        if (wakeup.state === "pending" || wakeup.state === "backoff") this.store.bots.queuedRun(this.store.scope, wakeup);
+      for (const run of this.store.bots.queuedRuns(this.store.scope)) {
+        const wakeup = wakeups.get(run.wakeupId);
+        if (wakeup && ["pending", "backoff", "running"].includes(wakeup.state)) continue;
+        this.store.bots.updateRun(this.store.scope, run.id, {
+          status: wakeup?.mergedInto ? "completed" : wakeup?.state === "interrupted" ? "interrupted" : "cancelled",
+          mergedInto: wakeup?.mergedInto, endedAt: Date.now(),
+        });
+      }
+    });
+  }
+  private updateRun(patch: Parameters<AssistantStore["bots"]["updateRun"]>[2]): void {
+    if (this.activeRun) this.activeRun = this.store.bots.updateRun(this.store.scope, this.activeRun.id, patch);
+  }
+  private finishRun(status: BotRunStatus, error?: string): void {
+    this.updateRun({ status, endedAt: Date.now(), error });
+    this.activeRun = undefined;
+  }
   async tick(): Promise<void> {
     if (this.closing || this.ticking) return;
     this.ticking = true;
@@ -919,6 +985,7 @@ export class HostAssistant {
     const epoch = this.epoch;
     try {
       let config = this.store.get();
+      this.syncQueuedRuns();
       if (config) {
         const senderName = JSON.stringify([config.id, config.name]);
         if (this.senderName !== senderName) {
@@ -991,6 +1058,7 @@ export class HostAssistant {
             nextRetryAt: retryAt,
             error: error ?? "Usage limit reached",
           });
+          this.finishRun("interrupted", error ?? "Usage limit reached before execution; retry queued.");
           return;
         }
         if (brain.session.usageLimit && hasExecution)
@@ -1024,6 +1092,8 @@ export class HostAssistant {
             ? { brainBaseline: brain.session.context.used }
             : {}),
         });
+        this.finishRun(error ? "interrupted" : "completed", error);
+        this.options.managed?.release();
         if (error) {
           this.store.message({
             id: randomUUID(),
@@ -1095,15 +1165,23 @@ export class HostAssistant {
         });
       const wakeup = this.store.pending().find((w) => !this.steering.has(w.id));
       if (!wakeup) return;
-      if (this.options.managed && !this.options.managed.acquire()) return;
+      this.syncQueuedRuns();
+      const run = this.store.bots.queuedRun(this.store.scope, wakeup);
+      if (this.options.managed && !this.options.managed.acquire(run, config)) return;
+      this.activeRun = run;
       this.tickingWakeupId = wakeup.id;
+      const preparedConfiguration = runtimeConfiguration(config);
       // Markdown is authoritative. Capture one immutable context for this turn;
       // edits during execution are loaded at the next turn boundary.
       const memory = this.store.memory.loadContext();
       const topics = this.store.memory.topicDocuments();
       const contextHash = signature({
+        // Compare what the user requested, not provider-normalized live model
+        // names/settings (for example Pi resolving its default model alias).
+        providerConfiguration: providerConfiguration(config),
         memory: memory.hash, topics: topics.map(topic => [topic.path, topic.hash]),
         name: config.name, persona: config.persona, policyVersion: config.policyVersion,
+        workingDirectory: config.workingDirectory, tools: config.tools,
         playbooks: this.store.playbookRevision(),
       });
       const chain = this.liveChain(wakeup.rootCauseId, config);
@@ -1121,15 +1199,16 @@ export class HostAssistant {
             wakeupId: wakeup.id,
           });
         this.store.writeChain(wakeup.rootCauseId, { ...chain, paused: true });
+        this.finishRun("cancelled", "Automatic follow-up limit reached");
         return;
       }
       if (config.brainSessionId) {
-        const brain = this.engine.store.session(config.brainSessionId);
+        let brain: HostSession | undefined;
+        try { brain = this.engine.store.session(config.brainSessionId); } catch { /* Replace a missing cache from the durable public Thread. */ }
         if (
-          brain.status !== "running" &&
-          (rotationReason(brain.session, Date.now(), config.brainBaseline) ||
-            config.brainMemory?.hash !== contextHash ||
-            (this.options.managed && runtimeConfiguration(brain.session) !== runtimeConfiguration(config)))
+          !brain || (brain.status !== "running" &&
+          (brain.status === "interrupted" || rotationReason(brain.session, Date.now(), config.brainBaseline) ||
+            config.brainMemory?.hash !== contextHash))
         )
           // A fresh generation is briefed from the public chat on its first turn.
           this.store.update({
@@ -1149,7 +1228,7 @@ export class HostAssistant {
         epoch !== this.epoch ||
         !config.enabled ||
         config.paused ||
-        (this.options.managed && runtimeConfiguration(this.engine.store.session(brainId).session) !== runtimeConfiguration(config)) ||
+        runtimeConfiguration(config) !== preparedConfiguration ||
         ["paused", "disabled", "interrupted", "failed"].includes(
           config.lifecycle,
         )
@@ -1157,6 +1236,11 @@ export class HostAssistant {
         return;
       const joining = wakeup.kind === "event" ? this.joiningEvents(wakeup, config) : new Map();
       this.active = this.store.claim(wakeup.id, this.steering, new Set(joining.keys()));
+      this.updateRun({ status: "running", startedAt: Date.now(), brainSessionId: brainId, config: {
+        revision: config.revision, harness: config.harness, model: config.model, modelSettings: config.modelSettings,
+        runtimeMode: config.runtimeMode, policyVersion: config.policyVersion,
+        workingDirectory: this.engine.store.session(brainId).session.cwd, tools: config.tools, contextHash,
+      }, capabilities: this.engine.botCapabilities(config.harness) });
       this.store.writeChain(wakeup.rootCauseId, {
         ...chain,
         count: chain.count + (wakeup.kind === "user" ? 0 : 1),
@@ -1215,14 +1299,13 @@ export class HostAssistant {
       const prompt = buildBrainPrompt({
         config,
         launcher,
-        actions: ASSISTANT_ACTIONS,
+        actions: config.tools?.enabledActions ?? ASSISTANT_ACTIONS,
         // The claimed wakeup also carries queued messages merged into it.
         wakeup: this.active.kind === "event" ? this.withEventBriefs(this.active, config) : this.active,
         messages,
         ledger,
         now: Date.now(),
         fresh,
-        soul: memory.soul,
         playbooks: playbooks.map(({ body: _body, ...summary }) => summary),
         ...(this.active.kind === "user"
           ? { playbook: matchPlaybook(playbooks, this.active.text) }
@@ -1233,16 +1316,28 @@ export class HostAssistant {
         }),
         memory,
       });
+      const persona = config.persona;
+      const systemInstructions = [
+        `You are ${config.name}, the user's Monocode Bot. Your identity is scoped to this Bot and Thread.`,
+        persona?.preset && persona.preset !== "custom" ? PERSONA_PRESETS[persona.preset] : "",
+        persona?.style ?? "", persona?.userName ? `Address the user as ${JSON.stringify(persona.userName)}.` : "",
+        memory.soul ? `User-authored Bot identity (SOUL.md):\n${memory.soul}` : "",
+        `Host permissions are enforced by the Host. Current policy: ${JSON.stringify(config.policy)}.`,
+      ].filter(Boolean).join("\n");
       this.engine.assistantCommand({
         type: "send",
         commandId: `assistant:wake:${wakeup.id}:${this.active.attempts}`,
         sessionId: brainId,
         text: prompt,
         attachments: this.active.attachments,
-      });
+      }, undefined, { scope: { ...this.store.scope, runId: run.id }, systemInstructions, contextFingerprint: contextHash,
+        tools: config.tools, controlCli: { command: launcher } });
     } finally {
       this.ticking = false;
-      if (!this.active) this.options.managed?.release();
+      if (!this.active) {
+        this.activeRun = undefined;
+        this.options.managed?.release();
+      }
     }
   }
   private liveChain(
@@ -1314,6 +1409,13 @@ export class HostAssistant {
       next.session.assistantOwnerId === config.id &&
       next.session.id === config.brainSessionId
     ) {
+      const activeRun = this.currentRun;
+      if (activeRun && this.active && next.status === "running") {
+        const status = next.session.blocks.some(block => block.approval && !block.approval.decided) ? "waiting_approval" : "running";
+        const providerSessionId = next.session.providerSessionId ?? undefined;
+        if (activeRun.status !== status || activeRun.hostRunId !== next.runId || activeRun.providerSessionId !== providerSessionId)
+          this.updateRun({ status, hostRunId: next.runId, providerSessionId });
+      }
       // Finish the turn and start queued work now instead of on the next poll;
       // deferred so it runs after the save that reported the stop.
       if (previous?.status === "running" && next.status !== "running" && (this.timer || this.options.managed))
@@ -1536,7 +1638,7 @@ export class HostAssistant {
   /** Stops the current turn and drops queued input; the assistant stays available. */
   private async cancelTurn(): Promise<void> {
     const stopped = this.active;
-    await this.stopBrain();
+    await this.stopBrain("cancelled");
     if (stopped) this.stopDelegated(stopped.rootCauseId);
     this.store.host.transaction(() => {
       // The user ended this turn on purpose, so a later resume must not replay it.
@@ -1556,6 +1658,7 @@ export class HostAssistant {
         code: "stopped",
         text: "Stopped",
       });
+      this.syncQueuedRuns();
     });
   }
   /**
@@ -1605,7 +1708,7 @@ export class HostAssistant {
         }
     }
   }
-  private async stopBrain(): Promise<void> {
+  private async stopBrain(status: "interrupted" | "cancelled" = "interrupted"): Promise<void> {
     this.epoch++;
     const config = this.store.get();
     if (!config) return;
@@ -1618,6 +1721,7 @@ export class HostAssistant {
     }
     if (this.active)
       this.store.saveWakeup({ ...this.active, state: "interrupted" });
+    this.finishRun(status);
     this.active = undefined;
     this.options.managed?.release();
     for (const message of this.store.latestMessages())
@@ -1626,12 +1730,11 @@ export class HostAssistant {
   }
   private fail(error: unknown): void {
     const wakeupId = this.active?.id ?? this.tickingWakeupId;
-    this.active = undefined;
-    this.options.managed?.release();
     const config = this.store.get();
     if (config?.brainSessionId) this.control.disable(config.brainSessionId);
     try {
       if (config) {
+        this.finishRun("failed", error instanceof Error ? error.message : "Assistant failed");
         this.store.finishStreaming();
         this.store.update({
           lifecycle: "failed",
@@ -1648,12 +1751,18 @@ export class HostAssistant {
       }
     } catch {
       /* Persisting failed: retain journal for recovery. */
+    } finally {
+      this.active = undefined;
+      this.activeRun = undefined;
+      this.options.managed?.release();
     }
   }
   async close(): Promise<void> {
     this.closing = true;
     clearInterval(this.timer);
     await this.control.close();
+    if (this.activeRun?.status === "running" || this.activeRun?.status === "waiting_approval")
+      this.finishRun("interrupted", "Host stopped before the run finished");
     if (!this.options.managed) this.engine.store.onSessionSave = undefined;
     this.options.managed?.release();
   }

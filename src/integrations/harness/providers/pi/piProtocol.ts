@@ -144,6 +144,7 @@ export function parsePiVersion(output: string): string | null {
 export function buildPiSpawnArgs(
   flavor: PiFlavor,
   input: {
+    systemInstructions?: string;
     model?: string;
     resume?: string;
     /** Catalog probes and isolated jobs: do not write a session file. */
@@ -156,6 +157,7 @@ export function buildPiSpawnArgs(
   },
 ): string[] {
   const args = ["--mode", "rpc"];
+  if (input.systemInstructions) args.push("--append-system-prompt", input.systemInstructions);
   if (input.isolated || input.noSession) args.push("--no-session");
   if (input.isolated || input.noExtensions) args.push("--no-extensions");
   if (input.isolated) {

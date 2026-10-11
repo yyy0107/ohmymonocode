@@ -1,5 +1,6 @@
 import type { RemoteProvider } from "../../connections/model/protocol";
-import type { AssistantLifecycle, AssistantView } from "./assistant";
+import type { AssistantLifecycle, AssistantView, BotToolConfiguration } from "./assistant";
+import type { RuntimeMode } from "../../sessions/model/session";
 
 /** Host identity is supplied by the connection, never by a client-owned field. */
 export type BotScope = { botId: string; threadId: string };
@@ -40,6 +41,31 @@ export type BotsSnapshot = {
   defaultBotId?: string;
   defaultThreadId?: string;
 };
+
+export type BotRunStatus = "queued" | "running" | "waiting_approval" | "completed" | "cancelled" | "failed" | "interrupted";
+export type BotRun = BotScope & {
+  id: string;
+  wakeupId: string;
+  attempt: number;
+  status: BotRunStatus;
+  createdAt: number;
+  startedAt?: number;
+  endedAt?: number;
+  updatedAt: number;
+  /** Host-managed brain record and turn, distinct from a CLI's native session ID. */
+  brainSessionId?: string;
+  hostRunId?: string;
+  providerSessionId?: string;
+  mergedInto?: string;
+  error?: string;
+  config?: {
+    revision: number; harness: RemoteProvider; model: string; modelSettings: Record<string, string>;
+    runtimeMode: RuntimeMode; policyVersion: number; workingDirectory?: string; tools?: BotToolConfiguration; contextHash?: string;
+  };
+  capabilities?: { systemInstructions: "native" | "context-block"; mcp: "native" | "unavailable"; toolBridge: "control-cli" | "unavailable"; limitations: string[] };
+};
+export type BotRunCursor = { createdAt: number; id: string };
+export type BotRuns = { revision: number; runs: BotRun[]; hasMore: boolean; next?: BotRunCursor };
 
 export function botCacheKey(environmentId: string, scope: BotScope): string {
   return JSON.stringify([environmentId, scope.botId, scope.threadId]);

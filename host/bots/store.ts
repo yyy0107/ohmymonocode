@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import type { HostStore } from "../store";
 import type { AssistantRecord } from "../assistant/store";
 import { defaultAssistantPersona, fullAssistantPolicy, type AssistantPatch } from "../../src/features/assistant/model/assistant";
-import type { BotModelOverride, BotScope, BotThread, BotThreadKind, BotView } from "../../src/features/assistant/model/bots";
+import type { BotModelOverride, BotRun, BotRunCursor, BotRuns, BotScope, BotThread, BotThreadKind, BotView } from "../../src/features/assistant/model/bots";
 import { memoryLines } from "../assistant/memory";
 
 const RUNTIME_FIELDS = new Set<keyof AssistantRecord>([
@@ -57,6 +57,8 @@ export class BotStore {
       CREATE TABLE IF NOT EXISTS bot_memory_commits (id TEXT PRIMARY KEY, bot_id TEXT NOT NULL REFERENCES bots(id));
       CREATE TABLE IF NOT EXISTS bot_memory_changes (id TEXT PRIMARY KEY, bot_id TEXT NOT NULL REFERENCES bots(id), path TEXT NOT NULL, at INTEGER NOT NULL, payload TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS bot_memory_changes_bot ON bot_memory_changes(bot_id,at);
+      CREATE TABLE IF NOT EXISTS bot_runs (id TEXT PRIMARY KEY, bot_id TEXT NOT NULL, thread_id TEXT NOT NULL, wakeup_id TEXT NOT NULL, attempt INTEGER NOT NULL, created_at INTEGER NOT NULL, status TEXT NOT NULL, payload TEXT NOT NULL, UNIQUE(bot_id,thread_id,wakeup_id,attempt), FOREIGN KEY(bot_id,thread_id) REFERENCES bot_threads(bot_id,id));
+      CREATE INDEX IF NOT EXISTS bot_runs_history ON bot_runs(bot_id,thread_id,created_at,id);
     `);
     this.migrate(options.onMigrationPhase);
   }
@@ -144,7 +146,7 @@ export class BotStore {
     if (!row) return null;
     const override = row.model_override ? parse(row.model_override) : undefined;
     const value = { ...parse(row.config), ...parse(row.runtime), ...(override ? { ...override, modelSettings: override.modelSettings ?? {} } : {}) } as AssistantRecord;
-    return { ...value, persona: value.persona ?? defaultAssistantPersona(), timezone: value.timezone ?? value.schedules?.[0]?.timezone ?? "UTC", reminders: value.reminders ?? [], habits: value.habits ?? [] };
+    return { ...value, maxConcurrentRuns: value.maxConcurrentRuns ?? 3, persona: value.persona ?? defaultAssistantPersona(), timezone: value.timezone ?? value.schedules?.[0]?.timezone ?? "UTC", reminders: value.reminders ?? [], habits: value.habits ?? [] };
   }
   private insertBot(scope: BotScope, value: AssistantRecord): void {
     const now = Date.now(), parts = split(value);
@@ -245,6 +247,51 @@ export class BotStore {
       return this.getThread(botId, threadId)!;
     });
   }
+  queuedRun(scope: BotScope, wakeup: { id: string; attempts: number; createdAt: number }): BotRun {
+    const attempt = wakeup.attempts + 1;
+    const existing = this.host.db.prepare("SELECT payload FROM bot_runs WHERE bot_id=? AND thread_id=? AND wakeup_id=? AND attempt=?")
+      .get(scope.botId, scope.threadId, wakeup.id, attempt);
+    if (existing) return JSON.parse(String(existing.payload));
+    const run: BotRun = { ...scope, id: randomUUID(), wakeupId: wakeup.id, attempt, status: "queued", createdAt: wakeup.createdAt, updatedAt: Date.now() };
+    this.host.db.prepare("INSERT INTO bot_runs VALUES (?,?,?,?,?,?,?,?)")
+      .run(run.id, scope.botId, scope.threadId, wakeup.id, attempt, run.createdAt, run.status, JSON.stringify(run));
+    this.changed();
+    return run;
+  }
+  run(scope: BotScope, runId: string): BotRun | undefined {
+    const row = this.host.db.prepare("SELECT payload FROM bot_runs WHERE id=? AND bot_id=? AND thread_id=?").get(runId, scope.botId, scope.threadId);
+    return row ? JSON.parse(String(row.payload)) : undefined;
+  }
+  updateRun(scope: BotScope, runId: string, patch: Partial<Omit<BotRun, "id" | "botId" | "threadId" | "wakeupId" | "attempt" | "createdAt">>): BotRun {
+    const old = this.run(scope, runId);
+    if (!old) throw new Error("Run does not belong to this Bot and thread");
+    const value = { ...old, ...patch, updatedAt: Date.now() };
+    this.host.db.prepare("UPDATE bot_runs SET status=?,payload=? WHERE id=? AND bot_id=? AND thread_id=?")
+      .run(value.status, JSON.stringify(value), runId, scope.botId, scope.threadId);
+    this.changed();
+    return value;
+  }
+  queuedRuns(scope: BotScope): BotRun[] {
+    return this.host.db.prepare("SELECT payload FROM bot_runs WHERE bot_id=? AND thread_id=? AND status='queued'")
+      .all(scope.botId, scope.threadId).map(row => JSON.parse(String(row.payload)));
+  }
+  interruptRuns(scope: BotScope): void {
+    this.host.transaction(() => {
+      const rows = this.host.db.prepare("SELECT id FROM bot_runs WHERE bot_id=? AND thread_id=? AND status IN ('running','waiting_approval')").all(scope.botId, scope.threadId);
+      for (const row of rows) this.updateRun(scope, String(row.id), { status: "interrupted", endedAt: Date.now(), error: "Host restarted before the run finished. Inspect its recorded actions before continuing." });
+    });
+  }
+  runs(scope: BotScope, limit = 30, before?: BotRunCursor): BotRuns {
+    if (!this.getThread(scope.botId, scope.threadId)) throw new Error("Thread does not belong to this Bot");
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100 || (before &&
+      (!Number.isSafeInteger(before.createdAt) || before.createdAt < 0 || typeof before.id !== "string" || !before.id)))
+      throw new Error("Invalid run history cursor or limit");
+    const rows = this.host.db.prepare(`SELECT payload FROM bot_runs WHERE bot_id=? AND thread_id=?
+      ${before ? "AND (created_at,id)<(?,?)" : ""} ORDER BY created_at DESC,id DESC LIMIT ?`)
+      .all(...(before ? [scope.botId, scope.threadId, before.createdAt, before.id, limit + 1] : [scope.botId, scope.threadId, limit + 1]));
+    const runs: BotRun[] = rows.slice(0, limit).map(row => JSON.parse(String(row.payload))), last = runs.at(-1);
+    return { revision: this.revision(), runs, hasMore: rows.length > limit, ...(last ? { next: { createdAt: last.createdAt, id: last.id } } : {}) };
+  }
   commandReceipt(scope: string, id: string, signature: string): unknown | undefined {
     const row = this.host.db.prepare("SELECT signature,payload FROM bot_commands WHERE scope=? AND id=?").get(scope, id);
     if (!row) return undefined;
@@ -272,6 +319,7 @@ function initialAssistantRecord(id: string, patch: AssistantPatch): AssistantRec
       harness: patch.harness,
       model: patch.model,
       modelSettings: {},
+      maxConcurrentRuns: 3,
       runtimeMode: "full-access",
       targetRuntimeMode: "full-access",
       policy: fullAssistantPolicy(),
@@ -311,6 +359,7 @@ function initialAssistantRecord(id: string, patch: AssistantPatch): AssistantRec
         },
       ],
       ...patch,
+      workingDirectory: patch.workingDirectory ?? undefined,
     };
   return value;
 }
