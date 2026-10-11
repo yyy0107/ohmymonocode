@@ -62,6 +62,25 @@ export class DelegationService {
     return !this.closed && !!target?.enabled && !target.paused && target.archivedAt === undefined &&
       !!value && value.target.runId === run.id && value.status === "running" && value.deadlineAt > Date.now() && this.permitted(value);
   }
+  /** Recheck delegation authority before an accepted project task leaves its queue. */
+  authorizeQueued(scope: BotScope, wakeupId: string): boolean {
+    const thread = this.manager.store.getThread(scope.botId, scope.threadId);
+    if (thread?.kind !== "delegation") return true;
+    if (this.closed || thread.archivedAt !== undefined) return false;
+    const row = this.manager.engine.store.db.prepare("SELECT payload FROM bot_delegations WHERE target_bot_id=? AND target_thread_id=?")
+      .get(scope.botId, scope.threadId);
+    const value: BotDelegation | undefined = row && JSON.parse(String(row.payload));
+    const run = value?.target.runId ? this.manager.store.run(scope, value.target.runId) : undefined;
+    if (!value || !run || run.wakeupId !== wakeupId || !["running", "completed"].includes(value.status)) return false;
+    if (run.status !== "completed") return thread.lifecycle === "running" && live(run) && this.authorizeRun(run);
+    // Successfully accepted project work can outlive both completed Bot turns.
+    // Cancellation/failure, late completion, or current policy revocation cannot.
+    const target = this.manager.store.getBot(scope.botId), source = this.manager.store.getBot(value.source.botId);
+    const parent = this.manager.store.run(value.source, value.source.runId);
+    return (run.endedAt ?? run.updatedAt) <= value.deadlineAt && !!target?.enabled && !target.paused && target.archivedAt === undefined &&
+      !!source?.enabled && !source.paused && source.archivedAt === undefined && !!source.callableBotIds?.includes(scope.botId) &&
+      (live(parent) || parent?.status === "completed") && (!value.teamId || this.manager.teams.authorizeDelegation(value));
+  }
   listBots(runtime: HostAssistant) {
     this.source(runtime);
     if (this.manager.store.getThread(runtime.store.botId, runtime.store.threadId)?.kind === "delegation") return { bots: [] };

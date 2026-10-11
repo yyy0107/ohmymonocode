@@ -230,7 +230,7 @@ export class BotStore {
     return this.host.transaction(() => {
       const old = this.getBot(botId);
       if (!old) throw new Error("Bot does not exist");
-      if (expectedRevision !== undefined && old.revision !== expectedRevision) throw new Error("Bot changed elsewhere. Reload before saving.");
+      if (expectedRevision !== undefined && old.revision !== expectedRevision) throw new Error("Settings changed elsewhere. Reload before saving.");
       const { archivedAt, ...config } = patch;
       this.updateRecord({ botId, threadId: old.defaultThreadId }, config, true);
       if ("archivedAt" in patch) this.host.db.prepare("UPDATE bots SET archived_at=? WHERE id=?").run(archivedAt ?? null, botId);
@@ -241,7 +241,7 @@ export class BotStore {
     return this.host.transaction(() => {
       const old = this.getThread(botId, threadId);
       if (!old) throw new Error("Thread does not belong to this Bot");
-      if (expectedRevision !== undefined && old.revision !== expectedRevision) throw new Error("Thread changed elsewhere. Reload before saving.");
+      if (expectedRevision !== undefined && old.revision !== expectedRevision) throw new Error("Settings changed elsewhere. Reload before saving.");
       this.host.db.prepare("UPDATE bot_threads SET title=?,archived_at=?,model_override=?,updated_at=?,revision=revision+1 WHERE bot_id=? AND id=?").run(patch.title ?? old.title, "archivedAt" in patch ? patch.archivedAt ?? null : old.archivedAt ?? null, "modelOverride" in patch ? patch.modelOverride ? JSON.stringify(patch.modelOverride) : null : old.modelOverride ? JSON.stringify(old.modelOverride) : null, Date.now(), botId, threadId);
       this.changed();
       return this.getThread(botId, threadId)!;

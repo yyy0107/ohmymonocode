@@ -51,9 +51,9 @@ function DesktopAssistantHost({
   const openFile = filePanel.open;
   const attachmentPaths = useRef(new Map<string, Promise<string>>());
   const openAttachment = useCallback(
-    (file: RemoteAttachment, read: () => Promise<string>) => {
+    (file: RemoteAttachment, read: () => Promise<string>, cacheScope?: string) => {
       if (!machine) return;
-      const key = `${machine.environmentId}:${file.id}`;
+      const key = JSON.stringify([cacheScope ?? machine.environmentId, file.id]);
       let path = attachmentPaths.current.get(key);
       if (!path) {
         path = read().then((data) =>

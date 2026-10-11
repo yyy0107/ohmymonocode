@@ -1,9 +1,10 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import { HostStore } from "../store";
 import { HostEngine } from "../engine";
+import { executeAssistantAction } from "../assistant/control";
 import type { HostProvider } from "../providers";
 import type { SendTurnInput } from "../../src/integrations/harness/core/types";
 import type { BotScope, BotThread, BotView } from "../../src/features/assistant/model/bots";
@@ -46,7 +47,7 @@ async function setup() {
     return { current, turn: turns.find(turn => turn.input.botContext?.scope.runId === current.runId)! };
   };
   const complete = (turn: (typeof turns)[number], text: string) => { turn.input.onEvent({ type: "message.delta", text }); turn.input.onEvent({ type: "message.completed" }); turn.finish(); };
-  return { get engine() { return engine; }, get store() { return store; }, turns, provider, bot, room, send, state, round, speaker, complete, rpc,
+  return { directory, get engine() { return engine; }, get store() { return store; }, turns, provider, bot, room, send, state, round, speaker, complete, rpc,
     async restart() { await engine.close(); store.close(); await start(); } };
 }
 
@@ -198,4 +199,91 @@ it("records cancellation failures and rejects results completed after the member
   frozen.mockRestore(); s.engine.bots.rooms.reconcile();
   expect((await s.round(late)).speakers[0].status).toBe("timed_out");
   expect((await s.round(late)).speakers[0].result).toBeUndefined();
+});
+
+it("recovers an entirely settled round as completed when an earlier member failed", async () => {
+  const s = await setup(), a = await s.bot("A"), b = await s.bot("B"), room = await s.room([a.botId, b.botId]);
+  await s.rpc("bots.control", { botId: a.botId, commandId: "unavailable", action: "pause" });
+  const first = await s.send(room.id, "One unavailable member, one confirmed reply"), final = await s.speaker(first, 1);
+  expect((await s.round(first)).speakers[0].status).toBe("failed");
+  const reconcile = vi.spyOn(s.engine.bots.rooms, "reconcile").mockImplementation(() => {});
+  s.complete(final.turn, "Confirmed final reply");
+  await vi.waitFor(() => expect(s.engine.bots.store.run({ botId: b.botId, threadId: final.current.threadId! }, final.current.runId!)?.status).toBe("completed"));
+  const recover = vi.spyOn(s.engine.bots.rooms, "recover").mockImplementation(() => {});
+  await s.restart(); reconcile.mockRestore(); recover.mockRestore();
+  const restored = await s.round(first);
+  expect(restored.status).toBe("completed");
+  expect(restored.speakers.map(speaker => speaker.status)).toEqual(["failed", "completed"]);
+  expect(restored.speakers[1].result).toBe("Confirmed final reply");
+  expect(s.turns).toHaveLength(1);
+  expect((await s.rpc<BotRoomMessages>("botRooms.messages", { roomId: room.id })).messages.filter(message => message.kind === "assistant").map(message => message.text)).toEqual(["Confirmed final reply"]);
+});
+
+it("revokes queued Room actions immediately while the member provider is still stopping", async () => {
+  const s = await setup(), a = await s.bot("A"), room = await s.room([a.botId]), first = await s.send(room.id, "Queue project work");
+  const member = await s.speaker(first, 0), runtime = s.engine.bots.assistant({ botId: a.botId, threadId: member.current.threadId! });
+  const directory = join(s.directory, "project"); mkdirSync(directory);
+  const project = s.store.addProject(directory, "Room project");
+  const target = await executeAssistantAction(runtime, "create", "sessions.create", { projectId: project.id, harness: "codex", model: "test" }, () => true) as { sessionId: string };
+  s.engine.command({ type: "send", commandId: "user-work", sessionId: target.sessionId, text: "Independent user work" });
+  await vi.waitFor(() => expect(s.turns.some(turn => turn.input.sessionId === target.sessionId)).toBe(true));
+  await executeAssistantAction(runtime, "queue", "sessions.send", { projectId: project.id, sessionId: target.sessionId, text: "Cancelled Room project work" }, () => true);
+  const origin = s.store.session(target.sessionId).session.queuedMessages![0].origin!;
+  expect(s.engine.authorizeAssistantQueued!(origin, project.id, target.sessionId)).toBe(true);
+  const original = s.engine.stopAssistantBrain.bind(s.engine);
+  let release!: () => void;
+  const barrier = new Promise<void>(resolve => { release = resolve; });
+  const stop = vi.spyOn(s.engine, "stopAssistantBrain").mockImplementation(async sessionId => { await barrier; await original(sessionId); });
+  try {
+    await s.rpc("botRooms.cancel", { roomId: room.id, roundId: first.id, commandId: "cancel-delayed" });
+    await vi.waitFor(() => expect(stop).toHaveBeenCalled());
+    expect(s.engine.authorizeAssistantQueued!(origin, project.id, target.sessionId)).toBe(false);
+    s.complete(s.turns.find(turn => turn.input.sessionId === target.sessionId)!, "User work done");
+    await vi.waitFor(() => expect(s.store.session(target.sessionId).session.queuedMessages?.[0].blocked).toContain("revoked"));
+    expect(s.turns.filter(turn => turn.input.sessionId === target.sessionId)).toHaveLength(1);
+  } finally {
+    stop.mockRestore(); release();
+    await vi.waitFor(() => expect(runtime.currentRun).toBeUndefined());
+  }
+});
+
+it("allows accepted project tasks to continue after a Room member finishes successfully", async () => {
+  const s = await setup(), a = await s.bot("A"), room = await s.room([a.botId]), first = await s.send(room.id, "Queue accepted project work");
+  const member = await s.speaker(first, 0), runtime = s.engine.bots.assistant({ botId: a.botId, threadId: member.current.threadId! });
+  const directory = join(s.directory, "project"); mkdirSync(directory);
+  const project = s.store.addProject(directory, "Room project");
+  const target = await executeAssistantAction(runtime, "create", "sessions.create", { projectId: project.id, harness: "codex", model: "test" }, () => true) as { sessionId: string };
+  s.engine.command({ type: "send", commandId: "user-work", sessionId: target.sessionId, text: "Independent user work" });
+  await vi.waitFor(() => expect(s.turns.some(turn => turn.input.sessionId === target.sessionId)).toBe(true));
+  await executeAssistantAction(runtime, "queue", "sessions.send", { projectId: project.id, sessionId: target.sessionId, text: "Accepted Room project work" }, () => true);
+  const origin = s.store.session(target.sessionId).session.queuedMessages![0].origin!;
+  s.complete(member.turn, "Project work accepted");
+  await vi.waitFor(async () => expect((await s.round(first)).status).toBe("completed"));
+  expect(s.engine.authorizeAssistantQueued!(origin, project.id, target.sessionId)).toBe(true);
+  s.complete(s.turns.find(turn => turn.input.sessionId === target.sessionId)!, "User work done");
+  await vi.waitFor(() => expect(s.turns.filter(turn => turn.input.sessionId === target.sessionId)).toHaveLength(2));
+  expect(s.turns.at(-1)!.input.text).toBe("Accepted Room project work");
+});
+
+it("denies queued authority after a member-thread stop before Room status reconciliation", async () => {
+  const s = await setup(), a = await s.bot("A"), room = await s.room([a.botId]), first = await s.send(room.id, "Stop this member directly");
+  const member = await s.speaker(first, 0), scope = { botId: a.botId, threadId: member.current.threadId! };
+  const run = s.engine.bots.store.run(scope, member.current.runId!)!;
+  expect(s.engine.bots.rooms.authorizeQueued(scope, run.wakeupId)).toBe(true);
+  const reconcile = vi.spyOn(s.engine.bots.rooms, "reconcile").mockImplementation(() => {});
+  const original = s.engine.stopAssistantBrain.bind(s.engine);
+  let release!: () => void;
+  const barrier = new Promise<void>(resolve => { release = resolve; });
+  const stop = vi.spyOn(s.engine, "stopAssistantBrain").mockImplementation(async sessionId => { await barrier; await original(sessionId); });
+  const cancellation = s.rpc("botThreads.cancel", { ...scope, commandId: "stop-member" });
+  try {
+    await vi.waitFor(() => expect(stop).toHaveBeenCalled());
+    expect(s.engine.bots.store.run(scope, run.id)?.status).toBe("running");
+    expect(s.engine.bots.store.getThread(scope.botId, scope.threadId)?.lifecycle).toBe("paused");
+    expect(s.engine.bots.rooms.authorizeQueued(scope, run.wakeupId)).toBe(false);
+  } finally { stop.mockRestore(); release(); await cancellation; }
+  expect((await s.round(first)).status).toBe("running");
+  expect(s.engine.bots.store.run(scope, run.id)?.status).toBe("cancelled");
+  expect(s.engine.bots.rooms.authorizeQueued(scope, run.wakeupId)).toBe(false);
+  reconcile.mockRestore();
 });

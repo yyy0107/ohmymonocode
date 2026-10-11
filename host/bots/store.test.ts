@@ -6,6 +6,7 @@ import { afterEach, expect, it } from "vitest";
 import { HostStore } from "../store";
 import { AssistantStore, signature, type AssistantRecord } from "../assistant/store";
 import { BotStore, type MigrationPhase } from "./store";
+import { assistantErrorCode } from "../assistant/errors";
 import { fullAssistantPolicy, type AssistantAction } from "../../src/features/assistant/model/assistant";
 
 const cleanup: (() => void)[] = [];
@@ -160,13 +161,15 @@ it("checks metadata revisions and archive/restore without losing runtime or user
   bots.updateThread(scope.botId, scope.threadId, { title: "User title", archivedAt: 123 }, thread.revision);
   expect(bots.listThreads(scope.botId)).toEqual([]);
   expect(bots.listThreads(scope.botId, true)[0]).toMatchObject({ title: "User title", archivedAt: 123 });
-  expect(() => bots.updateThread(scope.botId, scope.threadId, { title: "stale" }, thread.revision)).toThrow(/changed elsewhere/);
+  try { bots.updateThread(scope.botId, scope.threadId, { title: "stale" }, thread.revision); expect.fail("stale Thread update must fail"); }
+  catch (error) { expect(assistantErrorCode(error)).toBe("conflict"); }
   bots.updateThread(scope.botId, scope.threadId, { archivedAt: undefined });
   expect(bots.listThreads(scope.botId)[0].title).toBe("User title");
   const bot = bots.getBot(scope.botId)!;
   bots.updateBot(scope.botId, { archivedAt: 123 }, bot.revision);
   expect(bots.listBots()).toEqual([]);
-  expect(() => bots.updateBot(scope.botId, { name: "stale" }, bot.revision)).toThrow(/changed elsewhere/);
+  try { bots.updateBot(scope.botId, { name: "stale" }, bot.revision); expect.fail("stale Bot update must fail"); }
+  catch (error) { expect(assistantErrorCode(error)).toBe("conflict"); }
   bots.updateBot(scope.botId, { archivedAt: undefined });
   expect(bots.listBots()).toHaveLength(1);
 });

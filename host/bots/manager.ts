@@ -52,6 +52,7 @@ export class BotManager {
     for (const scope of scopes) {
       const thread = this.store.getThread(scope.botId, scope.threadId);
       if (!thread || thread.archivedAt !== undefined) continue;
+      if (!this.rooms.authorizeQueued(scope, origin.wakeupId) || !this.delegations.authorizeQueued(scope, origin.wakeupId)) continue;
       const runtime = this.assistant(scope);
       if (!origin.threadId && !runtime.store.wakeup(origin.wakeupId)) continue;
       try { runtime.checkSessionAccess("sessions.send", projectId, sessionId); return true; }

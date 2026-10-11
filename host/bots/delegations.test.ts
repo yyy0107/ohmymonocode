@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
@@ -44,7 +44,7 @@ async function setup() {
     return engine.bots.assistant(scope);
   };
   const get = (scope: BotScope, value: BotDelegation) => engine.bots.rpc("botDelegations.get", { ...scope, delegationId: value.id }) as Promise<BotDelegation>;
-  return { get engine() { return engine; }, get store() { return store; }, bot, configure, send, get, turns, provider,
+  return { get engine() { return engine; }, get store() { return store; }, directory, bot, configure, send, get, turns, provider,
     async restart(beforeOpen?: () => void) { await engine.close(); beforeOpen?.(); store.close(); await start(); } };
 }
 
@@ -218,4 +218,76 @@ it("retires an admitted but unstarted delegation on normal shutdown without leav
   await s.engine.bots.assistant(scope).managedTick();
   expect(s.turns).toHaveLength(count);
   expect(s.engine.bots.hasDelegationSlot(b.botId)).toBe(true);
+});
+
+it.each(["cancelled", "timed_out", "revoked", "thread_cancelled"])("revokes queued delegated project actions before the provider finishes stopping (%s)", async reason => {
+  const s = await setup(), a = await s.bot("A"), b = await s.bot("B");
+  await s.configure(a, { callableBotIds: [b.botId] });
+  const source = await s.send(a), delegated = await s.engine.bots.delegations.submit(source, "queue-child", { botId: b.botId, prompt: "Queue project work" });
+  const runtime = s.engine.bots.assistant({ botId: b.botId, threadId: delegated.target.threadId! });
+  await vi.waitFor(() => expect(runtime.currentRun?.status).toBe("running"));
+  const directory = join(s.directory, "project"); mkdirSync(directory);
+  const project = s.store.addProject(directory, "Delegated project");
+  const target = await executeAssistantAction(runtime, "create", "sessions.create", { projectId: project.id, harness: "codex", model: "test" }, () => true) as { sessionId: string };
+  s.engine.command({ type: "send", commandId: "user-work", sessionId: target.sessionId, text: "Independent user work" });
+  await vi.waitFor(() => expect(s.turns.some(turn => turn.input.sessionId === target.sessionId)).toBe(true));
+  await executeAssistantAction(runtime, "queue", "sessions.send", { projectId: project.id, sessionId: target.sessionId, text: "Revoked delegated project work" }, () => true);
+  const origin = s.store.session(target.sessionId).session.queuedMessages![0].origin!;
+  expect(s.engine.authorizeAssistantQueued!(origin, project.id, target.sessionId)).toBe(true);
+  const original = s.engine.stopAssistantBrain.bind(s.engine);
+  let release!: () => void;
+  const barrier = new Promise<void>(resolve => { release = resolve; });
+  const stop = vi.spyOn(s.engine, "stopAssistantBrain").mockImplementation(async sessionId => { await barrier; await original(sessionId); });
+  let threadStop: Promise<unknown> | undefined;
+  const projection = reason === "thread_cancelled" ? vi.spyOn(s.engine.bots.delegations, "reconcile").mockImplementation(() => undefined) : undefined;
+  try {
+    if (reason === "thread_cancelled") threadStop = s.engine.bots.rpc("botThreads.cancel", { ...runtime.store.scope, commandId: "stop-thread" });
+    else if (reason === "cancelled") await s.engine.bots.rpc("botDelegations.cancel", { ...a, delegationId: delegated.id, commandId: "cancel-delayed" });
+    else if (reason === "revoked") await s.configure(a, { callableBotIds: [] });
+    else { vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(delegated.deadlineAt + 1); s.engine.bots.delegations.reconcile(); }
+    await vi.waitFor(() => expect(stop).toHaveBeenCalled());
+    expect(s.engine.authorizeAssistantQueued!(origin, project.id, target.sessionId)).toBe(false);
+    const turn = s.turns.find(turn => turn.input.sessionId === target.sessionId)!;
+    turn.input.onEvent({ type: "message.delta", text: "User work done" }); turn.input.onEvent({ type: "message.completed" }); turn.finish();
+    await vi.waitFor(() => expect(s.store.session(target.sessionId).session.queuedMessages?.[0].blocked).toContain("revoked"));
+    expect(s.turns.filter(turn => turn.input.sessionId === target.sessionId)).toHaveLength(1);
+  } finally {
+    stop.mockRestore(); release();
+    await threadStop;
+    await vi.waitFor(() => expect(runtime.currentRun).toBeUndefined());
+    if (projection) {
+      expect(s.engine.bots.delegations.get(delegated.id)?.status).toBe("running");
+      expect(s.engine.authorizeAssistantQueued!(origin, project.id, target.sessionId)).toBe(false);
+      projection.mockRestore();
+    }
+  }
+});
+
+it("keeps accepted project work authorized after both delegated and source turns complete normally", async () => {
+  const s = await setup(), a = await s.bot("A"), b = await s.bot("B");
+  await s.configure(a, { callableBotIds: [b.botId] });
+  const source = await s.send(a), delegated = await s.engine.bots.delegations.submit(source, "completed-child", { botId: b.botId, prompt: "Prepare project work" });
+  const runtime = s.engine.bots.assistant({ botId: b.botId, threadId: delegated.target.threadId! });
+  await vi.waitFor(() => expect(runtime.currentRun?.status).toBe("running"));
+  const directory = join(s.directory, "project"); mkdirSync(directory);
+  const project = s.store.addProject(directory, "Delegated project");
+  const target = await executeAssistantAction(runtime, "create", "sessions.create", { projectId: project.id, harness: "codex", model: "test" }, () => true) as { sessionId: string };
+  s.engine.command({ type: "send", commandId: "user-work", sessionId: target.sessionId, text: "Independent user work" });
+  await vi.waitFor(() => expect(s.turns.some(turn => turn.input.sessionId === target.sessionId)).toBe(true));
+  await executeAssistantAction(runtime, "queue", "sessions.send", { projectId: project.id, sessionId: target.sessionId, text: "Accepted project work" }, () => true);
+  const origin = s.store.session(target.sessionId).session.queuedMessages![0].origin!;
+  const complete = (sessionId: string) => {
+    const turn = s.turns.find(turn => turn.input.sessionId === sessionId)!;
+    turn.input.onEvent({ type: "message.delta", text: "Done" }); turn.input.onEvent({ type: "message.completed" }); turn.finish();
+  };
+  complete(runtime.currentRun!.brainSessionId!);
+  await vi.waitFor(async () => expect(await s.get(a, delegated)).toMatchObject({ status: "completed" }));
+  complete(source.currentRun!.brainSessionId!); await vi.waitFor(() => expect(source.currentRun).toBeUndefined());
+  expect(s.engine.authorizeAssistantQueued!(origin, project.id, target.sessionId)).toBe(true);
+  expect(s.engine.authorizeAssistantQueued!({ ...origin, wakeupId: "forged-wakeup" }, project.id, target.sessionId)).toBe(false);
+  complete(target.sessionId);
+  await vi.waitFor(() => expect(s.turns.filter(turn => turn.input.sessionId === target.sessionId)).toHaveLength(2));
+  expect(s.turns.filter(turn => turn.input.sessionId === target.sessionId)[1].input.text).toContain("Accepted project work");
+  await s.configure(a, { callableBotIds: [] });
+  expect(s.engine.authorizeAssistantQueued!(origin, project.id, target.sessionId)).toBe(false);
 });

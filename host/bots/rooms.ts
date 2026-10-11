@@ -195,6 +195,27 @@ export class RoomService {
       speaker.botId === run.botId && speaker.threadId === run.threadId && speaker.runId === run.id &&
       !terminal.has(speaker.status) && (speaker.deadlineAt ?? 0) > Date.now()));
   }
+  /** Project queues must observe a Room stop before the provider finishes stopping. */
+  authorizeQueued(scope: BotScope, wakeupId: string): boolean {
+    const thread = this.manager.store.getThread(scope.botId, scope.threadId);
+    if (thread?.kind !== "room") return true;
+    const row = this.db.prepare(`SELECT r.payload,run.payload AS run_payload FROM bot_room_members m
+      JOIN bot_room_rounds r ON r.room_id=m.room_id JOIN json_each(r.payload,'$.speakers') s
+      JOIN bot_runs run ON run.id=json_extract(s.value,'$.runId')
+      WHERE m.bot_id=? AND m.thread_id=? AND json_extract(s.value,'$.botId')=m.bot_id
+        AND json_extract(s.value,'$.threadId')=m.thread_id AND run.bot_id=m.bot_id
+        AND run.thread_id=m.thread_id AND run.wakeup_id=? LIMIT 1`).get(scope.botId, scope.threadId, wakeupId);
+    if (!row || this.closed) return false;
+    const round = JSON.parse(String(row.payload)) as BotRoomRound, run = JSON.parse(String(row.run_payload)) as BotRun;
+    const room = this.room(round.roomId), bot = this.manager.store.getBot(scope.botId);
+    if (!["running", "completed"].includes(round.status) || room.archivedAt !== undefined || !bot?.enabled || bot.paused || bot.archivedAt !== undefined) return false;
+    const speaker = round.speakers.find(value => value.runId === run.id)!;
+    // Accepted project tasks may outlive a successfully finished member turn.
+    // Failed, expired or cancelled work loses this authority immediately.
+    if (run.status === "completed") return !["failed", "timed_out", "cancelled", "interrupted"].includes(speaker.status) &&
+      (run.endedAt ?? run.updatedAt) <= (speaker.deadlineAt ?? 0);
+    return thread.lifecycle === "running" && ["running", "waiting_approval"].includes(run.status) && this.authorizeRun(run);
+  }
   private prompt(round: BotRoomRound): string {
     const rows = this.db.prepare(`SELECT m.payload FROM bot_room_messages m JOIN bot_room_rounds r ON r.id=m.round_id
       WHERE m.room_id=? AND r.sequence<=(SELECT sequence FROM bot_room_rounds WHERE id=?) ORDER BY m.sequence DESC LIMIT 200`)
@@ -334,11 +355,13 @@ export class RoomService {
   recover(reason = "Host restarted during Room work; inspect recorded actions before sending a new message"): void {
     this.transaction(() => {
       for (const round of this.rounds(undefined, true)) {
+        let interrupted = round.status === "queued";
         for (const speaker of round.speakers) {
           if (terminal.has(speaker.status)) continue;
           const scope = speaker.threadId ? { botId: speaker.botId, threadId: speaker.threadId } : undefined;
           const run = scope && speaker.runId ? this.manager.store.run(scope, speaker.runId) : undefined;
           if (run?.status === "completed") { this.collect(round, speaker, run); continue; }
+          interrupted = true;
           if (scope && run) {
             const store = new AssistantStore(this.manager.engine.store, scope), wakeup = store.wakeup(run.wakeupId);
             if (wakeup && ["pending", "backoff", "running"].includes(wakeup.state)) store.saveWakeup({ ...wakeup, state: "interrupted" });
@@ -347,7 +370,7 @@ export class RoomService {
           }
           this.finishSpeaker(round, speaker, "interrupted", reason);
         }
-        round.status = round.speakers.every(speaker => speaker.status === "completed") ? "completed" : "interrupted";
+        round.status = interrupted ? "interrupted" : "completed";
         round.completedAt = Date.now(); this.putRound(round);
       }
     });

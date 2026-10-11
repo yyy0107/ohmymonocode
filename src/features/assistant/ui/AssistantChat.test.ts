@@ -1298,3 +1298,27 @@ it.each([false, true])("ignores a Bot read-only reason outside the capable deskt
   expect(node.querySelector<HTMLButtonElement>('[aria-label="Attach files"]')!.disabled).toBe(false);
   expect(node.textContent).not.toContain("Delegation restriction");
 });
+
+it("keeps the frozen mobile client on assistant RPCs when the Host advertises every Bot capability", async () => {
+  const approval: AssistantMessage = { id: "approval", kind: "input", revision: 1, createdAt: 1, text: "Allow action?", inputKind: "approval", brainGeneration: 2, runId: "default-run", requestId: 7, resolved: false };
+  const question: AssistantMessage = { ...approval, id: "question", revision: 2, inputKind: "question", requestId: 8, question: { requestId: 8, questions: [{ id: "choice", prompt: "Pick one", multiSelect: false, allowCustom: false, options: [{ id: "first", label: "First" }] }] } };
+  const base = chatRpc(configuredView(), [approval, question]);
+  const rpc = vi.fn(async (method: string, params?: object) => {
+    if (method === "environment.describe") return { capabilities: ["assistant.v1", "assistant.history", "bots.shell.v1", "bots.v1", "botMemory.v1", "bots.runtime.v1", "bots.management.v1", "bots.delegation.v1", "bots.teams.v1", "bots.rooms.v1"] };
+    if (method === "assistant.messages") return { assistant: configuredView(), entries: [approval, question], nextRevision: 2, hasMore: false };
+    return base(method, params);
+  });
+  act(() => root.render(createElement(MobileAssistant, { hostKey: "new-host", hostName: "Host", rpc: rpc as any, onOpen: () => {}, desktopBots: true, botReadOnlyReason: "Desktop restriction" })));
+  await flush();
+  expect(node.querySelector(".assistant-chat")?.getAttribute("data-layout")).toBe("mobile");
+  expect(node.querySelector(".desktop-bots-workspace")).toBeNull();
+  expect(node.textContent).not.toContain("Desktop restriction");
+  act(() => [...node.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Allow")!.click()); await flush();
+  act(() => node.querySelector<HTMLButtonElement>('[data-question-option]')!.click());
+  act(() => [...node.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Continue")!.click()); await flush();
+  act(() => setValue(node.querySelector<HTMLTextAreaElement>(".mobile-assistant-compose textarea")!, "Default thread message"));
+  act(() => node.querySelector(".mobile-assistant-compose")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))); await flush();
+  expect(rpc.mock.calls.filter(([method]) => method === "assistant.respond")).toHaveLength(2);
+  expect(rpc.mock.calls.find(([method]) => method === "assistant.send")?.[1]).toMatchObject({ text: "Default thread message" });
+  expect(rpc.mock.calls.some(([method]) => /^(bots|botThreads|botMemory|botDelegations|botTeams|botRooms)\./.test(method))).toBe(false);
+});

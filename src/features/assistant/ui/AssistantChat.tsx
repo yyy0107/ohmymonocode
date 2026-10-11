@@ -209,8 +209,8 @@ export function AssistantChat({
   renderBotDelegation?: (delegationId: string, revision: number) => ReactNode;
   /** Desktop-only managed threads still allow approval and question responses. */
   botReadOnlyReason?: string;
-  /** Opens a sent file in a tab; receives a reader for the file's base64 bytes. */
-  onOpenAttachment?: (file: RemoteAttachment, read: () => Promise<string>) => void;
+  /** Opens a sent file with its bytes reader and independent conversation cache scope. */
+  onOpenAttachment?: (file: RemoteAttachment, read: () => Promise<string>, cacheScope?: string) => void;
 }) {
   const { t } = useTranslation();
   const visible = useSurfaceVisibility();
@@ -227,8 +227,8 @@ export function AssistantChat({
     client.readImage(messageId, file), [client]);
   const openAttachment = useMemo(() => onOpenAttachment
     ? (messageId: string, file: RemoteAttachment) =>
-        onOpenAttachment(file, () => client.readAttachment(messageId, file))
-    : undefined, [client, onOpenAttachment]);
+        onOpenAttachment(file, () => client.readAttachment(messageId, file), cacheKey)
+    : undefined, [client, onOpenAttachment, cacheKey]);
   // Undefined means the first sync is pending; null confirms setup is needed.
   const [assistant, setAssistant] = useState<AssistantView | null>();
   const [messages, setMessages] = useState<AssistantMessage[]>([]);

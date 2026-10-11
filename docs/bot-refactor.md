@@ -44,9 +44,10 @@ Application labels follow docs/localization.md; provider and user values do not.
 ## Ownership and compatibility
 
 BotManager is the single Host callback owner, event router, scheduler and lifecycle
-entry. Do not instantiate multiple HostAssistant objects: their constructors
-overwrite engine.authorizeAssistantQueued and store.onSessionSave. Preserve the
-transactional source-event journal when distributing Host events.
+entry. It creates managed per-Thread HostAssistant instances; only BotManager
+installs engine.authorizeAssistantQueued and store.onSessionSave. Do not create
+unmanaged instances that replace those callbacks. Preserve the transactional
+source-event journal when distributing Host events.
 
 Bot owns defaults, Soul, memory, permissions, tools, working directory and
 automation. Thread owns transcript, revision, queue, approvals/questions, model
@@ -68,8 +69,10 @@ message ownership; legacy unscoped reads resolve only the default Thread.
 ## Migration and rollback
 
 Run migrations before schedulers, IM delivery and write RPCs start. Create a
-consistent SQLite backup (including WAL state), attachment/file manifest and
-persistent migration ID, phase, source hashes and stable default-ID mapping.
+consistent SQLite backup (including committed WAL state). Persist migration phase
+and stable default-ID mapping in `bot_metadata`; write `bots/migration-v1.json`
+with version, scope and backup path. Attachments remain in place; this manifest
+does not contain attachment hashes, and the SQLite backup is not a file backup.
 Reuse the old assistant ID as botId. The old public chat has no Thread ID: create
 defaultThreadId once. Preserve all existing message/action/receipt IDs, message
 revisions, attachment paths, reminders, habits, watch rules and provider references.
@@ -208,8 +211,8 @@ commands/results and deferred checks, including manual visual checks.
 | 4 | Concurrent runtime complete | `bf095e1c` | Runtime, resource, provider and compatibility checks below |
 | 5 | Desktop management complete | `76ca64ce` | Management, compatibility and browser checks below |
 | 6 | Single-hop delegation complete | `2152332c` | Delegation, MCP, UI and compatibility checks below |
-| 7 | Teams, Chief and Rooms complete | Recorded by the next stage | Checks below passed |
-| 8 | Not started | — | None |
+| 7 | Teams, Chief and Rooms complete | `653f46fb` | Checks below passed |
+| 8 | Implementation acceptance complete; deployment scenarios listed below remain unrun | `test(bots): verify migration and compatibility` (resolve from Git log) | Focused checks and actual regression fixes below |
 
 Stage 1 verification (Node 24.16.0, Vitest 3.2.7, Vite 7.3.6):
 
@@ -567,3 +570,212 @@ Stage 7 checks and collaboration decisions:
   approval/question controls remain usable.
 - Mobile directories remain unchanged from baseline. No actual model turn,
   application build, publication, push or merge was run.
+
+
+## Final capability matrix
+
+Capabilities are advertised by `environment.describe`, checked independently by
+new desktop components, and recorded on each effective Bot run where applicable.
+Native provider conversations below are implementation paths, not a claim that
+all installed CLI versions were exercised against a model.
+
+| Surface / capability | Implemented behavior | Evidence / boundary |
+| --- | --- | --- |
+| `bots.v1`, `botThreads.v1` | Host-owned Bots, scoped threads, CRUD, revision sync and compatibility projection | Store/manager/HTTP and desktop tests |
+| `bots.shell.v1` | Contact-style desktop shell | Browser fixtures and UI tests; mobile keeps its existing shell |
+| `botMemory.v1` | Markdown workspace, revision/hash saves, undo, external-edit reconciliation and index rebuild | File fault/recovery, recall and UI tests |
+| `bots.runtime.v1` | Shared per-Bot slots, queue, approval occupancy, scoped runs and cancellation | Manager/engine/resource tests |
+| `bots.management.v1` | Settings, thread override/archive, automation, activity and unread | Desktop/HTTP/IM tests |
+| `bots.delegation.v1` | Single-hop authenticated ask/list/cancel, busy, fixed deadline and durable cards | Service, authenticated HTTP, real Node stdio/TCP fixture |
+| `bots.teams.v1` | Team membership, single Chief, background delegate and bounded parallel coordination | Team CAS, authorization, aggregation and lifecycle tests |
+| `bots.rooms.v1` | Shared transcript, ordered rounds, dedicated member sessions, member failure continuation and scoped stop | Room lifecycle, HTTP and UI tests; browser approval flow |
+| Legacy `assistant.*` | Default Bot/default Thread; stop scoped to Thread, pause/disable to Bot | Existing API and old-client consumer tests |
+| Existing IM binding | Same binding IDs, channel cursors and deduplication, explicit default Bot/Thread | IM migration/integration tests; real external IM delivery not run |
+
+| Provider | Bot instructions | Host agents tools | Verification boundary |
+| --- | --- | --- | --- |
+| Codex | Native developer instructions | Native per-Thread MCP when launcher exists; control CLI for other Host tools | Protocol/adapter tests; installed 0.159.2 help/schema, no model turn |
+| Claude | Native appended system prompt | Native per-Thread MCP when launcher exists; control CLI for other Host tools | Protocol/adapter tests; installed 2.1.296 help, no model turn |
+| Pi / OMP | Native appended system prompt | Scoped control CLI | Shared protocol/adapter checks cover both; installed 1.1.0 / 18.6.0 help, no model turn |
+| Cursor / Grok / OpenCode / FX / Hermes / Antigravity | Clearly marked user context block | Scoped control CLI | Shared fallback contract checks; individual real-CLI Bot sessions unrun |
+
+An absent Host launcher reports native MCP unavailable. Host permissions constrain
+Host-managed actions; the provider's own tools and separately configured MCP
+servers retain their existing security model. Resource occupancy covers Host
+managed project/computer actions, not independent external programs. File hashes
+detect observed conflicts but cannot lock an arbitrary external editor.
+
+## Acceptance boundaries and follow-up verification
+
+The automated checks and isolated browser fixtures recorded above are completed
+verification. They do not substitute for these unrun deployment scenarios:
+
+- Real model conversations for each installed provider, real native MCP connection,
+  native cache expiration, interactive approvals and generated-image persistence
+  across desktop and headless processes. Protocol and subprocess fixtures cover
+  the corresponding contracts; a production end-to-end turn was not started.
+- A physical old mobile installation connected to the new Host and a deployed
+  old Host connected to the new desktop. Compatibility is exercised through
+  existing consumer tests and capability-gated fixtures.
+- Real IM delivery, production-data migration, crash recovery on a deployed Host,
+  and an old-binary rollback rehearsal. Automated temporary databases/files
+  exercise the migration and failure boundaries.
+- Application/package builds, LAN publication, push and merge remain separate
+  operations and were not run.
+
+Stage 8 verification and actual fixes are recorded below before its commit. Its
+own commit is `test(bots): verify migration and compatibility`; obtain its SHA from
+Git history rather than amending the document solely to embed its own hash.
+
+
+## Recovery operator procedure
+
+Use the affected Host's actual configured data directory (`--data-dir` for the
+headless CLI); its database is `host.db`. Perform recovery with that Host and its
+IM workers stopped. No recovery command has been executed against user data here.
+
+1. Preserve a complete dated copy of the current installation's data directory
+   before recovery. Keep `host.db` and any remaining `host.db-wal`/`host.db-shm`
+   sidecars together, `attachments/`, and the entire `bots/` tree. A copied main
+   database while a writer is running is not a consistent backup.
+2. For an interrupted upgrade, prefer starting the same new version against the
+   preserved installation. `bot_metadata.migration` advances through `backup`,
+   `prepared`, `copied`, `complete`; `bot_metadata.defaultScope` fixes the IDs.
+   Repeated initialization resumes these phases. Do not manually set completion
+   markers or remove the frozen legacy-table triggers to bypass an error.
+3. File-memory cutover is tracked separately in `bot_memory_state.initialized`.
+   Preserve each Bot's workspace, aliases, SQL backup, history and pending journals
+   together. Read/turn boundaries recover pending file intents and external edits;
+   `botMemory.rebuild` rebuilds the index from files, not the reverse. Save a copy
+   before repairing a rejected path, oversized file or invalid UTF-8 document.
+4. For a code rollback, restore the matching pre-upgrade database snapshot from
+   `host.db.pre-bots-v1.sqlite` (when an existing assistant was migrated), together
+   with its matching file backup. Retire the newer database and its WAL/SHM
+   sidecars as one saved set; never leave a newer WAL alongside the restored
+   database. The automatic SQLite snapshot does not copy `attachments/` or user
+   project files. The migration preserves attachment IDs and paths in place.
+5. Preserve the post-upgrade `bots/` directory outside the active data directory
+   before running the old version. If the old version later changes SQL-backed
+   memories, a subsequent upgrade must generate a fresh workspace from that
+   database. Also preserve the old `host.db.pre-bots-v1.sqlite` under a dated name
+   outside its active backup path, so the next migration can snapshot the newly
+   edited legacy database. Leaving the newer workspace active would make its existing Markdown
+   take precedence over the rollback-period SQL edits. Reconcile the saved newer
+   notes manually afterward; do not overwrite either copy automatically.
+6. Start the matching code only after database/files are paired. Verify the
+   default identity, historical message/attachment samples, reminders, IM binding
+   IDs and cursors. On re-upgrade, check the new default Bot/Thread and file-memory
+   marker again. An empty installation has no legacy automatic backup to restore.
+
+A rollback discards newer database changes from the active installation; retain
+the dated post-upgrade copy so they remain recoverable. External tool side effects
+are outside database rollback. Uncertain interrupted runs are not automatically
+replayed; confirmed on-time delegated/Room results are projected from durable
+BotRun records, and unfinished Room rounds remain interrupted.
+
+## Stage 8 checks and regression fixes
+
+- Fixed desktop attachment copies being cached only by Host and attachment ID.
+  The key now includes the existing Host/Bot/Thread cache scope; identical IDs in
+  two Threads or Bots require independent authorized reads. Legacy Host callbacks
+  still work. Desktop attachment/cache tests: 7 passed.
+- Fixed stale Bot/Thread configuration writes being classified as `unavailable`.
+  They use the established conflict response; the Store CAS regression asserts
+  the actual public error classification: 1 passed.
+- Cross-stage migration/legacy selection: 14 passed. It includes empty/default
+  initialization, preserved records, four migration checkpoints, transactional
+  rollback, old pause state, signed legacy receipts, IM cursor/deduplication,
+  default-thread stop versus Bot pause/disable, and scoped attachment ownership.
+- Final HTTP legacy/default-scope/file-memory selection: 3 passed with the new
+  Team/Room services initialized. UI capability/history/attachment/unread/motion
+  selection: 33 passed. A full-capability Host with the frozen mobile UI: 1 passed;
+  the client still uses `assistant.*` and handles approval/question messages.
+- All 271 rules in the four `desktop-*.css` files were inspected with PostCSS:
+  every selector contains `.desktop-bots-workspace` or `.desktop-bots-host`.
+  Mobile directories and the shared `assistant.css` remain unchanged.
+- Web and Host `tsc --noEmit` passed after the attachment and CAS fixes. Further
+  Room/queued-origin refinements and their checks are recorded below.
+
+Reproducible final migration selection:
+
+```sh
+./node_modules/.bin/vitest run --config host/vitest.config.ts host/bots/store.test.ts host/assistant/store.test.ts host/im-service/service.test.ts host/bots/manager.test.ts host/attachments.test.ts -t 'reserves stable|first desktop|migrates legacy|migration checkpoint|failed copy|legacy Bot pause|legacy receipt|legacy binding|legacy stop|pauses a whole|owning Bot'
+./node_modules/.bin/vitest run --config host/vitest.config.ts host/bots/store.test.ts -t 'checks metadata revisions'
+./node_modules/.bin/vitest run --config host/vitest.config.ts host/server.test.ts -t 'advertises assistant RPC|routes scoped Bot RPCs|serves file-backed Bot memory'
+```
+
+Reproducible final desktop selection:
+
+```sh
+./node_modules/.bin/vitest run src/features/assistant/ui/AssistantChat.test.ts src/features/assistant/ui/AssistantMessages.test.ts src/features/assistant/ui/AssistantChat.attachments.test.ts src/shared/ui/AnimatedCollapse.test.ts src/features/assistant/ui/DesktopAssistantButton.test.ts -t 'capability|Bots shell|detail drafts|paged chat|legacy Hosts|necessary input|question responses|read-only reason|delegation status|persisted.*attachments|image-only|multiple photos|rapid reversal|reduced motion|reverses from|unseen replies|pending questions|isolates Bot thread unread'
+./node_modules/.bin/vitest run src/features/assistant/ui/DesktopAssistant.test.ts
+./node_modules/.bin/vitest run src/features/assistant/ui/AssistantChat.test.ts -t 'frozen mobile client'
+```
+
+The initial new mobile test used a desktop-only selector; correcting the fixture
+assertion yielded the passing one-case rerun. Failed preliminary attempts are not
+counted as passed scenarios. Actual APK/WebView, physical touch/soft keyboard and
+real attachment filesystem integration were not exercised in these UI mocks.
+
+- Fixed Room restart projection when earlier speakers failed and the final
+  speaker already durably completed. A fully settled round remains completed,
+  with each member's individual outcome; unstarted/uncertain work is interrupted.
+  No provider work or confirmed reply is replayed.
+- Fixed a Room cancellation window: a project message already queued by a member
+  could still start while that member's provider was stopping. Dispatch now
+  checks the exact Bot/Thread/wakeup/run/Room relationship and terminal status.
+  Accepted work from a successfully completed member can still continue.
+  The regression reproduced the authorization failure before the fix, then
+  passed with the queued project action blocked and no extra provider turn.
+- Final Room recovery/cancellation selection: 3 passed. Successful Room project
+  work and existing direct-thread playbook dispatch: 2 passed. Resident UTF-8
+  budget, external edit/delete and undo, committed/uncommitted file-journal
+  recovery, and missing-index rebuild selection: 5 passed. The first new recovery
+  fixture attempted to archive the protected default Bot; changing the fixture
+  to pause it corrected that test setup, and the isolated rerun passed.
+
+```sh
+./node_modules/.bin/vitest run --config host/vitest.config.ts host/bots/rooms.test.ts host/bots/memory.test.ts -t 'recovers an entirely settled|recovers a confirmed response|loads exactly 200|synchronizes external|recovers a durable file journal|rebuilds missing SQL indexes'
+./node_modules/.bin/vitest run --config host/vitest.config.ts host/bots/rooms.test.ts -t 'revokes queued Room actions|recovers an entirely settled|recovers a confirmed response'
+./node_modules/.bin/vitest run --config host/vitest.config.ts host/bots/rooms.test.ts host/assistant/index.test.ts -t 'allows accepted project tasks|dispatches a single playbook'
+```
+
+- Directly stopping a Room member Thread also revokes queued project authority
+  before the Room ledger's next reconciliation. The three-case dispatch selection
+  (direct stop, delayed Room cancellation, successful completion) passed. Across
+  the Room/direct-queue/memory selections, 11 distinct scenarios passed.
+
+```sh
+./node_modules/.bin/vitest run --config host/vitest.config.ts host/bots/rooms.test.ts -t 'denies queued authority|allows accepted project tasks|revokes queued Room actions'
+```
+
+- Delegation dispatch had the same stop-window defect. The new gate validates
+  exact wakeup/run ownership and current delegation/source/target permissions.
+  Cancelled, timed-out, revoked and directly stopped target Threads immediately
+  lose queue authority, including the interval before provider shutdown settles
+  and before the delegation ledger catches up. On-time successful project work
+  can outlive normally completed source/target turns; subsequent policy revocation
+  still blocks it. The five-case selection passed (the original seven tests were
+  deliberately skipped here because their completed stage-7 checks still apply).
+
+```sh
+./node_modules/.bin/vitest run --config host/vitest.config.ts host/bots/delegations.test.ts -t 'revokes queued delegated|keeps accepted project work'
+```
+
+- The final Room direct-stop test delays provider shutdown and freezes Room
+  projection: queued authority is denied both while the run still says running
+  and after it becomes cancelled. The successful-completion counterpart still
+  passes (2 passed, 10 skipped). Final Host TypeScript and `git diff --check`
+  passed; the earlier final Web TypeScript remains applicable. Rust was unchanged
+  after stage 7's passing format/Clippy/603-test run (1 ignored).
+- The temporary Vite preview was stopped and its verification tab closed. No
+  application build, LAN publication, push, merge or production migration was
+  performed. Unrelated `HANDOFF-turn-checkpoints.md` and `release-out/` remain
+  outside these commits.
+
+```sh
+./node_modules/.bin/vitest run --config host/vitest.config.ts host/bots/rooms.test.ts -t 'denies queued authority|allows accepted project tasks'
+./node_modules/.bin/tsc --noEmit
+./node_modules/.bin/tsc --noEmit -p host/tsconfig.json
+git diff --check
+```
