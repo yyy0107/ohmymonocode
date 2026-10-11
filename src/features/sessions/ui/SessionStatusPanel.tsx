@@ -1,8 +1,10 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
+  type ButtonHTMLAttributes,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -12,6 +14,7 @@ import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import {
   Bot,
   ChevronRight,
+  CloudUpload,
   FileScript,
   FoldVertical,
   Gauge,
@@ -21,7 +24,9 @@ import {
   Terminal,
 } from "../../../shared/ui/icons";
 import { GlassBackdrop } from "../../../app/shell/GlassBackdrop";
+import { BranchPicker } from "../../source-control/ui/BranchPicker";
 import { useSessionHeaderActions } from "../../workspace/ui/SessionHeaderActions";
+import { SubagentConversationCard } from "./SubagentConversationCard";
 import type { Block } from "../model/session";
 import {
   buildSessionStatusPanelModel,
@@ -75,16 +80,25 @@ export function SessionStatusPanel({
   backgroundTasks,
   busy,
   git,
+  cwd,
+  worktree = false,
   scope,
   onNavigate,
+  onOpenFile,
+  onOpenDiff,
 }: {
   sessionId: string;
   blocks: Block[];
   backgroundTasks?: string[];
   busy: boolean;
   git: SessionStatusGit | null;
+  /** Working copy for the branch control. Absent for a host session. */
+  cwd?: string;
+  worktree?: boolean;
   scope: RefObject<HTMLElement | null>;
   onNavigate: (blockId: string) => void;
+  onOpenFile?: (path: string) => void;
+  onOpenDiff?: (path: string) => void;
 }) {
   const model = useMemo(
     () => buildSessionStatusPanelModel({ blocks, backgroundTasks, busy, git }),
@@ -94,46 +108,107 @@ export function SessionStatusPanel({
   const [override, setOverride] = useState(() => overrides.get(sessionId));
   useEffect(() => setOverride(overrides.get(sessionId)), [sessionId]);
   const expanded = override ?? wide;
+  const summaryKind = sessionStatusSummary(model)?.kind;
   const reduced = useReducedMotion();
   const { t: uiT } = useTranslation();
   const toggle = (next: boolean) => {
     overrides.set(sessionId, next);
     setOverride(next);
   };
+  const [agentPath, setAgentPath] = useState<string[] | null>(null);
+  const [agentSession, setAgentSession] = useState(sessionId);
+  if (agentSession !== sessionId) {
+    setAgentSession(sessionId);
+    setAgentPath(null);
+  }
+  const shownAgentPath = useRef<string[] | null>(null);
+  if (agentPath) shownAgentPath.current = agentPath;
 
-  if (!model.hasContent) return null;
+  if (!model.hasContent && !agentPath) return null;
   return (
-    <aside
-      aria-label={uiT("Status")}
-      data-state={expanded ? "expanded" : "collapsed"}
-      className={`pointer-events-auto absolute top-2 right-3 z-30 isolate max-w-[calc(100%_-_24px)] overflow-hidden border border-content/10 text-content shadow-xl ${
-        expanded ? "w-80 rounded-2xl" : "w-60 rounded-[17px]"
-      }`}
-      style={{
-        transition: reduced
-          ? "none"
-          : `width ${MOTION_MS}ms var(--collapse-easing, cubic-bezier(0.22, 1, 0.36, 1)), border-radius ${MOTION_MS}ms ease`,
-      }}
-    >
-      <GlassBackdrop />
-      <div className="relative z-[1] flex max-h-[min(64dvh,32rem)] flex-col">
-        <PanelHeader
-          model={model}
-          expanded={expanded}
-          onToggle={() => toggle(!expanded)}
-        />
-        <AnimatedCollapse
-          expanded={expanded}
-          motion="height"
-          durationMs={MOTION_MS}
-          className="min-h-0"
+    <div className="pointer-events-none absolute top-2 right-3 z-30 flex w-[min(32rem,calc(100%_-_24px))] flex-col items-end gap-2">
+      {model.hasContent ? (
+        <aside
+          aria-label={uiT("Status")}
+          data-state={expanded ? "expanded" : "collapsed"}
+          className={`pointer-events-auto isolate max-w-full overflow-hidden border border-content/10 text-content shadow-xl ${
+            expanded
+              ? "w-80 rounded-2xl"
+              : summaryKind === "git"
+                ? "w-max max-w-full rounded-[17px]"
+                : "w-60 rounded-[17px]"
+          }`}
+          style={{
+            transition: reduced
+              ? "none"
+              : `width ${MOTION_MS}ms var(--collapse-easing, cubic-bezier(0.22, 1, 0.36, 1)), border-radius ${MOTION_MS}ms ease`,
+          }}
         >
-          <div className="max-h-[calc(min(64dvh,32rem)_-_34px)] overflow-x-hidden overflow-y-auto px-1.5 pb-1.5">
-            <PanelSections model={model} onNavigate={onNavigate} />
+          <GlassBackdrop />
+          <div className="relative z-[1] flex max-h-[min(64dvh,32rem)] flex-col">
+            <PanelHeader
+              model={model}
+              expanded={expanded}
+              onToggle={() => toggle(!expanded)}
+            />
+            <AnimatedCollapse
+              expanded={expanded}
+              motion="height"
+              durationMs={MOTION_MS}
+              className="min-h-0"
+            >
+              <div className="max-h-[calc(min(64dvh,32rem)_-_34px)] overflow-x-hidden overflow-y-auto px-1.5 pb-1.5">
+                <PanelSections
+                  model={model}
+                  cwd={cwd}
+                  worktree={worktree}
+                  agentPath={agentPath}
+                  onNavigate={onNavigate}
+                  onOpenAgent={(blockId) =>
+                    setAgentPath((current) =>
+                      current?.length === 1 && current[0] === blockId
+                        ? null
+                        : [blockId],
+                    )
+                  }
+                />
+              </div>
+            </AnimatedCollapse>
           </div>
-        </AnimatedCollapse>
-      </div>
-    </aside>
+        </aside>
+      ) : null}
+      <AnimatedCollapse
+        expanded={!!agentPath}
+        motion="height"
+        durationMs={MOTION_MS}
+        className="pointer-events-auto w-full"
+      >
+        {() =>
+          shownAgentPath.current ? (
+            <SubagentConversationCard
+              blocks={blocks}
+              path={shownAgentPath.current}
+              cwd={cwd}
+              onOpenFile={onOpenFile}
+              onOpenDiff={onOpenDiff}
+              onOpenAgent={(block) =>
+                setAgentPath((current) =>
+                  current ? [...current, block.id] : [block.id],
+                )
+              }
+              onBack={() =>
+                setAgentPath((current) =>
+                  current && current.length > 1
+                    ? current.slice(0, -1)
+                    : null,
+                )
+              }
+              onClose={() => setAgentPath(null)}
+            />
+          ) : null
+        }
+      </AnimatedCollapse>
+    </div>
   );
 }
 
@@ -201,16 +276,37 @@ function SummaryContent({ model }: { model: SessionStatusPanelModel }) {
           <span className="min-w-0 flex-1 truncate">{summary.text}</span>
         </>
       );
-    case "git":
+    case "git": {
+      const running = model.subagents.length;
       return (
         <>
           {icon(<GitCompare className="size-3.5" />)}
+          <span className="shrink-0">{uiT("Changes")}</span>
           <DiffCounts
             additions={summary.additions}
             deletions={summary.deletions}
           />
+          {!summary.additions && !summary.deletions && summary.files > 0 ? (
+            <span className="min-w-0 truncate font-mono text-[11px] text-content/55">
+              {uiT(
+                summary.files === 1
+                  ? "{count} file changed"
+                  : "{count} files changed",
+                { count: summary.files },
+              )}
+            </span>
+          ) : null}
+          {running > 0 ? (
+            <span className="ml-auto flex shrink-0 items-center gap-1 text-content/45">
+              <Bot className="size-3" />
+              <span className="font-mono text-[10px] tabular-nums">
+                {running}
+              </span>
+            </span>
+          ) : null}
         </>
       );
+    }
     case "progress":
       return (
         <>
@@ -253,21 +349,33 @@ function DiffCounts({
   additions: number;
   deletions: number;
 }) {
+  if (!additions && !deletions) return null;
   return (
-    <span className="shrink-0 font-mono text-[11px] tabular-nums">
-      <span className="text-emerald-400">+{additions}</span>
-      <span className="text-content/30"> / </span>
-      <span className="text-rose-400">-{deletions}</span>
+    <span className="inline-flex shrink-0 items-baseline gap-1.5 font-mono text-[11px] font-medium tabular-nums">
+      {additions > 0 ? (
+        <span className="text-emerald-400">+{additions}</span>
+      ) : null}
+      {deletions > 0 ? (
+        <span className="text-rose-400">-{deletions}</span>
+      ) : null}
     </span>
   );
 }
 
 function PanelSections({
   model,
+  cwd,
+  worktree,
+  agentPath,
   onNavigate,
+  onOpenAgent,
 }: {
   model: SessionStatusPanelModel;
+  cwd?: string;
+  worktree: boolean;
+  agentPath: string[] | null;
   onNavigate: (blockId: string) => void;
+  onOpenAgent: (blockId: string) => void;
 }) {
   const { t: uiT } = useTranslation();
   const actions = useSessionHeaderActions();
@@ -275,36 +383,58 @@ function PanelSections({
   const tasks = model.tasks;
   const span = tasks ? focusedTaskWindow(tasks) : null;
   const folded = tasks && span ? tasks.length - (span.end - span.start) : 0;
+  const openChanges = () => {
+    if (actions && !actions.changesOpen) actions.toggleChanges();
+  };
+  const files = model.git?.files ?? 0;
   return (
     <div className="flex flex-col gap-1.5">
       {model.git ? (
-        <Section icon={GitCompare} title={uiT("Changes")}>
-          <button
-            type="button"
-            disabled={!actions}
-            onClick={() => {
-              if (actions && !actions.changesOpen) actions.toggleChanges();
-            }}
-            className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] enabled:hover:bg-content/7"
-          >
+        <Section
+          icon={GitCompare}
+          title={uiT("Changes")}
+          meta={
             <DiffCounts
               additions={model.git.additions}
               deletions={model.git.deletions}
             />
-            {model.git.branch ? (
-              <span className="flex min-w-0 flex-1 items-center gap-1 text-content/55">
-                <GitBranch className="size-3 shrink-0" />
-                <span className="truncate font-mono text-[11px]">
-                  {model.git.branch}
-                </span>
+          }
+          onClick={actions ? openChanges : undefined}
+        >
+          {cwd ? (
+            <div className="px-1">
+              <BranchPicker
+                cwd={cwd}
+                branch={model.git.branch}
+                worktree={worktree}
+                popoverSide="bottom"
+              />
+            </div>
+          ) : model.git.branch ? (
+            <div className="flex min-w-0 items-center gap-1 px-2 py-1 text-content/55">
+              <GitBranch className="size-3 shrink-0" />
+              <span className="truncate font-mono text-[11px]">
+                {model.git.branch}
               </span>
-            ) : (
-              <span className="flex-1" />
-            )}
-            <ChevronRight
-              className="size-3 shrink-0 text-content/35"
-            />
-          </button>
+            </div>
+          ) : null}
+          {files > 0 ? (
+            <p className="px-2 py-1 text-[11px] text-content/45">
+              {uiT(
+                files === 1
+                  ? "Uncommitted changes: {count} file"
+                  : "Uncommitted changes: {count} files",
+                { count: files },
+              )}
+            </p>
+          ) : null}
+          <RowButton disabled={!actions} onClick={openChanges}>
+            <CloudUpload className="size-3.5 shrink-0 text-content/45" />
+            <span className="min-w-0 flex-1 truncate">
+              {uiT("Commit or push")}
+            </span>
+            <ChevronRight className="size-3 shrink-0 text-content/35" />
+          </RowButton>
         </Section>
       ) : null}
       {tasks && span ? (
@@ -355,7 +485,9 @@ function PanelSections({
           {model.subagents.map((agent) => (
             <RowButton
               key={agent.blockId}
-              onClick={() => onNavigate(agent.blockId)}
+              aria-haspopup="dialog"
+              aria-expanded={agentPath?.[0] === agent.blockId}
+              onClick={() => onOpenAgent(agent.blockId)}
             >
               <TerminalSpinner />
               <span className="min-w-0 flex-1 truncate">{agent.name}</span>
@@ -417,26 +549,50 @@ function Section({
   icon: Icon,
   title,
   meta,
+  onClick,
   children,
 }: {
   icon: typeof GitCompare;
   title: string;
-  meta?: string;
+  meta?: ReactNode;
+  onClick?: () => void;
   children: ReactNode;
 }) {
-  return (
-    <section className="rounded-[10px] border border-content/8 bg-content/[0.035] py-1">
-      <div className="flex items-center gap-1.5 px-2 pt-0.5 pb-1">
-        <Icon className="size-3.5 shrink-0 text-content/45" />
-        <h3 className="min-w-0 flex-1 truncate text-[11.5px] font-medium text-content/70">
-          {title}
-        </h3>
-        {meta ? (
+  const heading = (
+    <>
+      <Icon className="size-3.5 shrink-0 text-content/45" />
+      <h3 className="min-w-0 flex-1 truncate text-left text-[11.5px] font-medium text-content/70">
+        {title}
+      </h3>
+      {meta ? (
+        typeof meta === "string" ? (
           <span className="shrink-0 rounded-full bg-content/7 px-2 py-0.5 font-mono text-[10px] text-content/50">
             {meta}
           </span>
-        ) : null}
-      </div>
+        ) : (
+          meta
+        )
+      ) : null}
+      {onClick ? (
+        <ChevronRight className="size-3 shrink-0 text-content/35" />
+      ) : null}
+    </>
+  );
+  return (
+    <section className="rounded-[10px] border border-content/8 bg-content/[0.035] py-1">
+      {onClick ? (
+        <button
+          type="button"
+          onClick={onClick}
+          className="flex w-full items-center gap-1.5 px-2 pt-0.5 pb-1 hover:bg-content/7"
+        >
+          {heading}
+        </button>
+      ) : (
+        <div className="flex items-center gap-1.5 px-2 pt-0.5 pb-1">
+          {heading}
+        </div>
+      )}
       {children}
     </section>
   );
@@ -444,16 +600,24 @@ function Section({
 
 function RowButton({
   onClick,
+  disabled,
   children,
+  ...rest
 }: {
   onClick: () => void;
+  disabled?: boolean;
   children: ReactNode;
-}) {
+} & Pick<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "aria-expanded" | "aria-haspopup"
+>) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
-      className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] text-content/70 hover:bg-content/7 hover:text-content"
+      className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] text-content/70 enabled:hover:bg-content/7 enabled:hover:text-content disabled:opacity-40"
+      {...rest}
     >
       {children}
     </button>

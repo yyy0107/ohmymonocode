@@ -441,6 +441,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
         ? {
             additions: statusDiff.additions,
             deletions: statusDiff.deletions,
+            files: statusDiff.files,
             branch: statusBranch,
           }
         : null,
@@ -892,8 +893,12 @@ const LocalSessionPane = memo(function LocalSessionPane({
               backgroundTasks={session.backgroundTasks}
               busy={!!session.busy}
               git={statusGit}
+              cwd={statusGitCwd || undefined}
+              worktree={!!session.worktreeCwd}
               scope={transcriptScope}
               onNavigate={navigateBlock}
+              onOpenFile={onOpenFile}
+              onOpenDiff={(path) => onOpenDiff(path)}
             />
           ) : null}
           {remoteSessionLoading ? null : isEmpty ? (

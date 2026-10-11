@@ -174,10 +174,20 @@ function ProgressSummary({
         <>
           <GitCompare size={16} aria-hidden="true" />
           <span className="mobile-progress-summary" id={id}>
-            <MobileDiffCounts
-              additions={summary.additions}
-              deletions={summary.deletions}
-            />
+            {t("Changes")}{" "}
+            {summary.additions || summary.deletions ? (
+              <MobileDiffCounts
+                additions={summary.additions}
+                deletions={summary.deletions}
+              />
+            ) : summary.files > 0 ? (
+              t(
+                summary.files === 1
+                  ? "{count} file changed"
+                  : "{count} files changed",
+                { count: summary.files },
+              )
+            ) : null}
           </span>
         </>
       );

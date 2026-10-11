@@ -48,7 +48,7 @@ describe("session status panel", () => {
     expect(model.subagents.map((run) => run.blockId)).toEqual(["b"]);
   });
 
-  it("ignores a zero diff and prefers the current task over git", () => {
+  it("ignores a zero diff and prefers uncommitted changes over the current task", () => {
     expect(
       buildSessionStatusPanelModel({
         blocks: [],
@@ -64,15 +64,18 @@ describe("session status panel", () => {
         ]),
       ],
       busy: true,
-      git: { additions: 3, deletions: 1 },
+      git: { additions: 3, deletions: 1, files: 2 },
     });
     expect(sessionStatusSummary(model)).toEqual({
+      kind: "git",
+      additions: 3,
+      deletions: 1,
+      files: 2,
+    });
+    expect(sessionStatusSummary({ ...model, git: null })).toEqual({
       kind: "task",
       text: "Verify",
       status: "current",
-    });
-    expect(sessionStatusSummary({ ...model, tasks: null })).toMatchObject({
-      kind: "git",
     });
   });
 

@@ -28,7 +28,7 @@ export type SessionStatusPanelModel = {
 
 export type SessionStatusSummary =
   | { kind: "task"; text: string; status: "current" | "done" }
-  | { kind: "git"; additions: number; deletions: number }
+  | { kind: "git"; additions: number; deletions: number; files: number }
   | { kind: "progress"; completed: number; total: number }
   | { kind: "plan"; text: string }
   | { kind: "running"; count: number; agents: boolean; background: boolean };
@@ -93,22 +93,26 @@ function isOpenTask(item: TaskListItem): boolean {
   return item.status === "pending" || item.status === "in_progress";
 }
 
-/** The single line the collapsed capsule shows, most actionable first. */
+/**
+ * The single line the collapsed capsule shows.
+ * Uncommitted changes win, so a busy task list cannot hide the diff.
+ */
 export function sessionStatusSummary(
   model: SessionStatusPanelModel,
 ): SessionStatusSummary | null {
-  const tasks = model.tasks ?? [];
-  const current =
-    tasks.find((item) => item.status === "in_progress") ??
-    tasks.find((item) => item.status === "pending");
-  if (current) return { kind: "task", text: current.text, status: "current" };
   if (model.git) {
     return {
       kind: "git",
       additions: model.git.additions,
       deletions: model.git.deletions,
+      files: model.git.files ?? 0,
     };
   }
+  const tasks = model.tasks ?? [];
+  const current =
+    tasks.find((item) => item.status === "in_progress") ??
+    tasks.find((item) => item.status === "pending");
+  if (current) return { kind: "task", text: current.text, status: "current" };
   const done = [...tasks].reverse().find((item) => item.status === "completed");
   if (done) return { kind: "task", text: done.text, status: "done" };
   if (tasks.length) {
