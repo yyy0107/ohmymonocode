@@ -104,6 +104,16 @@ it("opens empty agent rows from the main stream and follows live snapshots", asy
 });
 
 it("navigates nested agents, full tool results and files inside one sheet, preserving scroll", async () => {
+  // The shared transcript distinguishes reader scrolling from layout changes.
+  vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(400);
+  vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(1000);
+  const offsets = new WeakMap<HTMLElement, number>();
+  vi.spyOn(HTMLElement.prototype, "scrollTop", "get").mockImplementation(function (this: HTMLElement) {
+    return offsets.get(this) ?? 0;
+  });
+  vi.spyOn(HTMLElement.prototype, "scrollTop", "set").mockImplementation(function (this: HTMLElement, value: number) {
+    offsets.set(this, Math.max(0, Math.min(value, 600)));
+  });
   const child = agent("child");
   child.agentRun!.transcript = [
     {
@@ -148,7 +158,7 @@ it("navigates nested agents, full tool results and files inside one sheet, prese
   finish();
   click(
     page().querySelector<HTMLButtonElement>(
-      '[data-agent-message="tool"] button',
+      '[data-tool-open-row]',
     )!,
   );
   finish();

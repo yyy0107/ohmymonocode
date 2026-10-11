@@ -1,13 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AgentTranscript } from "../features/sessions/ui/AgentTranscript";
 import { QuestionForm } from "../features/sessions/ui/QuestionForm";
 import { QuestionHistoryForm } from "../features/sessions/ui/QuestionHistoryForm";
 import { AgentMarkdown } from "../features/sessions/ui/AgentMarkdown";
 import { PlanActions, PlanDecision } from "../features/sessions/ui/PlanPreview";
 import { questionFollowUp } from "../features/sessions/model/questionHistory";
 import { TranscriptPlatformContext } from "../features/sessions/ui/TranscriptPlatform";
-import { ArrowDownCircle } from "../shared/ui/icons";
 import { useCollapseMotion } from "../shared/ui/AnimatedCollapse";
 import type { Block } from "../features/sessions/model/session";
 import type { WorktreeCreation } from "../features/source-control/model/worktreeCreation";
@@ -30,10 +28,10 @@ import type { MobileSessionChangesSource } from "./mobileSessionChanges";
 import { useMobileGitIndex } from "./useMobileGitIndex";
 import { buildSessionStatusPanelModel } from "../features/sessions/model/sessionStatusPanel";
 import { useTranslation } from "../shared/i18n/useTranslation";
-import { useTranscriptLayout } from "../features/sessions/hooks/useTranscriptLayout";
 import { useSurfaceVisibility } from "../shared/ui/SurfaceVisibility";
 import { useStableCallback } from "./useStableCallback";
 import { lazyMobileSheet } from "./mobileLazy";
+import { MobileConversation } from "./MobileConversation";
 
 const MobileAgentSheet = lazyMobileSheet(async () => ({ default: (await import("./MobileAgentSheet")).MobileAgentSheet }));
 const MobileToolSheet = lazyMobileSheet(async () => ({ default: (await import("./MobileToolSheet")).MobileToolSheet }));
@@ -121,7 +119,6 @@ export const MobileTranscript = memo(function MobileTranscript({
   useEffect(() => {
     if (!visible) setDetail({});
   }, [visible]);
-  const layout = useTranscriptLayout();
   const revealPendingQuestion = useStableCallback((blockId: string) => {
     if (!onQuestionOpenChange || blockId !== snapshot.session.pendingQuestion?.historyId) return false;
     onQuestionOpenChange(true);
@@ -176,12 +173,6 @@ export const MobileTranscript = memo(function MobileTranscript({
           fromActivity: current.active === "tool" ? current.tool?.fromActivity : undefined,
         },
       })),
-    [],
-  );
-  const [jump, setJump] = useState<(() => void) | undefined>();
-  const [showJump, setShowJump] = useState(false);
-  const onJumpReady = useCallback(
-    (callback: () => void) => setJump(() => callback),
     [],
   );
   const { session, runId } = snapshot;
@@ -321,67 +312,31 @@ export const MobileTranscript = memo(function MobileTranscript({
         onNavigate={(kind, blockId) => setDetail((current) => ({
           ...current, active: kind, [kind]: { kind, blockId },
         }))} />
-      <div
-        ref={findSheetHost}
-        className="mobile-desktop-transcript"
-        data-layout={layout}
-        data-progress={!progressDock && visible && (progress.hasContent || !!git.error || (detail.active === "progress" && !!gitSource))}
-        role="log"
-        aria-label="Conversation"
-        aria-live={visible ? "polite" : "off"}
-        aria-hidden={!visible || undefined}
-        inert={!visible}
-      >
-        <AgentTranscript
-          clockOffsetMs={snapshot.clockOffsetMs}
-          // The drawer and overlays only cover the transcript. Treating that
-          // as hidden would fold live work behind them and unfold it after.
-          visible={parentVisible}
-          touchScroll
-          promptMotion="mobile"
-          animateFrom={animateFrom}
-          blocks={session.blocks}
-          busy={snapshot.status === "running"}
-          cwd={session.cwd}
-          harness={session.harness}
-          model={session.model}
-          modelSettings={session.modelSettings}
-          workflowParent={workflowParent}
-          pendingQuestion={!!session.pendingQuestion}
-          pendingQuestionHistoryId={session.pendingQuestion?.historyId}
-          onQuestionFollowUp={session.harness !== "codex" ? undefined : onQuestionFollowUp}
-          onOpenFile={readBinaryFile ? openFile : undefined}
-          onOpenDiff={gitSource ? openDiff : readBinaryFile ? openFile : undefined}
-          onJumpToBottomChange={setShowJump}
-          onJumpToBottomReady={onJumpReady}
-          onApproval={onApproval}
-          decidingPlanId={planDecision?.blockId}
-          worktreeCreation={worktreeCreation}
-        />
-        {showJump && (
-          <button
-            className="mobile-jump"
-            type="button"
-            aria-label="Jump to latest message"
-            // Keep focus in the composer so tapping does not collapse it first.
-            onPointerDown={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-            }}
-            onMouseDown={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-            }}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              jump?.();
-            }}
-          >
-            <ArrowDownCircle size={22} />
-          </button>
-        )}
-      </div>
+      <MobileConversation
+        containerRef={findSheetHost}
+        active={visible}
+        progress={!progressDock && visible && (progress.hasContent || !!git.error || (detail.active === "progress" && !!gitSource))}
+        clockOffsetMs={snapshot.clockOffsetMs}
+        // The drawer and overlays only cover the transcript. Treating that
+        // as hidden would fold live work behind them and unfold it after.
+        visible={parentVisible}
+        animateFrom={animateFrom}
+        blocks={session.blocks}
+        busy={snapshot.status === "running"}
+        cwd={session.cwd}
+        harness={session.harness}
+        model={session.model}
+        modelSettings={session.modelSettings}
+        workflowParent={workflowParent}
+        pendingQuestion={!!session.pendingQuestion}
+        pendingQuestionHistoryId={session.pendingQuestion?.historyId}
+        onQuestionFollowUp={session.harness !== "codex" ? undefined : onQuestionFollowUp}
+        onOpenFile={readBinaryFile ? openFile : undefined}
+        onOpenDiff={gitSource ? openDiff : readBinaryFile ? openFile : undefined}
+        onApproval={onApproval}
+        decidingPlanId={planDecision?.blockId}
+        worktreeCreation={worktreeCreation}
+      />
       {session.pendingQuestion && (
         <div
           className="mobile-shared-question-dock animated-collapse-size"

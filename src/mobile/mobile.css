@@ -3018,6 +3018,14 @@ html.theme-light .mobile-logo {
   padding-top: calc(var(--mobile-header-height) + var(--mobile-safe-top));
   scroll-padding-top: calc(var(--mobile-header-height) + var(--mobile-safe-top));
 }
+/* Sheet headers occupy layout space; their conversations have no composer dock. */
+.mobile-desktop-transcript[data-embedded] {
+  transform: none;
+}
+.mobile-desktop-transcript[data-embedded] > .agent-transcript {
+  padding-top: 12px;
+  scroll-padding-top: 12px;
+}
 .mobile-desktop-transcript .markdown-code-shell {
   max-width: 100%;
 }

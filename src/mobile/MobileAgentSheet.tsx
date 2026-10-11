@@ -1,4 +1,4 @@
-import { useContext, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useContext, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Block } from "../features/sessions/model/session";
 import {
   agentTranscript,
@@ -7,9 +7,10 @@ import {
 import {
   subagentModelName,
   subagentName,
+  subagentReport,
   toolCallState,
 } from "../features/sessions/model/transcriptActivity";
-import { SubagentTranscript } from "../features/sessions/ui/SubagentTranscript";
+import { TranscriptPlatformContext } from "../features/sessions/ui/TranscriptPlatform";
 import { useTranslation } from "../shared/i18n/useTranslation";
 import { useSurfaceVisibility } from "../shared/ui/SurfaceVisibility";
 import { MobileSheet, MobileSheetHeader } from "./MobileSheet";
@@ -17,6 +18,8 @@ import { MobilePageTransition } from "./MobilePageTransition";
 import { MobilePageStateContext } from "./mobilePageState";
 import { MobileToolSheet } from "./MobileToolSheet";
 import { MobileFileSheet } from "./MobileFileSheet";
+import { MobileConversation } from "./MobileConversation";
+import { mobileTranscriptPlatform } from "./transcriptPlatform";
 
 type Page =
   { kind: "agent" | "tool"; path: string[] } | { kind: "file"; file: string };
@@ -24,67 +27,85 @@ type Page =
 function Conversation({
   block,
   cwd,
+  readBinaryFile,
   openAgent,
   openTool,
   openFile,
 }: {
   block: Block;
   cwd?: string;
+  readBinaryFile?: (path: string) => Promise<Uint8Array>;
   openAgent: (block: Block) => void;
   openTool: (block: Block) => void;
   openFile?: (path: string) => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
   const pageState = useContext(MobilePageStateContext);
-  const following = useRef(pageState?.values.get("agentFollowing") !== false);
-  const initialized = useRef(false);
-  const [jump, setJump] = useState(false);
+  const parentPlatform = useContext(TranscriptPlatformContext);
   const visible = useSurfaceVisibility();
   const { t } = useTranslation();
-  const rows = agentTranscript(block);
+  const rows = useMemo(() => {
+    const transcript = agentTranscript(block);
+    const report = subagentReport(block);
+    return report && !transcript.some((row) => row.role === "assistant" && row.text.trim() === report)
+      ? [...transcript, { id: `${block.id}:report`, role: "assistant" as const, text: report }]
+      : transcript;
+  }, [block]);
+  const platform = useMemo(() => ({
+    ...mobileTranscriptPlatform,
+    readBinaryFile: readBinaryFile ?? mobileTranscriptPlatform.readBinaryFile,
+    resolveNoteImage: parentPlatform.resolveNoteImage,
+    openAgent,
+    openTool,
+    liveClockInFooter: true,
+  }), [readBinaryFile, parentPlatform.resolveNoteImage, openAgent, openTool]);
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
+  const restored = useRef(false);
+  const restoreScroller = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return;
+    node.dataset.mobilePageScroll = "";
+    setScroller(node);
+  }, []);
+  // Restore after the shared transcript has established its initial bottom pin.
+  // Page transitions save this same scroller before releasing a departing page.
   useLayoutEffect(() => {
-    if (!visible || !ref.current) return;
-    if (!initialized.current) {
-      initialized.current = true;
-      if (pageState?.scroll.has("[data-mobile-page-scroll]")) return;
+    if (!scroller || !visible || restored.current) return;
+    restored.current = true;
+    const saved = pageState?.scroll.get("[data-mobile-page-scroll]");
+    if (saved !== undefined) {
+      scroller.scrollTop = saved;
+      // Reconcile following before another streamed layout can pin the reader.
+      scroller.dispatchEvent(new Event("scroll"));
     }
-    if (following.current) ref.current.scrollTop = ref.current.scrollHeight;
-    else setJump(true);
-  }, [rows, block.tool?.detail, visible, pageState]);
+  }, [scroller, visible, pageState]);
+  const legacy = block.agentRun?.transcript === undefined;
+  const incomplete = block.agentRun?.coverage === "partial" || (legacy && rows.length > 0);
+  const busy = toolCallState(block) === "pending";
   return (
-    <div
-      ref={ref}
-      className="mobile-sheet-page-scroll"
-      data-mobile-page-scroll
-      onScroll={(event) => {
-        const node = event.currentTarget;
-        following.current =
-          node.scrollHeight - node.scrollTop - node.clientHeight < 60;
-        pageState?.values.set("agentFollowing", following.current);
-        if (following.current) setJump(false);
-      }}
-    >
-      <SubagentTranscript
-        block={block}
+    <TranscriptPlatformContext.Provider value={platform}>
+      <MobileConversation
+        embedded
+        managed
+        active={visible}
+        visible={visible}
+        blocks={rows}
+        busy={busy}
         cwd={cwd}
-        onOpenAgent={openAgent}
-        onOpenTool={openTool}
         onOpenFile={openFile}
+        onOpenDiff={openFile}
+        onScrollerChange={restoreScroller}
+        notice={incomplete || !rows.length ? (
+          <p className="mobile-detail-note" role={incomplete ? "note" : "status"}>
+            {t(incomplete
+              ? legacy
+                ? "Historical subagent records may be incomplete."
+                : "The provider supplied only part of this subagent's conversation."
+              : busy
+                ? "Waiting for subagent messages…"
+                : "The provider did not supply this subagent's conversation.")}
+          </p>
+        ) : undefined}
       />
-      {jump ? (
-        <button
-          type="button"
-          className="mobile-button sticky bottom-3 mx-auto block"
-          onClick={() => {
-            following.current = true;
-            setJump(false);
-            if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
-          }}
-        >
-          {t("Jump to latest")}
-        </button>
-      ) : null}
-    </div>
+    </TranscriptPlatformContext.Provider>
   );
 }
 
@@ -177,6 +198,7 @@ export function MobileAgentSheet({
             <Conversation
               block={block}
               cwd={cwd}
+              readBinaryFile={readBinaryFile}
               openAgent={(row) => pushBlock("agent", row)}
               openTool={(row) => pushBlock("tool", row)}
               openFile={pushFile}
