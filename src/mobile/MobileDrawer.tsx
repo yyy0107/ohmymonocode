@@ -69,7 +69,7 @@ interface Swipe {
 
 // Memoized: the drawer stays mounted under the conversation, and typing in
 // the composer must not re-render every session row.
-export const MobileDrawer = memo(function MobileDrawer({
+function useMobileDrawerController({
   open: requestedOpen,
   active = true,
   covered = false,
@@ -573,6 +573,89 @@ export const MobileDrawer = memo(function MobileDrawer({
       </button>
     );
   };
+  return {
+    assistantName,
+    assistantUnreadCount,
+    backdrop,
+    close,
+    covered,
+    dragging,
+    failedProjects,
+    finish,
+    foreground,
+    hostName,
+    hostStatus,
+    hostTrigger,
+    moreId,
+    moreOpen,
+    onAllProjects,
+    onAssistant,
+    onHome,
+    onHost,
+    onNewSession,
+    onNotes,
+    onSettings,
+    open,
+    panel,
+    pins,
+    project,
+    projectsPending,
+    projectsUnavailable,
+    readHistories,
+    recents,
+    row,
+    sessionsList,
+    setMoreOpen,
+    settledClosed,
+    surfaceVisible,
+    t,
+    tree,
+    treeLoading,
+  };
+}
+
+type MobileDrawerViewModel = ReturnType<typeof useMobileDrawerController>;
+
+function MobileDrawerView({ vm }: { vm: MobileDrawerViewModel }) {
+  const {
+    assistantName,
+    assistantUnreadCount,
+    backdrop,
+    close,
+    covered,
+    dragging,
+    failedProjects,
+    finish,
+    foreground,
+    hostName,
+    hostStatus,
+    hostTrigger,
+    moreId,
+    moreOpen,
+    onAllProjects,
+    onAssistant,
+    onHome,
+    onHost,
+    onNewSession,
+    onNotes,
+    onSettings,
+    open,
+    panel,
+    pins,
+    project,
+    projectsPending,
+    projectsUnavailable,
+    readHistories,
+    recents,
+    row,
+    sessionsList,
+    setMoreOpen,
+    settledClosed,
+    surfaceVisible,
+    t,
+    tree,
+    treeLoading,
+  } = vm;
   return (
     <SurfaceVisibilityContext.Provider value={surfaceVisible && open && foreground && !covered}>
     <div
@@ -742,6 +825,51 @@ export const MobileDrawer = memo(function MobileDrawer({
     </div>
     </SurfaceVisibilityContext.Provider>
   );
+}
+
+export const MobileDrawer = memo(function MobileDrawer(props: {
+  open: boolean;
+  /** Keep the closing drawer mounted without accepting edge gestures on another page. */
+  active?: boolean;
+  /** A device dropdown covers the drawer without closing it. */
+  covered?: boolean;
+  foreground?: boolean;
+  onOpenChange: (open: boolean) => void;
+  projects: HostProject[];
+  project?: HostProject;
+  sessions: HostSessionSummary[];
+  sessionId?: string;
+  loading: boolean;
+  unreadIds: ReadonlySet<string>;
+  now: number;
+  hostName: string;
+  hostStatus: HostConnectionStatus;
+  hostTrigger?: RefObject<HTMLButtonElement | null>;
+  onHost?: () => void;
+  projectsPending?: boolean;
+  projectsUnavailable?: boolean;
+  onHome: () => void;
+  onAllProjects: () => void;
+  /** Reads another project's conversations; the current one arrives as `sessions`. */
+  loadSessions: (projectId: string) => Promise<HostSessionSummary[]>;
+  cachedSessions?: (projectId: string) => HostSessionSummary[] | undefined;
+  /** Changes after a metadata edit so other projects' rows re-read the cache. */
+  refreshKey?: number;
+  onSession: (id: string, project: HostProject) => void;
+  onSessionActions: (
+    summary: HostSessionSummary,
+    trigger: HTMLButtonElement,
+    point?: MobileSheetPoint,
+  ) => void;
+  sessionActionsId?: string;
+  onNewSession: (project: HostProject) => void;
+  onSettings: () => void;
+  onAssistant?: () => void;
+  onNotes?: () => void;
+  assistantName?: string;
+  assistantUnreadCount?: number;
+}) {
+  return <MobileDrawerView vm={useMobileDrawerController(props)} />;
 }, (previous, next) => {
   // Closed drawers retain their last rendered preview while chat streams and
   // activity updates. Opening receives every latest prop before it is usable;

@@ -145,7 +145,7 @@ function Group({
   );
 }
 
-export function MobileSettings({
+function useMobileSettingsController({
   page,
   onPageChange,
   connection,
@@ -275,6 +275,79 @@ export function MobileSettings({
       addConnection={addConnectionRow("mobile-settings-row mobile-connection-row mobile-connection-add")}
     />
   );
+  return {
+    accentColor,
+    activity,
+    addConnectionRow,
+    agentDefaults,
+    appUpdates,
+    archive,
+    connection,
+    connectionAppearance,
+    connectionList,
+    followUpBehavior,
+    glass,
+    hostStatus,
+    language,
+    onAccentColorChange,
+    onFollowUpBehaviorChange,
+    onGlassChange,
+    onLanguageChange,
+    onPageChange,
+    onPreferencePanelChange,
+    onSoundsEnabledChange,
+    onThemeChange,
+    onTranscriptAnchorChange,
+    onTranscriptLayoutChange,
+    page,
+    preferencePanel,
+    providerAccounts,
+    sharedConnections,
+    soundsEnabled,
+    t,
+    theme,
+    transcriptAnchor,
+    transcriptLayout,
+  };
+}
+
+type MobileSettingsViewModel = ReturnType<typeof useMobileSettingsController>;
+
+function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
+  const {
+    accentColor,
+    activity,
+    addConnectionRow,
+    agentDefaults,
+    appUpdates,
+    archive,
+    connection,
+    connectionAppearance,
+    connectionList,
+    followUpBehavior,
+    glass,
+    hostStatus,
+    language,
+    onAccentColorChange,
+    onFollowUpBehaviorChange,
+    onGlassChange,
+    onLanguageChange,
+    onPageChange,
+    onPreferencePanelChange,
+    onSoundsEnabledChange,
+    onThemeChange,
+    onTranscriptAnchorChange,
+    onTranscriptLayoutChange,
+    page,
+    preferencePanel,
+    providerAccounts,
+    sharedConnections,
+    soundsEnabled,
+    t,
+    theme,
+    transcriptAnchor,
+    transcriptLayout,
+  } = vm;
 
   if (page === "updates")
     return (
@@ -737,4 +810,52 @@ export function MobileSettings({
       </section>
     </main>
   );
+}
+
+export function MobileSettings(props: {
+  page: MobileSettingsPage;
+  onPageChange: (page: MobileSettingsPage) => void;
+  connection?: SettingsConnection;
+  /** Every paired connection, the active one included. */
+  connections: SettingsConnection[];
+  sharedConnections?: ReactNode;
+  hostStatus: HostConnectionStatus;
+  busy: boolean;
+  loading: boolean;
+  /** Only an in-flight pairing blocks adding a connection. */
+  pairing: boolean;
+  addingConnection: boolean;
+  connectionTrigger: RefObject<HTMLButtonElement | null>;
+  onAddConnection: () => void;
+  onSwitchConnection: (endpoint: string) => void;
+  probeConnection: (connection: SettingsConnection) => Promise<HostConnectionStatus>;
+  onReconnect: () => void;
+  onDeleteConnection: (endpoint: string) => Promise<void>;
+  connectionAppearance: ConnectionAppearance;
+  onSaveConnectionAppearance: (endpoint: string, value: ConnectionAppearance) => void;
+  theme: string;
+  onThemeChange: (theme: string) => void;
+  language: string;
+  onLanguageChange: (language: "en" | "zh-CN") => void;
+  followUpBehavior: FollowUpBehavior;
+  onFollowUpBehaviorChange: (behavior: FollowUpBehavior) => void;
+  transcriptLayout: TranscriptLayout;
+  onTranscriptLayoutChange: (layout: TranscriptLayout) => void;
+  transcriptAnchor: boolean;
+  onTranscriptAnchorChange: (anchor: boolean) => void;
+  accentColor: string | null;
+  onAccentColorChange: (color: string | null) => void;
+  soundsEnabled: boolean;
+  onSoundsEnabledChange: (enabled: boolean) => void;
+  archive: ReactNode;
+  agentDefaults?: ReactNode;
+  providerAccounts?: ReactNode;
+  glass: GlassSettings;
+  onGlassChange: (glass: GlassSettings) => void;
+  preferencePanel: MobilePreferencePanel;
+  onPreferencePanelChange: (panel: MobilePreferencePanel) => void;
+  activity: ReturnType<typeof useMobileActivity>;
+  appUpdates: ReturnType<typeof useMobileAppUpdates>;
+}) {
+  return <MobileSettingsView vm={useMobileSettingsController(props)} />;
 }

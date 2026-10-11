@@ -147,7 +147,7 @@ function MobileComposerAttachments({ attachments, onRemove }: {
   </div>;
 }
 
-export const MobileComposer = memo(function MobileComposer(props: Props) {
+function useMobileComposerController(props: Props) {
   const { t } = useTranslation();
   const area = useRef<HTMLTextAreaElement>(null);
   const form = useRef<HTMLFormElement>(null);
@@ -413,6 +413,73 @@ export const MobileComposer = memo(function MobileComposer(props: Props) {
     restorePickerFocus();
     if (selected.length) props.onFiles(selected);
   };
+  return {
+    area,
+    close,
+    dismissSkills,
+    dismissedSlash,
+    dock,
+    effort,
+    files,
+    form,
+    inline,
+    inlineOpen,
+    launch,
+    launching,
+    modelName,
+    openFilePicker,
+    options,
+    panelAnchor,
+    photos,
+    pickSkill,
+    props,
+    selectFiles,
+    sendButton,
+    setSkillActive,
+    skillActive,
+    skillListId,
+    skillsState,
+    syncSkillToken,
+    t,
+    workspace,
+    workspaceName,
+  };
+}
+
+type MobileComposerViewModel = ReturnType<typeof useMobileComposerController>;
+
+function MobileComposerView({ vm }: { vm: MobileComposerViewModel }) {
+  const {
+    area,
+    close,
+    dismissSkills,
+    dismissedSlash,
+    dock,
+    effort,
+    files,
+    form,
+    inline,
+    inlineOpen,
+    launch,
+    launching,
+    modelName,
+    openFilePicker,
+    options,
+    panelAnchor,
+    photos,
+    pickSkill,
+    props,
+    selectFiles,
+    sendButton,
+    setSkillActive,
+    skillActive,
+    skillListId,
+    skillsState,
+    syncSkillToken,
+    t,
+    workspace,
+    workspaceName,
+  } = vm;
   return (
     <>
       <div ref={dock} className="mobile-composer-dock">
@@ -865,4 +932,8 @@ export const MobileComposer = memo(function MobileComposer(props: Props) {
       </MobileSheet>
     </>
   );
+}
+
+export const MobileComposer = memo(function MobileComposer(props: Props) {
+  return <MobileComposerView vm={useMobileComposerController(props)} />;
 });

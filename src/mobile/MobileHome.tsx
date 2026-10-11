@@ -62,7 +62,7 @@ function projectState(history: readonly HostSessionSummary[]) {
 }
 
 /** The same list surface serves Home, All projects and a single project. */
-export function MobileHome({
+function useMobileHomeController({
   projects,
   project,
   projectsPage = false,
@@ -366,6 +366,111 @@ export function MobileHome({
     }),
   ];
   const hasProjects = !!projects.length || remoteHosts.some((host) => host.projects.length > 0);
+  return {
+    activeFilter,
+    chatsPage,
+    chatsRow,
+    devices,
+    failed,
+    filter,
+    filterOpen,
+    filterTrigger,
+    hasProjects,
+    histories,
+    inactive,
+    loading,
+    matchingProjects,
+    needle,
+    onAddProject,
+    onChats,
+    onNewChat,
+    onNewSession,
+    onProject,
+    onSearch,
+    ordered,
+    overview,
+    overviewProjects,
+    pinned,
+    pinnedOpen,
+    project,
+    projectActivity,
+    projectRow,
+    projects,
+    projectsLoading,
+    projectsOpen,
+    projectsPage,
+    projectsPending,
+    projectsUnavailable,
+    query,
+    recent,
+    refresh,
+    root,
+    row,
+    searchOpen,
+    sessions,
+    setFilter,
+    setFilterOpen,
+    setPinnedOpen,
+    setProjectsOpen,
+    setSearchButton,
+    t,
+    unavailable,
+  };
+}
+
+type MobileHomeViewModel = ReturnType<typeof useMobileHomeController>;
+
+function MobileHomeView({ vm }: { vm: MobileHomeViewModel }) {
+  const {
+    activeFilter,
+    chatsPage,
+    chatsRow,
+    devices,
+    failed,
+    filter,
+    filterOpen,
+    filterTrigger,
+    hasProjects,
+    histories,
+    inactive,
+    loading,
+    matchingProjects,
+    needle,
+    onAddProject,
+    onChats,
+    onNewChat,
+    onNewSession,
+    onProject,
+    onSearch,
+    ordered,
+    overview,
+    overviewProjects,
+    pinned,
+    pinnedOpen,
+    project,
+    projectActivity,
+    projectRow,
+    projects,
+    projectsLoading,
+    projectsOpen,
+    projectsPage,
+    projectsPending,
+    projectsUnavailable,
+    query,
+    recent,
+    refresh,
+    root,
+    row,
+    searchOpen,
+    sessions,
+    setFilter,
+    setFilterOpen,
+    setPinnedOpen,
+    setProjectsOpen,
+    setSearchButton,
+    t,
+    unavailable,
+  } = vm;
 
   return (
     <main
@@ -569,4 +674,46 @@ export function MobileHome({
       )}
     </main>
   );
+}
+
+export function MobileHome(props: {
+  projects: HostProject[];
+  project?: HostProject;
+  /** The project index reached from the drawer, without conversations. */
+  projectsPage?: boolean;
+  projectsPending?: boolean;
+  projectsUnavailable?: boolean;
+  foreground: boolean;
+  inactive?: boolean;
+  query: string;
+  now: number;
+  unreadIds: ReadonlySet<string>;
+  loadSessions: (projectId: string) => Promise<HostSessionSummary[]>;
+  cachedSessions?: (projectId: string) => HostSessionSummary[] | undefined;
+  onProject: (project: HostProject) => void;
+  onSession: (id: string, project: HostProject) => void;
+  onNewSession: () => void;
+  /** Starts a projectless chat; absent when the Host cannot create one. */
+  onNewChat?: () => void;
+  /** Lists every projectless chat, like a single project. */
+  chatsPage?: boolean;
+  /** Opens the chats page from the Chats row atop the projects. */
+  onChats?: () => void;
+  onSearch: () => void;
+  searchOpen?: boolean;
+  searchTrigger?: RefObject<HTMLButtonElement | null>;
+  onAddProject: (trigger: HTMLButtonElement) => void;
+  onSessionActions?: (session: HostSessionSummary, trigger: HTMLButtonElement, point?: MobileSheetPoint) => void;
+  sessionActionsId?: string;
+  refreshKey?: number;
+  /** Home's device row, shown above its sections. */
+  devices?: ReactNode;
+  /** Replaces Home's empty lists while its device is unreachable or connecting. */
+  unavailable?: ReactNode;
+  /** Other paired devices' lists while Home shows every device. */
+  remote?: readonly MobileRemoteHost[];
+  onRemoteSession?: (endpoint: string, id: string, project: HostProject) => void;
+  onRemoteProject?: (endpoint: string, project: HostProject) => void;
+}) {
+  return <MobileHomeView vm={useMobileHomeController(props)} />;
 }

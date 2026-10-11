@@ -272,7 +272,7 @@ function MobileAssistantControls({
   );
 }
 
-function MobileAssistantComposer({
+function useMobileAssistantComposerController({
   draft,
   errorNotice,
   replyText,
@@ -332,6 +332,69 @@ function MobileAssistantComposer({
     };
   }, []);
   useMobileTextareaAutosize(input, draft, { minHeight: 28, viewportHeightRatio: 0.25 });
+  return {
+    attachDisabled,
+    attachments,
+    busy,
+    dock,
+    draft,
+    errorNotice,
+    files,
+    form,
+    input,
+    inputDisabled,
+    lastReply,
+    onAttach,
+    onCancelReply,
+    onDraftChange,
+    onDrop,
+    onPaste,
+    onRemoveAttachment,
+    onRetry,
+    onSend,
+    onStop,
+    renderedAttachments,
+    replyText,
+    retry,
+    sendDisabled,
+    sending,
+    stoppable,
+    t,
+  };
+}
+
+type MobileAssistantComposerViewModel = ReturnType<typeof useMobileAssistantComposerController>;
+
+function MobileAssistantComposerView({ vm }: { vm: MobileAssistantComposerViewModel }) {
+  const {
+    attachDisabled,
+    attachments,
+    busy,
+    dock,
+    draft,
+    errorNotice,
+    files,
+    form,
+    input,
+    inputDisabled,
+    lastReply,
+    onAttach,
+    onCancelReply,
+    onDraftChange,
+    onDrop,
+    onPaste,
+    onRemoveAttachment,
+    onRetry,
+    onSend,
+    onStop,
+    renderedAttachments,
+    replyText,
+    retry,
+    sendDisabled,
+    sending,
+    stoppable,
+    t,
+  } = vm;
   return (
     <div ref={dock} className="mobile-assistant-compose-dock">
       {errorNotice}
@@ -451,6 +514,10 @@ function MobileAssistantComposer({
       </form>
     </div>
   );
+}
+
+function MobileAssistantComposer(props: AssistantComposerProps) {
+  return <MobileAssistantComposerView vm={useMobileAssistantComposerController(props)} />;
 }
 
 function MobileAssistantMessageMenu({
@@ -699,7 +766,7 @@ const chrome: AssistantChatChrome = {
   MemoryDetail: MobileAssistantMemoryDetail,
 };
 export type MobileAssistantHandle = { back: () => void };
-export function MobileAssistant({
+function useMobileAssistantController({
   ref,
   foreground = true,
   ...props
@@ -717,6 +784,23 @@ export function MobileAssistant({
     else props.onClose?.();
   };
   useImperativeHandle(ref, () => ({ back }));
+  return {
+    back,
+    handlers,
+    props,
+    visible,
+  };
+}
+
+type MobileAssistantViewModel = ReturnType<typeof useMobileAssistantController>;
+
+function MobileAssistantView({ vm }: { vm: MobileAssistantViewModel }) {
+  const {
+    back,
+    handlers,
+    props,
+    visible,
+  } = vm;
   return (
     <aside
       className="mobile-assistant-overlay bg-background-base text-content"
@@ -738,4 +822,12 @@ export function MobileAssistant({
       </SurfaceVisibilityContext.Provider>
     </aside>
   );
+}
+
+export function MobileAssistant(props: Omit<ComponentProps<typeof AssistantChat>, "chrome"> & {
+  ref?: Ref<MobileAssistantHandle>;
+  /** Native app visibility can change before the WebView visibility event. */
+  foreground?: boolean;
+}) {
+  return <MobileAssistantView vm={useMobileAssistantController(props)} />;
 }
