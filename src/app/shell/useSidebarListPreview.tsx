@@ -8,6 +8,7 @@ export function useSidebarListPreview(
   total: number,
   resetKey: string,
   disabled = false,
+  { indented = true }: { indented?: boolean } = {},
 ) {
   const { t } = useTranslation();
   const [preview, setPreview] = useState({
@@ -57,7 +58,7 @@ export function useSidebarListPreview(
             ),
           });
         }}
-        className="flex min-h-8 w-full shrink-0 items-center justify-start rounded-md pl-8 pr-2 text-[12px] text-content/45 hover:bg-content/5 hover:text-content"
+        className={`flex min-h-8 w-full shrink-0 items-center justify-start rounded-md ${indented ? "pl-8" : "pl-2"} pr-2 text-[12px] text-content/45 hover:bg-content/5 hover:text-content`}
       >
         {t(hasMore ? "Show more items" : "Show less")}
       </button>

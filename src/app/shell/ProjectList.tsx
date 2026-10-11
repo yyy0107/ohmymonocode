@@ -816,6 +816,7 @@ function ProjectSection({
     items.length + leadingEntries.length,
     `${previewAll}\0${previewKey}`,
     previewAll,
+    { indented: leadingEntries.length > 0 },
   );
   const rows = orderByIds<{
     id: string;
@@ -1199,6 +1200,7 @@ function ProjectGroupSection({
     items.length,
     String(searchActive),
     searchActive,
+    { indented: false },
   );
   const sortable = useAnimatedReorder(
     items.slice(0, preview.count).map((item) => item.path),
