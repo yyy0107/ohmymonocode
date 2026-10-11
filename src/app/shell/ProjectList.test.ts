@@ -25,6 +25,7 @@ import {
   saveProjectRailOrder,
 } from "../../features/projects/model/recents";
 import { useAnimatedReorder } from "../../shared/hooks/useAnimatedReorder";
+import { SurfaceVisibilityContext } from "../../shared/ui/SurfaceVisibility";
 
 const { reorderPointerDown, reorderState } = vi.hoisted(() => ({
   reorderPointerDown: vi.fn(),
@@ -91,6 +92,7 @@ afterEach(() => {
   container.remove();
   configureSharedHost(undefined, []);
   localStorage.clear();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
@@ -462,6 +464,205 @@ it("distinguishes identically named projects by their accessible path and expose
   ).not.toBeNull();
   expect(scrollRef.current).not.toBeNull();
   expect(scrollRef.current!.classList.contains("overflow-y-auto")).toBe(false);
+});
+
+function scrollMaskFixture(normalizeMaskCssom = false) {
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 0;
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    frames.set(++nextFrame, callback);
+    return nextFrame;
+  });
+  vi.stubGlobal("cancelAnimationFrame", (id: number) => { frames.delete(id); });
+  const resizes: FakeResizeObserver[] = [];
+  class FakeResizeObserver {
+    targets = new Set<Element>();
+    everObserved = new Set<Element>();
+    disconnected = false;
+    constructor(private callback: ResizeObserverCallback) { resizes.push(this); }
+    observe(element: Element) { this.targets.add(element); this.everObserved.add(element); }
+    unobserve(element: Element) { this.targets.delete(element); }
+    disconnect() { this.disconnected = true; this.targets.clear(); }
+    emit() { this.callback([], this as unknown as ResizeObserver); }
+  }
+  vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+  const mutations: FakeMutationObserver[] = [];
+  class FakeMutationObserver {
+    target?: Node;
+    options?: MutationObserverInit;
+    disconnected = false;
+    constructor(private callback: MutationCallback) { mutations.push(this); }
+    observe(target: Node, options: MutationObserverInit) { this.target = target; this.options = options; }
+    disconnect() { this.disconnected = true; }
+    emit() { this.callback([], this as unknown as MutationObserver); }
+  }
+  vi.stubGlobal("MutationObserver", FakeMutationObserver);
+  const dimensions = { clientHeight: 100, scrollHeight: 300, scrollTop: 0 };
+  const read = vi.fn();
+  const write = vi.fn();
+  let element: HTMLDivElement;
+  const scrollRef = (node: HTMLDivElement | null) => {
+    if (!node || node === element) return;
+    element = node;
+    for (const key of ["clientHeight", "scrollHeight", "scrollTop"] as const) {
+      Object.defineProperty(node, key, { configurable: true, get: () => { read(key); return dimensions[key]; } });
+    }
+    const setProperty = node.style.setProperty.bind(node.style);
+    vi.spyOn(node.style, "setProperty").mockImplementation((name, value, priority) => {
+      if (name === "mask-image") write(value);
+      setProperty(name, value, priority);
+    });
+    if (normalizeMaskCssom) {
+      const getPropertyValue = node.style.getPropertyValue.bind(node.style);
+      vi.spyOn(node.style, "getPropertyValue").mockImplementation((name) => {
+        const value = getPropertyValue(name);
+        return name === "mask-image"
+          ? value.replace("to bottom, ", "").replace("100% - 0px", "100% + 0px")
+          : value;
+      });
+    }
+  };
+  const render = (visible: boolean, overrides: Partial<ComponentProps<typeof ProjectList>> = {}) => act(async () => {
+    root.render(createElement(SurfaceVisibilityContext.Provider, { value: visible }, createElement(ProjectList, {
+      cwd: "/work/alpha",
+      recents: [{ path: "/work/alpha", openedAt: 1 }],
+      onSelectProject: vi.fn(),
+      onOpenProject: vi.fn(),
+      scrollRef,
+      ...overrides,
+    })));
+  });
+  return {
+    render, dimensions, read, write, frames,
+    element: () => element,
+    observers: () => resizes.filter((observer) => observer.everObserved.has(element)),
+    mutations: () => mutations.filter((observer) => observer.target === element),
+    flush: () => act(() => {
+      const pending = [...frames.values()];
+      frames.clear();
+      for (const frame of pending) frame(0);
+    }),
+  };
+}
+
+it("does not measure hidden scroll masks and initializes their first visible frame", async () => {
+  const fixture = scrollMaskFixture();
+  await fixture.render(false);
+  expect(fixture.read).not.toHaveBeenCalled();
+  expect(fixture.observers()).toHaveLength(0);
+  fixture.element().dispatchEvent(new Event("scroll"));
+  expect(fixture.frames.size).toBe(0);
+  await fixture.render(true);
+  expect(fixture.element().style.maskImage).toContain("black 0px, black calc(100% - 32px)");
+  expect(fixture.observers()).toHaveLength(1);
+  fixture.read.mockClear();
+  await fixture.render(true, { busyPaths: ["/work/alpha"] });
+  expect(fixture.read).not.toHaveBeenCalled();
+  expect(fixture.observers()).toHaveLength(1);
+  expect(fixture.observers()[0].disconnected).toBe(false);
+});
+
+it("coalesces scroll and resize mask updates and skips unchanged gradient writes", async () => {
+  const fixture = scrollMaskFixture();
+  await fixture.render(true);
+  fixture.read.mockClear();
+  fixture.write.mockClear();
+  fixture.dimensions.scrollTop = 50;
+  fixture.element().dispatchEvent(new Event("scroll"));
+  fixture.element().dispatchEvent(new Event("scroll"));
+  fixture.observers()[0].emit();
+  expect(fixture.read).not.toHaveBeenCalled();
+  expect(fixture.frames.size).toBe(1);
+  fixture.flush();
+  expect(fixture.read.mock.calls.map(([key]) => key).sort()).toEqual(["clientHeight", "scrollHeight", "scrollTop"]);
+  expect(fixture.element().style.maskImage).toContain("black 32px, black calc(100% - 32px)");
+  expect(fixture.write).toHaveBeenCalledOnce();
+  fixture.dimensions.scrollTop = 60;
+  fixture.element().dispatchEvent(new Event("scroll"));
+  fixture.flush();
+  expect(fixture.write).toHaveBeenCalledOnce();
+  fixture.dimensions.scrollTop = 200;
+  fixture.element().dispatchEvent(new Event("scroll"));
+  fixture.flush();
+  expect(fixture.element().style.maskImage).toContain("black 32px, black calc(100% - 0px)");
+  fixture.dimensions.clientHeight = 40;
+  fixture.observers()[0].emit();
+  fixture.flush();
+  expect(fixture.element().style.maskImage).toContain("black 20px, black calc(100% - 20px)");
+});
+
+it("skips unchanged mask writes when CSSOM canonicalizes the assigned gradient", async () => {
+  const fixture = scrollMaskFixture(true);
+  fixture.dimensions.scrollHeight = 100;
+  await fixture.render(true);
+  expect(fixture.element().style.maskImage).toBe(
+    "linear-gradient(transparent, black 0px, black calc(100% + 0px), transparent)",
+  );
+  expect(fixture.write).toHaveBeenCalledOnce();
+  fixture.element().dispatchEvent(new Event("scroll"));
+  fixture.observers()[0].emit();
+  fixture.flush();
+  expect(fixture.write).toHaveBeenCalledOnce();
+
+  fixture.dimensions.scrollHeight = 300;
+  fixture.dimensions.scrollTop = 10;
+  fixture.observers()[0].emit();
+  fixture.flush();
+  expect(fixture.write).toHaveBeenCalledTimes(2);
+  expect(fixture.element().style.maskImage).toContain(
+    "black 32px, black calc(100% - 32px)",
+  );
+  fixture.dimensions.scrollTop = 20;
+  fixture.element().dispatchEvent(new Event("scroll"));
+  fixture.flush();
+  expect(fixture.write).toHaveBeenCalledTimes(2);
+});
+
+it("observes newly inserted sections without replacing the mask observer", async () => {
+  const fixture = scrollMaskFixture();
+  await fixture.render(true);
+  const observer = fixture.observers()[0];
+  const mutations = fixture.mutations()[0];
+  expect(mutations.options).toEqual({ childList: true });
+  await fixture.render(true, { pinnedEntries: [{ id: "new-pin", content: "Pinned conversation" }] });
+  const section = fixture.element().querySelector('[data-project-section="pinned"]')!;
+  expect(section).not.toBeNull();
+  mutations.emit();
+  expect(observer.targets.has(section)).toBe(true);
+  fixture.flush();
+  fixture.dimensions.scrollHeight = 500;
+  fixture.dimensions.scrollTop = 200;
+  observer.emit();
+  fixture.flush();
+  expect(fixture.element().style.maskImage).toContain("black 32px, black calc(100% - 32px)");
+  await fixture.render(true);
+  mutations.emit();
+  expect(observer.targets.has(section)).toBe(false);
+  expect(fixture.observers()).toEqual([observer]);
+});
+
+it("cancels pending mask work during hiding and clears the mask when scrolling is disabled", async () => {
+  const fixture = scrollMaskFixture();
+  await fixture.render(true);
+  const observer = fixture.observers()[0];
+  const mutations = fixture.mutations()[0];
+  fixture.element().dispatchEvent(new Event("scroll"));
+  expect(fixture.frames.size).toBe(1);
+  await fixture.render(false);
+  fixture.read.mockClear();
+  expect(observer.disconnected).toBe(true);
+  expect(mutations.disconnected).toBe(true);
+  expect(fixture.frames.size).toBe(0);
+  observer.emit();
+  mutations.emit();
+  fixture.element().dispatchEvent(new Event("scroll"));
+  fixture.flush();
+  expect(fixture.read).not.toHaveBeenCalled();
+  fixture.dimensions.scrollTop = 200;
+  await fixture.render(true);
+  expect(fixture.element().style.maskImage).toContain("black 32px, black calc(100% - 0px)");
+  await fixture.render(true, { scrollable: false });
+  expect(fixture.element().style.maskImage).toBe("");
 });
 
 function projectNameButton(path: string): HTMLButtonElement {

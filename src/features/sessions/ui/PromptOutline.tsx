@@ -102,7 +102,12 @@ export function PromptOutline({
     const anchors: OutlineAnchor[] = [];
     for (const el of scroller.querySelectorAll<HTMLElement>(ANCHOR)) {
       const id = el.dataset.promptAnchor;
-      if (id) anchors.push({ id, ...promptBand(el, viewport) });
+      if (!id) continue;
+      const band = promptBand(el, viewport);
+      anchors.push({ id, ...band });
+      // The first visible prompt wins in DOM order. Later geometry cannot
+      // change that choice; with no visible prompt, keep the full fallback.
+      if (band.bottom > viewport.top && band.top < viewport.bottom) break;
     }
     setActiveId(
       activePromptId(

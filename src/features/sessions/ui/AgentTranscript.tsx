@@ -1,3 +1,4 @@
+import { timestampTitle } from "./timestampTitle";
 import { agentTranscript } from "../model/agentTranscript";
 import { AttachmentList } from "./AttachmentList";
 import "./AgentTranscript.css";
@@ -358,6 +359,7 @@ function AgentTranscriptComponent({
   const scrollDirection = useRef<"up" | "down" | undefined>(undefined);
   const touchReadingUp = useRef(false);
   const prependHeight = useRef<number | null>(null);
+  const prependAnchor = useRef<PrependScrollAnchor | null>(null);
   const wasVisible = useRef(false);
   const [scrollerEl, setScrollerEl] = useState<HTMLDivElement | null>(null);
   const [visibleTurnCount, setVisibleTurnCount] = useState(FIRST_PAINT_TURNS);
@@ -809,7 +811,7 @@ function AgentTranscriptComponent({
     if (visible) syncTranscriptViewport(scroller.current);
   });
 
-  useTurnScrollAnchor(scrollerEl, visible, stickToBottom, rememberScroll);
+  useTurnScrollAnchor(scrollerEl, visible, stickToBottom, rememberScroll, prependAnchor);
 
   const [turnCache] = useState(() => new TranscriptTurnCache());
   const turns = turnCache.group(blocks, managed);
@@ -842,6 +844,14 @@ function AgentTranscriptComponent({
     prependHeight.current = null;
     el.scrollTop += el.scrollHeight - previousHeight;
     rememberScroll(el);
+    const anchor = prependAnchor.current;
+    if (anchor) {
+      // Hand the compensated position to the existing turn observer. Newly
+      // inserted content can lay out again before its first resize delivery.
+      anchor.top =
+        anchor.turn.getBoundingClientRect().top -
+        el.getBoundingClientRect().top + el.scrollTop;
+    }
   }, [visibleTurnCount, pinTranscript, rememberScroll]);
 
   // Short turns can leave the first paint with empty space above them, and
@@ -864,9 +874,11 @@ function AgentTranscriptComponent({
     );
   }, []);
 
-  const prepareToPrepend = useCallback(() => {
+  const prepareToPrepend = useCallback((preserveAnchor = true) => {
     const el = scroller.current;
     if (el) prependHeight.current = el.scrollHeight;
+    const turn = preserveAnchor ? el?.querySelector(".transcript-turn") : null;
+    prependAnchor.current = turn ? { turn, top: null } : null;
     stickToBottom.current = false;
   }, []);
 
@@ -884,9 +896,13 @@ function AgentTranscriptComponent({
         turn.some((block) => block.id === blockId),
       );
       if (index < 0) return false;
+      // Even an already-rendered search/outline target replaces the position
+      // retained by a preceding Load earlier click.
+      prependAnchor.current = null;
       const needed = all.length - index;
       if (needed <= visibleTurnCountRef.current) return true;
-      prepareToPrepend();
+      // Search and outline callers choose a new reading position themselves.
+      prepareToPrepend(false);
       // Synchronous. The caller finds the turn in the DOM after this call.
       flushSync(() => setVisibleTurnCount(needed));
       return true;
@@ -1682,7 +1698,7 @@ function TurnDuration({
           {dot}
           <time
             dateTime={new Date(completedAt).toISOString()}
-            title={new Date(completedAt).toLocaleString(language)}
+            title={timestampTitle(completedAt, language)}
             className="shrink-0 text-content/35"
           >
             {formatClockTime(completedAt)}
@@ -2395,7 +2411,7 @@ function UserMessageBlock({
             {sentAt != null ? (
               <time
                 dateTime={new Date(sentAt).toISOString()}
-                title={new Date(sentAt).toLocaleString(language)}
+                title={timestampTitle(sentAt, language)}
                 className="ml-1 font-sans text-xs text-content/40"
               >
                 {formatClockTime(sentAt)}
@@ -2616,6 +2632,8 @@ function sameActivity(a: ActivityPhasesProps, b: ActivityPhasesProps): boolean {
   );
 }
 
+type PrependScrollAnchor = { turn: Element; top: number | null };
+
 /**
  * Hold the reader's place while turns above the viewport change height. The
  * scroller opts out of native scroll anchoring, so late markdown, image or
@@ -2627,6 +2645,7 @@ function useTurnScrollAnchor(
   enabled: boolean,
   stickToBottom: RefObject<boolean>,
   onAdjust: (el: HTMLElement) => void,
+  prependAnchor: RefObject<PrependScrollAnchor | null>,
 ) {
   useLayoutEffect(() => {
     const inner = el?.firstElementChild;
@@ -2638,17 +2657,35 @@ function useTurnScrollAnchor(
       const viewportTop = el.getBoundingClientRect().top;
       let shift = 0;
       let precedingDelta = 0;
+      const prepend = prependAnchor.current;
+      prependAnchor.current = null;
+      const handoff =
+        prepend?.top != null && prepend.turn.isConnected &&
+        !stickToBottom.current &&
+        // Scrolling up into the new page releases the old reading position.
+        prepend.top - el.scrollTop < el.clientHeight;
+      let beforePrependAnchor = handoff;
+      if (handoff) {
+        // Content coordinates retain any intervening user scroll. This also
+        // covers a boundary turn partly visible in the old load-button space.
+        shift = prepend.turn.getBoundingClientRect().top - viewportTop +
+          el.scrollTop - prepend.top!;
+        precedingDelta = shift;
+      }
       const byTurn = new Map(entries.map((entry) => [entry.target, entry]));
       // The callback's entries can arrive out of order. Later turns already
       // include earlier height corrections in their current layout position.
       for (const turn of inner.children) {
+        if (turn === prepend?.turn) beforePrependAnchor = false;
         const entry = byTurn.get(turn);
         if (!entry) continue;
         const height =
           entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
         const previous = heights.get(entry.target);
         heights.set(entry.target, height);
-        if (previous === undefined || stickToBottom.current) continue;
+        // The handoff already includes the inserted prefix. Old turns still
+        // need their own correction if they resize above the reading position.
+        if (beforePrependAnchor || previous === undefined || stickToBottom.current) continue;
         // Only turns that sat wholly above the view. A turn the reader is
         // looking at grows downward from where they are reading.
         const top = entry.target.getBoundingClientRect().top - precedingDelta;
@@ -2681,10 +2718,11 @@ function useTurnScrollAnchor(
     mutations.observe(inner, { childList: true });
     observeTurns();
     return () => {
+      prependAnchor.current = null;
       mutations.disconnect();
       resize.disconnect();
     };
-  }, [el, enabled, stickToBottom, onAdjust]);
+  }, [el, enabled, stickToBottom, onAdjust, prependAnchor]);
 }
 
 /**

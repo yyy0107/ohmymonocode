@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, createElement, type ReactNode } from "react";
+import { act, createElement, Fragment, StrictMode, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -30,6 +30,8 @@ import {
   saveMenuBarVisible,
   saveNotesEnabled,
 } from "../features/settings/model/settings";
+import { loadSessionSidebarOpen } from "../features/settings/model/appearance";
+import { activatePreferenceStore, SharedPreferenceStore, type PreferenceRequest, type PreferenceSnapshot } from "../features/settings/model/sharedPreferences";
 
 const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -165,6 +167,8 @@ vi.mock("./shell/MenuBar", async () => {
           "View: Automations",
           "View: Workflows",
           "View: Search Everywhere",
+          "View: Toggle Changes",
+          "App: Find in Files",
           "Pane: Close",
           "Tab: Close All",
           "Session: Next",
@@ -790,6 +794,7 @@ afterEach(async () => {
     clearComposerDraft(pane.dataset.session!);
   }
   await act(async () => root.unmount());
+  activatePreferenceStore(undefined);
   container.remove();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -797,7 +802,7 @@ afterEach(async () => {
   localStorage.clear();
 });
 
-async function mount(onlyApp = false, side: DockSide = "bottom", seed?: Partial<Session>) {
+async function mount(onlyApp = false, side: DockSide = "bottom", seed?: Partial<Session>, strict = false) {
   const first = { ...newSession("codex", "/repo"), id: "first", ...seed };
   const recent = { ...newSession("codex", "/repo"), id: "recent" };
   const firstTab = newTab(first.id);
@@ -806,7 +811,7 @@ async function mount(onlyApp = false, side: DockSide = "bottom", seed?: Partial<
   recentId = recentTab.id;
   await act(async () =>
     root.render(
-      createElement(App, {
+      createElement(strict ? StrictMode : Fragment, null, createElement(App, {
         resumed: {
           sessions: onlyApp ? [] : [first, recent],
           tabs: onlyApp
@@ -819,7 +824,7 @@ async function mount(onlyApp = false, side: DockSide = "bottom", seed?: Partial<
             createProjectTerminal("/repo", newTerminalFile("/repo"), side),
           ],
         },
-      }),
+      })),
     ),
   );
   await act(async () => vi.dynamicImportSettled());
@@ -831,6 +836,148 @@ async function click(selector: string) {
   await act(async () => button!.click());
   await act(async () => vi.dynamicImportSettled());
 }
+
+async function sidebarPreferences() {
+  const key = "monocode.sessionSidebarOpen";
+  let snapshot: PreferenceSnapshot = { revision: 0, imported: true, values: { [key]: "0" } };
+  const state = { online: true, failWrites: false };
+  const patches: Record<string, string | null>[] = [];
+  const request: PreferenceRequest = async <T>(method: string, params: Record<string, unknown>) => {
+    if (!state.online) throw new Error("offline");
+    if (method === "preferences.patch") {
+      const changes = params.changes as Record<string, string | null>;
+      patches.push(changes);
+      const values = { ...snapshot.values };
+      for (const [field, value] of Object.entries(changes)) {
+        if (value === null) delete values[field]; else values[field] = value;
+      }
+      snapshot = { ...snapshot, revision: snapshot.revision + 1, values };
+    }
+    return snapshot as T;
+  };
+  const data = new Map<string, string>();
+  const disk = {
+    get length() { return data.size; },
+    key: (index: number) => [...data.keys()][index] ?? null,
+    getItem: (field: string) => data.get(field) ?? null,
+    removeItem: (field: string) => { data.delete(field); },
+    setItem: (field: string, value: string) => {
+      if (state.failWrites) throw new Error("quota exceeded");
+      data.set(field, value);
+    },
+  };
+  const store = new SharedPreferenceStore("synthetic-sidebar", disk, request);
+  await store.sync();
+  activatePreferenceStore(store);
+  return {
+    store, state,
+    writes: () => patches.filter((change) => key in change).map((change) => change[key]),
+    remote: (open: boolean) => { snapshot = { ...snapshot, revision: snapshot.revision + 1, values: { ...snapshot.values, [key]: open ? "1" : "0" } }; },
+  };
+}
+
+describe("sidebar preference actions in StrictMode", () => {
+  const toggle = () => container.querySelector<HTMLButtonElement>(
+    '[data-window-navigation] button[aria-label^="Toggle Sidebar"]',
+  )!;
+  const isOpen = () => toggle().getAttribute("aria-pressed") === "true";
+
+  it.each([
+    ["independent clicks", [1, 1, 1]],
+    ["rapid reversal before the animation finishes", [1, 1]],
+    ["two toggles in one batch", [2]],
+    ["three toggles in one batch", [3]],
+  ] as const)("persists one action per click for %s", async (_name, batches) => {
+    const preferences = await sidebarPreferences();
+    await mount(false, "bottom", undefined, true);
+    expect(isOpen()).toBe(false);
+    let clicks = 0;
+    for (const count of batches) {
+      await act(async () => {
+        for (let index = 0; index < count; index++) toggle().click();
+        await preferences.store.sync();
+      });
+      clicks += count;
+      expect(isOpen()).toBe(clicks % 2 === 1);
+      expect(loadSessionSidebarOpen()).toBe(isOpen());
+    }
+    expect(preferences.writes()).toEqual(Array.from({ length: clicks }, (_, index) => index % 2 === 0 ? "1" : "0"));
+  });
+
+  it("adopts external Host updates without upload echo and toggles from the latest preference", async () => {
+    const preferences = await sidebarPreferences();
+    await mount(false, "bottom", undefined, true);
+    preferences.remote(true);
+    await act(async () => preferences.store.sync());
+    expect(isOpen()).toBe(true);
+    expect(preferences.writes()).toEqual([]);
+    await act(async () => {
+      preferences.remote(false);
+      await preferences.store.sync();
+      // The external state update and click may share a React batch.
+      toggle().click();
+      await preferences.store.sync();
+    });
+    expect(isOpen()).toBe(true);
+    expect(preferences.writes()).toEqual(["1"]);
+  });
+
+  it("keeps offline toggles optimistic and retries their durable journal in order", async () => {
+    const preferences = await sidebarPreferences();
+    await mount(false, "bottom", undefined, true);
+    preferences.state.online = false;
+    for (const open of [true, false]) {
+      await act(async () => { toggle().click(); await preferences.store.sync(); });
+      expect(isOpen()).toBe(open);
+      expect(loadSessionSidebarOpen()).toBe(open);
+    }
+    expect(preferences.store.error).toBe("offline");
+    expect(preferences.store.pendingCount).toBe(2);
+    preferences.state.online = true;
+    await act(async () => preferences.store.sync());
+    expect(preferences.writes()).toEqual(["1", "0"]);
+    expect(preferences.store.pendingCount).toBe(0);
+    expect(preferences.store.error).toBeUndefined();
+    expect(isOpen()).toBe(false);
+  });
+
+  it("does not acknowledge a toggle whose journal could not be saved, and allows retry", async () => {
+    const preferences = await sidebarPreferences();
+    await mount(false, "bottom", undefined, true);
+    preferences.state.failWrites = true;
+    await act(async () => toggle().click());
+    expect(isOpen()).toBe(false);
+    expect(loadSessionSidebarOpen()).toBe(false);
+    expect(preferences.store.error).toBe("Could not save pending settings.");
+    expect(preferences.store.pendingCount).toBe(0);
+    expect(preferences.writes()).toEqual([]);
+    preferences.state.failWrites = false;
+    await act(async () => { toggle().click(); await preferences.store.sync(); });
+    expect(isOpen()).toBe(true);
+    expect(preferences.writes()).toEqual(["1"]);
+  });
+
+  it.each(["View: Toggle Changes", "App: Find in Files"])(
+    "keeps %s consistent with a failed journal write before a recovered toggle",
+    async (command) => {
+      const preferences = await sidebarPreferences();
+      await mount(false, "bottom", undefined, true);
+      preferences.state.failWrites = true;
+      await click(`[data-command="${command}"]`);
+      expect(isOpen()).toBe(false);
+      expect(loadSessionSidebarOpen()).toBe(false);
+      expect(preferences.store.error).toBe("Could not save pending settings.");
+      expect(preferences.store.pendingCount).toBe(0);
+      preferences.state.failWrites = false;
+      for (const open of [true, false]) {
+        await act(async () => { toggle().click(); await preferences.store.sync(); });
+        expect(isOpen()).toBe(open);
+        expect(loadSessionSidebarOpen()).toBe(open);
+      }
+      expect(preferences.writes()).toEqual(["1", "0"]);
+    },
+  );
+});
 
 const workspace = (id?: string) =>
   container.querySelector<HTMLElement>(

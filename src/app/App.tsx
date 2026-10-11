@@ -4077,8 +4077,8 @@ function Workspace({
   );
 
   const onShowSourceControl = useCallback(() => {
-    setSessionSidebarOpen(true);
     saveSessionSidebarOpen(true);
+    setSessionSidebarOpen(loadSessionSidebarOpen());
     setSidebarTab("changes");
   }, []);
 
@@ -10314,11 +10314,11 @@ function Workspace({
   const openProjectSessions = useStableSummaries(liveOpenProjectSessions);
 
   const onToggleSidebar = useCallback(() => {
-    setSessionSidebarOpen((open) => {
-      const next = !open;
-      saveSessionSidebarOpen(next);
-      return next;
-    });
+    // Saving synchronously notifies preference subscribers. Keep it outside a
+    // React updater, and read the store so batched clicks see the latest action.
+    saveSessionSidebarOpen(!loadSessionSidebarOpen());
+    // A journal write can fail; only acknowledge the value the store accepted.
+    setSessionSidebarOpen(loadSessionSidebarOpen());
   }, []);
 
   /** Quick Open: files by default, `>` commands, `#` sessions, `@` projects. */
@@ -10340,8 +10340,8 @@ function Workspace({
   }, []);
 
   const onFindInProject = useCallback(() => {
-    setSessionSidebarOpen(true);
     saveSessionSidebarOpen(true);
+    setSessionSidebarOpen(loadSessionSidebarOpen());
     setSidebarTab("files");
     setFilesSearchOpen(true);
     setSearchFocusToken((token) => token + 1);

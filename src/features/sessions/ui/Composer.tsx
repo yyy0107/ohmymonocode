@@ -1199,8 +1199,10 @@ export function Composer({
 
   useEffect(() => {
     if (!focused || disabled) return;
+    const field = ref.current;
+    if (!field || document.activeElement === field) return;
 
-    const composer = ref.current?.closest("[data-composer]");
+    const composer = field.closest("[data-composer]");
     const activeComposer = document.activeElement?.closest("[data-composer]");
     const activeComposerHidden = activeComposer?.closest(
       '[aria-hidden="true"], [inert]',
@@ -1226,7 +1228,7 @@ export function Composer({
       )
     )
       return;
-    ref.current?.focus();
+    field.focus({ preventScroll: true });
   }, [disabled, focused, question, busy, focusToken]);
 
   useEffect(() => {

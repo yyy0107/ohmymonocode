@@ -1,6 +1,7 @@
 import { usePreferenceState } from "../../features/settings/model/usePreferenceState";
 import { useSidebarListPreview } from "./useSidebarListPreview";
 import { AnimatedCollapse } from "../../shared/ui/AnimatedCollapse";
+import { useSurfaceVisibility } from "../../shared/ui/SurfaceVisibility";
 import {
   HoverSummary,
   HoverSummaryRow,
@@ -152,14 +153,18 @@ function collapsedProjectHeaderSize(_id: string, node: HTMLElement) {
   );
 }
 
-function updateScrollMask(element: HTMLDivElement) {
-  const fade = Math.min(32, element.clientHeight / 2);
-  const top = element.scrollTop > 0 ? fade : 0;
+function updateScrollMask(element: HTMLDivElement, previousMask?: string) {
+  const { clientHeight, scrollTop, scrollHeight } = element;
+  const fade = Math.min(32, clientHeight / 2);
+  const top = scrollTop > 0 ? fade : 0;
   const bottom =
-    element.scrollTop + element.clientHeight < element.scrollHeight - 1
+    scrollTop + clientHeight < scrollHeight - 1
       ? fade
       : 0;
-  element.style.maskImage = `linear-gradient(to bottom, transparent, black ${top}px, black calc(100% - ${bottom}px), transparent)`;
+  const mask = `linear-gradient(to bottom, transparent, black ${top}px, black calc(100% - ${bottom}px), transparent)`;
+  // CSSOM can serialize an equivalent gradient differently from our input.
+  if (previousMask !== mask) element.style.maskImage = mask;
+  return mask;
 }
 
 const ProjectSummaryContext = createContext<{
@@ -313,6 +318,7 @@ export function ProjectList({
   const notificationProjects = useNotificationProjects([...allProjects.keys()]);
   const lockOverscroll = useLockOverscroll<HTMLDivElement>();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const surfaceVisible = useSurfaceVisibility();
   useLayoutEffect(() => {
     const element = scrollRef.current;
     if (!element) return;
@@ -320,13 +326,55 @@ export function ProjectList({
       element.style.maskImage = "";
       return;
     }
-    updateScrollMask(element);
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => updateScrollMask(element));
-    observer.observe(element);
-    for (const child of element.children) observer.observe(child);
-    return () => observer.disconnect();
-  });
+    if (!surfaceVisible) return;
+    // Reopening must have the correct fade before its first visible paint.
+    let mask = updateScrollMask(element);
+    let active = true;
+    let frame: number | undefined;
+    const schedule = () => {
+      if (!active || frame !== undefined) return;
+      frame = requestAnimationFrame(() => {
+        frame = undefined;
+        if (active) mask = updateScrollMask(element, mask);
+      });
+    };
+    const observer = typeof ResizeObserver === "undefined"
+      ? undefined
+      : new ResizeObserver(schedule);
+    observer?.observe(element);
+    const observed = new Set<Element>();
+    const observeChildren = () => {
+      const children = new Set(element.children);
+      for (const child of observed) {
+        if (children.has(child)) continue;
+        observer?.unobserve(child);
+        observed.delete(child);
+      }
+      for (const child of children) {
+        if (observed.has(child)) continue;
+        observer?.observe(child);
+        observed.add(child);
+      }
+    };
+    observeChildren();
+    // Sections may be added without changing the scroller's own border box.
+    const mutations = new MutationObserver(() => {
+      if (!active) return;
+      observeChildren();
+      schedule();
+    });
+    mutations.observe(element, { childList: true });
+    element.addEventListener("scroll", schedule, { passive: true });
+    if (!observer) window.addEventListener("resize", schedule);
+    return () => {
+      active = false;
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      observer?.disconnect();
+      mutations.disconnect();
+      element.removeEventListener("scroll", schedule);
+      if (!observer) window.removeEventListener("resize", schedule);
+    };
+  }, [scrollable, surfaceVisible]);
   const summaryPinFocus = useRef<string | undefined>(undefined);
   useEffect(() => {
     const path = summaryPinFocus.current;
@@ -507,11 +555,6 @@ export function ProjectList({
             else if (externalScrollRef) externalScrollRef.current = el;
           }}
           className={`flex flex-col gap-1 pb-2 ${scrollable ? "min-h-0 flex-1 overflow-y-auto overscroll-none" : "shrink-0"}`}
-          onScroll={
-            scrollable
-              ? (event) => updateScrollMask(event.currentTarget)
-              : undefined
-          }
         >
           {sections.pinned.length > 0 || pinnedEntries.length > 0 ? (
             <ProjectSection

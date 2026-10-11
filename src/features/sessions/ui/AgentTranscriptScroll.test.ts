@@ -62,6 +62,7 @@ afterEach(() => {
   act(() => root.unmount());
   container.remove();
   vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -479,6 +480,102 @@ describe("transcript scrolling", () => {
     act(() => observer.resize([size(above, 900), size(reading, 1000)]));
     expect(top).toBe(1660);
   });
+
+  it.each([[0, false], [-80, false], [-800, false], [500, false], [0, true]] as const)(
+    "holds a prepended boundary through its first resize delivery without cancelling user scroll (%s px, reveal=%s)",
+    (userScroll, revealInserted) => {
+      const blocks: Block[] = Array.from({ length: 41 }, (_, index) => [
+        { id: `user-${index}`, role: "user" as const, text: `Question ${index}` },
+        { id: `reply-${index}`, role: "assistant" as const, text: "Answer" },
+      ]).flat();
+      let scroller: HTMLDivElement;
+      let reveal: ((id: string) => boolean) | undefined;
+      let top = 0;
+      const heights = new Map<string, number>();
+      const turns = () => [...scroller.querySelectorAll<HTMLElement>(".transcript-turn")];
+      const height = (turn: HTMLElement) => heights.get(turn.dataset.transcriptTurn!) ?? 100;
+      const headerHeight = () =>
+        scroller.querySelectorAll(".transcript-turn").length < 41 ? 60 : 0;
+      const originalRect = HTMLElement.prototype.getBoundingClientRect;
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+        if (this === scroller) return new DOMRect(0, 0, 600, 400);
+        if (this.classList.contains("transcript-turn")) {
+          const preceding = turns().slice(0, turns().indexOf(this));
+          return new DOMRect(0, headerHeight() + preceding.reduce((sum, turn) => sum + height(turn), 0) - top, 600, height(this));
+        }
+        return originalRect.call(this);
+      });
+      act(() => root.render(createElement(AgentTranscript, {
+        blocks,
+        onRevealReady: (callback) => { reveal = callback; },
+        onScrollerChange: (el) => {
+          if (!el) return;
+          scroller = el;
+          Object.defineProperties(el, {
+            clientHeight: { get: () => 400 },
+            scrollHeight: { get: () => headerHeight() + turns().reduce((sum, turn) => sum + height(turn), 0) },
+            scrollTop: {
+              get: () => top,
+              set: (value: number) => { top = Math.max(0, Math.min(value, el.scrollHeight - 400)); },
+            },
+          });
+        },
+      })));
+      expect(turns()).toHaveLength(20);
+      const reading = turns()[0];
+      const resize = observers.find((observer) =>
+        observer.targets.some((target) => target.classList.contains("transcript-turn")),
+      )!;
+      const entry = (turn: HTMLElement) => ({
+        target: turn, borderBoxSize: [{ blockSize: height(turn) }],
+        contentRect: { height: height(turn) },
+      });
+      act(() => {
+        scroller.dispatchEvent(new WheelEvent("wheel", { deltaY: -100 }));
+        top = 0;
+        scroller.dispatchEvent(new Event("scroll"));
+        resize.resize(turns().map(entry));
+      });
+      const readingTop = reading.getBoundingClientRect().top;
+      const button = [...scroller!.querySelectorAll("button")]
+        .find((el) => el.textContent === "Load earlier messages")!;
+      act(() => button.click());
+      expect(turns()).toHaveLength(40);
+      expect(reading.getBoundingClientRect().top).toBe(readingTop);
+
+      if (userScroll) act(() => {
+        scroller.dispatchEvent(new WheelEvent("wheel", { deltaY: userScroll }));
+        top += userScroll;
+        scroller.dispatchEvent(new Event("scroll"));
+      });
+      // The last inserted turn is partly visible in the old header's space.
+      // It grows after the prepend layout effect, before its first RO entry.
+      const inserted = turns().slice(0, 20);
+      if (revealInserted) act(() => {
+        // A search/outline reveal may find its target already rendered by
+        // the preceding prepend, then align it before the first resize entry.
+        expect(reveal?.("user-20")).toBe(true);
+        top += inserted[19].getBoundingClientRect().top - 42;
+        scroller.dispatchEvent(new Event("scroll"));
+      });
+      // A large upward gesture chooses an earlier inserted turn. A resize
+      // below that new reading position must not pull the reader down again.
+      const nowReading = revealInserted ? inserted[19] : Math.abs(userScroll) > 400
+        ? turns().find((turn) => turn.getBoundingClientRect().top >= 0)!
+        : reading;
+      const expectedTop = nowReading.getBoundingClientRect().top;
+      heights.set("user-20", 534.4);
+      // A downward scroll can leave an old turn above the reader. Its own
+      // late sizing still needs normal compensation in the handoff batch.
+      if (userScroll > 400) heights.set(reading.dataset.transcriptTurn!, 200);
+      const delivery = [...inserted.map(entry), entry(reading)];
+      act(() => resize.resize(delivery));
+      expect(nowReading.getBoundingClientRect().top).toBeCloseTo(expectedTop);
+      const correctedTop = top;
+      act(() => resize.resize(delivery));
+      expect(top).toBe(correctedTop);
+    },
+  );
 });
 
 describe.each([false, true])(

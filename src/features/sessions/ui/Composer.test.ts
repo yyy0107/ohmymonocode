@@ -1916,6 +1916,35 @@ describe("Composer question focus", () => {
     decoy.remove();
   });
 
+  it("preserves the active textarea selection without refocusing on turn and focus-token changes", async () => {
+    await renderComposer(undefined, vi.fn(), true);
+    const textarea = container.querySelector("textarea") as HTMLTextAreaElement;
+    textarea.value = "selected draft";
+    textarea.setSelectionRange(2, 8);
+    const focus = vi.spyOn(textarea, "focus");
+
+    await renderComposer(undefined, vi.fn(), false, 1);
+
+    expect(document.activeElement).toBe(textarea);
+    expect(focus).not.toHaveBeenCalled();
+    expect([textarea.selectionStart, textarea.selectionEnd]).toEqual([2, 8]);
+  });
+
+  it("restores automatic focus without asking the browser to scroll its ancestors", async () => {
+    await renderComposer(undefined, vi.fn(), true);
+    const textarea = container.querySelector("textarea") as HTMLTextAreaElement;
+    const decoy = document.createElement("input");
+    document.body.append(decoy);
+    decoy.focus();
+    const focus = vi.spyOn(textarea, "focus");
+
+    await renderComposer(undefined, vi.fn(), false);
+
+    expect(focus).toHaveBeenCalledExactlyOnceWith({ preventScroll: true });
+    expect(document.activeElement).toBe(textarea);
+    decoy.remove();
+  });
+
   it("does not steal focus from a control inside a different composer", async () => {
     await renderComposer(undefined, vi.fn(), true);
 
