@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Block } from "../model/session";
 import { AgentTranscript } from "./AgentTranscript";
+import { applyReducedMotion } from "../../../shared/lib/reducedMotion";
 
 let container: HTMLDivElement;
 let root: Root;
@@ -18,6 +19,8 @@ let endObservers: Array<{
 }>;
 
 beforeEach(() => {
+  // Follow-state assertions use immediate motion; curve cases opt in below.
+  applyReducedMotion("on");
   observers = [];
   endObservers = [];
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -63,6 +66,7 @@ afterEach(() => {
   container.remove();
   vi.useRealTimers();
   vi.restoreAllMocks();
+  applyReducedMotion("system");
   vi.unstubAllGlobals();
 });
 
@@ -361,6 +365,7 @@ describe("transcript scrolling", () => {
       frames.push(callback),
     );
     vi.stubGlobal("cancelAnimationFrame", () => {});
+    applyReducedMotion("off");
     const start = performance.now();
     act(() => ready.mock.calls[0][0]());
     expect(showJump).toHaveBeenLastCalledWith(false);
@@ -372,12 +377,108 @@ describe("transcript scrolling", () => {
     height = 1300;
     act(() => observer.resize());
     expect(top).toBeLessThan(950);
-    act(() => frames.shift()?.(start + 1000));
+    for (let time = 116; time <= 1200; time += 16)
+      act(() => frames.shift()?.(start + time));
     expect(top).toBe(1050);
     expect(frames).toHaveLength(0);
     expect(showJump).toHaveBeenLastCalledWith(false);
   });
+  it.each([true, false].flatMap(mobile => ["first output", "large reply", "completed reply", "reduced motion", "late burst", "continuous stream", "rapid stream", "stalled frame"].map(scenario => ({ mobile, scenario }))))("follows $scenario on mobile=$mobile with a continuous curve", ({ mobile, scenario }) => {
+    applyReducedMotion("off");
+    let now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    const frames = new Map<number, FrameRequestCallback>();
+    let frameId = 0;
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      frames.set(++frameId, callback);
+      return frameId;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => frames.delete(id));
+    const tick = (time: number) => act(() => {
+      now = time;
+      const pending = [...frames.values()];
+      frames.clear();
+      pending.forEach(callback => callback(now));
+    });
+    const blocks: Block[] = [
+      { id: "user", role: "user", text: "Explain" },
+      { id: "reply", role: "assistant", text: "Answer" },
+    ];
+    const render = (busy: boolean) => act(() => root.render(createElement(AgentTranscript, {
+      blocks, busy, touchScroll: mobile, promptMotion: mobile ? "mobile" : undefined,
+    })));
+    render(true);
+    const scroller = container.querySelector<HTMLDivElement>(".agent-transcript")!;
+    let height = 1000;
+    let top = 0;
+    Object.defineProperties(scroller, {
+      scrollHeight: { get: () => height },
+      clientHeight: { get: () => 400 },
+      scrollTop: {
+        get: () => top,
+        set: (value: number) => { top = Math.max(0, Math.min(value, height - 400)); },
+      },
+    });
+    const observer = observers.find(item => item.targets.includes(scroller))!;
+    act(() => observer.resize());
+    expect(top).toBe(600);
+    if (scenario === "reduced motion") applyReducedMotion("on");
+    now = 50; // The first response can arrive well before the old 600ms cutoff.
+    height += scenario === "large reply" ? 800 : 80;
+    if (scenario === "completed reply") render(false);
+    else act(() => observer.resize());
+    if (scenario === "reduced motion") {
+      expect(top).toBe(height - 400);
+      return;
+    }
+    expect(top).toBe(600);
+    tick(100);
+    expect(top).toBeGreaterThan(600);
+    expect(top).toBeLessThan(height - 400);
+    let previous = top;
+    for (let time = 116; time <= 1100; time += 16) {
+      const burst = scenario === "late burst" && time === 244;
+      if (burst || (["continuous stream", "rapid stream"].includes(scenario) && time < 700)) {
+        height += burst ? 500 : scenario === "rapid stream" ? 48 : 12;
+        act(() => observer.resize());
+        expect(top).toBe(previous);
+      }
+      tick(time);
+      expect(top).toBeGreaterThanOrEqual(previous);
+      // A late burst ramps up instead of immediately changing the scroll speed.
+      if (burst) expect(top - previous).toBeLessThan(8);
+      // Large replies must still catch up promptly rather than crawl at a fixed speed.
+      if (time === 644 && scenario === "large reply") expect(top).toBe(height - 400);
+      // Sustained fast output increases tracking speed instead of accumulating
+      // the roughly 330px lag of the base curve at this input rate.
+      if (time === 644 && scenario === "rapid stream") expect(height - 400 - top).toBeLessThan(260);
+      previous = top;
+    }
+    if (scenario === "stalled frame") {
+      height += 500;
+      act(() => observer.resize());
+      const beforeStall = top;
+      tick(4000);
+      expect(top - beforeStall).toBeLessThan(180);
+    }
+    for (let time = now + 16, end = now + 1200; time < end; time += 16) tick(time);
+    expect(top).toBe(height - 400);
+    // A reader can interrupt the next automatic movement and keep their place.
+    height += 80;
+    act(() => observer.resize());
+    tick(now + 50);
+    act(() => {
+      const touch = new Event("touchstart");
+      Object.defineProperty(touch, "touches", { value: [{ clientY: 100 }] });
+      scroller.dispatchEvent(touch);
+    });
+    const stopped = top;
+    tick(now + 500);
+    expect(top).toBe(stopped);
+  });
+
   it.each([false, true])("pins a running mobile transcript on keyboard resize (stream glide active: %s)", (streaming) => {
+    applyReducedMotion("off");
     let now = 0;
     vi.spyOn(performance, "now").mockImplementation(() => now);
     const frames = new Map<number, FrameRequestCallback>();
@@ -442,7 +543,7 @@ describe("transcript scrolling", () => {
     tick(1150);
     expect(top).toBeGreaterThan(height - viewport - 50);
     expect(top).toBeLessThan(height - viewport);
-    tick(1400);
+    for (let time = 1166; time < 2000; time += 16) tick(time);
     expect(top).toBe(height - viewport);
     // Opening the keyboard while reading history must keep that position.
     act(() => {

@@ -53,7 +53,7 @@ function mount(blocks: Block[], historyLoading = false) {
   return { render, update };
 }
 
-it("shows restored history immediately after a cached entry, then animates only fresh output", () => {
+it("shows restored history immediately and paces only subsequent output", () => {
   const { render, update } = mount([user, reply("Cached")], true);
   update([user, reply(text), reply(text, "second")]);
   expect(replies()).toEqual([text, text]);
@@ -61,9 +61,8 @@ it("shows restored history immediately after a cached entry, then animates only 
   expect(replies()).toEqual([text, text]);
   update([user, reply(text), reply(text + text, "second")]);
   expect(replies()).toEqual([text, text]);
-  act(() => vi.advanceTimersByTime(100));
-  expect(replies()[1]!.length).toBeGreaterThan(text.length);
-  expect(replies()[1]!.length).toBeLessThan(text.length * 2);
+  act(() => vi.advanceTimersByTime(2000));
+  expect(replies()).toEqual([text, text + text]);
 });
 
 it.each(["drawer", "page"])("skips background output when returning from a hidden %s", (kind) => {
@@ -77,17 +76,35 @@ it.each(["drawer", "page"])("skips background output when returning from a hidde
   expect(replies()).toEqual([text + text, text]);
   update([user, reply(text + text), reply(text + text, "second")]);
   expect(replies()).toEqual([text + text, text]);
-  act(() => vi.advanceTimersByTime(100));
-  expect(replies()[1]!.length).toBeGreaterThan(text.length);
-  expect(replies()[1]!.length).toBeLessThan(text.length * 2);
+  act(() => vi.advanceTimersByTime(2000));
+  expect(replies()).toEqual([text + text, text + text]);
 });
 
-it("preserves the first reply animation for a newly submitted turn", () => {
+it("types the first reply and drains the final chunk", () => {
   const { render, update } = mount([user]);
   render({ animateFrom: user.id });
   update([user, reply(text)]);
   expect(replies()).toEqual([""]);
   act(() => vi.advanceTimersByTime(100));
-  expect(replies()[0]!.length).toBeGreaterThan(0);
-  expect(replies()[0]!.length).toBeLessThan(text.length);
+  const partial = replies()[0]!;
+  expect(partial.length).toBeGreaterThan(0);
+  expect(partial.length).toBeLessThan(text.length);
+  update([user, { ...reply(text + text), streaming: false }]);
+  expect(replies()).toEqual([partial]);
+  act(() => vi.advanceTimersByTime(2000));
+  expect(replies()).toEqual([text + text]);
+  expect(app.querySelector("[data-word-fade]")).toBeNull();
+});
+
+it("keeps the live status inside its AI turn as output grows", () => {
+  const { update } = mount([user]);
+  const footer = app.querySelector(".agent-transcript .transcript-turn [data-live-footer]");
+  expect(footer).not.toBeNull();
+  expect(app.querySelector(".mobile-live-footer-dock")).toBeNull();
+  for (const received of [text, text + text]) {
+    update([user, reply(received)]);
+    act(() => vi.advanceTimersByTime(100));
+    expect(app.querySelector("[data-live-footer]")).toBe(footer);
+    expect(app.querySelectorAll("[data-live-footer]")).toHaveLength(1);
+  }
 });

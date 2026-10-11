@@ -1,3 +1,5 @@
+import { dampedMotion, smoothFollowMotion } from "../../../shared/lib/dampedMotion";
+import { syncLiveFooterClip } from "./liveFooterClip";
 import { timestampTitle } from "./timestampTitle";
 import { agentStepCount, agentTranscript } from "../model/agentTranscript";
 import { AttachmentList } from "./AttachmentList";
@@ -366,13 +368,17 @@ function AgentTranscriptComponent({
   const scroller = useRef<HTMLDivElement>(null);
   const transcriptEnd = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
-  // Following glides only for a stream the reader is already watching; the
-  // layout settling right after a chat appears still pins before paint.
-  const glideFollow = useRef({ busy: !!busy, since: Infinity });
+  // Initial placement pins before paint; subsequent content changes glide,
+  // including the first output and the final update after busy clears.
+  const glideFollow = useRef(false);
   const followViewport = useRef(0);
-  glideFollow.current.busy = !!busy;
   useEffect(() => {
-    glideFollow.current.since = visible ? performance.now() : Infinity;
+    const el = scroller.current;
+    glideFollow.current = visible;
+    return () => {
+      glideFollow.current = false;
+      if (el) jumpingScrollers.get(el)?.(false);
+    };
   }, [visible]);
   const showJumpRef = useRef(false);
   const distanceFromBottom = useRef(0);
@@ -472,6 +478,8 @@ function AgentTranscriptComponent({
   const syncJumpVisibility = useCallback(
     (el: HTMLElement) => {
       if (!el.isConnected) return;
+      el.dataset.followLatest = String(stickToBottom.current);
+      syncLiveFooterClip(el);
       setShowJump(
         !stickToBottom.current &&
           !isTranscriptEndVisible(el, transcriptEnd.current),
@@ -481,6 +489,8 @@ function AgentTranscriptComponent({
   );
 
   const rememberScroll = useCallback((el: HTMLElement) => {
+    el.dataset.followLatest = String(stickToBottom.current);
+    syncLiveFooterClip(el);
     distanceFromBottom.current =
       el.scrollHeight - el.scrollTop - el.clientHeight;
     scrollGeometry.current = {
@@ -565,18 +575,13 @@ function AgentTranscriptComponent({
       // Directionless trackpad events can precede off-thread scrolling.
       // Wait for the gesture to reveal its direction before pinning again.
       if (!stickToBottom.current || performance.now() < wheelHold.current) return;
-      // On the phone, a row arriving glides the view down instead of snapping
-      // it up a row at a time. Larger changes, like opening or restoring a
-      // chat, still pin at once; any touch stops the glide where it is.
+      // Once visible, all new content glides, even a large reply or the final
+      // update. Any touch stops the glide where it is.
       const gap = el.scrollHeight - el.clientHeight - el.scrollTop;
-      const glide = glideFollow.current;
       if (
-        promptMotion === "mobile" &&
         !resized &&
-        glide.busy &&
-        performance.now() - glide.since >= FOLLOW_GLIDE_SETTLE_MS &&
-        gap > 2 &&
-        gap <= el.clientHeight
+        glideFollow.current &&
+        gap > 0.5
       )
         animateToBottom(el, () => {
           rememberScroll(el);
@@ -593,6 +598,7 @@ function AgentTranscriptComponent({
     distanceFromBottom.current = 0;
     setShowJump(false);
     const el = scroller.current;
+    if (el) el.dataset.followLatest = "true";
     syncTranscriptViewport(el);
     animateToBottom(el, () => {
       if (!el) return;
@@ -1453,7 +1459,7 @@ function AgentTranscriptComponent({
                 </div>
               ))}
               {isLastTurn && clockInFooter && cwd ? (
-                <AnimatedCollapse expanded={live}>
+                <AnimatedCollapse expanded={live} className="transcript-live-footer-collapse">
                   {() => (
                     <LiveTurnFooter
                       cwd={cwd}
@@ -4388,11 +4394,13 @@ const JUMP_INTERRUPTS = ["wheel", "touchstart", "pointerdown", "keydown"];
  * Glide to the bottom, following content that keeps streaming in. Any reader
  * input stops the glide where it is.
  */
-type GlideTiming = { base: number; perPx: number; max: number };
-const JUMP_GLIDE: GlideTiming = { base: 260, perPx: 1 / 12, max: 560 };
-const FOLLOW_GLIDE_SETTLE_MS = 600;
-/** Following new rows: short enough to keep up with a stream. */
-const FOLLOW_GLIDE: GlideTiming = { base: 120, perPx: 1 / 4, max: 220 };
+type GlideTiming = { frequency: number; smoothAcceleration?: boolean };
+const JUMP_GLIDE: GlideTiming = { frequency: 14 };
+/** Same tracking lag (3/27s versus 2/18s), with continuous acceleration. */
+const FOLLOW_GLIDE: GlideTiming = {
+  frequency: 27,
+  smoothAcceleration: true,
+};
 
 function animateToBottom(
   el: HTMLElement | null,
@@ -4411,8 +4419,11 @@ function animateToBottom(
     done();
     return;
   }
-  const duration = Math.min(timing.max, timing.base + distance * timing.perPx);
-  const start = performance.now();
+  let position = from;
+  let velocity = 0;
+  let acceleration = 0;
+  let frequency = timing.frequency;
+  let last = performance.now();
   let frame = 0;
   const finish = (snap: boolean) => {
     cancelAnimationFrame(frame);
@@ -4424,11 +4435,30 @@ function animateToBottom(
   const interrupt = () => finish(false);
   const step = (now: number) => {
     if (!el.isConnected) return finish(false);
-    const t = Math.min(1, (now - start) / duration);
-    const eased = 1 - (1 - t) ** 3;
-    el.scrollTop = from + (bottom() - from) * eased;
-    if (t < 1) frame = requestAnimationFrame(step);
-    else finish(true);
+    if (reducedMotionQuery().matches) return finish(true);
+    const target = bottom();
+    // New output changes the pull without resetting position, speed or acceleration.
+    // Cap elapsed time after a stalled frame so returning cannot jump a page.
+    const seconds = Math.max(0, Math.min(0.064, (now - last) / 1000));
+    last = now;
+    const next = timing.smoothAcceleration
+      ? smoothFollowMotion(position, velocity, acceleration, target, seconds, frequency)
+      : { ...dampedMotion(position, velocity, target, seconds, timing.frequency), acceleration: 0 };
+    position = Math.min(target, next.position);
+    velocity = next.velocity;
+    acceleration = next.acceleration;
+    if (timing.smoothAcceleration) {
+      // A growing backlog asks for faster tracking, without resetting the
+      // curve or imposing a pixels-per-frame limit. Ease the response itself
+      // so a large chunk never switches abruptly to a faster curve.
+      const backlog = Math.max(0, target - position);
+      const requested = timing.frequency * (2 - Math.exp(-((backlog / 320) ** 2)));
+      frequency += (requested - frequency) * (1 - Math.exp(-seconds * 8));
+    }
+    el.scrollTop = position;
+    syncLiveFooterClip(el);
+    if (Math.abs(target - position) < 0.5 && Math.abs(velocity) < 5) finish(true);
+    else frame = requestAnimationFrame(step);
   };
   jumpingScrollers.set(el, finish);
   for (const type of JUMP_INTERRUPTS)

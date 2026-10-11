@@ -15,6 +15,7 @@ import {
 } from "../../../shared/lib/reducedMotion";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import type { TextRevealSequence } from "./textRevealQueue";
+import { dampedMotion } from "../../../shared/lib/dampedMotion";
 
 /*
  * Streaming prose, paced. Tokens land in uneven bursts; read straight off the
@@ -198,6 +199,8 @@ export function usePacedText(
   // Reveal progress and step timing survive the effect restarting on every
   // received chunk, or a throttled step would never come due mid-stream.
   const position = useRef(shown.current);
+  const velocity = useRef(0);
+  const lastTick = useRef<number | undefined>(undefined);
   const lastStep = useRef(0);
   const stepRequested = useRef(0);
   const stepCost = useRef(0);
@@ -220,6 +223,8 @@ export function usePacedText(
     // Hidden/reduced-motion replies catch up even while a previous sequence
     // entry is pending. Otherwise an invisible reply can hold the queue open.
     shown.current = position.current = text.length;
+    velocity.current = 0;
+    lastTick.current = undefined;
     pacing.current = streaming;
   }
   if (!pacing.current) shown.current = text.length;
@@ -238,8 +243,13 @@ export function usePacedText(
   );
 
   useEffect(() => {
-    if (!motionAllowed || !pacing.current || blocked) return;
+    if (!motionAllowed || !pacing.current || blocked) {
+      lastTick.current = undefined;
+      return;
+    }
     if (!behind) {
+      velocity.current = 0;
+      lastTick.current = undefined;
       if (!streaming) pacing.current = false;
       return;
     }
@@ -247,17 +257,30 @@ export function usePacedText(
       text.length,
       Math.max(position.current, shown.current),
     );
-    let last = performance.now();
+    lastTick.current ??= performance.now();
     let hold = 0;
     let frame = requestAnimationFrame(function tick(now) {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      const backlog = text.length - position.current;
-      const speed = Math.max(
-        unit === "character" ? 48 : REVEAL_MIN_CPS,
-        backlog / (unit === "character" ? 0.55 : REVEAL_CATCHUP_S),
-      );
-      position.current = Math.min(text.length, position.current + speed * dt);
+      const dt = Math.max(0, Math.min(0.05, (now - lastTick.current!) / 1000));
+      lastTick.current = now;
+      if (unit === "character") {
+        // Keep momentum across provider chunks, including the final chunk.
+        const next = dampedMotion(
+          position.current, velocity.current, text.length, dt, 10,
+        );
+        position.current = Math.min(text.length, next.position);
+        velocity.current = next.velocity;
+        if (
+          text.length - position.current < 0.05 &&
+          Math.abs(velocity.current) < 0.5
+        )
+          position.current = text.length;
+      } else {
+        const speed = Math.max(
+          REVEAL_MIN_CPS,
+          (text.length - position.current) / REVEAL_CATCHUP_S,
+        );
+        position.current = Math.min(text.length, position.current + speed * dt);
+      }
       const end =
         unit === "character"
           ? characterEnd(boundaries, position.current)

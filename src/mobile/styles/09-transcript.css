@@ -36,6 +36,18 @@
 .mobile-desktop-transcript .markdown-code-shell {
   max-width: 100%;
 }
+/* Keep status attached to the AI turn. Only automatic following engages the
+   bottom sticky edge; a reader's scroll restores ordinary document flow. */
+.mobile-desktop-transcript > .agent-transcript[data-follow-latest="true"] .transcript-live-footer-collapse {
+  position: sticky;
+  bottom: 2rem;
+  z-index: 1;
+}
+/* Fast output can grow ahead of the scroll curve. Clip that pending content
+   at the status edge so the plain status text never overlaps the reply. */
+.mobile-desktop-transcript > .agent-transcript[data-follow-latest="true"] [data-live-footer-clipped] {
+  clip-path: inset(0 0 var(--live-footer-clip-bottom) 0);
+}
 /* Touching live tool rows scrolls the conversation, not a nested desktop
    window. Keep the disclosure wrapper responsible for its closing clip. */
 .mobile-desktop-transcript .zen-phase-body .zen-phase-live {
