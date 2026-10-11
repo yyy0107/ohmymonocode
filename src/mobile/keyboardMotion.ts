@@ -67,16 +67,19 @@ export function onKeyboardMotion(listener: (motion: KeyboardMotion) => void) {
  * Some Android skins move the keyboard on a spring that passes its target.
  * Bottom controls ride the keyboard's progress, so an overshooting curve
  * throws them above their resting place before they fall back. Clamp the
- * sampled progress to [0, 1]; the keyboard keeps its timing and the controls
- * settle once instead of bouncing.
+ * sampled progress to [0, 1] and keep it monotonic: a spring can dip below 1
+ * again after overshooting. The keyboard keeps its timing and the controls
+ * settle once instead of following that rebound.
  */
 export function settledEasing(easing: string) {
   const match = /^\s*linear\((.*)\)\s*$/.exec(easing);
   if (!match) return easing;
+  let progress = 0;
   const stops = match[1].split(",").map((stop) =>
-    stop.trim().replace(/^-?[\d.]+(?:e-?\d+)?/i, (value) =>
-      String(Math.min(1, Math.max(0, Number(value)))),
-    ),
+    stop.trim().replace(/^-?[\d.]+(?:e-?\d+)?/i, (value) => {
+      progress = Math.min(1, Math.max(progress, Number(value)));
+      return String(progress);
+    }),
   );
   return `linear(${stops.join(", ")})`;
 }

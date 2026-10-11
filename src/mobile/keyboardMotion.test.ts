@@ -172,6 +172,14 @@ describe("keyboard easing", () => {
       "cubic-bezier(0.2, 0, 0, 1)",
     );
   });
+  it("keeps sampled spring progress monotonic even when its tail dips below the target", () => {
+    expect(settledEasing("linear(0, 0.6, 1.08, 0.97, 1)")).toBe(
+      "linear(0, 0.6, 1, 1, 1)",
+    );
+    expect(settledEasing("linear(0, 0.7 40%, 0.65 60%, 1)")).toBe(
+      "linear(0, 0.7 40%, 0.7 60%, 1)",
+    );
+  });
 });
 
 describe("keyboard page pan", () => {
