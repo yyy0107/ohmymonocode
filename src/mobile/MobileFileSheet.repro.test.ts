@@ -89,6 +89,7 @@ describe("mobile file preview and tool navigation", () => {
     const row = app.querySelector<HTMLElement>("[data-tool-open-row]");
     expect(row).not.toBeNull();
     await act(async () => row!.click());
+    await act(async () => vi.dynamicImportSettled());
     expect(app.querySelector(".mobile-tool-sheet h3")?.textContent).toBe(
       "Output",
     );
@@ -100,6 +101,7 @@ describe("mobile file preview and tool navigation", () => {
     );
     expect(view).toBeDefined();
     await act(async () => view!.click());
+    await act(async () => vi.dynamicImportSettled());
     expect(readBinaryFile).toHaveBeenCalledWith("/repo/package.json");
     expect(app.querySelector(".mobile-file-sheet")?.textContent).toContain(
       "complete file",

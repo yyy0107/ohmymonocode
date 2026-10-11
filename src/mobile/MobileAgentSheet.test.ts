@@ -42,7 +42,7 @@ const button = (label: string) =>
 const click = (node: HTMLElement) => act(() => node.click());
 const finish = () => act(() => vi.advanceTimersByTime(400));
 
-it("opens empty agent rows from the main stream and follows live snapshots", () => {
+it("opens empty agent rows from the main stream and follows live snapshots", async () => {
   let block = agent();
   const render = () => {
     const snapshot: HostSession = {
@@ -76,6 +76,7 @@ it("opens empty agent rows from the main stream and follows live snapshots", () 
   click(
     app.querySelector<HTMLButtonElement>('[aria-label="Show root\'s work"]')!,
   );
+  await act(async () => vi.dynamicImportSettled());
   expect(page().textContent).toContain("Waiting for subagent messages");
   block = {
     ...block,

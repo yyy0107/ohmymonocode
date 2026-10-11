@@ -92,6 +92,7 @@ async function render() {
   await act(async () => {
     root.render(createElement(MobileApp));
   });
+  await act(async () => vi.dynamicImportSettled());
 }
 function active<T extends Element = HTMLElement>(selector: string): T | null {
   return [...node.querySelectorAll<T>(selector)]
@@ -117,11 +118,12 @@ function chooseMethod(label: string) {
       .click(),
   );
 }
-function open() {
+async function open() {
   act(() => {
     button("Add connection").focus();
     button("Add connection").click();
   });
+  await act(async () => vi.dynamicImportSettled());
   chooseMethod("Pairing code");
 }
 function input(selector: string, value: string) {
@@ -154,6 +156,7 @@ describe("mobile connection settings", () => {
         } }),
       ));
     });
+    await act(async () => vi.dynamicImportSettled());
     act(() => button("Glass").click());
     act(() => button("Open photo.png full screen").click());
     const preview = document.querySelector<HTMLElement>(".image-lightbox")!;
@@ -232,6 +235,7 @@ describe("mobile connection settings", () => {
     await render();
     await act(async () => button("Menu").click());
     await act(async () => button("Settings").click());
+    await act(async () => vi.dynamicImportSettled());
   }
 
   async function openConnections() {
@@ -247,6 +251,7 @@ describe("mobile connection settings", () => {
     vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
     await openConnectedSettings();
     await act(async () => button("Accounts and usage").click());
+    await act(async () => vi.dynamicImportSettled());
     expect(active("header strong")?.textContent).toBe("Accounts and usage");
     expect(active(".mobile-provider-accounts")?.textContent).toContain("My computer");
     await act(async () => nativeBack.listener?.());
@@ -426,7 +431,7 @@ describe("mobile connection settings", () => {
     await render();
     act(() => button("Connections").click());
     expect(active('input[type="url"], input.mobile-pairing-code')).toBeNull();
-    open();
+    await open();
     input('input[type="url"]', "http://computer:3774");
     input('input.mobile-pairing-code', "device-token");
     act(() =>
@@ -439,7 +444,7 @@ describe("mobile connection settings", () => {
     expect(active('.mobile-sheet-backdrop:not([aria-hidden="true"]) [role="dialog"]')).toBeNull();
     expect(host.connect).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(button("Add connection"));
-    open();
+    await open();
     expect(
       active<HTMLInputElement>('input[type="url"]')!.value,
     ).toBe("http://computer:3774");
@@ -467,6 +472,7 @@ describe("mobile connection settings", () => {
     expect(button("编写器").querySelector(".mobile-settings-value")?.textContent).toBe("引导");
     act(() => button("连接").click());
     act(() => button("添加连接").click());
+    await act(async () => vi.dynamicImportSettled());
     chooseMethod("配对码");
     input('input[type="url"]', "http://computer:3774");
     input('input.mobile-pairing-code', "device-token");
@@ -523,7 +529,7 @@ describe("mobile connection settings", () => {
   it("retains failed connection input for retry and closes only after success", async () => {
     await render();
     act(() => button("Connections").click());
-    open();
+    await open();
     input('input[type="url"]', "http://computer:3774");
     input('input.mobile-pairing-code', "device-token");
     host.connect.mockRejectedValueOnce(new Error("Host rejected this token"));
