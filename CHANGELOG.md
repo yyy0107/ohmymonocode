@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-12
+
+<!-- release-notes:en -->
+
+### Added
+
+- Projectless chats are available on desktop and mobile, and replace the recent-sessions list in the sidebar.
+- Sidebar items support grouped dragging, and pinned items are unified into one list.
+- Subagents open in conversation tabs; the status capsule shows changes first and opens subagent records as cards.
+- Session reviews use Git-backed turn checkpoints, stay accurate across edits and continuations, and include all changes in shared turn reviews.
+- Windows installs with a new monochrome pixel installer.
+
+### Changed
+
+- The status capsule simplifies Git details and animates its width.
+- Model pickers show loading on the trigger, drop the selected background, and return to the settings menu after a choice while keeping back buttons.
+- Mobile shows tool edits inline in review style, reuses the conversation surface in subagent sheets, and shows small changes in large files with bounded context.
+- Device view preferences stay local to each device.
+
+### Fixed
+
+- Host change reviews refresh after completed turns, and mixed session changes are explained instead of showing 0/0.
+- Background output settles when returning to sessions, and transcripts keep following through sub-pixel offset drift and contain overflow.
+- Project icons are preserved while dragging, and the project list toggle no longer adds indentation.
+- Windows checkpoint path comparisons and filename handling are corrected.
+
+<!-- /release-notes -->
+
+<!-- release-notes:zh-CN -->
+
+### 新增
+
+- 桌面端和手机端支持不属于任何项目的对话，并在侧栏中取代最近会话列表。
+- 侧栏支持分组拖动，置顶项目统一为一个列表。
+- 子智能体在会话标签页中打开；状态胶囊优先显示改动，并以卡片形式打开子智能体记录。
+- 会话审查基于 Git 轮次检查点，在编辑和继续对话后保持准确，共享轮次审查包含全部改动。
+- Windows 采用新的单色像素风安装程序。
+
+### 改进
+
+- 状态胶囊简化 Git 详情，并为宽度变化添加动画。
+- 模型选择器在触发按钮上显示加载状态，去掉选中背景，选择后返回设置菜单并保留返回按钮。
+- 手机端以审查样式内联显示工具编辑，子智能体面板复用会话界面，大文件中的小改动带有限上下文显示。
+- 设备视图偏好仅保存在本机。
+
+### 修复
+
+- Host 改动审查在轮次完成后刷新；混合会话改动会给出说明，不再显示 0/0。
+- 返回会话时后台输出正确收尾；会话在亚像素偏移下继续跟随底部，并限制溢出内容。
+- 拖动时保留项目图标，项目列表折叠按钮不再产生缩进。
+- 修复 Windows 检查点路径比较与文件名处理。
+
+<!-- /release-notes -->
+
 ## [0.11.3] - 2026-10-11
 
 <!-- release-notes:en -->
