@@ -33,6 +33,7 @@ import { protectWindowsDirectory } from "./windows";
 import { prepareDesktopHost } from "./desktop";
 import { listenOnAdapters } from "./adapter-listeners";
 import { runControlCli } from "./control";
+import { runAgentsCli, runAgentsMcp } from "./bots/agents-mcp";
 import type { LegacyRetirementManifest } from "./legacy-orchestration";
 
 process.umask(0o077);
@@ -76,6 +77,14 @@ const lifecycle = async (state: Running, action: "status" | "stop") => {
 };
 
 async function main() {
+  if (command === "agents") {
+    process.exitCode = await runAgentsCli(args.slice(1));
+    return;
+  }
+  if (command === "agents-mcp") {
+    await runAgentsMcp();
+    return;
+  }
   if (command === "control") {
     process.exitCode = await runControlCli(args.slice(1));
     return;
@@ -107,6 +116,8 @@ async function main() {
                         Issue a device credential (shown once)
   devices               List paired devices
   revoke <device-id>    Revoke a device credential
+  agents ACTION         Call another Bot through the current run's control grant
+  agents-mcp            Serve Bot collaboration over MCP stdio
 Options: --data-dir <directory> --port <port> (default 3774)
          --listen-adapters  Also listen on this computer's network adapters
 Connect another computer using an SSH forward to the loopback port.`);

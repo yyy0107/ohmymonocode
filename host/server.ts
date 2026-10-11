@@ -388,6 +388,7 @@ export function createHostServer(
                 "botMemory.v1",
                 "bots.runtime.v1",
                 "bots.management.v1",
+                "bots.delegation.v1",
                 "im.feishu.v1",
                 "resources",
                 "workflows.v1",
@@ -699,6 +700,9 @@ export function createHostServer(
           case "botMemory.log":
           case "botMemory.undo":
           case "botMemory.rebuild":
+          case "botDelegations.list":
+          case "botDelegations.get":
+          case "botDelegations.cancel":
             result = await engine.bots.rpc(input.method, params);
             break;
           case "im.get":

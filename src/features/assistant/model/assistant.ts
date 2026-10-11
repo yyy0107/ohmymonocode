@@ -142,6 +142,8 @@ export type AssistantView = {
   /** Optional absolute execution directory, separate from the Bot memory workspace. */
   workingDirectory?: string;
   tools?: BotToolConfiguration;
+  /** Same-Host Bots this Bot may call; omitted means no delegation targets. */
+  callableBotIds?: string[];
   runtimeMode: RuntimeMode;
   targetRuntimeMode: RuntimeMode;
   policy: AssistantPolicy;
@@ -208,6 +210,7 @@ export type AssistantPatch = Partial<
     | "modelSettings"
     | "maxConcurrentRuns"
     | "tools"
+    | "callableBotIds"
     | "runtimeMode"
     | "targetRuntimeMode"
     | "policy"
@@ -253,7 +256,7 @@ export type AssistantMessage = MessageBase &
           | "unavailable";
         error?: string;
       }
-    | { kind: "status"; text: string; code?: string }
+    | { kind: "status"; text: string; code?: string; delegationId?: string }
     | {
         kind: "input";
         text: string;

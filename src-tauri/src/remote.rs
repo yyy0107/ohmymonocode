@@ -479,6 +479,9 @@ fn supported_remote_method(method: &str) -> bool {
             | "botMemory.undo"
             | "botMemory.rebuild"
             | "botMemory.topic"
+            | "botDelegations.list"
+            | "botDelegations.get"
+            | "botDelegations.cancel"
             | "im.get"
             | "im.configure"
             | "im.control"
@@ -832,6 +835,9 @@ mod tests {
             "botMemory.undo",
             "botMemory.rebuild",
             "botMemory.topic",
+            "botDelegations.list",
+            "botDelegations.get",
+            "botDelegations.cancel",
         ] {
             assert!(supported_remote_method(method), "{method}");
         }

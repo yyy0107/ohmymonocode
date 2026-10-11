@@ -1,3 +1,4 @@
+import { botAgentsMcpName } from "../../core/botContext";
 import type {
   Attachment,
   RuntimeMode,
@@ -241,6 +242,7 @@ function normalizeImageMime(mime: string): string {
 }
 
 export function buildClaudeSpawnArgs(input: {
+  botContext?: import("../../core/botContext").HarnessBotContext;
   systemInstructions?: string;
   model?: string;
   effort?: string;
@@ -280,6 +282,15 @@ export function buildClaudeSpawnArgs(input: {
   } else {
     args.push(`--setting-sources=${CLAUDE_SETTING_SOURCES}`);
     args.push("--settings", JSON.stringify(settings));
+    if (input.botContext?.agentsMcp) {
+      const launch = input.botContext.agentsMcp;
+      args.push("--mcp-config", JSON.stringify({ mcpServers: { [botAgentsMcpName(input.botContext)]: {
+        type: "stdio", command: launch.command, args: launch.args, timeout: 250_000,
+        // Claude expands these references at launch. Values never enter args,
+        // native configuration files, the transcript or Host run records.
+        env: { ...launch.env, MONOCODE_CONTROL_ENDPOINT: "${MONOCODE_CONTROL_ENDPOINT}", MONOCODE_CONTROL_TOKEN: "${MONOCODE_CONTROL_TOKEN}" },
+      } } }));
+    }
   }
   if (input.systemInstructions) args.push("--append-system-prompt", input.systemInstructions);
   if (input.model) args.push("--model", input.model);

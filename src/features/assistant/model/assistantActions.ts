@@ -1,6 +1,8 @@
 /** Host actions exposed to Bot tool configuration and control requests. */
 export const ASSISTANT_ACTIONS = [
   "agents.list",
+  "agents.list_bots",
+  "agents.ask_bot",
   "models.list",
   "projects.list",
   "projects.open",

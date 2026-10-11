@@ -70,3 +70,27 @@ export type BotRuns = { revision: number; runs: BotRun[]; hasMore: boolean; next
 export function botCacheKey(environmentId: string, scope: BotScope): string {
   return JSON.stringify([environmentId, scope.botId, scope.threadId]);
 }
+
+/** A single-hop task owned by its originating Host run. */
+export type BotDelegationStatus = "running" | "completed" | "busy" | "failed" | "cancelled" | "timed_out" | "interrupted";
+export type BotDelegation = {
+  id: string;
+  source: BotScope & { runId: string };
+  target: { botId: string; threadId?: string; runId?: string };
+  requestId: string;
+  prompt: string;
+  status: BotDelegationStatus;
+  createdAt: number;
+  updatedAt: number;
+  deadlineAt: number;
+  completedAt?: number;
+  result?: string;
+  resultTruncated?: boolean;
+  error?: string;
+};
+export type BotDelegations = {
+  revision: number;
+  delegations: BotDelegation[];
+  hasMore: boolean;
+  next?: { createdAt: number; id: string };
+};

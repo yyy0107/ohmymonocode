@@ -1983,6 +1983,7 @@ function launchOptions(
   resume: string | undefined,
   sessionId: string,
 ): {
+  botContext?: import("../../core/botContext").HarnessBotContext;
   systemInstructions?: string;
   model?: string;
   effort?: string;
@@ -2008,6 +2009,7 @@ function launchOptions(
     settings.disableAllHooks = true;
   }
   return {
+    botContext: input.botContext,
     systemInstructions: input.botContext?.systemInstructions,
     model: resolveClaudeApiModelId(native, context),
     effort: normalizeClaudeCliEffort(effortRaw, native),

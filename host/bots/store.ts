@@ -146,7 +146,7 @@ export class BotStore {
     if (!row) return null;
     const override = row.model_override ? parse(row.model_override) : undefined;
     const value = { ...parse(row.config), ...parse(row.runtime), ...(override ? { ...override, modelSettings: override.modelSettings ?? {} } : {}) } as AssistantRecord;
-    return { ...value, maxConcurrentRuns: value.maxConcurrentRuns ?? 3, persona: value.persona ?? defaultAssistantPersona(), timezone: value.timezone ?? value.schedules?.[0]?.timezone ?? "UTC", reminders: value.reminders ?? [], habits: value.habits ?? [] };
+    return { ...value, maxConcurrentRuns: value.maxConcurrentRuns ?? 3, callableBotIds: value.callableBotIds ?? [], persona: value.persona ?? defaultAssistantPersona(), timezone: value.timezone ?? value.schedules?.[0]?.timezone ?? "UTC", reminders: value.reminders ?? [], habits: value.habits ?? [] };
   }
   private insertBot(scope: BotScope, value: AssistantRecord): void {
     const now = Date.now(), parts = split(value);

@@ -23,6 +23,23 @@ import {
 import { formatShellIntent, inferShellIntent } from "../../core/shellIntent";
 import { streamTextDelta } from "../../core/streamText";
 import type { HarnessEvent } from "../../core/types";
+import { botAgentsMcpName, type HarnessBotContext } from "../../core/botContext";
+
+/** Per-server overrides merge with the CLI's user configuration, without writing it. */
+export function buildCodexAppServerArgs(context?: HarnessBotContext): string[] {
+  const args = ["app-server"];
+  if (!context?.agentsMcp) return args;
+  const prefix = `mcp_servers.${JSON.stringify(botAgentsMcpName(context))}`;
+  const values: Record<string, unknown> = {
+    command: context.agentsMcp.command,
+    args: context.agentsMcp.args,
+    env_vars: ["MONOCODE_CONTROL_ENDPOINT", "MONOCODE_CONTROL_TOKEN"],
+    tool_timeout_sec: 250,
+  };
+  for (const [key, value] of Object.entries(values)) args.push("-c", `${prefix}.${key}=${JSON.stringify(value)}`);
+  for (const [key, value] of Object.entries(context.agentsMcp.env ?? {})) args.push("-c", `${prefix}.env.${JSON.stringify(key)}=${JSON.stringify(value)}`);
+  return args;
+}
 
 /** Codex approval / sandbox settings for thread/start and turn/start. */
 export type CodexThreadConfig = {

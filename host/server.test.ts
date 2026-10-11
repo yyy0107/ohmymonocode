@@ -1413,3 +1413,24 @@ it("exposes scoped Bot runtime records and rejects invalid concurrency configura
   await vi.waitFor(async () => expect((await s.call("botThreads.runs", scope)).value.result.runs[0].status).toBe("completed"));
   expect((await s.call("botThreads.runs", { botId: second.bot.id, threadId: second.thread.id })).value.result.runs).toEqual([]);
 });
+
+it("routes delegation inspection through authenticated Thread scopes without accepting a caller identity", async () => {
+  const s = await setup();
+  await s.engine.ready;
+  s.engine.bots.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }] }, errors: {} }));
+  expect((await s.call("environment.describe")).value.result.capabilities).toContain("bots.delegation.v1");
+  const create = async (name: string) => (await s.call("bots.create", { commandId: name, patch: {
+    name, harness: "codex", model: "test", triggers: { user: true, event: false, schedule: false },
+  } })).value.result;
+  const first = await create("Delegation source"), second = await create("Delegation target");
+  const scope = { botId: first.bot.id, threadId: first.thread.id };
+  expect((await s.call("botDelegations.list", scope)).value.result).toMatchObject({ delegations: [], hasMore: false });
+  for (const method of ["botDelegations.list", "botDelegations.get", "botDelegations.cancel"]) {
+    const extra = method === "botDelegations.list" ? {} : { delegationId: "missing", ...(method.endsWith("cancel") ? { commandId: "cancel-missing" } : {}) };
+    expect((await s.call(method, { ...scope, ...extra, botId: second.bot.id })).status).toBe(400);
+    expect((await s.call(method, { ...scope, ...extra, source: { ...scope, runId: "forged" } })).status).toBe(400);
+  }
+  expect((await s.call("botDelegations.list", { ...scope, limit: 101 })).status).toBe(400);
+  s.store.revokeToken(s.first.token);
+  expect((await s.call("botDelegations.list", scope)).status).toBe(401);
+});

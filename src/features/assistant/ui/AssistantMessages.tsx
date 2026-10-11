@@ -18,6 +18,8 @@ import { CornerDownRight } from "../../../shared/ui/icons";
 import { AssistantMessageImage, type ReadAssistantImage } from "./AssistantMessageImage";
 
 type MessageActions = {
+  /** Optional desktop-only card; legacy/mobile status text stays unchanged. */
+  renderBotDelegation?: (delegationId: string, revision: number) => ReactNode;
   readImage?: ReadAssistantImage;
   /** Opens a sent non-image file in its own tab, where the client has tabs. */
   onOpenAttachment?: (messageId: string, file: RemoteAttachment) => void;
@@ -44,6 +46,7 @@ const AssistantMessageRow = memo(function AssistantMessageRow({
   bindReply,
   readImage,
   onOpenAttachment,
+  renderBotDelegation,
 }: MessageActions & {
   message: AssistantMessage;
   previousCreatedAt?: number;
@@ -84,7 +87,10 @@ const AssistantMessageRow = memo(function AssistantMessageRow({
         createdAt={message.createdAt}
         previousCreatedAt={previousCreatedAt}
       />
-      {message.kind === "session-card" ? (
+      {!mobile && renderBotDelegation && message.kind === "status" &&
+        "delegationId" in message && typeof message.delegationId === "string" ? (
+        renderBotDelegation(message.delegationId, message.revision)
+      ) : message.kind === "session-card" ? (
         wrapCard(
           <AssistantSessionCard
             key={message.id}

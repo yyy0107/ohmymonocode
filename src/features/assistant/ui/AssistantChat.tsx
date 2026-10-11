@@ -180,6 +180,9 @@ export function AssistantChat({
   botActivity,
   botAutomation,
   botManagement,
+  botDelegations,
+  renderBotDelegation,
+  botReadOnlyReason,
 }: {
   hostKey: string;
   rpc: AssistantRpc;
@@ -202,6 +205,10 @@ export function AssistantChat({
   botActivity?: ReactNode;
   botAutomation?: ReactNode;
   botManagement?: ReactNode;
+  botDelegations?: ReactNode;
+  renderBotDelegation?: (delegationId: string, revision: number) => ReactNode;
+  /** Desktop-only managed threads still allow approval and question responses. */
+  botReadOnlyReason?: string;
   /** Opens a sent file in a tab; receives a reader for the file's base64 bytes. */
   onOpenAttachment?: (file: RemoteAttachment, read: () => Promise<string>) => void;
 }) {
@@ -306,6 +313,9 @@ export function AssistantChat({
   const [projects, setProjects] = useState<HostProject[]>([]);
   const [supported, setSupported] = useState<boolean>();
   const [botsShellSupported, setBotsShellSupported] = useState(false);
+  const mobile = !!chrome;
+  const botsLayout = desktopBots && !mobile && botsShellSupported;
+  const composerReadOnly = botsLayout ? botReadOnlyReason : undefined;
   // Personality, local time and promised follow-ups need a newer Host.
   const [personaSupported, setPersonaSupported] = useState(false);
   const [imSupported, setImSupported] = useState(false);
@@ -600,8 +610,9 @@ export function AssistantChat({
       setBusy(false);
     }
   }, [sync]);
-  const send = (text: string, files: AssistantDraftAttachment[] = attachments) =>
-    operation(async () => {
+  const send = (text: string, files: AssistantDraftAttachment[] = attachments) => {
+    if (composerReadOnly) return Promise.resolve();
+    return operation(async () => {
       setSending(true);
       try {
         followLog.current = true;
@@ -615,6 +626,7 @@ export function AssistantChat({
         setRetry(client.pending());
       }
     });
+  };
   const save = async (patch: AssistantPatch) =>
     operation(async () => {
       // Failures stay inline in the settings panel, beside Reload settings.
@@ -704,7 +716,7 @@ export function AssistantChat({
     }
     setSettingsOpen((v) => !v);
   };
-  const attachDisabled = busy || !!retry || !assistant?.enabled || !assistant.triggers.user;
+  const attachDisabled = !!composerReadOnly || busy || !!retry || !assistant?.enabled || !assistant.triggers.user;
   const attach = (source: File[] | (() => Promise<File[]>)) => {
     if (attachDisabled || uploading.current) return;
     uploading.current = true;
@@ -743,8 +755,6 @@ export function AssistantChat({
   };
   const activity = assistantActivityLabel(assistant?.activity);
   const workingLabel = t(activity.key, activity.params);
-  const mobile = !!chrome;
-  const botsLayout = desktopBots && !mobile && botsShellSupported;
   const ui = chrome ?? (botsLayout ? desktopBotsChrome : desktopAssistantChrome);
   const replying = mobile && replyText !== undefined;
   const { Header, SettingsPanel, Controls, Composer } = ui;
@@ -757,7 +767,7 @@ export function AssistantChat({
   );
   const MessageMenu = ui.MessageMenu ?? DesktopAssistantMessageMenu;
   const replyDisabled =
-    busy || !!retry || !assistant?.enabled || !assistant.triggers.user;
+    !!composerReadOnly || busy || !!retry || !assistant?.enabled || !assistant.triggers.user;
   const reply = (text: string) => {
     if (replyDisabled) return;
     // Let the menu restore its previous focus before opening the mobile keyboard.
@@ -930,7 +940,7 @@ export function AssistantChat({
               <DesktopBotDetails
                 memory={botsLayout ? botMemory : undefined}
                 runtime={botsLayout ? botRuntime : undefined}
-                activity={botsLayout ? botActivity : undefined}
+                activity={botsLayout && (botActivity || botDelegations) ? <>{botActivity}{botDelegations}</> : undefined}
                 automation={botsLayout ? botAutomation : undefined}
                 management={botsLayout ? botManagement : undefined}
               >
@@ -1064,6 +1074,7 @@ export function AssistantChat({
                     </div>
                   )}
                   <AssistantMessages
+                    renderBotDelegation={botsLayout ? renderBotDelegation : undefined}
                     readImage={readImage}
                     onOpenAttachment={openAttachment}
                     messages={renderedMessages}
@@ -1100,25 +1111,28 @@ export function AssistantChat({
                 )}
                 <Composer
                   draft={draft}
-                  errorNotice={!settingsShown ? errorNotice : undefined}
+                  errorNotice={composerReadOnly ? <>
+                    <ComposerNotice tone="info" role="status" className="desktop-bot-read-only">{t(composerReadOnly)}</ComposerNotice>
+                    {!settingsShown ? errorNotice : undefined}
+                  </> : !settingsShown ? errorNotice : undefined}
                   replyText={mobile ? replyText : undefined}
                   onCancelReply={cancelReply}
                   onDraftChange={setDraft}
                   attachments={attachments}
                   busy={busy}
                   sending={sending}
-                  inputDisabled={!assistant.enabled || !assistant.triggers.user}
+                  inputDisabled={!!composerReadOnly || !assistant.enabled || !assistant.triggers.user}
                   attachDisabled={attachDisabled}
                   sendDisabled={
-                    busy ||
+                    !!composerReadOnly || busy ||
                     (!draft.trim() && !attachments.length) ||
                     !assistant.enabled ||
                     !assistant.triggers.user ||
                     !!retry
                   }
-                  retry={!!retry}
+                  retry={!composerReadOnly && !!retry}
                   onStop={
-                    assistant.lifecycle === "running"
+                    !composerReadOnly && assistant.lifecycle === "running"
                       ? () =>
                           void operation(() =>
                             rpc("assistant.control", {

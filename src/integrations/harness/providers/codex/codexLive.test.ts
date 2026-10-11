@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const sent: string[] = [];
+const spawned: string[][] = [];
 let onLine: ((line: string) => void) | undefined;
 let onExit: ((code: number | null, error?: string) => void) | undefined;
 const writeChild = vi.fn(async (_id: string, line: string) => {
@@ -23,7 +24,7 @@ vi.mock("@tauri-apps/api/core", async (importOriginal) => ({
 
 vi.mock("../../core/child", () => ({
   resolveCodexBinary: async () => ({ path: "/fake/codex" }),
-  spawnChild: async () => undefined,
+  spawnChild: async (_id: string, _path: string, args: string[]) => { spawned.push(args); },
   killChild: async () => undefined,
   unwatchChild: () => undefined,
   watchChild: (_id: string, line: (l: string) => void, exit: typeof onExit) => {
@@ -166,11 +167,13 @@ async function startTurn(
 
 describe("codex live turn sequence", () => {
   it("delivers a trusted Bot Soul as developer instructions and leaves reference text in turn input", async () => {
-    const { turn } = await startTurn("bot-native", { botContext: { scope: { botId: "bot", threadId: "thread", runId: "run" }, systemInstructions: "Identity and Soul", contextFingerprint: "stable" } });
+    const { turn } = await startTurn("bot-native", { botContext: { scope: { botId: "bot", threadId: "thread", runId: "run" }, systemInstructions: "Identity and Soul", contextFingerprint: "stable", agentsMcp: { command: "/host-node", args: ["/host-entry", "agents-mcp"] } } });
+    expect(spawned.at(-1)).toContain('mcp_servers."monocode_agents_thread".command="/host-node"');
     expect(parse().find(m => m.method === "thread/start")!.params).toMatchObject({ developerInstructions: "Identity and Soul" });
     const prompt = JSON.stringify(parse().find(m => m.method === "turn/start")!.params);
     expect(prompt).toContain("summarize the changelog");
     expect(prompt).not.toContain("Identity and Soul");
+    expect(prompt).not.toContain("/host-entry");
     notify("turn/completed", { turn: { id: "turn_1", status: "completed" } });
     await turn;
   });

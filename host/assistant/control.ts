@@ -561,6 +561,16 @@ export async function executeAssistantAction(
     store = assistant.store;
   const config = store.get()!;
   let permission: AssistantPermission;
+  // Delegations own their durable receipts. Caching a running response in the
+  // ordinary action ledger would prevent subsequent short polls from settling.
+  if (action === "agents.list_bots") {
+    fields(input, []);
+    return assistant.agentBots(authorized);
+  }
+  if (action === "agents.ask_bot") {
+    fields(input, ["botId", "prompt", "timeoutMs"]);
+    return assistant.askBot(requestId, input, authorized);
+  }
   if (
     action === "workspace.run" ||
     action.startsWith("git.") ||

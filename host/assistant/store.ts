@@ -108,7 +108,8 @@ export class AssistantStore {
   readonly threadId: string;
   constructor(readonly host: HostStore, scope?: BotScope) {
     this.bots = new BotStore(host);
-    this.scope = Object.freeze({ ...(scope ?? this.bots.defaultScope()) });
+    const identity = scope ?? this.bots.defaultScope();
+    this.scope = Object.freeze({ botId: identity.botId, threadId: identity.threadId });
     this.botId = this.scope.botId;
     this.threadId = this.scope.threadId;
     if (scope && !this.bots.getThread(scope.botId, scope.threadId))

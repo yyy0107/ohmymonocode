@@ -38,7 +38,7 @@ import {
 import { parseRemoteAttachments, resolveAttachments } from "../attachments";
 import { rotationReason } from "./rotation";
 import { recallBotMemory } from "../bots/recall";
-import type { BotRun, BotRunStatus } from "../../src/features/assistant/model/bots";
+import type { BotDelegation, BotRun, BotRunStatus } from "../../src/features/assistant/model/bots";
 import { matchPlaybook } from "./playbooks";
 import { dueDiaryDays, enqueueDiaries } from "./diary";
 import {
@@ -84,6 +84,8 @@ export type AssistantRuntimeOptions = {
     acquire: (run: BotRun, config: AssistantRecord) => boolean;
     release: () => void;
     automatic: () => boolean;
+    authorizeRun?: (run: BotRun) => boolean;
+    stopping?: (run: BotRun) => void;
   };
 };
 function providerConfiguration(value: { harness: string; model: string; runtimeMode?: string; modelSettings?: Record<string, string> }): string {
@@ -141,6 +143,7 @@ export class HostAssistant {
           !this.active ||
           config.lifecycle !== "running" ||
           !config.enabled ||
+          (this.currentRun && this.options.managed?.authorizeRun?.(this.currentRun) === false) ||
           !authorize()
         )
           throw new Error("Assistant control is inactive");
@@ -151,6 +154,7 @@ export class HostAssistant {
             !this.closing &&
             authorize() &&
             !!current?.enabled &&
+            (!this.currentRun || this.options.managed?.authorizeRun?.(this.currentRun) !== false) &&
             current.lifecycle === "running" &&
             current.brainSessionId === brain &&
             !!this.active
@@ -187,6 +191,17 @@ export class HostAssistant {
       }, 1000);
       this.timer.unref?.();
     });
+  }
+  agentBots(authorize: () => boolean = () => true) {
+    if (!authorize()) throw new Error("Assistant control is inactive");
+    return this.engine.bots.delegations.listBots(this);
+  }
+  async askBot(requestId: string, input: Record<string, unknown>, authorize: () => boolean): Promise<BotDelegation> {
+    if (!authorize()) throw new Error("Assistant control is inactive");
+    const value = await this.engine.bots.delegations.submit(this, requestId, input);
+    const result = value.status === "running" ? await this.engine.bots.delegations.wait(this, value.id) : value;
+    if (!authorize()) throw new Error("Assistant control is inactive");
+    return result;
   }
   assertActionEnabled(action: string): void {
     const enabled = this.currentRun?.config?.tools?.enabledActions;
@@ -556,7 +571,8 @@ export class HostAssistant {
           error: undefined,
           nextRetryAt: undefined,
         });
-        if (raw.action === "resume" || raw.action === "enable") {
+        if ((raw.action === "resume" || raw.action === "enable") &&
+            this.store.bots.getThread(this.store.botId, this.store.threadId)?.kind !== "delegation") {
           this.store.resumeChains();
           const recovery = ["interrupted", "paused", "failed"].includes(
             config.lifecycle,
@@ -668,6 +684,7 @@ export class HostAssistant {
       "workingDirectory",
       "maxConcurrentRuns",
       "tools",
+      "callableBotIds",
       "runtimeMode",
       "targetRuntimeMode",
       "policy",
@@ -690,6 +707,10 @@ export class HostAssistant {
       if (!isAbsolute(directory) || !(await stat(directory)).isDirectory()) throw new Error("Working directory must be an existing absolute directory");
       patch.workingDirectory = await realpath(directory);
     }
+    if (patch.callableBotIds !== undefined && (!Array.isArray(patch.callableBotIds) ||
+        patch.callableBotIds.length > 100 || new Set(patch.callableBotIds).size !== patch.callableBotIds.length ||
+        patch.callableBotIds.some(botId => typeof botId !== "string" || botId === current?.id || !this.store.bots.getBot(botId))))
+      throw new Error("Callable Bots must be existing Bots on this Host and cannot include this Bot");
     if (patch.tools !== undefined) {
       const tools = object(patch.tools);
       fields(tools, ["enabledActions", "computer"]);
@@ -992,6 +1013,7 @@ export class HostAssistant {
   }
   private finishRun(status: BotRunStatus, error?: string): void {
     this.updateRun({ status, endedAt: Date.now(), error });
+    if (this.activeRun) this.options.managed?.stopping?.(this.activeRun);
     this.activeRun = undefined;
   }
   async tick(): Promise<void> {
@@ -1197,7 +1219,7 @@ export class HostAssistant {
         providerConfiguration: providerConfiguration(config),
         memory: memory.hash, topics: topics.map(topic => [topic.path, topic.hash]),
         name: config.name, persona: config.persona, policyVersion: config.policyVersion,
-        workingDirectory: config.workingDirectory, tools: config.tools,
+        workingDirectory: config.workingDirectory, tools: config.tools, callableBotIds: config.callableBotIds,
         playbooks: this.store.playbookRevision(),
       });
       const chain = this.liveChain(wakeup.rootCauseId, config);
@@ -1340,14 +1362,17 @@ export class HostAssistant {
         memory.soul ? `User-authored Bot identity (SOUL.md):\n${memory.soul}` : "",
         `Host permissions are enforced by the Host. Current policy: ${JSON.stringify(config.policy)}.`,
       ].filter(Boolean).join("\n");
+      const botContext = { scope: { ...this.store.scope, runId: run.id }, systemInstructions, contextFingerprint: contextHash,
+        tools: config.tools, controlCli: { command: launcher },
+        ...(this.entry ? { agentsMcp: { command: this.options.node ?? process.execPath, args: [this.entry, "agents-mcp"] } } : {}) };
+      this.updateRun({ capabilities: this.engine.botCapabilities(config.harness, botContext) });
       this.engine.assistantCommand({
         type: "send",
         commandId: `assistant:wake:${wakeup.id}:${this.active.attempts}`,
         sessionId: brainId,
         text: prompt,
         attachments: this.active.attachments,
-      }, undefined, { scope: { ...this.store.scope, runId: run.id }, systemInstructions, contextFingerprint: contextHash,
-        tools: config.tools, controlCli: { command: launcher } });
+      }, undefined, botContext);
     } finally {
       this.ticking = false;
       if (!this.active) {
@@ -1726,6 +1751,7 @@ export class HostAssistant {
   }
   private async stopBrain(status: "interrupted" | "cancelled" = "interrupted"): Promise<void> {
     this.epoch++;
+    if (this.currentRun) this.options.managed?.stopping?.(this.currentRun);
     const config = this.store.get();
     if (!config) return;
     this.store.update({ lifecycle: "paused", activity: undefined });

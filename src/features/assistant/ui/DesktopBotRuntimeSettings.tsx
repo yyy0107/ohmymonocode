@@ -1,21 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 import type { AssistantRpc } from "../model/assistantClient";
-import type { BotView } from "../model/bots";
+import type { BotView, BotsSnapshot } from "../model/bots";
 import { ASSISTANT_ACTIONS } from "../model/assistantActions";
 import { assistantErrorMessage } from "../model/assistantErrors";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
+import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import "./desktop-bot-details.css";
 
-type Fields = { avatar: string; workingDirectory: string; slots: string; custom: boolean; actions: string[]; computer: boolean };
-const fields = (bot: BotView): Fields => ({ avatar: bot.avatar ?? "", workingDirectory: bot.workingDirectory ?? "", slots: String(bot.maxConcurrentRuns ?? 3), custom: bot.tools?.enabledActions !== undefined, actions: [...(bot.tools?.enabledActions ?? ASSISTANT_ACTIONS)], computer: bot.tools?.computer ?? false });
+type Fields = { avatar: string; workingDirectory: string; slots: string; custom: boolean; actions: string[]; computer: boolean; callableBotIds: string[] };
+const fields = (bot: BotView): Fields => ({ avatar: bot.avatar ?? "", workingDirectory: bot.workingDirectory ?? "", slots: String(bot.maxConcurrentRuns ?? 3), custom: bot.tools?.enabledActions !== undefined, actions: [...(bot.tools?.enabledActions ?? ASSISTANT_ACTIONS)], computer: bot.tools?.computer ?? false, callableBotIds: [...(bot.callableBotIds ?? [])].filter(id => id !== bot.id) });
 
-type Props = { bot: BotView; rpc: AssistantRpc; onSaved: () => void };
+type Props = { bot: BotView; rpc: AssistantRpc; onSaved: () => void; delegationSupported?: boolean };
 export function DesktopBotRuntimeSettings(props: Props) {
   return <RuntimeSettings key={props.bot.id} {...props} />;
 }
-function RuntimeSettings({ bot, rpc, onSaved }: Props) {
+function RuntimeSettings({ bot, rpc, onSaved, delegationSupported = false }: Props) {
   const { t } = useTranslation();
+  const visible = useSurfaceVisibility();
+  const [callableBots, setCallableBots] = useState<BotView[]>([]);
+  const [botsError, setBotsError] = useState<string>();
+  const [botsLoading, setBotsLoading] = useState(false);
+  const [botsAttempt, setBotsAttempt] = useState(0);
   const [base, setBase] = useState(() => ({ revision: bot.revision, fields: fields(bot) }));
   const [draft, setDraft] = useState(base.fields);
   const [busy, setBusy] = useState(false);
@@ -23,6 +29,15 @@ function RuntimeSettings({ bot, rpc, onSaved }: Props) {
   const [conflict, setConflict] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!visible || !open || !delegationSupported) return;
+    let stopped = false;
+    setBotsLoading(true);
+    void rpc<BotsSnapshot>("bots.list").then(snapshot => {
+      if (!stopped) { setCallableBots(snapshot.bots.filter(item => item.id !== bot.id && !item.archivedAt)); setBotsError(undefined); }
+    }, cause => { if (!stopped) setBotsError(assistantErrorMessage(cause)); }).finally(() => { if (!stopped) setBotsLoading(false); });
+    return () => { stopped = true; };
+  }, [visible, open, delegationSupported, bot.id, rpc, botsAttempt]);
   const command = useRef<{ signature: string; id: string } | undefined>(undefined);
   const dirty = JSON.stringify(draft) !== JSON.stringify(base.fields);
   useEffect(() => {
@@ -36,7 +51,8 @@ function RuntimeSettings({ bot, rpc, onSaved }: Props) {
   const save = async () => {
     if (busy || !dirty || conflict || !validAvatar || !validSlots) return;
     const patch = { avatar: draft.avatar.trim(), workingDirectory: draft.workingDirectory.trim() || null, maxConcurrentRuns: slots,
-      tools: { computer: draft.computer, ...(draft.custom ? { enabledActions: draft.actions } : {}) } };
+      tools: { computer: draft.computer, ...(draft.custom ? { enabledActions: draft.actions } : {}) },
+      ...(delegationSupported ? { callableBotIds: draft.callableBotIds.filter(id => id !== bot.id) } : {}) };
     const signature = JSON.stringify([bot.id, base.revision, patch]);
     if (command.current?.signature !== signature) command.current = { signature, id: crypto.randomUUID() };
     setBusy(true); setError(undefined);
@@ -66,6 +82,18 @@ function RuntimeSettings({ bot, rpc, onSaved }: Props) {
       <label>{t("Concurrent runs")}<input type="number" min={1} max={10} step={1} value={draft.slots} aria-invalid={!validSlots || undefined} onChange={event => update({ slots: event.target.value })} /></label>
       {!validSlots && <small role="alert">{t("Choose between 1 and 10 concurrent runs.")}</small>}
       <label className="desktop-bot-check"><input type="checkbox" checked={draft.computer} onChange={event => update({ computer: event.target.checked })} />{t("Reserve the Host computer during this Bot's runs")}</label>
+      {delegationSupported && <section className="desktop-bot-callable-list" aria-label={t("Callable bots")}>
+        <h3>{t("Callable bots")}</h3>
+        <p>{t("Only selected Bots on this Host can be called. Bots cannot call themselves or delegate again.")}</p>
+        {botsLoading && <small role="status">{t("Loading…")}</small>}
+        {botsError && <p role="alert">{t(botsError)} <button type="button" onClick={() => setBotsAttempt(value => value + 1)}>{t("Retry")}</button></p>}
+        {[...new Set([...callableBots.map(item => item.id), ...draft.callableBotIds])].filter(id => id !== bot.id).map(id => {
+          const target = callableBots.find(item => item.id === id);
+          return <label className="desktop-bot-check" key={id}><input type="checkbox" checked={draft.callableBotIds.includes(id)} onChange={event => update({ callableBotIds: event.target.checked ? [...draft.callableBotIds, id] : draft.callableBotIds.filter(item => item !== id) })} /><span>{target?.name ?? t("Unavailable Bot")}</span></label>;
+        })}
+        {!botsLoading && !botsError && !callableBots.length && !draft.callableBotIds.length && <small>{t("No other bots on this Host")}</small>}
+        {!draft.callableBotIds.length && <small>{t("No bots are allowed to be called")}</small>}
+      </section>}
       <button type="button" aria-expanded={toolsOpen} onClick={() => setToolsOpen(value => !value)}>{t("Host tools")}</button>
       <AnimatedCollapse expanded={toolsOpen}><div className="desktop-bot-tool-options">
         <p>{t("These choices restrict Host control actions. Provider tools and user MCP servers keep their own permissions.")}</p>

@@ -36,7 +36,8 @@ function Activity({ scope, rpc }: { scope: BotScope; rpc: AssistantRpc }) {
         // down by newly queued work. Stop once the previous page boundary is met.
       } while (boundary && result.hasMore && before &&
         (before.createdAt > boundary.createdAt || (before.createdAt === boundary.createdAt && before.id > boundary.id)));
-      oldest.current = result.next; setRuns(rows); setPage(result); setError(undefined);
+      const last = rows.at(-1);
+      oldest.current = last ? { createdAt: last.createdAt, id: last.id } : undefined; setRuns(rows); setPage(result); setError(undefined);
     } catch (cause) { if (alive.current && sequence === request.current) setError(assistantErrorMessage(cause)); }
     finally { inFlight.current = false; }
   }, [rpc, scope.botId, scope.threadId]);
@@ -52,8 +53,12 @@ function Activity({ scope, rpc }: { scope: BotScope; rpc: AssistantRpc }) {
     const sequence = request.current;
     inFlight.current = true; setLoading(true);
     try {
-      const result = await rpc<BotRuns>("botThreads.runs", { ...scope, limit: 30, before: page.next });
-      if (alive.current && sequence === request.current) { oldest.current = result.next; setRuns(current => merge(current, result.runs)); setPage(result); setError(undefined); }
+      const result = await rpc<BotRuns>("botThreads.runs", { botId: scope.botId, threadId: scope.threadId, limit: 30, before: page.next });
+      if (alive.current && sequence === request.current) {
+        const last = merge([], result.runs).at(-1);
+        if (last) oldest.current = { createdAt: last.createdAt, id: last.id };
+        setRuns(current => merge(current, result.runs)); setPage(result); setError(undefined);
+      }
     } catch (cause) { if (alive.current && sequence === request.current) setError(assistantErrorMessage(cause)); }
     finally { inFlight.current = false; if (alive.current) setLoading(false); }
   };

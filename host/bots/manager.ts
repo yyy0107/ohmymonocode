@@ -5,7 +5,9 @@ import { AssistantStore, signature } from "../assistant/store";
 import { fields, id, object } from "../assistant/policy";
 import { BotStore } from "./store";
 import { HostResourceGuard } from "./resources";
-import type { BotScope, BotsSnapshot } from "../../src/features/assistant/model/bots";
+import { DelegationService } from "./delegations";
+import type { AssistantRecord } from "../assistant/store";
+import type { BotRun, BotScope, BotsSnapshot } from "../../src/features/assistant/model/bots";
 import type { HostModelCatalog, HostSession, RemoteProvider } from "../../src/features/connections/model/protocol";
 import type { TurnOrigin } from "../../src/features/sessions/model/session";
 
@@ -15,6 +17,7 @@ const BOT_CONTROLS = new Set(["pause", "resume", "disable", "enable"]);
 export class BotManager {
   readonly store: BotStore;
   readonly defaultAssistant: HostAssistant;
+  readonly delegations: DelegationService;
   readonly ready: Promise<void>;
   private readonly runtimes = new Map<string, HostAssistant>();
   private readonly leases = new Map<string, Map<string, string>>();
@@ -61,6 +64,7 @@ export class BotManager {
   ) {
     this.store = new BotStore(engine.store);
     this.resources = new HostResourceGuard(engine.store);
+    this.delegations = new DelegationService(this);
     this.defaultAssistant = this.createRuntime(this.store.defaultScope());
     for (const bot of this.store.listBots(true))
       for (const thread of this.store.listThreads(bot.id, true))
@@ -69,6 +73,7 @@ export class BotManager {
     engine.store.onSessionSave = this.observeSession;
     this.ready = Promise.all([...this.runtimes.values()].map(runtime => runtime.ready)).then(() => {
       if (this.closing) return;
+      this.delegations.recover();
       this.timer = setInterval(() => this.tick(), 1000);
       this.timer.unref?.();
       this.tick();
@@ -86,29 +91,16 @@ export class BotManager {
       store: new AssistantStore(this.engine.store, this.store.getThread(scope.botId, scope.threadId) ? scope : undefined),
       managed: {
         automatic: () => this.store.getBot(scope.botId)?.defaultThreadId === scope.threadId,
-        acquire: (run, config) => {
-          const bot = this.store.getBot(scope.botId), thread = this.store.getThread(scope.botId, scope.threadId);
-          if (this.closing || this.blocked.has(scope.botId) || this.blockedThreads.has(key) || !bot?.enabled || bot.paused || !thread ||
-              bot.archivedAt !== undefined || thread.archivedAt !== undefined) return false;
-          const owners = this.leases.get(scope.botId) ?? new Map<string, string>();
-          const previous = owners.get(scope.threadId);
-          if (previous) return previous === run.id;
-          if (owners.size >= (bot.maxConcurrentRuns ?? 3)) return false;
-          // The stable Thread parent also covers a fresh provider generation;
-          // lock before dispatch so overlap waits in the queue rather than failing a run.
-          const workingDirectory = config.workingDirectory ?? join(dirname(this.engine.store.attachmentDir), "bots", scope.botId, "threads", scope.threadId);
-          if (!this.resources.acquire(run.id, { workingDirectory, computer: config.tools?.computer === true })) return false;
-          owners.set(scope.threadId, run.id);
-          this.leases.set(scope.botId, owners);
-          return true;
-        },
+        acquire: (run, config) => this.acquire(scope, run, config),
+        authorizeRun: run => this.delegations.authorizeRun(run),
+        stopping: run => this.delegations.parentEnded(run.id),
         release: () => {
           const owners = this.leases.get(scope.botId), runId = owners?.get(scope.threadId);
           if (!runId) return;
           this.resources.release(runId);
           owners!.delete(scope.threadId);
           if (!owners!.size) this.leases.delete(scope.botId);
-          if (!this.closing) setImmediate(() => this.tick());
+          if (!this.closing) setImmediate(() => { this.delegations.reconcile(); this.tick(); });
         },
       },
     });
@@ -120,9 +112,57 @@ export class BotManager {
     return runtime;
   }
 
+  private acquire(scope: BotScope, run: BotRun, config: AssistantRecord, admitting = false): boolean {
+    const bot = this.store.getBot(scope.botId), thread = this.store.getThread(scope.botId, scope.threadId);
+    if (this.closing || this.blocked.has(scope.botId) || this.blockedThreads.has(this.key(scope)) || !bot?.enabled || bot.paused ||
+        !thread || bot.archivedAt !== undefined || thread.archivedAt !== undefined ||
+        (!admitting && !this.delegations.authorizeRun(run))) return false;
+    const owners = this.leases.get(scope.botId) ?? new Map<string, string>(), previous = owners.get(scope.threadId);
+    if (previous) return previous === run.id;
+    if (owners.size >= (bot.maxConcurrentRuns ?? 3)) return false;
+    const workingDirectory = config.workingDirectory ?? join(dirname(this.engine.store.attachmentDir), "bots", scope.botId, "threads", scope.threadId);
+    if (!this.resources.acquire(run.id, { workingDirectory, computer: config.tools?.computer === true })) return false;
+    owners.set(scope.threadId, run.id);
+    this.leases.set(scope.botId, owners);
+    return true;
+  }
+
+  hasDelegationSlot(botId: string): boolean {
+    const bot = this.store.getBot(botId);
+    return !this.closing && !this.blocked.has(botId) && !!bot?.enabled && !bot.paused && bot.archivedAt === undefined &&
+      (this.leases.get(botId)?.size ?? 0) < (bot.maxConcurrentRuns ?? 3);
+  }
+
+  /** Synchronous slot reservation prevents a delegation from entering an ordinary queue. */
+  reserveDelegation(botId: string, delegationId: string, prompt: string, sourceName: string): (BotScope & { runId: string }) | undefined {
+    if (!this.hasDelegationSlot(botId)) return;
+    const busy = new Error("Delegation admission is busy");
+    try {
+      return this.engine.store.transaction(() => {
+        const scope = this.store.createThread(botId, { kind: "delegation", title: `From ${sourceName}` });
+        const assistant = new AssistantStore(this.engine.store, scope);
+        const receipt = assistant.receive(`delegation:${delegationId}`, prompt, [], { kind: "automatic" });
+        const run = this.store.queuedRun(scope, assistant.wakeup(receipt.wakeupId!)!);
+        if (!this.acquire(scope, run, assistant.get()!, true)) throw busy;
+        return { ...scope, runId: run.id };
+      });
+    } catch (error) {
+      if (error === busy) return;
+      throw error;
+    }
+  }
+
+  releaseDelegationReservation(scope: BotScope & { runId: string }): void {
+    const owners = this.leases.get(scope.botId);
+    if (owners?.get(scope.threadId) !== scope.runId) return;
+    this.resources.release(scope.runId); owners.delete(scope.threadId);
+    if (!owners.size) this.leases.delete(scope.botId);
+  }
+  startDelegation(scope: BotScope): void { void this.assistant(scope).managedTick(); }
+
   assistant(scope: BotScope): HostAssistant {
     if (!this.store.getThread(scope.botId, scope.threadId)) throw new Error("Thread does not belong to this Bot");
-    return this.createRuntime(scope);
+    return this.createRuntime({ botId: scope.botId, threadId: scope.threadId });
   }
 
   setCatalog(available: () => Promise<RemoteProvider[]>, catalog: (projectId?: string) => Promise<HostModelCatalog>): void {
@@ -140,6 +180,7 @@ export class BotManager {
 
   private tick(): void {
     if (this.closing) return;
+    this.delegations.reconcile();
     for (const runtime of this.runtimes.values()) void runtime.managedTick();
   }
 
@@ -181,8 +222,11 @@ export class BotManager {
     if (method.startsWith("assistant.")) {
       if (method === "assistant.control" && BOT_CONTROLS.has(String(raw.action)))
         return this.mutate(() => this.controlBot(this.store.defaultScope(), raw));
-      return this.defaultAssistant.rpc(method, raw);
+      const result = await this.defaultAssistant.rpc(method, raw);
+      if (method === "assistant.configure") this.delegations.reconcile();
+      return result;
     }
+    if (method.startsWith("botDelegations.")) return this.delegations.rpc(method, raw);
     if (method === "bots.list") {
       fields(raw, ["includeArchived"]);
       if (raw.includeArchived !== undefined && typeof raw.includeArchived !== "boolean") throw new Error("Invalid archive filter");
@@ -314,7 +358,9 @@ export class BotManager {
     if (method === "bots.configure") {
       const scope = this.botScope(raw), { botId: _bot, ...params } = raw;
       this.assertWritable(scope);
-      return this.assistant(scope).rpc("assistant.configure", params);
+      const result = await this.assistant(scope).rpc("assistant.configure", params);
+      this.delegations.reconcile();
+      return result;
     }
     if (method === "bots.control") {
       const scope = this.botScope(raw), { botId: _bot, ...params } = raw;
@@ -409,6 +455,8 @@ export class BotManager {
       fields(params, ["commandId", "expectedGeneration"]);
       return runtime.rpc("assistant.control", { ...params, action: "cancelTurn" });
     }
+    if (method === "botThreads.send" && this.store.getThread(scope.botId, scope.threadId)?.kind === "delegation")
+      throw new Error("Delegation threads accept only their assigned task");
     if (method === "botThreads.send" || method === "botThreads.respond")
       return runtime.rpc(`assistant.${method.slice("botThreads.".length)}`, params);
     throw new Error("Unsupported Bot RPC");
@@ -416,6 +464,7 @@ export class BotManager {
 
   async close(): Promise<void> {
     this.closing = true;
+    this.delegations.close();
     clearInterval(this.timer);
     if (this.engine.store.onSessionSave === this.observeSession) this.engine.store.onSessionSave = undefined;
     if (this.engine.authorizeAssistantQueued === this.authorizeQueued) this.engine.authorizeAssistantQueued = undefined;

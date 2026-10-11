@@ -17,6 +17,7 @@ import {
 } from "../../core/child";
 import {
   asRecord,
+  buildCodexAppServerArgs,
   buildThreadStartParams,
   buildTurnStartParams,
   buildTurnSteerParams,
@@ -582,7 +583,7 @@ async function ensureLive(input: HarnessSessionInput): Promise<Live> {
   await spawnChild(
     input.sessionId,
     path,
-    ["app-server"],
+    buildCodexAppServerArgs(input.botContext),
     input.cwd,
     {
       provider: "codex",

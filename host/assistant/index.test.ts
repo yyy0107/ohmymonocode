@@ -479,10 +479,12 @@ it("denies every declared action before effects when its permission is off", asy
   engine.assistant.store.update({ policy });
   // Reminders and habits are governed by the scheduled-check trigger and
   // memory and chat are the assistant's own records; none reaches project data.
+  // Bot delegation has an independent callable-Bot allowlist and run identity.
   for (const action of ASSISTANT_ACTIONS.filter(
     (a) =>
       a !== "actions.get" &&
       a !== "chat.search" &&
+      a !== "agents.list_bots" && a !== "agents.ask_bot" &&
       !a.startsWith("playbooks.") &&
       !a.startsWith("reminders.") &&
       !a.startsWith("habits.") &&

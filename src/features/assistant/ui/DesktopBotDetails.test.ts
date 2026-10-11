@@ -54,7 +54,7 @@ it("refreshes loaded older activity through shifting cursors and stops polling w
   const rpc = vi.fn(async (_method: string, params: Record<string, any>) => {
     const at = params.before?.createdAt ?? (changed ? 4 : 3);
     const value = at > 3 ? run("new", 3, "queued") : at > 2 ? run("recent", 2, "completed") : run("older", 1, changed ? "completed" : "running");
-    return { revision: changed ? 2 : 1, runs: [value], hasMore: value.id !== "older", next: { createdAt: value.createdAt, id: value.id } };
+    return { revision: changed ? 2 : 1, runs: [value], hasMore: value.id !== "older", next: value.id === "older" ? undefined : { createdAt: value.createdAt, id: value.id } };
   });
   const render = (visible: boolean) => act(() => root.render(createElement(SurfaceVisibilityContext.Provider, { value: visible }, createElement(DesktopBotActivity, { scope: { botId: "bot-a", threadId: "thread-a" }, rpc: rpc as never }))));
   render(true); await flush(); act(() => button("Load older runs").click()); await flush(); expect(node.textContent).toContain("Running");
@@ -91,4 +91,33 @@ it("saves only automation fields with a stable revision and retry command while 
   expect(saves).toHaveLength(2); expect(saves[1].commandId).toBe(saves[0].commandId); expect(saves[1].expectedRevision).toBe(5);
   expect(saves[1].patch).toMatchObject({ schedules: [{ intervalMinutes: 120 }] });
   expect(saves[1].patch).not.toHaveProperty("model"); expect(saves[1].patch).not.toHaveProperty("name"); expect(saves[1].patch).not.toHaveProperty("policy");
+});
+
+it("limits callable choices to other active Bots on this Host and saves the explicit allowlist", async () => {
+  const mine = bot(), other = { ...bot(), id: "bot-b", name: "Research Bot" };
+  const rpc = vi.fn(async (method: string, _params?: Record<string, unknown>) => {
+    if (method === "bots.list") return { revision: 1, bots: [mine, other, { ...other, id: "archived", archivedAt: 1 }], threads: [] };
+    if (method === "bots.configure") return { revision: 6 };
+    throw new Error(method);
+  });
+  act(() => root.render(createElement(DesktopBotRuntimeSettings, { bot: mine, rpc: rpc as never, onSaved: vi.fn(), delegationSupported: true })));
+  expect(rpc).not.toHaveBeenCalled();
+  act(() => button("Runtime").click()); await flush();
+  const list = node.querySelector<HTMLElement>('[aria-label="Callable bots"]')!;
+  expect(list.textContent).not.toContain("Test Bot");
+  const options = [...list.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')];
+  expect(options).toHaveLength(1); expect(options[0].checked).toBe(false);
+  act(() => options[0].click()); act(() => button("Save runtime settings").click()); await flush();
+  expect(rpc.mock.calls.find(call => call[0] === "bots.configure")?.[1]).toMatchObject({ botId: "bot-a", expectedRevision: 5, patch: { callableBotIds: ["bot-b"] } });
+});
+
+it("omits delegation configuration and discovery when the Host lacks the capability", async () => {
+  const rpc = vi.fn().mockResolvedValue({ revision: 6 });
+  act(() => root.render(createElement(DesktopBotRuntimeSettings, { bot: bot(), rpc: rpc as never, onSaved: vi.fn() })));
+  act(() => button("Runtime").click()); await flush();
+  expect(node.querySelector('[aria-label="Callable bots"]')).toBeNull();
+  act(() => input(field("Concurrent runs"), "4"));
+  act(() => button("Save runtime settings").click()); await flush();
+  expect(rpc).toHaveBeenCalledTimes(1);
+  expect(rpc.mock.calls[0][1].patch).not.toHaveProperty("callableBotIds");
 });

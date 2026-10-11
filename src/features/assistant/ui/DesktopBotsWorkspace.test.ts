@@ -21,6 +21,7 @@ let rpc: ReturnType<typeof vi.fn>;
 let memorySupported: boolean;
 let runtimeSupported: boolean;
 let managementSupported: boolean;
+let delegationSupported: boolean;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.useFakeTimers();
@@ -28,16 +29,18 @@ beforeEach(() => {
   setUiLanguage("en");
   snapshot = { revision: 1, bots: [bot("A"), bot("B")], threads: [thread("A", "A-1"), thread("A", "A-2"), thread("B", "B-1")], defaultBotId: "A", defaultThreadId: "A-1" };
   messages = {};
-  memorySupported = false; runtimeSupported = false; managementSupported = false;
+  memorySupported = false; runtimeSupported = false; managementSupported = false; delegationSupported = false;
   const view = (id: string) => {
     const target = snapshot.threads.find((thread) => thread.id === id)!;
     const owner = snapshot.bots.find((bot) => bot.id === target.botId)!;
     return { ...owner, ...target.modelOverride, botId: target.botId, threadId: target.id, title: target.title, chatRevision: target.chatRevision };
   };
   rpc = vi.fn(async (method: string, params: Record<string, any> = {}) => {
-    if (method === "environment.describe") return { capabilities: ["assistant.v1", "assistant.history", "bots.shell.v1", "bots.v1", ...(memorySupported ? ["botMemory.v1"] : []), ...(runtimeSupported ? ["bots.runtime.v1"] : []), ...(managementSupported ? ["bots.management.v1"] : [])] };
+    if (method === "environment.describe") return { capabilities: ["assistant.v1", "assistant.history", "bots.shell.v1", "bots.v1", ...(memorySupported ? ["botMemory.v1"] : []), ...(runtimeSupported ? ["bots.runtime.v1"] : []), ...(managementSupported ? ["bots.management.v1"] : []), ...(delegationSupported ? ["bots.delegation.v1"] : [])] };
     if (method === "botMemory.list") return { revision: 1, files: [], topicLimit: 100, topicsTruncated: false };
     if (method === "botMemory.read") return { path: params.path, text: `${params.botId} memory`, kind: "resident", revision: 1, hash: params.botId, bytes: 8, updatedAt: 1 };
+    if (method === "botDelegations.get") return { id: params.delegationId, source: { botId: "A", threadId: "A-1", runId: "parent-run" }, target: { botId: "B", threadId: "B-1", runId: "child-run" }, requestId: "request", prompt: "Review", status: "running", createdAt: 1, updatedAt: 1, deadlineAt: 240001 };
+    if (method === "botDelegations.list") return { revision: 1, delegations: [], hasMore: false };
     if (method === "botThreads.runs") return { revision: 1, runs: [], hasMore: false };
     if (method === "bots.list") return { ...snapshot, threads: [...snapshot.threads] };
     if (method === "botThreads.get") return view(params.threadId);
@@ -297,4 +300,28 @@ it("offers automation on a management-capable Host and returns archive keyboard 
   act(() => archive.querySelector(".desktop-bots-archive h2")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
   await act(async () => { await vi.advanceTimersByTimeAsync(30); }); await flush();
   expect(document.activeElement).toBe(active().querySelector(".desktop-bots-archive-entry"));
+});
+
+it("renders scoped delegation messages and opens the target Thread for its independent approvals", async () => {
+  delegationSupported = true;
+  snapshot.threads[2].kind = "delegation";
+  snapshot.threads[0].chatRevision = 1;
+  messages["A-1"] = [{ id: "status1", revision: 1, createdAt: 1, kind: "status", text: "Delegation running", delegationId: "d1" }];
+  await render();
+  expect(active().querySelector(".desktop-bot-delegation-card")?.textContent).toContain("A → B");
+  expect(rpc.mock.calls.find(([method]) => method === "botDelegations.get")?.[1]).toEqual({ botId: "A", threadId: "A-1", delegationId: "d1" });
+  act(() => [...active().querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Open target thread")!.click()); await flush();
+  expect(active().querySelector('.desktop-bots-thread[aria-current="page"]')?.textContent).toContain("B-1");
+  expect(composer().disabled).toBe(true);
+  expect(active().textContent).toContain("Delegation threads accept approvals and questions.");
+  expect(rpc.mock.calls.some(([method]) => method === "botThreads.respond")).toBe(false);
+});
+
+it("keeps status text without delegation queries on a Host without delegation capability", async () => {
+  snapshot.threads[0].chatRevision = 1;
+  messages["A-1"] = [{ id: "status1", revision: 1, createdAt: 1, kind: "status", text: "Delegation running", delegationId: "d1" }];
+  await render();
+  expect(active().textContent).toContain("Delegation running");
+  expect(active().querySelector(".desktop-bot-delegation-card")).toBeNull();
+  expect(rpc.mock.calls.some(([method]) => method.startsWith("botDelegations."))).toBe(false);
 });

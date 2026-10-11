@@ -206,8 +206,9 @@ commands/results and deferred checks, including manual visual checks.
 | 2 | Isolated Bots/Threads complete | `cf4e906e` | Scoped persistence, RPC, desktop and compatibility checks below |
 | 3 | File-backed memory complete | `5159556a` | File durability, recall, UI and compatibility checks below |
 | 4 | Concurrent runtime complete | `bf095e1c` | Runtime, resource, provider and compatibility checks below |
-| 5 | Desktop management complete | `feat(bots): complete desktop bot management` | Management, compatibility and browser checks below |
-| 6–8 | Not started | — | None |
+| 5 | Desktop management complete | `76ca64ce` | Management, compatibility and browser checks below |
+| 6 | Single-hop delegation complete | Recorded in the following stage | Delegation, MCP, UI and compatibility checks below |
+| 7–8 | Not started | — | None |
 
 Stage 1 verification (Node 24.16.0, Vitest 3.2.7, Vite 7.3.6):
 
@@ -453,3 +454,65 @@ Stage 5 checks and management behavior:
   keyboard tabs and automation-only configuration patches. Existing persona and
   reasoning settings: 6 passed. Final Web/Host TypeScript and diff checks passed.
   No Rust files changed in this stage; no builds, publication, push or merge.
+
+Stage 6 checks and delegation behavior:
+
+- Desktop delegation/management/workspace selection: 24 passed. Cards refresh on
+  chat revisions, provide source/target navigation, preserve retry command IDs,
+  filter foreign records and disable hidden interaction. Loaded history keeps its
+  actual oldest record when a final page omits `next`. Selection events are
+  normalized to Bot/Thread IDs before issuing strictly scoped RPCs.
+- Shared message/mobile fallback and localization: 16 passed. Desktop receives
+  the optional delegation card; mobile keeps the original status-message path.
+- Authenticated delegation HTTP routing: 1 passed, covering list/get/cancel scope
+  validation, forged caller fields, bounds and revoked device credentials.
+- `CARGO_TARGET_DIR=/projects/monocode/target npm run check:rust`: passed
+  (603 tests passed, 1 ignored). New delegation RPCs are in the native allowlist.
+- Browser fixture: expanded a delegation card, opened the target Thread,
+  cancelled from the target, returned to the source and verified the updated
+  status and retained draft. Dark 1280px layout inspected. This used mock data;
+  it did not start a real provider or contact another person.
+- MCP/CLI bridge and existing socket controls: 10 passed; the expanded real Node
+  stdio/TCP case passed again after adding multi-poll completion, notification
+  cancellation and EOF cleanup. A logical request keeps one request ID and the
+  Host's original deadline across short (at most 25-second) authenticated polls.
+  Credentials are inherited by child processes and absent from protocol output.
+- Codex/Claude/core selections: 265 passed; Pi/OMP protocol selection: 59 passed;
+  collaboration prompt/permissions: 2 passed; final MCP name-length/Claude
+  timeout refinements: 2 passed. TypeScript passed for Web and Host.
+- Native MCP is configured for Codex and Claude only when a Host launcher exists.
+  A per-Thread server entry preserves other user MCP entries. Codex uses dotted
+  `-c` overrides and environment-variable forwarding; Claude uses non-strict
+  `--mcp-config`, environment references and a 250-second server timeout.
+  Pi/OMP retain the explicitly described control-CLI fallback. The same service
+  verifies identity and permissions for both transports.
+- Read-only local CLI evidence: Codex 0.159.2 help/schema, Claude 2.1.296 help,
+  Pi 1.1.0 help, OMP 18.6.0 help. Claude environment expansion and timeout use
+  its [official MCP documentation](https://code.claude.com/docs/en/mcp) plus
+  protocol tests. Actual provider model inference and real native MCP connections
+  were not run; user CLI configuration was not modified.
+- Delegation Threads remain visible so their approval/question cards are reachable.
+  Ordinary sends are rejected and the desktop composer explains that new messages
+  need a direct Thread; Bot resume/enable cannot enqueue an orphan delegation.
+  The browser fixture confirmed the localized explanation and disabled composer
+  and attachment controls while retaining the delegation cancellation control.
+- Final read-only delegation UI selection: `AssistantChat.test.ts` and
+  `DesktopBotsWorkspace.test.ts`, 47 passed. Approvals and questions still submit
+  their exact run/request/generation; a read-only reason is ignored by the old
+  desktop shell. Normal direct Threads keep their existing composer behavior.
+
+Stage 6 command scopes: direct Host Vitest for `host/bots/agents-mcp.test.ts` and
+`host/control.test.ts`; direct Web Vitest for `core/botContext.test.ts`, the
+Codex/Claude `Protocol` and `Live` files, and both Pi/OMP `Live` files. Focused
+Host prompt/permission cases used `-t 'describes bounded Bot|denies every declared'`.
+The existing permission-matrix test initially expected ordinary policy checks for
+these new operations; it now leaves their independent callable-list checks to
+`host/bots/delegations.test.ts`, and its rerun passed. No failed check is treated
+as completed verification.
+
+- Delegation runtime: all 7 new tests passed. Final scope/short-wait/deadline/
+  restart refinements passed their 4-case selection; 4 existing manager slot,
+  approval, cancellation and restart cases passed. Normal close and crash recovery
+  retire reserved-but-unstarted tasks and stale queued work without overwriting
+  a confirmed completed run. Web/Host TypeScript and final diff checks passed.
+  No application build, publication, push or merge was run.

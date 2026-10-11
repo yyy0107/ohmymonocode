@@ -980,8 +980,10 @@ export class HostEngine {
     return this.applyCommand(raw, false);
   }
 
-  botCapabilities(harness: string): HarnessBotCapabilities {
-    const capability = this.provider(harness).botCapabilities ?? providerBotCapabilities(harness);
+  botCapabilities(harness: string, context?: Pick<HarnessBotContext, "agentsMcp">): HarnessBotCapabilities {
+    const configured = providerBotCapabilities(harness, context);
+    const base = this.provider(harness).botCapabilities;
+    const capability = context?.agentsMcp && base ? { ...base, mcp: configured.mcp, limitations: configured.limitations } : base ?? configured;
     return { ...capability, limitations: [...capability.limitations] };
   }
 
@@ -2003,7 +2005,7 @@ export class HostEngine {
       ? this.running.get(session.workflowParentId)?.resourceOwner ?? `workflow:${session.workflowRunId}`
       : undefined;
     const resourceOwner = botContext?.scope.runId ?? workflowOwner ?? (lead ? `orchestration:${lead}` : runId!);
-    const capabilities = botContext ? this.botCapabilities(session.harness) : undefined;
+    const capabilities = botContext ? this.botCapabilities(session.harness, botContext) : undefined;
     const providerText = (text: string) => capabilities?.systemInstructions === "context-block" ? botContextPrompt(text, botContext) : text;
     const active = {
       runId: runId!,
