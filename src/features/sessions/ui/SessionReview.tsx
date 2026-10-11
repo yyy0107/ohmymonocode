@@ -43,6 +43,8 @@ export function SessionReview({
   const [files, setFiles] = useState<CheckpointFile[]>([]);
   const [hostLocked, setHostLocked] = useState(false);
   const [workspaceShared, setWorkspaceShared] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string>();
   const [expanded, setExpanded] = useState(false);
   const [acting, setActing] = useState<"keep" | "undo" | null>(null);
   const [revision, refresh] = useReducer((value: number) => value + 1, 0);
@@ -51,64 +53,81 @@ export function SessionReview({
 
   useEffect(() => {
     setFiles([]);
+    setError(undefined);
     setExpanded(false);
   }, [sessionId, cwd]);
 
   useEffect(() => {
     if (busy) {
       setFiles([]);
+      setError(undefined);
+      setLoading(false);
       return;
     }
     if (!enabled || !cwd || cwd === "~") return;
     let stale = false;
     let loading = false;
     let pending = false;
+    let failures = 0;
     let timer: number | null = null;
+    let scheduledAt = 0;
     const load = () => {
       if (loading) {
         pending = true;
         return;
       }
       loading = true;
+      setLoading(true);
       void sessionCheckpointStatus(sessionId, cwd)
         .then((status) => {
           if (stale) return;
           setFiles(status.files);
           setHostLocked(!!status.undoLocked);
           setWorkspaceShared(!!status.workspaceShared);
+          setError(undefined);
+          failures = 0;
         })
-        .catch(() => {
-          // A transient read failure must not remove a usable review entry.
+        .catch((reason: unknown) => {
+          if (stale) return;
+          // Keep a usable review while retrying transient Host/snapshot failures.
+          setError(String(reason).replace(/^Error: /, ""));
+          failures += 1;
         })
         .finally(() => {
           loading = false;
-          if (!stale && pending) {
+          if (stale) return;
+          setLoading(false);
+          if (pending) {
             pending = false;
             schedule();
+          } else if (failures > 0 && failures <= 3) {
+            schedule(500 * 2 ** (failures - 1));
           }
         });
     };
-    const schedule = () => {
+    const schedule = (delay = 200) => {
       // Coalesce notifications without overlapping checkpoint status reads.
       if (loading) {
         pending = true;
         return;
       }
-      if (timer != null) return;
+      if (timer != null) {
+        if (scheduledAt <= Date.now() + delay) return;
+        window.clearTimeout(timer);
+      }
+      scheduledAt = Date.now() + delay;
       timer = window.setTimeout(() => {
         timer = null;
         load();
-      }, 200);
+      }, delay);
     };
     load();
     const unsubReview = subscribeReviewChanged((id) => {
       if (!id || id === sessionId) schedule();
     });
-    const unsubGit = subscribeGitChanged(() => {
-      if (filesRef.current.length > 0) schedule();
-    });
+    const unsubGit = subscribeGitChanged(() => schedule());
     const onResume = () => {
-      if (filesRef.current.length > 0) schedule();
+      if (!document.hidden) schedule();
     };
     window.addEventListener("focus", onResume);
     document.addEventListener("visibilitychange", onResume);
@@ -126,7 +145,35 @@ export function SessionReview({
     if (files.length <= 3) setExpanded(false);
   }, [files.length]);
 
-  if (busy || files.length === 0) return null;
+  if (busy) return null;
+  const loadNotice = error ? (
+    <div
+      className="flex items-center gap-2 px-3 py-2 text-[11px] text-content/60"
+      role="status"
+      title={error}
+    >
+      <span className="flex-1">{uiT("Couldn’t load session changes")}</span>
+      <button
+        type="button"
+        disabled={loading}
+        onClick={refresh}
+        className="rounded-md px-2 py-1 hover:bg-content/8 disabled:opacity-35"
+      >
+        {uiT("Retry")}
+      </button>
+    </div>
+  ) : null;
+  if (files.length === 0) {
+    // Status reads also run on focus and Git notifications. They discover
+    // whether a review exists, so an empty result must not flash a loading card.
+    return loadNotice ? (
+      <div className="px-4 pt-1 pb-2 font-sans" data-session-review-shell>
+        <div className="rounded-xl border border-content/12 bg-content/3">
+          {loadNotice}
+        </div>
+      </div>
+    ) : null;
+  }
 
   const disabled = busy || acting != null;
   const locked = undoLocked || hostLocked || workspaceShared;
@@ -177,6 +224,7 @@ export function SessionReview({
         className="overflow-hidden rounded-xl border border-content/12 bg-content/3"
         data-session-review
       >
+        {loadNotice}
         <div className="flex min-w-0 items-center gap-2.5 px-3 py-2.5">
           <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-content/8 text-content/55">
             <FileDiff className="size-4" />

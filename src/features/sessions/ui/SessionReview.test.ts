@@ -11,6 +11,7 @@ import {
   type CheckpointStatus,
 } from "../model/checkpoint";
 import { SessionReview } from "./SessionReview";
+import { notifyGitChanged } from "../../../platform/tauri/fs";
 
 vi.mock("../model/checkpoint", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../model/checkpoint")>()),
@@ -18,11 +19,17 @@ vi.mock("../model/checkpoint", async (importOriginal) => ({
   keepSessionChanges: vi.fn(async () => ({ files: [] })),
   undoSessionChanges: vi.fn(async () => ({ files: [] })),
 }));
-vi.mock("../../../platform/tauri/fs", () => ({
-  basename: (path: string) => path.split("/").pop()!,
-  notifyGitChanged: vi.fn(),
-  subscribeGitChanged: () => () => {},
-}));
+vi.mock("../../../platform/tauri/fs", () => {
+  const listeners = new Set<() => void>();
+  return {
+    basename: (path: string) => path.split("/").pop()!,
+    notifyGitChanged: vi.fn(() => listeners.forEach((listener) => listener())),
+    subscribeGitChanged: (listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+});
 vi.mock("../../files/model/fileIndex", () => ({
   invalidateProjectFiles: vi.fn(),
 }));
@@ -188,6 +195,58 @@ it("keeps the last review usable through a transient refresh failure", async () 
   await changed();
   await advance();
   expect(button("Review")!.disabled).toBe(false);
+  expect(row("a.ts")).not.toBeNull();
+});
+
+it("discovers changes silently but exposes failures and retries without another notification", async () => {
+  const pending = deferred<CheckpointStatus>();
+  vi.mocked(sessionCheckpointStatus).mockReturnValueOnce(pending.promise);
+  await render();
+  expect(container.querySelector("[data-session-review-shell]")).toBeNull();
+  await act(async () => pending.reject(new Error("Snapshot unavailable")));
+  expect(container.textContent).toContain("Couldn’t load session changes");
+  await advance(499);
+  expect(sessionCheckpointStatus).toHaveBeenCalledTimes(1);
+  await advance(1);
+  expect(row("a.ts")).not.toBeNull();
+  expect(button("Retry")).toBeUndefined();
+  await advance(30_000);
+  expect(sessionCheckpointStatus).toHaveBeenCalledTimes(2);
+});
+
+it("bounds automatic retries and leaves a manual retry for persistent failures", async () => {
+  vi.mocked(sessionCheckpointStatus).mockRejectedValue(new Error("Host offline"));
+  await render();
+  await advance(30_000);
+  expect(sessionCheckpointStatus).toHaveBeenCalledTimes(4);
+  expect(button("Retry")!.disabled).toBe(false);
+  vi.mocked(sessionCheckpointStatus).mockResolvedValue({ files });
+  await act(async () => button("Retry")!.click());
+  expect(row("a.ts")).not.toBeNull();
+});
+
+it.each(["focus", "git", "review"])("silently rechecks an empty review on %s and shows newly available changes", async (event) => {
+  vi.mocked(sessionCheckpointStatus).mockResolvedValueOnce({ files: [] });
+  await render();
+  const empty = deferred<CheckpointStatus>();
+  vi.mocked(sessionCheckpointStatus).mockReturnValueOnce(empty.promise);
+  await act(async () => {
+    if (event === "git") notifyGitChanged();
+    else if (event === "review") notifyReviewChanged("s1");
+    else window.dispatchEvent(new Event("focus"));
+  });
+  await advance();
+  expect(sessionCheckpointStatus).toHaveBeenCalledTimes(2);
+  expect(container.querySelector("[data-session-review-shell]")).toBeNull();
+  await act(async () => empty.resolve({ files: [] }));
+  expect(container.querySelector("[data-session-review-shell]")).toBeNull();
+
+  const available = deferred<CheckpointStatus>();
+  vi.mocked(sessionCheckpointStatus).mockReturnValueOnce(available.promise);
+  await changed();
+  await advance();
+  expect(container.querySelector("[data-session-review-shell]")).toBeNull();
+  await act(async () => available.resolve({ files }));
   expect(row("a.ts")).not.toBeNull();
 });
 

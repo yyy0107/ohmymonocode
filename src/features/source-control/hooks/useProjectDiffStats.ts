@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { gitDiffStats, subscribeGitChanged, type GitDiffStats } from "../../../platform/tauri/fs";
 
 type Entry = {
@@ -12,6 +12,7 @@ type Entry = {
   unsubscribeGit: (() => void) | null;
   onResume: (() => void) | null;
   onGitChanged: (() => void) | null;
+  refreshTimer: ReturnType<typeof setTimeout> | null;
 };
 
 const entries = new Map<string, Entry>();
@@ -31,6 +32,7 @@ function entryFor(cwd: string): Entry {
     unsubscribeGit: null,
     onResume: null,
     onGitChanged: null,
+    refreshTimer: null,
   };
   entries.set(cwd, entry);
   return entry;
@@ -106,6 +108,8 @@ function start(entry: Entry) {
 }
 
 function stop(entry: Entry) {
+  if (entry.refreshTimer !== null) clearTimeout(entry.refreshTimer);
+  entry.refreshTimer = null;
   if (entry.onResume) {
     window.removeEventListener("focus", entry.onResume);
     document.removeEventListener("visibilitychange", entry.onResume);
@@ -119,8 +123,20 @@ function stop(entry: Entry) {
 export function useProjectDiffStats(
   cwd: string,
   enabled: boolean,
+  activityKey?: string,
 ): GitDiffStats | null {
   const active = enabled && Boolean(cwd) && cwd !== "~";
+  useEffect(() => {
+    if (!active || activityKey === undefined) return;
+    const entry = entryFor(cwd);
+    // Host edits need not produce a local watcher event. Coalesce activity
+    // across panes of this checkout without querying unrelated projects.
+    if (entry.refreshTimer !== null) return;
+    entry.refreshTimer = setTimeout(() => {
+      entry.refreshTimer = null;
+      void load(entry, true);
+    }, 200);
+  }, [active, cwd, activityKey]);
   const subscribe = useCallback(
     (listener: () => void) => {
       if (!active) return () => undefined;

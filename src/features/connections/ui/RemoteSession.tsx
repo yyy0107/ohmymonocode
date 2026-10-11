@@ -1755,8 +1755,11 @@ function ConnectedRemoteSession({
     0,
   ) ?? 0;
   useEffect(() => {
-    if (checkpointEnabled && completedTools) notifyReviewChanged(shell.id);
-  }, [checkpointEnabled, completedTools, shell.id]);
+    // Tool completion precedes the final workspace snapshot. Invalidate again
+    // at Host settlement, including short turns missed between two polls.
+    if (checkpointEnabled && hostSessionId) notifyReviewChanged(shell.id);
+  }, [checkpointEnabled, hostSessionId, completedTools, snapshot?.lastCompletedRunId,
+    snapshot?.runId, snapshot?.status, shell.id]);
 
   const hostFilePath = (path: string) => {
     const existing = parseRemotePath(path);

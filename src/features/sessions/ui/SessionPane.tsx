@@ -435,9 +435,13 @@ const LocalSessionPane = memo(function LocalSessionPane({
   const dockedPlanId = decidingPlanId ?? lastDecisionPlanId.current;
   const jumpToBottomRef = useRef<(() => void) | null>(null);
   const transcriptScope = useRef<HTMLDivElement>(null);
-  // Status panel git summary; host sessions have no local working copy to read.
-  const statusGitCwd = remote ? "" : sessionWorkCwd(session);
-  const statusDiff = useProjectDiffStats(statusGitCwd, visible && !isEmpty);
+  // Workspace commands already route remote:// paths to their owning Host.
+  const statusGitCwd = sessionWorkCwd(session);
+  const completedTools = session.blocks.reduce((count, block) => count + Number(
+    block.role === "tool" && (block.tool?.status === "completed" || block.tool?.status === "success"),
+  ), 0);
+  const statusDiff = useProjectDiffStats(statusGitCwd, visible && !isEmpty,
+    `${session.id}:${!!session.busy}:${completedTools}`);
   const statusBranches = useProjectBranches(statusGitCwd, visible && !isEmpty);
   const statusBranch = statusBranches?.current || session.branch;
   const statusGit = useMemo(

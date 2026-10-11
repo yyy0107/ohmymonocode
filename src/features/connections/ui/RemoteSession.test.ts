@@ -1,7 +1,7 @@
 import { selectComposerConfiguration } from "../../sessions/model/composerConfiguration";
 import { rememberSharedProviderDefaults, saveProviderAccount, selectProviderAccount } from "../../providers/model/providerAccounts";
 // @vitest-environment happy-dom
-import { act, createElement } from "react";
+import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
@@ -47,6 +47,7 @@ vi.mock("../../sessions/ui/AgentTranscript", () => ({
     onOpenDiff,
     onQuestionFollowUp,
     worktreeCreation,
+    latestTurnAccessory,
   }: {
     blocks: Block[];
     busy: boolean;
@@ -56,10 +57,12 @@ vi.mock("../../sessions/ui/AgentTranscript", () => ({
     onOpenDiff?: (path: string) => void;
     onQuestionFollowUp?: (answer: QuestionAnswer) => unknown;
     worktreeCreation?: WorktreeCreation;
+    latestTurnAccessory?: ReactNode;
   }) =>
     createElement(
       "ol",
       { "aria-label": "Transcript", "data-busy": busy },
+      latestTurnAccessory,
       createElement("button", { "aria-label": "Open transcript file", onClick: () => onOpenFile?.("src/app.ts") }),
       createElement("button", { "aria-label": "Open transcript diff", onClick: () => onOpenDiff?.("src/app.ts") }),
       worktreeCreation
@@ -202,6 +205,7 @@ beforeEach(async () => {
       : undefined;
     const operation = workspace?.command ?? method;
     const commandParams = workspace?.args ?? params;
+    if (operation === "git_diff_stats") return { files: 1, additions: 3, deletions: 1 };
     if (method === "environment.describe")
       return {
         protocolVersion: 1,
@@ -743,6 +747,31 @@ it("reviews the tab's changes through the Host that captured its edits", async (
   const status = await sessionCheckpointStatus("shell", projectKey);
   expect(status.files.map((file) => file.path)).toEqual(["remote://env/home/me/repo/src/app.ts"]);
   expect(checkpointRequests).toContainEqual({ projectId: "project", sessionId: host!.session.id, action: "status" });
+});
+
+it("shows the Host Git capsule and refreshes review for a completed turn missed between polls", async () => {
+  checkpointCapability = true;
+  const original = vi.mocked(invoke).getMockImplementation()!;
+  let recorded = false;
+  vi.mocked(invoke).mockImplementation(async (command, input) => {
+    if ((input as { method?: string })?.method === "sessions.checkpoint" && !recorded)
+      return { files: [] };
+    return original(command, input);
+  });
+  await render();
+  await send("First turn");
+  expect(container.querySelector("[data-session-review]")).toBeNull();
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 250)); });
+  expect(container.querySelector('[aria-label="Show status"]')?.textContent).toContain("+3");
+  expect(vi.mocked(invoke).mock.calls.some(([command, input]) => command === "remote_request" &&
+    (input as { params?: { command?: string } })?.params?.command === "git_diff_stats")).toBe(true);
+  recorded = true;
+  host = { ...host!, revision: host!.revision + 1, lastCompletedRunId: "finished-without-tool-events" };
+  // Both snapshots are idle and have the same tool count; settlement must still
+  // invalidate the previously empty review when the pane catches up.
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 3_100)); });
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 250)); });
+  expect(container.querySelector("[data-session-review]")).not.toBeNull();
 });
 
 it("opens a host conversation in an already mounted empty tab", async () => {
