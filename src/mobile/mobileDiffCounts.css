@@ -16,10 +16,3 @@ html.theme-light .mobile-git-counts [data-kind="add"] {
 html.theme-light .mobile-git-counts [data-kind="del"] {
   color: #be123c;
 }
-.mobile-git-mixed {
-  flex-shrink: 0;
-  color: #fcd34d;
-}
-html.theme-light .mobile-git-mixed {
-  color: #b45309;
-}

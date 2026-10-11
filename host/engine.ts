@@ -1965,6 +1965,7 @@ export class HostEngine {
     active.done = Promise.resolve()
       .then(async () => {
         let error: string | undefined;
+        let checkpointTurn: string | undefined;
         try {
           await this.cleanPreviousProviders(session.id);
           if (!this.closing && !active.cancelled) {
@@ -1999,7 +2000,11 @@ export class HostEngine {
             }
             if (prompt === null) await provider.compact!(input);
             else {
-              if (this.checkpointed(session)) await this.checkpoints.ensure(session.id, session.cwd).catch(() => undefined);
+              if (this.checkpointed(session)) {
+                // Capture errors are persisted and shown in the review.
+                await this.checkpoints.beginTurn(session.id, session.cwd, runId!).catch(() => undefined);
+                checkpointTurn = runId!;
+              }
               const prepared = await this.skills.prepare(turnPrompt!, { harness: session.harness as RemoteProvider, cwd: session.worktreeCwd || session.cwd, sessionId: session.id }, provider);
               if (!this.closing && !active.cancelled) await provider.send({
                 ...input,
@@ -2039,7 +2044,7 @@ export class HostEngine {
         // A native session's CLI must not stay alive after the turn: the desktop
         // and the user's own CLI would see it as an owner.
         const nativeTurn = !!this.store.sessionIfExists(session.id)?.session.nativeSession;
-        if (active.cancelled || this.closing || active.persistenceFailed || !!managedRun || !provider.readSessionTitle || nativeTurn) {
+        if (error || active.failed || active.cancelled || this.closing || active.persistenceFailed || !!managedRun || !provider.readSessionTitle || nativeTurn) {
           await provider.stop(session.id);
           this.checkoutReleases.get(session.id)?.(); this.checkoutReleases.delete(session.id);
         }
@@ -2058,6 +2063,10 @@ export class HostEngine {
           timer.unref?.();
           this.parked.set(session.id, { harness: session.harness, timer });
         }
+        // Stopped and failed providers have exited above; parked ones finished
+        // their turn. Either way the workspace is settled for the final snapshot.
+        if (checkpointTurn)
+          await this.checkpoints.finishTurn(session.id, session.cwd, checkpointTurn).catch(() => undefined);
         // Publish an idle turn only after its native writer lock is released.
         // Otherwise an immediate follow-up can contend with this Host itself.
         // Settlement reads the stable native history before the lease is released.

@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { GitChangedFile, GitFileDiff } from "../platform/tauri/fs";
-import { MIXED_CHANGES_NOTE } from "../features/sessions/model/mixedChanges";
 import { useTranslation } from "../shared/i18n/useTranslation";
 import { pathKey, resolveWorkspacePath } from "../shared/lib/paths";
 import { ChevronRight, WrapText } from "../shared/ui/icons";
@@ -92,14 +91,12 @@ export function MobileGitReviewSheet({
       <div className="mobile-git-review">
         <div className="mobile-git-toolbar">
           <span>
-            {counts && (files?.length && files.every((file) => file.exact === false) ? (
-              <span className="mobile-git-mixed">{t("Mixed changes")}</span>
-            ) : (
+            {counts && (
               <MobileDiffCounts
                 additions={counts.additions}
                 deletions={counts.deletions}
               />
-            ))}
+            )}
           </span>
           {session && !path && !!files?.length && (
             <SessionChangeButtons
@@ -236,7 +233,6 @@ function MobileGitFileRow({
   wrap: boolean;
   initiallyExpanded: boolean;
 }) {
-  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(initiallyExpanded);
   const contentId = useId();
   return (
@@ -252,22 +248,14 @@ function MobileGitFileRow({
       >
         <ChevronRight size={16} aria-hidden="true" className="mobile-git-file-chevron" />
         <span className="mobile-git-file-path"><bdi dir="ltr">{entry.relative}</bdi></span>
-        {entry.exact === false ? (
-          <span className="mobile-git-mixed">{t("Mixed changes")}</span>
-        ) : (
-          <MobileDiffCounts
-            additions={entry.additions}
-            deletions={entry.deletions}
-          />
-        )}
+        <MobileDiffCounts
+          additions={entry.additions}
+          deletions={entry.deletions}
+        />
       </button>
       <AnimatedCollapse expanded={expanded} motion="height" animateContentResize>
         <div id={contentId} className="mobile-git-file">
-          {entry.exact === false ? (
-            <p className="mobile-git-note">{t(MIXED_CHANGES_NOTE)}</p>
-          ) : (
-            <MobileGitFile source={source} entry={entry} enabled={enabled} wrap={wrap} />
-          )}
+          <MobileGitFile source={source} entry={entry} enabled={enabled} wrap={wrap} />
         </div>
       </AnimatedCollapse>
     </div>
