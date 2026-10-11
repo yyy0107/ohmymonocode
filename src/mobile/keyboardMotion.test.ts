@@ -93,6 +93,44 @@ it("follows the active assistant only as far as its latest bubble and preserves 
 });
 
 describe("anchored turn under the keyboard", () => {
+  it.each([800, 600])("preserves scroll position %s while measuring a stretched live turn", (initialTop) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "mobile-desktop-transcript";
+    const log = document.createElement("div");
+    log.className = "agent-transcript";
+    const inner = document.createElement("div");
+    const turn = document.createElement("div");
+    turn.className = "transcript-turn-anchor";
+    turn.style.minHeight = "500px";
+    inner.append(turn);
+    log.append(inner);
+    wrapper.append(log);
+    document.body.append(wrapper);
+    Object.defineProperties(log, {
+      clientHeight: { value: 500 },
+      scrollHeight: { value: 1300 },
+    });
+    Object.defineProperty(inner, "offsetHeight", { value: 1300 });
+    Object.defineProperty(turn, "offsetHeight", { get: () => {
+      if (turn.style.minHeight !== "0px") return 500;
+      // Chromium clamps scrollTop when this layout read removes the stretch.
+      log.scrollTop = Math.min(log.scrollTop, 360);
+      return 60;
+    } });
+    log.scrollTop = initialTop;
+    const uninstall = installKeyboardMotion(wrapper);
+    try {
+      window.dispatchEvent(new CustomEvent(KEYBOARD_EVENT, {
+        detail: { height: 200, viewport: 500, duration: 200, easing: "linear" },
+      }));
+      expect(log.scrollTop).toBe(initialTop);
+      expect(turn.style.minHeight).toBe("500px");
+      expect(wrapper.style.getPropertyValue("--mobile-keyboard-follow")).toBe("0");
+    } finally {
+      uninstall();
+      wrapper.remove();
+    }
+  });
   it("lets the keyboard cover a short reply's empty space without lifting it", () => {
     // The turn fills an 800px viewport but its prompt and reply need 200px.
     const turn = { height: 800, minHeight: 800, natural: 200 };

@@ -6,6 +6,7 @@ import type { HostSession } from "../features/connections/model/protocol";
 import { newSession, type Block } from "../features/sessions/model/session";
 import { setUiLanguage } from "../shared/i18n/language";
 import { MobileTranscript } from "./MobileTranscript";
+import { backMobileSheet } from "./mobileSheetBack";
 
 let root: Root;
 let app: HTMLDivElement;
@@ -64,7 +65,7 @@ const agent: Block = {
   },
 };
 
-function render(blocks: Block[], backgroundTasks?: string[]) {
+function render(blocks: Block[], backgroundTasks?: string[], readBinaryFile?: (path: string) => Promise<Uint8Array>) {
   let snapshot: HostSession = {
     projectId: "project",
     revision: 1,
@@ -84,6 +85,7 @@ function render(blocks: Block[], backgroundTasks?: string[]) {
     disabled: false,
     onCommand: vi.fn(),
     onOverlayChange,
+    readBinaryFile,
   };
   const update = (changes: Partial<HostSession> = {}, active = true) => {
     snapshot = { ...snapshot, ...changes };
@@ -107,6 +109,49 @@ const row = (text: string) =>
   ].find((button) => button.textContent?.includes(text))!;
 
 describe("mobile session progress", () => {
+  it("returns through linked files and their plan to the progress sheet", async () => {
+    const read = vi.fn(async (path: string) => new TextEncoder().encode(
+      path.endsWith("first.md") ? "[Second file](/repo/second.md)" : "Second file contents",
+    ));
+    render([tasks(), { ...plan, text: "# Implementation plan\n\n[First file](/repo/first.md)" }], undefined, read);
+    click(capsule()!);
+    click(row("Implementation plan"));
+    finish();
+    await act(async () => {
+      dialog()!.querySelector<HTMLAnchorElement>('a[href="/repo/first.md"]')!.click();
+      await vi.dynamicImportSettled();
+    });
+    finish();
+    await act(async () => {
+      dialog()!.querySelector<HTMLAnchorElement>('a[href="/repo/second.md"]')!.click();
+      await vi.dynamicImportSettled();
+    });
+    expect(dialog()?.textContent).toContain("Second file contents");
+    await act(async () => { expect(backMobileSheet()).toBe(true); });
+    expect(dialog()?.textContent).toContain("first.md");
+    act(() => { expect(backMobileSheet()).toBe(true); });
+    expect(dialog()?.getAttribute("aria-label")).toBe("Plan");
+    // A closing child must not intercept another immediate Back.
+    act(() => { expect(backMobileSheet()).toBe(true); });
+    expect(dialog()?.getAttribute("aria-label")).toBe("Session progress");
+  });
+
+  it.each(["plan", "agent"])("returns from %s details to progress before closing", async (kind) => {
+    render([tasks(), plan, agent]);
+    click(capsule()!);
+    click(row(kind === "plan" ? "Implementation plan" : "Review changes"));
+    await act(async () => vi.dynamicImportSettled());
+    finish();
+    expect(dialog()?.getAttribute("aria-label")).toBe(kind === "plan" ? "Plan" : "Subagent conversation");
+    act(() => { expect(backMobileSheet()).toBe(true); });
+    expect(dialog()?.getAttribute("aria-label")).toBe("Session progress");
+    finish();
+    act(() => { expect(backMobileSheet()).toBe(true); });
+    expect(dialog()).toBeNull();
+    finish();
+    expect(backMobileSheet()).toBe(false);
+  });
+
   it("keeps completed agents accessible without showing them as running", async () => {
     const completed = { ...agent, tool: { ...agent.tool, status: "completed" } };
     const { update } = render([completed]);
@@ -181,9 +226,9 @@ describe("mobile session progress", () => {
     expect(dialog()?.getAttribute("aria-label")).toBe("Plan");
     expect(dialog()?.textContent).toContain("Keep the public API stable.");
     finish();
-    click(dialog()!.querySelector<HTMLButtonElement>('[aria-label="Close"]')!);
+    click(dialog()!.querySelector<HTMLButtonElement>('[aria-label="Back"]')!);
     finish();
-    click(capsule()!);
+    expect(dialog()?.getAttribute("aria-label")).toBe("Session progress");
     click(row("Review changes"));
     await act(async () => vi.dynamicImportSettled());
     expect(dialog()?.textContent).toContain("Checking compatibility.");

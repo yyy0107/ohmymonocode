@@ -137,23 +137,6 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
   box-shadow: inset 0 0 0 1px var(--color-m-hairline);
   color: var(--color-m-ink);
 }
-/* Agent replies read as left-aligned card bubbles in the Chat layout; the
-   Full width layout keeps them as plain document text. Tool rows, plans and
-   questions stay unwrapped between them. */
-.mobile-desktop-transcript:not([data-layout="full"])
-  [data-transcript-search-item] > [data-selectable-agent-response]:has(> .agent-markdown) {
-  width: fit-content;
-  max-width: 80%;
-  margin: 2px 0 4px;
-  padding: 10px 14px;
-  border-radius: var(--radius-m-bubble) var(--radius-m-bubble) var(--radius-m-bubble) 6px;
-  background: var(--color-m-card);
-  color: var(--color-m-ink);
-}
-.mobile-desktop-transcript:not([data-layout="full"])
-  [data-selectable-agent-response] > .agent-markdown {
-  line-height: 1.5;
-}
 .mobile-desktop-transcript .transcript-turn-live :is(.user-message-row, [data-selectable-agent-response]) {
   animation: m-msg-in var(--m-duration-msg) var(--m-ease) both;
 }

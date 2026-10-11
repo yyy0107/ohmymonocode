@@ -23,6 +23,7 @@ import {
 } from "../../features/sessions/model/planDecision";
 import { isCompactCommand } from "../../features/sessions/model/compact";
 import { MobileMessageQueue } from "../MobileMessageQueue";
+import { backMobileSheet } from "../mobileSheetBack";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from "react";
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
@@ -1588,6 +1589,7 @@ export function useMobileAppController() {
     if (!Capacitor.isNativePlatform()) return;
     const listener = App.addListener("backButton", () => {
       if (dismissImageLightbox()) return;
+      if (backMobileSheet()) return;
       if (hostPickerOpen) setHostPickerOpen(false);
       else if (notesOpen) {
         if (notesPage.current) notesPage.current.back();

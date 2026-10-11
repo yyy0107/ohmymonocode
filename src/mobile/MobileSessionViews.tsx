@@ -16,13 +16,15 @@ const MobileSessionStatus = lazyMobileSheet(async () => ({ default: (await impor
 const identity = (snapshot: HostSession | undefined) => snapshot;
 
 export const MobileSessionTranscript = memo(function MobileSessionTranscript({
-  store, sessionId, initialSnapshot, placeholder, outgoing, ...props
+  store, sessionId, initialSnapshot, placeholder, outgoing, historyLoading = false, ...props
 }: Omit<ComponentProps<typeof MobileTranscript>, "snapshot"> & {
   store: SessionSnapshotStore;
   sessionId: string;
   initialSnapshot?: HostSession;
   placeholder?: HostSession;
   outgoing?: OutgoingMessage;
+  /** The entry request is replacing cached messages with the current history. */
+  historyLoading?: boolean;
 }) {
   const visible = useSurfaceVisibility() && props.active !== false;
   const retained = useRef(initialSnapshot);
@@ -33,6 +35,15 @@ export const MobileSessionTranscript = memo(function MobileSessionTranscript({
     return visible && current?.session.id === sessionId ? current : retained.current;
   }, [store, visible, sessionId]);
   const snapshot = useSyncExternalStore(subscribe, get, get);
+  const history = useRef<HostSession["session"]["blocks"] | undefined>(undefined);
+  const previous = useRef({ visible, historyLoading });
+  // Cache refreshes and output received while away are already history. Keep
+  // this baseline after returning, so only subsequent output is animated.
+  if (historyLoading || previous.current.historyLoading || !visible || !previous.current.visible)
+    history.current = snapshot?.session.blocks;
+  useLayoutEffect(() => {
+    previous.current = { visible, historyLoading };
+  }, [visible, historyLoading]);
   useLayoutEffect(() => {
     if (visible && snapshot?.session.id === sessionId) {
       retained.current = snapshot;
@@ -41,7 +52,7 @@ export const MobileSessionTranscript = memo(function MobileSessionTranscript({
   }, [store, snapshot, visible, sessionId]);
   const view = useMemo(() => snapshot?.session.id === sessionId
     ? withOutgoing(snapshot, outgoing) : placeholder, [snapshot, sessionId, outgoing, placeholder]);
-  return view ? <MobileTranscript {...props} snapshot={view} /> : null;
+  return view ? <MobileTranscript {...props} snapshot={view} historyEntries={history.current} /> : null;
 });
 
 export const MobileSessionContextRing = memo(function MobileSessionContextRing({

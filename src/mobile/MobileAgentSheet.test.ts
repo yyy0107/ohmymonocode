@@ -5,6 +5,7 @@ import { act, createElement, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MobileTranscript } from "./MobileTranscript";
 import { MobileAgentSheet } from "./MobileAgentSheet";
+import { backMobileSheet } from "./mobileSheetBack";
 import type { Block } from "../features/sessions/model/session";
 import type { HostSession } from "../features/connections/model/protocol";
 import { setUiLanguage } from "../shared/i18n/language";
@@ -103,7 +104,14 @@ it("opens empty agent rows from the main stream and follows live snapshots", asy
   expect(page().textContent).toContain("Full live reply");
 });
 
-it("navigates nested agents, full tool results and files inside one sheet, preserving scroll", async () => {
+it.each(["header", "native", "Escape"])("navigates nested agents, tools and files with %s, preserving scroll", async (method) => {
+  const back = () => act(() => {
+    if (method === "native") expect(backMobileSheet()).toBe(true);
+    else if (method === "Escape") page().dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Escape", bubbles: true, cancelable: true,
+    }));
+    else button("Back").click();
+  });
   // The shared transcript distinguishes reader scrolling from layout changes.
   vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(400);
   vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(1000);
@@ -167,12 +175,12 @@ it("navigates nested agents, full tool results and files inside one sheet, prese
   finish();
   expect(page().textContent).toContain("File body");
   expect(app.querySelectorAll('[role="dialog"]')).toHaveLength(1);
-  click(button("Back"));
+  back();
   finish();
   expect(page().textContent).toContain("result".repeat(2000));
-  click(button("Back"));
+  back();
   finish();
-  click(button("Back"));
+  back();
   finish();
   expect(page().textContent).toContain("Root reply");
   expect(

@@ -6,6 +6,7 @@ import { MobileTranscript } from "./MobileTranscript";
 import type { HostSession } from "../features/connections/model/protocol";
 import type { Block } from "../features/sessions/model/session";
 import { setUiLanguage } from "../shared/i18n/language";
+import { backMobileSheet } from "./mobileSheetBack";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 let root: Root | undefined;
@@ -65,7 +66,13 @@ function render(blocks: Block[], status: HostSession["status"] = "idle", readBin
     root = createRoot(node);
     root.render(createElement(MobileTranscript, { snapshot, disabled: false, onCommand: () => {}, readBinaryFile }));
   });
-  return node;
+  const update = (nextBlocks: Block[], nextStatus = status) => {
+    act(() => root!.render(createElement(MobileTranscript, {
+      snapshot: { ...snapshot, status: nextStatus, session: { ...snapshot.session, blocks: nextBlocks } },
+      disabled: false, onCommand: () => {}, readBinaryFile,
+    })));
+  };
+  return { node, update };
 }
 
 const settledTurn: Block[] = [
@@ -81,7 +88,7 @@ const finishNavigation = () => act(() => vi.advanceTimersByTime(240));
 
 describe("mobile activity sheet", () => {
   it("opens a settled group's steps in a sheet, then a step's details with a way back", async () => {
-    const node = render(settledTurn);
+    const { node } = render(settledTurn);
     // The turn's fold line is the one tap between the answer and its steps.
     const fold = node.querySelector<HTMLButtonElement>("[data-activity-sheet]")!;
     expect(fold.getAttribute("aria-label")).toBe("Show the work");
@@ -127,7 +134,7 @@ describe("mobile activity sheet", () => {
   });
 
   it("reverses immediately inside the same sheet and keeps keyboard focus on the active page", async () => {
-    const node = render(settledTurn);
+    const { node } = render(settledTurn);
     await act(async () => { node.querySelector<HTMLButtonElement>("[data-activity-sheet]")!.click(); await vi.dynamicImportSettled(); });
     const sheet = dialog();
     const list = currentPage();
@@ -153,7 +160,7 @@ describe("mobile activity sheet", () => {
 
   it("switches without retaining an outgoing page when reduced motion is requested", async () => {
     vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true } as MediaQueryList);
-    const node = render(settledTurn);
+    const { node } = render(settledTurn);
     await act(async () => { node.querySelector<HTMLButtonElement>("[data-activity-sheet]")!.click(); await vi.dynamicImportSettled(); });
     const sheet = dialog();
     act(() => currentPage().querySelector<HTMLButtonElement>(".mobile-activity-step > button")!.click());
@@ -165,8 +172,15 @@ describe("mobile activity sheet", () => {
     expect(sheet!.querySelectorAll(".mobile-page-layer")).toHaveLength(1);
   });
 
-  it("preserves the route back to the activity list after viewing a tool's file", async () => {
-    const node = render(settledTurn, "idle", async () => new TextEncoder().encode("export const value = 1;"));
+  it.each(["header", "native", "Escape"])("returns one level at a time from a tool's file with %s", async (method) => {
+    const back = () => act(() => {
+      if (method === "native") expect(backMobileSheet()).toBe(true);
+      else if (method === "Escape") dialog()!.dispatchEvent(new KeyboardEvent("keydown", {
+        key: "Escape", bubbles: true, cancelable: true,
+      }));
+      else dialog()!.querySelector<HTMLButtonElement>('[aria-label="Back"], [aria-label="Close"]')!.click();
+    });
+    const { node } = render(settledTurn, "idle", async () => new TextEncoder().encode("export const value = 1;"));
     await act(async () => { node.querySelector<HTMLButtonElement>("[data-activity-sheet]")!.click(); await vi.dynamicImportSettled(); });
     act(() => currentPage().querySelector<HTMLButtonElement>(".mobile-activity-step > button")!.click());
     finishNavigation();
@@ -175,16 +189,20 @@ describe("mobile activity sheet", () => {
     await act(async () => { viewFile.click(); await vi.dynamicImportSettled(); });
     finishNavigation();
     expect(dialog()!.querySelector(".mobile-file-sheet")).not.toBeNull();
-    act(() => dialog()!.querySelector<HTMLButtonElement>('[aria-label="Back"]')!.click());
+    back();
     finishNavigation();
     expect(currentPage().querySelector(".mobile-tool-sheet")).not.toBeNull();
-    act(() => currentPage().querySelector<HTMLButtonElement>('[aria-label="Back"]')!.click());
+    back();
     finishNavigation();
     expect(currentPage().querySelectorAll(".mobile-activity-step")).toHaveLength(2);
+    back();
+    expect(dialog()).toBeNull();
+    finishNavigation();
+    expect(node.querySelector(".mobile-sheet-backdrop")).toBeNull();
   });
 
   it("opens a live group's steps from its header while the turn runs", async () => {
-    const node = render([
+    const { node } = render([
       { id: "user", role: "user", text: "Fix it", startedAt: Date.now() },
       edit("a", "a.ts"),
       shell("b", "pending"),
@@ -196,8 +214,40 @@ describe("mobile activity sheet", () => {
     expect(running.querySelector(".mobile-spin")).not.toBeNull();
   });
 
+  it("refreshes an open activity sheet as steps arrive and finish without mixing later groups", async () => {
+    const user: Block = { id: "user", role: "user", text: "Fix it", startedAt: Date.now() };
+    const { node, update } = render([user, edit("a", "a.ts"), shell("b", "pending")], "running");
+    await act(async () => {
+      node.querySelector<HTMLButtonElement>("[data-activity-sheet]")!.click();
+      await vi.dynamicImportSettled();
+    });
+    const sheet = dialog();
+    update([user, edit("a", "a.ts"), shell("b"), shell("c", "pending")]);
+    expect(dialog()).toBe(sheet);
+    expect(currentPage().querySelectorAll(".mobile-activity-step")).toHaveLength(3);
+    expect(currentPage().querySelectorAll(".mobile-spin")).toHaveLength(1);
+    // New rows open their current details and still return to the same live list.
+    act(() => currentPage().querySelectorAll<HTMLButtonElement>(".mobile-activity-step button")[2].click());
+    finishNavigation();
+    update([user, edit("a", "a.ts"), shell("b"), shell("c"), edit("d", "d.ts")]);
+    act(() => currentPage().querySelector<HTMLButtonElement>('[aria-label="Back"]')!.click());
+    finishNavigation();
+    expect(currentPage().querySelectorAll(".mobile-activity-step")).toHaveLength(4);
+    expect(currentPage().querySelector(".mobile-spin")).toBeNull();
+    update([
+      user, edit("a", "a.ts"), shell("b"), shell("c"), edit("d", "d.ts"),
+      { id: "next-phase", role: "assistant", text: "Now check another file." },
+      edit("later", "later.ts"),
+      { id: "next-user", role: "user", text: "Another request" },
+      edit("other-turn", "other-turn.ts"),
+    ], "idle");
+    expect(currentPage().querySelectorAll(".mobile-activity-step")).toHaveLength(4);
+    expect(currentPage().textContent).not.toContain("later.ts");
+    expect(currentPage().textContent).not.toContain("other-turn.ts");
+  });
+
   it("keeps a group with a pending approval inline so it can be answered", () => {
-    const node = render([
+    const { node } = render([
       { id: "user", role: "user", text: "Fix it", startedAt: 1 },
       edit("a", "a.ts"),
       { ...shell("b", "pending"), approval: { requestId: 3 } },
@@ -209,7 +259,7 @@ describe("mobile activity sheet", () => {
 
 describe("mobile live turn footer", () => {
   it("shows the project mascot and the running tool verb under the live reply", () => {
-    const node = render([
+    const { node } = render([
       { id: "user", role: "user", text: "Fix it", startedAt: Date.now() - 65_000 },
       edit("a", "a.ts"),
       { ...shell("b", "pending"), startedAt: Date.now() - 5_000 },
@@ -227,13 +277,13 @@ describe("mobile live turn footer", () => {
   });
 
   it("has no footer once the turn settles", () => {
-    const node = render(settledTurn);
+    const { node } = render(settledTurn);
     expect(node.querySelector("[data-live-footer]")).toBeNull();
   });
 
   it("shows the finished time and compact duration below the answer", () => {
     setUiLanguage("zh-CN");
-    const node = render([
+    const { node } = render([
       { id: "user", role: "user", text: "Fix it", startedAt: 1_000, durationMs: 8_000 },
       shell("b"),
       { id: "answer", role: "assistant", text: "Done." },

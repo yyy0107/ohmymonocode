@@ -6,6 +6,9 @@ import { previewFromTool } from "../../../integrations/harness/providers/claude/
 import { ToolDiffPreview } from "./ToolDiffPreview";
 import { AgentTranscript } from "./AgentTranscript";
 import type { Block } from "../model/session";
+import { TranscriptPlatformContext } from "./TranscriptPlatform";
+import { ToolCallSummary } from "./transcript/tools/ToolCallParts";
+import { mobileTranscriptPlatform } from "../../../mobile/transcriptPlatform";
 
 let container: HTMLDivElement;
 let root: Root;
@@ -71,6 +74,26 @@ function advance(ms: number) {
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]');
 
 describe("tool diff popovers", () => {
+  it("keeps mobile file navigation without opening a preview on focus or hover", () => {
+    const onOpenDiff = vi.fn();
+    act(() => root.render(createElement(TranscriptPlatformContext.Provider, {
+      value: mobileTranscriptPlatform,
+    }, createElement(ToolCallSummary, {
+      label: "Edit /Users/me/Documents/notes.md", preview, onOpenDiff,
+    }))));
+    const trigger = container.querySelector<HTMLButtonElement>("button")!;
+    expect(trigger).not.toBeNull();
+    act(() => trigger.focus());
+    pointer(trigger, "pointerover");
+    advance(1000);
+    expect(dialog()).toBeNull();
+    expect(trigger.hasAttribute("aria-haspopup")).toBe(false);
+    act(() => trigger.click());
+    expect(onOpenDiff).toHaveBeenCalledWith("/Users/me/Documents/notes.md");
+    advance(1000);
+    expect(dialog()).toBeNull();
+  });
+
   it("labels Write previews accurately, including empty files and failed tools", () => {
     for (const status of ["accepted", "pending", "rejected"] as const) {
       act(() =>

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { KEYBOARD_EVENT, installKeyboardMotion } from "./keyboardMotion";
 import { SurfaceVisibilityContext } from "../shared/ui/SurfaceVisibility";
 import { MobileSheet, type MobileSheetPoint } from "./MobileSheet";
+import { backMobileSheet } from "./mobileSheetBack";
 
 let root: Root;
 let node: HTMLDivElement;
@@ -77,6 +78,25 @@ function render(
   );
   return node.querySelector<HTMLElement>(".mobile-sheet")!;
 }
+
+it("sends native Back only to the top sheet and skips it while closing", () => {
+  vi.useFakeTimers();
+  const parent = vi.fn();
+  const child = vi.fn();
+  const show = (open: boolean) => act(() => root.render(createElement(MobileSheet, {
+    title: "Parent", onClose: parent,
+    children: createElement(MobileSheet, { title: "Child", open, onClose: child, children: "Details" }),
+  })));
+  show(true);
+  act(() => { expect(backMobileSheet()).toBe(true); });
+  expect(child).toHaveBeenCalledOnce();
+  expect(parent).not.toHaveBeenCalled();
+  show(false);
+  expect(node.querySelector('[data-fold-state="closing"][inert]')).not.toBeNull();
+  act(() => { expect(backMobileSheet()).toBe(true); });
+  expect(parent).toHaveBeenCalledOnce();
+  expect(child).toHaveBeenCalledOnce();
+});
 
 it("defers menu creation while closed and retains it through a reversible close", () => {
   vi.useFakeTimers();

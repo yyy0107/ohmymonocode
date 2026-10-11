@@ -377,6 +377,86 @@ describe("transcript scrolling", () => {
     expect(frames).toHaveLength(0);
     expect(showJump).toHaveBeenLastCalledWith(false);
   });
+  it.each([false, true])("pins a running mobile transcript on keyboard resize (stream glide active: %s)", (streaming) => {
+    let now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    const frames = new Map<number, FrameRequestCallback>();
+    let frameId = 0;
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      frames.set(++frameId, callback);
+      return frameId;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => frames.delete(id));
+    const tick = (time: number) => act(() => {
+      now = time;
+      const pending = [...frames.values()];
+      frames.clear();
+      pending.forEach(callback => callback(now));
+    });
+    act(() => root.render(createElement(AgentTranscript, {
+      blocks: [
+        { id: "user", role: "user", text: "Explain" },
+        { id: "reply", role: "assistant", text: "Answer" },
+      ],
+      busy: true,
+      touchScroll: true,
+      promptMotion: "mobile",
+    })));
+    const scroller = container.querySelector<HTMLDivElement>(".agent-transcript")!;
+    let height = 1000;
+    let viewport = 500;
+    let top = 0;
+    Object.defineProperties(scroller, {
+      scrollHeight: { get: () => height },
+      clientHeight: { get: () => viewport },
+      scrollTop: {
+        get: () => top,
+        set: (value: number) => { top = Math.max(0, Math.min(value, height - viewport)); },
+      },
+    });
+    const observer = observers.find(item => item.targets.includes(scroller))!;
+    act(() => observer.resize());
+    expect(top).toBe(500);
+    now = 1000;
+    if (streaming) {
+      height += 60;
+      act(() => observer.resize());
+      tick(1030);
+      expect(top).toBeGreaterThan(500);
+      expect(top).toBeLessThan(560);
+    }
+    viewport = 300;
+    // A scroll event can arrive before ResizeObserver reports the keyboard.
+    act(() => scroller.dispatchEvent(new Event("scroll")));
+    act(() => observer.resize());
+    expect(top).toBe(height - viewport);
+    tick(1100);
+    expect(top).toBe(height - viewport);
+    viewport = 500;
+    act(() => observer.resize());
+    expect(top).toBe(height - viewport);
+    // Fresh stream growth still glides once the viewport has settled.
+    height += 50;
+    act(() => observer.resize());
+    expect(top).toBe(height - viewport - 50);
+    tick(1150);
+    expect(top).toBeGreaterThan(height - viewport - 50);
+    expect(top).toBeLessThan(height - viewport);
+    tick(1400);
+    expect(top).toBe(height - viewport);
+    // Opening the keyboard while reading history must keep that position.
+    act(() => {
+      const touch = new Event("touchstart");
+      Object.defineProperty(touch, "touches", { value: [{ clientY: 100 }] });
+      scroller.dispatchEvent(touch);
+      top -= 200;
+      scroller.dispatchEvent(new Event("scroll"));
+    });
+    const readingTop = top;
+    viewport = 300;
+    act(() => observer.resize());
+    expect(top).toBe(readingTop);
+  });
   it("lets a wheel up inside the bottom margin leave a streaming reply", () => {
     const blocks = (text: string): Block[] => [
       { id: "user", role: "user", text: "Explain auth" },

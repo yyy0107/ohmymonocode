@@ -9,7 +9,7 @@ import { TranscriptPlatformContext } from "../features/sessions/ui/TranscriptPla
 import { useCollapseMotion } from "../shared/ui/AnimatedCollapse";
 import type { Block } from "../features/sessions/model/session";
 import type { WorktreeCreation } from "../features/source-control/model/worktreeCreation";
-import { isSubagentBlock, isToolBlock, toolCallState } from "../features/sessions/model/transcriptActivity";
+import { buildActivityPhases, groupTurnItems, groupTurns, isSubagentBlock, isToolBlock, toolCallState } from "../features/sessions/model/transcriptActivity";
 import type { QuestionAnswer } from "../features/sessions/model/userQuestion";
 import type { ApprovalDecision } from "../integrations/harness";
 import type { EditorNavigation } from "../features/search/model/search";
@@ -40,17 +40,26 @@ const MobileActivitySheet = lazyMobileSheet(async () => ({ default: (await impor
 const MobileFileSheet = lazyMobileSheet(async () => ({ default: (await import("./MobileFileSheet")).MobileFileSheet }));
 const MobileGitReviewSheet = lazyMobileSheet(async () => ({ default: (await import("./MobileGitReviewSheet")).MobileGitReviewSheet }));
 
+type FileDetail = {
+  kind: "file";
+  path: string;
+  line?: number;
+  from?: Block;
+  fromActivity?: Block[];
+  fromPlan?: Extract<Detail, { kind: "plan" }>;
+  previous?: FileDetail;
+};
 type Detail =
   | { kind: "progress" }
   | { kind: "changes"; path?: string; from?: Extract<Detail, { kind: "tool" }>;
       /** The conversation's own edits rather than every uncommitted change. */
       session?: boolean }
-  | { kind: "agent"; blockId: string; fromActivity?: Block[] }
+  | { kind: "agent"; blockId: string; fromActivity?: Block[]; fromProgress?: boolean }
   | { kind: "question"; blockId: string }
-  | { kind: "plan"; blockId: string }
+  | { kind: "plan"; blockId: string; fromProgress?: boolean }
   | { kind: "activity"; steps: Block[] }
   | { kind: "tool"; block: Block; fromActivity?: Block[] }
-  | { kind: "file"; path: string; line?: number; from?: Block; fromActivity?: Block[] };
+  | FileDetail;
 type Details = {
   active?: Detail["kind"];
   agent?: Extract<Detail, { kind: "agent" }>;
@@ -67,6 +76,7 @@ type Details = {
  * only needs to follow its snapshot. */
 export const MobileTranscript = memo(function MobileTranscript({
   snapshot,
+  historyEntries,
   disabled,
   onCommand,
   readBinaryFile,
@@ -84,6 +94,8 @@ export const MobileTranscript = memo(function MobileTranscript({
   worktreeCreation,
 }: {
   snapshot: HostSession;
+  /** History restored after the cached conversation first painted. */
+  historyEntries?: readonly { id: string; text: string }[];
   disabled: boolean;
   onCommand: (command: HostCommand) => void | Promise<boolean>;
   readBinaryFile?: (path: string) => Promise<Uint8Array>;
@@ -172,11 +184,31 @@ export const MobileTranscript = memo(function MobileTranscript({
           kind: "file", path, line: navigation?.line,
           from: current.active === "tool" ? current.tool?.block : undefined,
           fromActivity: current.active === "tool" ? current.tool?.fromActivity : undefined,
+          fromPlan: current.active === "plan" ? current.plan : undefined,
+          previous: current.active === "file" ? current.file : undefined,
         },
       })),
     [],
   );
   const { session, runId } = snapshot;
+  const activitySteps = useMemo(() => {
+    const opened = detail.activity?.steps;
+    if (!opened) return [];
+    const selected = new Set(opened.map((step) => step.id));
+    // Resolve the opened groups against each snapshot so newly arriving calls
+    // appear too. Group boundaries keep later work and other turns out.
+    const turn = groupTurns(session.blocks).find((blocks) =>
+      blocks.some((block) => selected.has(block.id)));
+    if (!turn) return opened;
+    for (const item of groupTurnItems(turn)) {
+      if (item.type !== "activity") continue;
+      for (const phase of buildActivityPhases(item.blocks)) {
+        if (phase.steps.some((step) => selected.has(step.id)))
+          for (const step of phase.steps) selected.add(step.id);
+      }
+    }
+    return turn.filter((block) => selected.has(block.id));
+  }, [session.blocks, detail.activity?.steps]);
   // A sent message waits in a typing bubble until the agent's first output.
   const lastBlock = session.blocks.at(-1);
   const awaitingReply = lastBlock?.role === "user" && !lastBlock.draft &&
@@ -245,6 +277,17 @@ export const MobileTranscript = memo(function MobileTranscript({
   const releasePlan = useCallback(() => setDetail((current) =>
     current.active === "plan" ? current : { ...current, plan: undefined }), []);
   const closeDetail = useCallback(() => setDetail((current) => ({ ...current, active: undefined })), []);
+  const backProgress = useCallback(() => setDetail((current) => ({ ...current, active: "progress" })), []);
+  const backFile = useCallback(() => setDetail((current) => {
+    const file = current.file;
+    if (file?.previous) return { ...current, active: "file", file: file.previous };
+    if (file?.fromPlan) return { ...current, active: "plan", plan: file.fromPlan };
+    if (file?.from) return {
+      ...current, active: "tool", tool: { kind: "tool", block: file.from, fromActivity: file.fromActivity },
+      activity: file.fromActivity ? { kind: "activity", steps: file.fromActivity } : current.activity,
+    };
+    return { ...current, active: undefined };
+  }), []);
   const backChanges = useCallback(() => setDetail((current) => {
     const from = current.changes?.from;
     return {
@@ -315,7 +358,7 @@ export const MobileTranscript = memo(function MobileTranscript({
         onOpen={() => setDetail((current) => ({ ...current, active: "progress" }))}
         onClose={closeDetail}
         onNavigate={(kind, blockId) => setDetail((current) => ({
-          ...current, active: kind, [kind]: { kind, blockId },
+          ...current, active: kind, [kind]: { kind, blockId, fromProgress: true },
         }))} />
       <MobileConversation
         containerRef={findSheetHost}
@@ -327,6 +370,7 @@ export const MobileTranscript = memo(function MobileTranscript({
         visible={parentVisible}
         animateFrom={animateFrom}
         blocks={session.blocks}
+        historyEntries={historyEntries}
         busy={snapshot.status === "running"}
         cwd={session.cwd}
         harness={session.harness}
@@ -448,6 +492,7 @@ export const MobileTranscript = memo(function MobileTranscript({
                 onExited={releasePlan}
                 title="Plan"
                 header={{ title: t("Plan") }}
+                onBack={detail.plan.fromProgress ? backProgress : undefined}
                 onClose={closeDetail}
               >
                 <div className="mobile-plan-sheet">
@@ -462,7 +507,7 @@ export const MobileTranscript = memo(function MobileTranscript({
             {detail.agent && !detail.agent.fromActivity && <MobileAgentSheet key={detail.agent.blockId} open={visible && detail.active === "agent"}
               onExited={releaseAgent} blocks={session.blocks} blockId={detail.agent.blockId}
               cwd={session.cwd} readBinaryFile={readBinaryFile} onClose={closeDetail}
-              onBack={detail.agent.fromActivity ? () => setDetail((current) => ({ ...current, active: "activity" })) : undefined} />}
+              onBack={detail.agent.fromProgress ? backProgress : undefined} />}
             {detail.activity && (
               <MobileActivitySheet
                 open={visible && (detail.active === "activity" ||
@@ -470,14 +515,10 @@ export const MobileTranscript = memo(function MobileTranscript({
                   (detail.active === "tool" && !!detail.tool?.fromActivity))}
                 onExited={releaseActivity}
                 // Follow live blocks so a running group fills in while open.
-                steps={detail.activity.steps.map((step) =>
-                  session.blocks.find((block) => block.id === step.id) ?? step)}
+                steps={activitySteps}
                 cwd={session.cwd}
                 live={snapshot.status === "running" &&
-                  detail.activity.steps.some((step) => {
-                    const current = session.blocks.find((block) => block.id === step.id) ?? step;
-                    return isToolBlock(current) && toolCallState(current) === "pending";
-                  })}
+                  activitySteps.some((step) => isToolBlock(step) && toolCallState(step) === "pending")}
                 onStep={openStep}
                 sessionBlocks={session.blocks}
                 readBinaryFile={readBinaryFile}
@@ -516,12 +557,7 @@ export const MobileTranscript = memo(function MobileTranscript({
                 readBinaryFile={readBinaryFile}
                 onOpenFile={openFile}
                 onBack={
-                  detail.file.from
-                    ? () => setDetail((current) => ({ ...current, active: "tool",
-                      tool: { kind: "tool", block: detail.file!.from!, fromActivity: detail.file!.fromActivity },
-                      activity: detail.file!.fromActivity
-                        ? { kind: "activity", steps: detail.file!.fromActivity } : current.activity }))
-                    : undefined
+                  detail.file.from || detail.file.fromPlan || detail.file.previous ? backFile : undefined
                 }
                 onClose={closeDetail}
               />

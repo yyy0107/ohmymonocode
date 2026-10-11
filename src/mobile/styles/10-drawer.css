@@ -293,6 +293,9 @@
   user-select: none;
   -webkit-touch-callout: none;
 }
+.mobile-drawer .mobile-session-row .mobile-row-text {
+  align-items: center;
+}
 .mobile-drawer .mobile-session-row .mobile-row-text strong {
   font-size: var(--mobile-font-lg);
   font-weight: 600;

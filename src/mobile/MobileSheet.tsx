@@ -21,6 +21,7 @@ import { placePopover, type PopoverAlign } from "../shared/lib/popover";
 import { SHEET_CLOSE_MS, SHEET_MOTION_MS, useSheetDrag } from "./sheetDrag";
 import { preserveInputFocus, usePreserveInputFocusOnTouch } from "./inputFocus";
 import { useMobileSheetFocus } from "./useMobileSheetFocus";
+import { listenForMobileSheetBack } from "./mobileSheetBack";
 
 // Reads the resolved system-bar insets so popovers stay clear of the status
 // bar, gesture area and display cutouts on edge-to-edge screens.
@@ -89,6 +90,7 @@ export function MobileSheetHeader({ title, subtitle, className, action, onBack, 
   return (
     <header className={`mobile-sheet-header${className ? ` ${className}` : ""}`}>
       <button type="button" className="mobile-sheet-header-button"
+        data-mobile-sheet-back={onBack ? true : undefined}
         aria-label={t(onBack ? "Back" : "Close")} onClick={onBack ?? onClose}>
         {onBack ? <ArrowLeft size={24} /> : <X size={24} />}
       </button>
@@ -163,6 +165,17 @@ export function MobileSheet({
   );
   const backdrop = useRef<HTMLDivElement>(null);
   const dialog = useRef<HTMLElement>(null);
+  const back = useCallback(() => {
+    // Embedded tool/agent pages own deeper navigation than the outer sheet.
+    const button = [...(dialog.current?.querySelectorAll<HTMLButtonElement>("[data-mobile-sheet-back]") ?? [])]
+      .find((element) => !element.disabled && !element.closest('[inert], [aria-hidden="true"]') &&
+        element.closest(".mobile-sheet") === dialog.current);
+    if (button) button.click();
+    else (onBack ?? onClose)();
+  }, [onBack, onClose]);
+  useEffect(() => {
+    if (active && dialog.current) return listenForMobileSheetBack(dialog.current, back);
+  }, [active, back]);
   useMobileSheetFocus(dialog, active);
   const wasOpen = useRef(open);
   useEffect(() => {
@@ -523,7 +536,7 @@ export function MobileSheet({
       if (event.defaultPrevented) return;
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        back();
       }
       if (event.key !== "Tab") return;
       const focusable = [
@@ -551,7 +564,7 @@ export function MobileSheet({
         first.focus();
       }
     },
-    [onClose, preserveFocus],
+    [back, preserveFocus],
   );
   useEffect(() => {
     if (!active) return;

@@ -146,9 +146,6 @@
   --diffs-font-family: var(--user-code-font, "SF Mono"), Consolas, "Liberation Mono", monospace;
   --diffs-font-size: calc(13px * var(--code-font-scale, 1));
   --diffs-line-height: calc(22px * var(--code-font-scale, 1));
-  --diffs-bg: var(--color-m-app);
-  --diffs-light-bg: var(--color-m-app);
-  --diffs-dark-bg: var(--color-m-app);
   min-width: 0;
   width: 100%;
   background: var(--color-m-app);
@@ -156,10 +153,6 @@
   -webkit-user-select: text;
 }
 .mobile-git-diff[data-theme="light"] {
-  --mobile-diff-addition: #e6f4ec;
-  --mobile-diff-deletion: #ffe7e4;
-  --diffs-bg-addition-emphasis-override: #c8e9da;
-  --diffs-bg-deletion-emphasis-override: #ffd0ca;
   --diffs-addition-color-override: #199f73;
   --diffs-deletion-color-override: #d84444;
 }

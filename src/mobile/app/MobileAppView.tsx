@@ -760,6 +760,7 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
               store={snapshotStore}
               sessionId={transcriptSessionId}
               initialSnapshot={snapshotStore.get()}
+              historyLoading={loading}
               placeholder={placeholder}
               outgoing={sendingMessage?.sessionId === snapshot?.session.id ? sendingMessage?.outgoing : undefined}
               active={!drawerOpen && !pageOverlayOpen && !hostPickerOpen}

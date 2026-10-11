@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { processFile, type FileDiffOptions } from "@pierre/diffs";
 import { FileDiff } from "@pierre/diffs/react";
 import {
@@ -7,14 +7,23 @@ import {
 } from "../features/source-control/model/reviewDiff";
 import type { ToolPreviewLine } from "../features/sessions/model/session";
 import type { GitFileDiff } from "../platform/tauri/fs";
-import { useColorScheme } from "../shared/hooks/useColorScheme";
+import { SCHEME_CHANGE_EVENT } from "../features/settings/model/appearance";
 import { useTranslation } from "../shared/i18n/useTranslation";
 import { AnimatedCollapse } from "../shared/ui/AnimatedCollapse";
 import type { UnifiedLine } from "../features/source-control/model/unifiedDiff";
 
+const appliedColorScheme = () =>
+  document.documentElement.classList.contains("theme-light") ? "light" : "dark";
+const subscribeColorScheme = (notify: () => void) => {
+  window.addEventListener(SCHEME_CHANGE_EVENT, notify);
+  return () => window.removeEventListener(SCHEME_CHANGE_EVENT, notify);
+};
+
 function useMobileDiffOptions(wrap: boolean, partial: boolean) {
   const { t } = useTranslation();
-  const themeType = useColorScheme();
+  // A mobile skin can override the stored desktop color preference before
+  // this lazy-loaded panel mounts. Read the scheme actually applied to it.
+  const themeType = useSyncExternalStore(subscribeColorScheme, appliedColorScheme);
   const options = useMemo<FileDiffOptions<undefined>>(
     () => ({
       diffStyle: "unified",
@@ -29,16 +38,16 @@ function useMobileDiffOptions(wrap: boolean, partial: boolean) {
       themeType,
       preferredHighlighter: "shiki-wasm",
       unsafeCSS: `
-      :host { border: 0; border-radius: 0; }
+      :host {
+        border: 0;
+        border-radius: 0;
+        --diffs-bg: var(--color-m-app);
+        --diffs-light-bg: var(--color-m-app);
+        --diffs-dark-bg: var(--color-m-app);
+      }
       [data-code] { touch-action: pan-x pan-y pinch-zoom; }
       [data-column-number] { padding-inline-start: 6px; }
       [data-overflow="wrap"] [data-line] { overflow-wrap: anywhere; }
-      [data-line][data-line-type="change-addition"] {
-        background-color: var(--mobile-diff-addition, var(--diffs-line-bg));
-      }
-      [data-line][data-line-type="change-deletion"] {
-        background-color: var(--mobile-diff-deletion, var(--diffs-line-bg));
-      }
     `,
       onPostRender(node) {
         // Pierre renders these labels inside its shadow root, outside React i18n.

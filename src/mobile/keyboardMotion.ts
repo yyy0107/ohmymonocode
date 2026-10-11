@@ -135,10 +135,14 @@ function anchoredTurnChange(scroller: HTMLElement, delta: number) {
   if (minHeight <= 0) return 0;
   const height = turn.offsetHeight;
   // Measured once per keyboard motion, before the motion starts.
+  // Temporarily shrinking the turn can clamp the browser's scroll offset.
+  // Restore it with the minimum height before any follow or paint observes it.
+  const scrollTop = scroller.scrollTop;
   const previous = turn.style.minHeight;
   turn.style.minHeight = "0px";
   const natural = turn.offsetHeight;
   turn.style.minHeight = previous;
+  scroller.scrollTop = scrollTop;
   return anchoredTurnHeight({ height, minHeight, natural }, delta) - height;
 }
 

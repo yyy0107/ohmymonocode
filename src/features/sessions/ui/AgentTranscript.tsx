@@ -369,6 +369,7 @@ function AgentTranscriptComponent({
   // Following glides only for a stream the reader is already watching; the
   // layout settling right after a chat appears still pins before paint.
   const glideFollow = useRef({ busy: !!busy, since: Infinity });
+  const followViewport = useRef(0);
   glideFollow.current.busy = !!busy;
   useEffect(() => {
     glideFollow.current.since = visible ? performance.now() : Infinity;
@@ -552,6 +553,12 @@ function AgentTranscriptComponent({
   const followTranscript = useCallback(
     (el: HTMLElement | null) => {
       if (!el) return;
+      const resized = followViewport.current !== el.clientHeight;
+      followViewport.current = el.clientHeight;
+      // Keyboard motion already animates the mobile surface. Its layout
+      // handoff must pin before paint, including during a streamed row glide.
+      if (promptMotion === "mobile" && resized)
+        jumpingScrollers.get(el)?.(true);
       // The browser can apply a manual scroll before dispatching its event.
       // Reconcile that offset before a streaming commit or observer pins it.
       syncPinned(el);
@@ -565,6 +572,7 @@ function AgentTranscriptComponent({
       const glide = glideFollow.current;
       if (
         promptMotion === "mobile" &&
+        !resized &&
         glide.busy &&
         performance.now() - glide.since >= FOLLOW_GLIDE_SETTLE_MS &&
         gap > 2 &&
@@ -4373,7 +4381,7 @@ function pinToBottom(el: HTMLElement | null) {
   el.scrollTop = el.scrollHeight;
 }
 
-const jumpingScrollers = new WeakSet<HTMLElement>();
+const jumpingScrollers = new WeakMap<HTMLElement, (snap: boolean) => void>();
 const JUMP_INTERRUPTS = ["wheel", "touchstart", "pointerdown", "keydown"];
 
 /**
@@ -4422,7 +4430,7 @@ function animateToBottom(
     if (t < 1) frame = requestAnimationFrame(step);
     else finish(true);
   };
-  jumpingScrollers.add(el);
+  jumpingScrollers.set(el, finish);
   for (const type of JUMP_INTERRUPTS)
     el.addEventListener(type, interrupt, { passive: true });
   frame = requestAnimationFrame(step);

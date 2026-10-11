@@ -12,7 +12,7 @@ import {
   Wrench,
   X,
 } from "../../../../../shared/ui/icons";
-import type { ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
 import type { ApprovalDecision } from "../../../../../integrations/harness";
 import { FileTypeIcon } from "../../../../files/ui/FileTypeIcon";
 import type { Block, ToolPreview } from "../../../model/session";
@@ -21,6 +21,7 @@ import {
   type ToolCallState,
 } from "../../../model/transcriptActivity";
 import { ToolDiffPreview } from "../../ToolDiffPreview";
+import { TranscriptPlatformContext } from "../../TranscriptPlatform";
 import type { ToolRendererKind } from "../../../model/toolRenderer";
 
 /** The pieces every tool row is built from: icons, the summary line, approval. */
@@ -124,6 +125,8 @@ export function ToolCallSummary({
   failed?: boolean;
   status?: ToolCallState;
 }) {
+  const { t: uiT } = useTranslation();
+  const { toolDiffPreviews } = useContext(TranscriptPlatformContext);
   const { action, target, fileName, filePath, isFile, previewMatchesFile } =
     resolveToolCallDisplay(label, preview, cwd);
   if (!action || !target) {
@@ -144,6 +147,7 @@ export function ToolCallSummary({
       : onOpenFile;
   const canOpen = interactive && !!openFile && !!filePath;
   const canPreview =
+    toolDiffPreviews !== false &&
     interactive &&
     preview?.kind === "write" &&
     previewMatchesFile &&
@@ -182,6 +186,7 @@ export function ToolCallSummary({
         ) : canOpen ? (
           <button
             type="button"
+            aria-label={uiT("Open {value0}", { value0: String(target) })}
             className={`-my-0.5 flex min-w-0 cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-left hover:text-sky-300 ${
               chip
                 ? `max-w-full bg-content/6 hover:bg-content/10 ${targetTone}`
