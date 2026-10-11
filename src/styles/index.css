@@ -570,6 +570,13 @@ html.has-native-glass:not(.theme-light) #root {
   visibility: hidden;
 }
 
+/* Keep the avatar/hover-chevron swap visible while the disclosure is inactive. */
+.reorder-item[data-reordering] > .project-tree-header [data-project-avatar],
+.reorder-item[data-reordering] > .project-tree-header [data-project-chevron] {
+  visibility: visible;
+  pointer-events: none;
+}
+
 .project-reorder-item[data-reordering] > button:first-of-type {
   padding-right: 0;
 }
