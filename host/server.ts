@@ -389,6 +389,8 @@ export function createHostServer(
                 "bots.runtime.v1",
                 "bots.management.v1",
                 "bots.delegation.v1",
+                "bots.teams.v1",
+                "bots.rooms.v1",
                 "im.feishu.v1",
                 "resources",
                 "workflows.v1",
@@ -700,6 +702,21 @@ export function createHostServer(
           case "botMemory.log":
           case "botMemory.undo":
           case "botMemory.rebuild":
+          case "botTeams.list":
+          case "botTeams.get":
+          case "botTeams.create":
+          case "botTeams.configure":
+          case "botTeams.archive":
+          case "botTeams.restore":
+          case "botRooms.list":
+          case "botRooms.get":
+          case "botRooms.create":
+          case "botRooms.configure":
+          case "botRooms.archive":
+          case "botRooms.restore":
+          case "botRooms.messages":
+          case "botRooms.send":
+          case "botRooms.cancel":
           case "botDelegations.list":
           case "botDelegations.get":
           case "botDelegations.cancel":

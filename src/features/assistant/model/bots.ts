@@ -79,6 +79,9 @@ export type BotDelegation = {
   target: { botId: string; threadId?: string; runId?: string };
   requestId: string;
   prompt: string;
+  /** Chief background tasks survive only a normally completed parent turn. */
+  mode?: "attached" | "background";
+  teamId?: string;
   status: BotDelegationStatus;
   createdAt: number;
   updatedAt: number;

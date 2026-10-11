@@ -484,7 +484,7 @@ it("denies every declared action before effects when its permission is off", asy
     (a) =>
       a !== "actions.get" &&
       a !== "chat.search" &&
-      a !== "agents.list_bots" && a !== "agents.ask_bot" &&
+      a !== "agents.list_bots" && a !== "agents.ask_bot" && a !== "agents.delegate_bot" && a !== "agents.coordinate_bots" &&
       !a.startsWith("playbooks.") &&
       !a.startsWith("reminders.") &&
       !a.startsWith("habits.") &&

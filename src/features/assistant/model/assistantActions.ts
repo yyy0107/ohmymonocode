@@ -3,6 +3,8 @@ export const ASSISTANT_ACTIONS = [
   "agents.list",
   "agents.list_bots",
   "agents.ask_bot",
+  "agents.delegate_bot",
+  "agents.coordinate_bots",
   "models.list",
   "projects.list",
   "projects.open",

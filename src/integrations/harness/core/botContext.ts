@@ -53,8 +53,8 @@ export function botContextKey(context?: HarnessBotContext): string {
 /** A thread-specific server key leaves existing user MCP entries in place. */
 export function botAgentsMcpName(context: HarnessBotContext): string {
   // Host Thread IDs are UUIDs. Keep their 32 hex digits so even the expanded
-  // mcp__<server>__list_bots name fits providers' 64-character tool-name limit.
-  return `monocode_agents_${context.scope.threadId.replaceAll("-", "").replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 32)}`;
+  // mcp__<server>__coordinate_bots name fits providers' 64-character tool-name limit.
+  return `mc_agents_${context.scope.threadId.replaceAll("-", "").replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 32)}`;
 }
 
 export function botContextPrompt(text: string, context?: HarnessBotContext): string {

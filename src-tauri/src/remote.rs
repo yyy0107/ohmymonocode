@@ -479,6 +479,21 @@ fn supported_remote_method(method: &str) -> bool {
             | "botMemory.undo"
             | "botMemory.rebuild"
             | "botMemory.topic"
+            | "botTeams.list"
+            | "botTeams.get"
+            | "botTeams.create"
+            | "botTeams.configure"
+            | "botTeams.archive"
+            | "botTeams.restore"
+            | "botRooms.list"
+            | "botRooms.get"
+            | "botRooms.create"
+            | "botRooms.configure"
+            | "botRooms.archive"
+            | "botRooms.restore"
+            | "botRooms.messages"
+            | "botRooms.send"
+            | "botRooms.cancel"
             | "botDelegations.list"
             | "botDelegations.get"
             | "botDelegations.cancel"
@@ -835,6 +850,21 @@ mod tests {
             "botMemory.undo",
             "botMemory.rebuild",
             "botMemory.topic",
+            "botTeams.list",
+            "botTeams.get",
+            "botTeams.create",
+            "botTeams.configure",
+            "botTeams.archive",
+            "botTeams.restore",
+            "botRooms.list",
+            "botRooms.get",
+            "botRooms.create",
+            "botRooms.configure",
+            "botRooms.archive",
+            "botRooms.restore",
+            "botRooms.messages",
+            "botRooms.send",
+            "botRooms.cancel",
             "botDelegations.list",
             "botDelegations.get",
             "botDelegations.cancel",

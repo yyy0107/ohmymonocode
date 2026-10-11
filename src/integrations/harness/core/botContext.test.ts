@@ -29,7 +29,7 @@ it("marks a fallback without promoting user or recalled text into instructions",
 it("snapshots public MCP launch settings and never accepts embedded control credentials", () => {
   const source = { ...context(), agentsMcp: { command: "/node", args: ["/host", "agents-mcp"], env: { LANG: "C" } } };
   const snapshot = snapshotBotContext(source);
-  expect(`mcp__${botAgentsMcpName({ ...source, scope: { ...source.scope, threadId: "fd43f8ad-3ed9-40a2-a234-7708d5507519" } })}__list_bots`.length).toBeLessThanOrEqual(64);
+  expect(`mcp__${botAgentsMcpName({ ...source, scope: { ...source.scope, threadId: "fd43f8ad-3ed9-40a2-a234-7708d5507519" } })}__coordinate_bots`.length).toBeLessThanOrEqual(64);
   source.agentsMcp.args.push("changed"); source.agentsMcp.env.LANG = "changed";
   expect(snapshot.agentsMcp).toEqual({ command: "/node", args: ["/host", "agents-mcp"], env: { LANG: "C" } });
   expect(botContextKey(snapshot)).not.toBe(botContextKey({ ...snapshot, agentsMcp: undefined }));

@@ -1434,3 +1434,65 @@ it("routes delegation inspection through authenticated Thread scopes without acc
   s.store.revokeToken(s.first.token);
   expect((await s.call("botDelegations.list", scope)).status).toBe(401);
 });
+
+it("routes Team and Room management with revision conflicts and Host-owned membership", async () => {
+  const s = await setup();
+  await s.engine.ready;
+  s.engine.bots.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }] }, errors: {} }));
+  expect((await s.call("environment.describe")).value.result.capabilities).toEqual(expect.arrayContaining(["bots.teams.v1", "bots.rooms.v1"]));
+  const create = async (name: string) => (await s.call("bots.create", { commandId: name, patch: {
+    name, harness: "codex", model: "test", triggers: { user: true, event: false, schedule: false },
+  } })).value.result;
+  const a = await create("Team Chief"), b = await create("Team member");
+  const teamInput = { commandId: "team-create", patch: { name: "Product", memberBotIds: [a.bot.id, b.bot.id], chiefBotId: a.bot.id } };
+  const created = await s.call("botTeams.create", teamInput);
+  expect(created.status).toBe(200);
+  const team = created.value.result;
+  expect((await s.call("botTeams.create", teamInput)).value.result).toEqual(team);
+  expect((await s.call("botTeams.configure", { teamId: team.id, commandId: "chief-change", expectedRevision: team.revision,
+    patch: { chiefBotId: b.bot.id } })).status).toBe(200);
+  expect((await s.call("botTeams.configure", { teamId: team.id, commandId: "chief-race", expectedRevision: team.revision,
+    patch: { chiefBotId: a.bot.id } })).value.code).toBe("conflict");
+  expect((await s.call("botTeams.create", { commandId: "foreign-team", patch: { name: "Foreign", memberBotIds: ["other-host-bot"] } })).status).toBe(400);
+  const roomInput = { commandId: "room-create", name: "Planning", memberIds: [a.bot.id, b.bot.id] };
+  const roomResponse = await s.call("botRooms.create", roomInput);
+  expect(roomResponse.status).toBe(200);
+  const room = roomResponse.value.result;
+  expect((await s.call("botRooms.create", roomInput)).value.result).toEqual(room);
+  expect((await s.call("botRooms.get", { roomId: room.id })).value.result.room.memberIds).toEqual([a.bot.id, b.bot.id]);
+  expect((await s.call("botRooms.messages", { roomId: room.id })).value.result.messages).toEqual([]);
+  expect((await s.call("botRooms.configure", { roomId: room.id, commandId: "order-change", expectedRevision: room.revision,
+    patch: { memberIds: [b.bot.id, a.bot.id] } })).status).toBe(200);
+  expect((await s.call("botRooms.configure", { roomId: room.id, commandId: "room-race", expectedRevision: room.revision,
+    patch: { name: "Stale" } })).value.code).toBe("conflict");
+  expect((await s.call("botRooms.create", { ...roomInput, commandId: "foreign-room", memberIds: ["other-host-bot"] })).status).toBe(400);
+  expect((await s.call("botRooms.get", { roomId: room.id, sourceRunId: "forged" })).status).toBe(400);
+  s.store.revokeToken(s.first.token);
+  expect((await s.call("botTeams.list")).status).toBe(401);
+  expect((await s.call("botRooms.list")).status).toBe(401);
+});
+
+it("keeps Room send receipts and cancellation scoped while its member waits for a Bot slot", async () => {
+  const s = await setup();
+  await s.engine.ready;
+  s.engine.bots.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }] }, errors: {} }));
+  const bot = (await s.call("bots.create", { commandId: "room-busy-bot", patch: { harness: "codex", model: "test", maxConcurrentRuns: 1,
+    triggers: { user: true, event: false, schedule: false } } })).value.result;
+  await s.call("botThreads.send", { botId: bot.bot.id, threadId: bot.thread.id, commandId: "occupy-slot", text: "Continue my private task" });
+  await vi.waitFor(() => expect(s.send).toHaveBeenCalledTimes(1));
+  const create = async (name: string) => (await s.call("botRooms.create", { commandId: name, name, memberIds: [bot.bot.id] })).value.result;
+  const room = await create("Room one"), other = await create("Room two");
+  const input = { roomId: room.id, commandId: "room-message", text: "Discuss this independently", memberIds: [bot.bot.id] };
+  const response = await s.call("botRooms.send", input);
+  expect(response.status).toBe(200);
+  const round = response.value.result;
+  expect((await s.call("botRooms.send", input)).value.result.id).toBe(round.id);
+  expect((await s.call("botRooms.send", { ...input, text: "Changed duplicate" })).value.code).toBe("conflict");
+  expect((await s.call("botRooms.cancel", { roomId: other.id, roundId: round.id, commandId: "foreign-cancel" })).status).toBe(400);
+  expect((await s.call("botRooms.cancel", { roomId: room.id, roundId: round.id, commandId: "cancel-round" })).status).toBe(200);
+  const state = (await s.call("botRooms.get", { roomId: room.id })).value.result;
+  expect(state.rounds.find((value: { id: string }) => value.id === round.id).status).toBe("cancelled");
+  expect(s.send).toHaveBeenCalledTimes(1);
+  expect((await s.call("botThreads.runs", { botId: bot.bot.id, threadId: bot.thread.id })).value.result.runs[0].status).toBe("running");
+  expect((await s.call("botRooms.messages", { roomId: other.id })).value.result.messages).toEqual([]);
+});

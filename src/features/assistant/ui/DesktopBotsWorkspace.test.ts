@@ -5,6 +5,8 @@ import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { DesktopBotsWorkspace } from "./DesktopBotsWorkspace";
 import { fullAssistantPolicy, type AssistantMessage } from "../model/assistant";
 import { botCacheKey, type BotView, type BotThread, type BotsSnapshot } from "../model/bots";
+import type { BotTeam } from "../model/botTeams";
+import type { BotRoom, BotRoomRound } from "../model/botRooms";
 import { setUiLanguage } from "../../../shared/i18n/language";
 
 let node: HTMLDivElement, root: Root;
@@ -22,6 +24,8 @@ let memorySupported: boolean;
 let runtimeSupported: boolean;
 let managementSupported: boolean;
 let delegationSupported: boolean;
+let teamsSupported: boolean, roomsSupported: boolean;
+let teams: BotTeam[], rooms: BotRoom[], rounds: BotRoomRound[];
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.useFakeTimers();
@@ -29,14 +33,21 @@ beforeEach(() => {
   setUiLanguage("en");
   snapshot = { revision: 1, bots: [bot("A"), bot("B")], threads: [thread("A", "A-1"), thread("A", "A-2"), thread("B", "B-1")], defaultBotId: "A", defaultThreadId: "A-1" };
   messages = {};
-  memorySupported = false; runtimeSupported = false; managementSupported = false; delegationSupported = false;
+  memorySupported = false; runtimeSupported = false; managementSupported = false; delegationSupported = false; teamsSupported = false; roomsSupported = false;
+  teams = [{ id: "team", name: "Design team", memberBotIds: ["A", "B"], chiefBotId: "A", revision: 1, createdAt: 1, updatedAt: 1 }];
+  rooms = [{ id: "room", name: "Design room", memberIds: ["A", "B"], memberTimeoutMs: 240000, revision: 1, chatRevision: 0, activityRevision: 0, createdAt: 1, updatedAt: 1 }];
+  rounds = [];
   const view = (id: string) => {
     const target = snapshot.threads.find((thread) => thread.id === id)!;
     const owner = snapshot.bots.find((bot) => bot.id === target.botId)!;
     return { ...owner, ...target.modelOverride, botId: target.botId, threadId: target.id, title: target.title, chatRevision: target.chatRevision };
   };
   rpc = vi.fn(async (method: string, params: Record<string, any> = {}) => {
-    if (method === "environment.describe") return { capabilities: ["assistant.v1", "assistant.history", "bots.shell.v1", "bots.v1", ...(memorySupported ? ["botMemory.v1"] : []), ...(runtimeSupported ? ["bots.runtime.v1"] : []), ...(managementSupported ? ["bots.management.v1"] : []), ...(delegationSupported ? ["bots.delegation.v1"] : [])] };
+    if (method === "environment.describe") return { capabilities: ["assistant.v1", "assistant.history", "bots.shell.v1", "bots.v1", ...(memorySupported ? ["botMemory.v1"] : []), ...(runtimeSupported ? ["bots.runtime.v1"] : []), ...(managementSupported ? ["bots.management.v1"] : []), ...(delegationSupported ? ["bots.delegation.v1"] : []), ...(teamsSupported ? ["bots.teams.v1"] : []), ...(roomsSupported ? ["bots.rooms.v1"] : [])] };
+    if (method === "botTeams.list") return { revision: 1, teams };
+    if (method === "botRooms.list") return { revision: 1, rooms };
+    if (method === "botRooms.get") return { room: rooms.find(room => room.id === params.roomId), rounds };
+    if (method === "botRooms.messages") return { revision: 0, messages: [], hasMore: false };
     if (method === "botMemory.list") return { revision: 1, files: [], topicLimit: 100, topicsTruncated: false };
     if (method === "botMemory.read") return { path: params.path, text: `${params.botId} memory`, kind: "resident", revision: 1, hash: params.botId, bytes: 8, updatedAt: 1 };
     if (method === "botDelegations.get") return { id: params.delegationId, source: { botId: "A", threadId: "A-1", runId: "parent-run" }, target: { botId: "B", threadId: "B-1", runId: "child-run" }, requestId: "request", prompt: "Review", status: "running", createdAt: 1, updatedAt: 1, deadlineAt: 240001 };
@@ -324,4 +335,58 @@ it("keeps status text without delegation queries on a Host without delegation ca
   expect(active().textContent).toContain("Delegation running");
   expect(active().querySelector(".desktop-bot-delegation-card")).toBeNull();
   expect(rpc.mock.calls.some(([method]) => method.startsWith("botDelegations."))).toBe(false);
+});
+
+
+it("gates Team and Room navigation and RPCs on their independent Host capabilities", async () => {
+  await render();
+  expect(active().querySelector('[aria-label="Manage teams"]')).toBeNull();
+  expect(active().querySelector('[aria-label="Manage rooms"]')).toBeNull();
+  await act(async () => { await vi.advanceTimersByTimeAsync(2100); }); await flush();
+  expect(rpc.mock.calls.some(([method]) => method.startsWith("botTeams.") || method.startsWith("botRooms."))).toBe(false);
+});
+
+it("shows the team's Chief and preserves an unsaved team draft when returning from a Bot", async () => {
+  teamsSupported = true;
+  await render();
+  expect(active().querySelector('.desktop-bots-team-heading')?.textContent).toContain("Design team");
+  expect(active().querySelector('[aria-label="A"] .desktop-bots-chief')?.textContent).toBe("Chief");
+  act(() => active().querySelector<HTMLButtonElement>('[aria-label="Manage teams"]')!.click()); await flush();
+  const directory = () => node.querySelector<HTMLElement>('.desktop-bot-management-surface:not([hidden])')!;
+  act(() => [...directory().querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === "New team")!.click());
+  const name = directory().querySelector<HTMLInputElement>('[aria-label="Team name"]')!;
+  act(() => setValue(name, "Unfinished team"));
+  expect(rpc.mock.calls.some(([method]) => method === "botTeams.create")).toBe(false);
+  const shell = node.querySelector<HTMLElement>('.desktop-bots-create:not([aria-hidden])')!;
+  act(() => shell.querySelector<HTMLButtonElement>('[aria-label="B"]')!.click()); await flush();
+  act(() => active().querySelector<HTMLButtonElement>('[aria-label="Manage teams"]')!.click()); await flush();
+  expect(directory().querySelector<HTMLInputElement>('[aria-label="Team name"]')).toBe(name);
+  expect(name.value).toBe("Unfinished team");
+  expect(rpc.mock.calls.some(([method]) => method.startsWith("botRooms."))).toBe(false);
+});
+
+it("retains a Room draft and scroll across its member approval thread while pausing hidden Room polling", async () => {
+  roomsSupported = true;
+  snapshot.threads[2].kind = "room";
+  rounds = [{ id: "round", roomId: "room", userMessageId: "request", status: "running", roomRevision: 1, memberTimeoutMs: 240000, createdAt: 1, updatedAt: 1, speakers: [{ botId: "B", threadId: "B-1", status: "waiting_approval" }] }];
+  await render();
+  act(() => active().querySelector<HTMLButtonElement>('[aria-label="Design room"]')!.click()); await flush();
+  const room = () => node.querySelector<HTMLElement>('.desktop-bots-room-surface:not([aria-hidden])')!;
+  const field = room().querySelector<HTMLTextAreaElement>('[aria-label="Message room"]')!;
+  act(() => setValue(field, "Room draft"));
+  const log = room().querySelector<HTMLElement>('.desktop-bot-room-messages')!;
+  Object.defineProperty(log, 'scrollHeight', { value: 1000, configurable: true });
+  act(() => { log.scrollTop = 71; log.dispatchEvent(new Event('scroll')); });
+  act(() => room().querySelector<HTMLButtonElement>('[aria-label="Open member thread: B"]')!.click()); await flush();
+  expect(composer().disabled).toBe(true);
+  expect(active().textContent).toContain("Room member threads accept approvals and questions.");
+  const count = rpc.mock.calls.filter(([method]) => method === "botRooms.get").length;
+  await act(async () => { await vi.advanceTimersByTimeAsync(4100); }); await flush();
+  expect(rpc.mock.calls.filter(([method]) => method === "botRooms.get")).toHaveLength(count);
+  expect(rpc.mock.calls.some(([method]) => method === "botThreads.respond")).toBe(false);
+  act(() => active().querySelector<HTMLButtonElement>('[aria-label="Design room"]')!.click()); await flush();
+  expect(room().querySelector('[aria-label="Message room"]')).toBe(field);
+  expect(field.value).toBe("Room draft");
+  expect(log.scrollTop).toBe(71);
+  expect(rpc.mock.calls.some(([method]) => method.startsWith("botTeams."))).toBe(false);
 });

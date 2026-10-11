@@ -572,7 +572,7 @@ export class HostAssistant {
           nextRetryAt: undefined,
         });
         if ((raw.action === "resume" || raw.action === "enable") &&
-            this.store.bots.getThread(this.store.botId, this.store.threadId)?.kind !== "delegation") {
+            !["delegation", "room"].includes(this.store.bots.getThread(this.store.botId, this.store.threadId)?.kind ?? "direct")) {
           this.store.resumeChains();
           const recovery = ["interrupted", "paused", "failed"].includes(
             config.lifecycle,

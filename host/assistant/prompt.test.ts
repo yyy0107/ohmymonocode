@@ -21,6 +21,18 @@ it("describes bounded Bot calls and includes only enabled control actions", () =
   expect(botCollaborationPrompt("control", ["projects.list"])).toBe("");
 });
 
+it("describes Chief dispatch and aggregate tools without advertising disabled actions", () => {
+  const prompt = botCollaborationPrompt("control", ["agents.list_bots", "agents.delegate_bot", "agents.coordinate_bots"]);
+  expect(prompt).toContain("exact team IDs");
+  expect(prompt).toContain('agents delegate_bot --input FILE|- --request-id ID');
+  expect(prompt).toContain('agents coordinate_bots --input FILE|- --request-id ID');
+  expect(prompt).toContain('"teamId":"exact-team-id","botIds":["member-id"]');
+  expect(prompt).toContain("survives your normal completion");
+  expect(prompt).toContain("original absolute deadline never extends");
+  expect(prompt).toContain("one hop maximum");
+  expect(prompt).not.toContain("ask_bot");
+});
+
 it("splits bubbles at breaks and holds a partially streamed break", () => {
   expect(splitReply("One<msg_break/> Two ")).toEqual(["One", "Two"]);
   expect(splitReply("One<msg_br", true)).toEqual(["One"]);

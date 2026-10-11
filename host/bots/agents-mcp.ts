@@ -7,6 +7,8 @@ export const AGENTS_HELP = `MonoCode Bot collaboration — same Host, one hop.
 Usage: <control-cli> agents ACTION [--json JSON | --input FILE|-] [--request-id ID]
   list_bots {} — list only Bots this run may call
   ask_bot {botId,prompt,timeoutMs?} — ask one Bot; maximum 240000 ms
+  delegate_bot {teamId,botId,prompt,timeoutMs?} — Chief dispatch; returns immediately
+  coordinate_bots {teamId,botIds,prompt,timeoutMs?} — Chief dispatch and aggregate selected members
 Busy targets return immediately. Targets use their own permissions and approval.
 An uncertain response includes requestId: retry exactly the same input and ID.
 Short authenticated polls share the Host's original deadline; retries never extend it.
@@ -15,12 +17,17 @@ Credentials are inherited from the current Bot run. Never print credentials.`;
 const terminal = new Set(["completed", "busy", "failed", "cancelled", "timed_out", "interrupted"]);
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 function validate(action: string, input: Record<string, unknown>, requestId: string) {
-  if (!["list_bots", "ask_bot"].includes(action)) throw new Error("Unknown agents action; run agents --help");
+  if (!["list_bots", "ask_bot", "delegate_bot", "coordinate_bots"].includes(action)) throw new Error("Unknown agents action; run agents --help");
   if (!requestId || requestId.length > 128 || requestId.includes("\0")) throw new Error("Invalid request ID");
-  const allowed = action === "ask_bot" ? ["botId", "prompt", "timeoutMs"] : [];
+  const allowed = action === "list_bots" ? [] : action === "ask_bot" ? ["botId", "prompt", "timeoutMs"]
+    : ["teamId", action === "coordinate_bots" ? "botIds" : "botId", "prompt", "timeoutMs"];
   if (!record(input) || Object.keys(input).some(key => !allowed.includes(key))) throw new Error("Invalid agents input fields");
-  if (action === "ask_bot") {
-    if (typeof input.botId !== "string" || !input.botId.trim() || input.botId.length > 200 || input.botId.includes("\0")) throw new Error("Invalid target Bot ID");
+  if (action !== "list_bots") {
+    if (action !== "ask_bot" && (typeof input.teamId !== "string" || !input.teamId.trim() || input.teamId.length > 200 || input.teamId.includes("\0"))) throw new Error("Invalid team ID");
+    if (action === "coordinate_bots" && (!Array.isArray(input.botIds) || !input.botIds.length || input.botIds.length > 10 ||
+        new Set(input.botIds).size !== input.botIds.length || input.botIds.some(botId => typeof botId !== "string" || !botId.trim() || botId.length > 200 || botId.includes("\0"))))
+      throw new Error("Choose between 1 and 10 unique team members");
+    if (action !== "coordinate_bots" && (typeof input.botId !== "string" || !input.botId.trim() || input.botId.length > 200 || input.botId.includes("\0"))) throw new Error("Invalid target Bot ID");
     if (typeof input.prompt !== "string" || !input.prompt.trim() || input.prompt.length > 100_000 || input.prompt.includes("\0")) throw new Error("Invalid delegation prompt");
     if (input.timeoutMs !== undefined && (!Number.isSafeInteger(input.timeoutMs) || Number(input.timeoutMs) < 1 || Number(input.timeoutMs) > 240_000)) throw new Error("timeoutMs must be between 1 and 240000");
   }
@@ -32,7 +39,7 @@ export async function callAgent(action: string, input: Record<string, unknown>, 
   let deadline = Date.now() + 240_000;
   while (true) {
     const reply = await requestControl("assistant", `agents.${action}`, input, requestId, signal);
-    if (!reply.ok || action === "list_bots") return { ...reply, requestId };
+    if (!reply.ok || action === "list_bots" || action === "delegate_bot") return { ...reply, requestId };
     const result = reply.result;
     if (!record(result) || typeof result.status !== "string") throw new Error("Invalid Host delegation response");
     if (terminal.has(result.status)) return { ...reply, requestId };
@@ -81,6 +88,16 @@ export async function runAgentsCli(args: string[]): Promise<number> {
 export const AGENTS_MCP_TOOLS = [
   { name: "list_bots", description: "List same-Host Bots allowed for the current run. A delegated Bot cannot delegate again.", inputSchema: { type: "object", properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } },
   { name: "ask_bot", description: "Ask an allowed same-Host Bot, waiting at most 240 seconds. Busy targets return immediately. The target uses its own permissions. Retry an uncertain result with the returned requestId and unchanged input.", inputSchema: { type: "object", properties: { botId: { type: "string", minLength: 1, maxLength: 200 }, prompt: { type: "string", minLength: 1, maxLength: 100000 }, timeoutMs: { type: "integer", minimum: 1, maximum: 240000 }, requestId: { type: "string", minLength: 1, maxLength: 128, description: "Reuse the returned ID after an uncertain response." } }, required: ["botId", "prompt"], additionalProperties: false }, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true } },
+  ...(["delegate_bot", "coordinate_bots"] as const).map(name => ({ name,
+    description: name === "delegate_bot"
+      ? "Current team Chief only: dispatch one allowed member and return a trackable delegation immediately. It survives normal parent completion until its deadline, but not cancellation or revoked membership."
+      : "Current team Chief only: dispatch selected allowed members in parallel and aggregate results within one original deadline (maximum 240 seconds), including busy and failed members.",
+    inputSchema: { type: "object", properties: { teamId: { type: "string", minLength: 1, maxLength: 200 },
+      ...(name === "delegate_bot" ? { botId: { type: "string", minLength: 1, maxLength: 200 } } : { botIds: { type: "array", items: { type: "string", minLength: 1, maxLength: 200 }, minItems: 1, maxItems: 10, uniqueItems: true } }),
+      prompt: { type: "string", minLength: 1, maxLength: 100000 }, timeoutMs: { type: "integer", minimum: 1, maximum: 240000 },
+      requestId: { type: "string", minLength: 1, maxLength: 128, description: "Reuse after an uncertain response with exactly the same input." } },
+      required: ["teamId", name === "delegate_bot" ? "botId" : "botIds", "prompt"], additionalProperties: false },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true } })),
 ];
 
 /** Newline JSON-RPC stdio; stdout contains protocol messages only. */
@@ -121,7 +138,7 @@ export async function runAgentsMcp(input: Readable = process.stdin, output: Writ
       if (!record(args)) throw new Error("Tool arguments must be an object");
       const { requestId: retryId, ...parameters } = args;
       if (retryId !== undefined) {
-        if (request.params.name !== "ask_bot" || typeof retryId !== "string") throw new Error("Invalid request ID");
+        if (!["ask_bot", "delegate_bot", "coordinate_bots"].includes(request.params.name) || typeof retryId !== "string") throw new Error("Invalid request ID");
         requestId = retryId;
       }
       const reply = await callAgent(request.params.name, parameters, requestId, abort.signal);

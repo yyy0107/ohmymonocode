@@ -207,8 +207,9 @@ commands/results and deferred checks, including manual visual checks.
 | 3 | File-backed memory complete | `5159556a` | File durability, recall, UI and compatibility checks below |
 | 4 | Concurrent runtime complete | `bf095e1c` | Runtime, resource, provider and compatibility checks below |
 | 5 | Desktop management complete | `76ca64ce` | Management, compatibility and browser checks below |
-| 6 | Single-hop delegation complete | Recorded in the following stage | Delegation, MCP, UI and compatibility checks below |
-| 7–8 | Not started | — | None |
+| 6 | Single-hop delegation complete | `2152332c` | Delegation, MCP, UI and compatibility checks below |
+| 7 | Teams, Chief and Rooms complete | Recorded by the next stage | Checks below passed |
+| 8 | Not started | — | None |
 
 Stage 1 verification (Node 24.16.0, Vitest 3.2.7, Vite 7.3.6):
 
@@ -516,3 +517,53 @@ as completed verification.
   retire reserved-but-unstarted tasks and stale queued work without overwriting
   a confirmed completed run. Web/Host TypeScript and final diff checks passed.
   No application build, publication, push or merge was run.
+
+Stage 7 checks and collaboration decisions:
+
+- `CARGO_TARGET_DIR=/projects/monocode/target npm run check:rust`: passed
+  (603 passed, 1 ignored), including the explicit Team/Room native RPC allowlist.
+- Team membership is Host-local, unique and bounded at 50 members. A Team has at
+  most one Chief, represented by one member ID and updated with revision CAS.
+- Chief `delegate_bot` returns an asynchronous, trackable delegation. It can
+  continue after a normally completed parent turn; cancellation, failure,
+  interruption, permission/Chief revocation or its original deadline ends it.
+  `coordinate_bots` stays attached and returns ordered member outcomes, including
+  busy/failure outcomes, using the same bounded delegation service.
+- Room membership is ordered and bounded at 10; at most 20 rounds may be queued
+  or running per Room. Each speaker has a default 240-second deadline (configurable
+  within 1–240000 ms), including Bot-slot waiting and approvals. Room work uses
+  the normal shared Bot queue. Configuration changes apply to the next round;
+  an already-started round retains its member/order/timeout snapshot.
+
+- Team/Chief tests: 8 passed; existing delegation tests: 7 passed. MCP/CLI and
+  prompt: 11 passed, including real Node stdio for all four tools. Focused
+  core/Codex/Claude MCP checks: 13 passed. The MCP prefix now keeps every fully
+  qualified tool name within 64 characters.
+- Room tests: 8 scenarios passed (initial 6 passed, then 2 corrected cases
+  rechecked). Existing manager slots/approval and action-policy cases: 3 passed.
+  Tests cover order and overrides, one session per Room/member, private transcript
+  exclusion, approval deadlines, failures continuing, cancellation isolation,
+  receipts, cursor scope, configuration CAS, active-round visibility after 52
+  later cancellations, restart recovery and observable cancellation failures.
+- Recovery first projects a target run that durably completed before its deadline,
+  even when its result card was not yet updated. Late completion remains timed
+  out; uncertain work is interrupted without replay. Team tests exercise both
+  normal close and startup after a simulated crash for this boundary.
+- Authenticated Team/Room HTTP selection: 2 passed; localization: 5 passed.
+  Web and Host TypeScript and final diff checks passed.
+- Desktop collaboration tests: 7 passed; workspace: 16 passed. These cover local
+  drafts, CAS conflicts and uncertain-save retries, Chief navigation, ordered
+  members, pagination, scoped cancellation/approval links, hidden polling,
+  Host/Room draft isolation and capability fallback.
+- Browser fixture: Team draft creation and Chief selection; Room send, member
+  approval through a read-only member Thread, ordered completed results, stopping
+  another round, and saving changed member order. Dark 1280px and actual viewport
+  680x720 light layout inspected; Room disclosure opens and closes. Browser
+  viewport override was reset. Earlier stage-5 680px inspection used a constrained
+  application root; this stage additionally exercised the actual media breakpoint.
+- Room member Threads load their Bot's Soul, resident memory and topic recall;
+  other private Thread transcripts are excluded. A Room's shared transcript is
+  independently persisted. The desktop member composer is read-only while its
+  approval/question controls remain usable.
+- Mobile directories remain unchanged from baseline. No actual model turn,
+  application build, publication, push or merge was run.

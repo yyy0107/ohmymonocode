@@ -571,6 +571,14 @@ export async function executeAssistantAction(
     fields(input, ["botId", "prompt", "timeoutMs"]);
     return assistant.askBot(requestId, input, authorized);
   }
+  if (action === "agents.delegate_bot" || action === "agents.coordinate_bots") {
+    if (!authorized()) throw new Error("Assistant control is inactive");
+    const result = action === "agents.delegate_bot"
+      ? await engine.bots.teams.delegate(assistant, requestId, input)
+      : await engine.bots.teams.coordinate(assistant, requestId, input);
+    if (!authorized()) throw new Error("Assistant control is inactive");
+    return result;
+  }
   if (
     action === "workspace.run" ||
     action.startsWith("git.") ||

@@ -31,7 +31,7 @@ export class DelegationService {
       CREATE INDEX IF NOT EXISTS bot_delegations_target ON bot_delegations(target_bot_id,target_thread_id,created_at,id);
     `);
   }
-  private get(id: string): BotDelegation | undefined {
+  get(id: string): BotDelegation | undefined {
     const row = this.manager.engine.store.db.prepare("SELECT payload FROM bot_delegations WHERE id=?").get(id);
     return row && JSON.parse(String(row.payload));
   }
@@ -47,8 +47,11 @@ export class DelegationService {
   }
   private permitted(value: BotDelegation): boolean {
     const bot = this.manager.store.getBot(value.source.botId);
+    const parent = this.manager.store.run(value.source, value.source.runId);
     return !!bot?.enabled && !bot.paused && bot.archivedAt === undefined &&
-      !!bot.callableBotIds?.includes(value.target.botId) && live(this.manager.store.run(value.source, value.source.runId));
+      !!bot.callableBotIds?.includes(value.target.botId) &&
+      (live(parent) || (value.mode === "background" && parent?.status === "completed")) &&
+      (!value.teamId || this.manager.teams.authorizeDelegation(value));
   }
   authorizeRun(run: BotRun): boolean {
     if (this.manager.store.getThread(run.botId, run.threadId)?.kind !== "delegation") return true;
@@ -63,7 +66,8 @@ export class DelegationService {
     this.source(runtime);
     if (this.manager.store.getThread(runtime.store.botId, runtime.store.threadId)?.kind === "delegation") return { bots: [] };
     const allowed = new Set(this.manager.store.getBot(runtime.store.botId)?.callableBotIds ?? []);
-    return { bots: this.manager.store.listBots().filter(bot => allowed.has(bot.id) && bot.id !== runtime.store.botId)
+    const teams = this.manager.teams.forBot(runtime.store.botId).map(({ id, name, memberBotIds, chiefBotId }) => ({ id, name, memberBotIds, chiefBotId }));
+    return { ...(teams.length ? { teams } : {}), bots: this.manager.store.listBots().filter(bot => allowed.has(bot.id) && bot.id !== runtime.store.botId)
       .map(bot => ({ id: bot.id, name: bot.name, avatar: bot.avatar, harness: bot.harness, model: bot.model,
         available: this.manager.hasDelegationSlot(bot.id) })) };
   }
@@ -95,7 +99,7 @@ export class DelegationService {
     }
     return value;
   }
-  async submit(runtime: HostAssistant, requestId: string, raw: Record<string, unknown>): Promise<BotDelegation> {
+  async submit(runtime: HostAssistant, requestId: string, raw: Record<string, unknown>, trusted?: { teamId: string; mode: "attached" | "background"; deadlineAt?: number }): Promise<BotDelegation> {
     const source = this.source(runtime);
     fields(raw, ["botId", "prompt", "timeoutMs"]);
     const targetBotId = id(raw.botId, "Bot"), prompt = id(raw.prompt, "delegation prompt", 100_000);
@@ -103,7 +107,7 @@ export class DelegationService {
     const timeoutMs = raw.timeoutMs ?? MAX_WAIT_MS;
     if (!Number.isSafeInteger(timeoutMs) || Number(timeoutMs) < 1 || Number(timeoutMs) > MAX_WAIT_MS)
       throw new Error("Bot delegation timeout must be between 1 and 240000 milliseconds");
-    const sig = signature({ botId: targetBotId, prompt, timeoutMs });
+    const sig = signature({ botId: targetBotId, prompt, timeoutMs, ...(trusted ? { trusted } : {}) });
     const previous = this.manager.engine.store.db.prepare("SELECT signature,payload FROM bot_delegations WHERE source_run_id=? AND request_id=?")
       .get(source.id, requestId);
     if (previous) {
@@ -113,13 +117,18 @@ export class DelegationService {
     }
     const now = Date.now();
     let value: BotDelegation = { id: randomUUID(), source: { ...runtime.store.scope, runId: source.id }, target: { botId: targetBotId },
-      requestId, prompt, status: "running", createdAt: now, updatedAt: now, deadlineAt: now + Number(timeoutMs) };
+      requestId, prompt, ...(trusted ? { teamId: trusted.teamId, mode: trusted.mode } : {}),
+      status: "running", createdAt: now, updatedAt: now, deadlineAt: Math.min(now + Number(timeoutMs), trusted?.deadlineAt ?? Infinity) };
     const target = this.manager.store.getBot(targetBotId);
     if (targetBotId === source.botId) value = { ...value, status: "failed", error: "A Bot cannot delegate to itself" };
     else if (this.manager.store.getThread(source.botId, source.threadId)?.kind === "delegation")
       value = { ...value, status: "failed", error: "Delegated runs cannot delegate again" };
+    else if (trusted && !this.manager.teams.authorizeDelegation(value))
+      value = { ...value, status: "failed", error: "Only the current Chief may delegate to this team member" };
     else if (!target || !this.manager.store.getBot(source.botId)?.callableBotIds?.includes(targetBotId))
       value = { ...value, status: "failed", error: "This Bot is not an allowed delegation target" };
+    if (value.status === "running" && value.deadlineAt <= now)
+      value = { ...value, status: "timed_out", error: "Bot delegation exceeded its deadline" };
     let admitted: (BotScope & { runId: string }) | undefined;
     try {
       this.manager.engine.store.transaction(() => {
@@ -135,7 +144,7 @@ export class DelegationService {
       throw error;
     }
     if (admitted) {
-      const timer = setTimeout(() => this.end(value.id, "timed_out", "Bot delegation exceeded its deadline"), Math.max(0, value.deadlineAt - Date.now()));
+      const timer = setTimeout(() => this.reconcile(), Math.max(0, value.deadlineAt - Date.now()));
       timer.unref?.(); this.timers.set(value.id, timer);
       this.manager.startDelegation(admitted);
     }
@@ -172,9 +181,22 @@ export class DelegationService {
     }
     return ended;
   }
+  /** Publish already-durable completion without invoking or replaying the provider. */
+  private collect(value: BotDelegation, run: BotRun): BotDelegation {
+    const completedAt = run.endedAt ?? run.updatedAt;
+    if (completedAt > value.deadlineAt)
+      return this.write({ ...value, status: "timed_out", error: "Bot delegation exceeded its deadline", updatedAt: Date.now(), completedAt });
+    const store = new AssistantStore(this.manager.engine.store, { botId: run.botId, threadId: run.threadId });
+    const text = store.latestMessages().filter(message => message.kind === "assistant" && message.wakeupId === run.wakeupId && !message.streaming)
+      .map(message => message.kind === "assistant" ? message.text : "").join("\n\n");
+    const points = Array.from(text);
+    return this.write({ ...value, status: "completed", result: points.slice(0, 60_000).join(""), ...(points.length > 60_000 ? { resultTruncated: true } : {}),
+      updatedAt: Date.now(), completedAt });
+  }
   parentEnded(runId: string): void {
     this.reconcile();
-    for (const value of this.active()) if (value.source.runId === runId)
+    for (const value of this.active()) if (value.source.runId === runId &&
+        !(value.mode === "background" && this.manager.store.run(value.source, runId)?.status === "completed"))
       this.end(value.id, "cancelled", "The originating Bot run stopped");
   }
   reconcile(): void {
@@ -184,15 +206,11 @@ export class DelegationService {
       for (const value of this.active()) {
         const run = value.target.threadId && value.target.runId
           ? this.manager.store.run({ botId: value.target.botId, threadId: value.target.threadId }, value.target.runId) : undefined;
+        // A finished run's persisted timestamp takes precedence over a delayed
+        // reconciliation timer or Host restart.
+        if (run?.status === "completed") { this.collect(value, run); continue; }
         if (Date.now() >= value.deadlineAt) { this.end(value.id, "timed_out", "Bot delegation exceeded its deadline"); continue; }
-        if (run?.status === "completed") {
-          const store = new AssistantStore(this.manager.engine.store, { botId: run.botId, threadId: run.threadId });
-          const text = store.latestMessages().filter(message => message.kind === "assistant" && message.wakeupId === run.wakeupId && !message.streaming)
-            .map(message => message.kind === "assistant" ? message.text : "").join("\n\n");
-          const points = Array.from(text);
-          this.write({ ...value, status: "completed", result: points.slice(0, 60_000).join(""), ...(points.length > 60_000 ? { resultTruncated: true } : {}),
-            updatedAt: Date.now(), completedAt: run.endedAt ?? Date.now() });
-        } else if (run && ["cancelled", "failed", "interrupted"].includes(run.status))
+        if (run && ["cancelled", "failed", "interrupted"].includes(run.status))
           this.end(value.id, run.status as "cancelled" | "failed" | "interrupted", run.error);
         else if (!this.permitted(value)) this.end(value.id, "cancelled", "Bot delegation permission was revoked or the originating run ended");
       }
@@ -203,13 +221,14 @@ export class DelegationService {
       if (value.target.threadId && value.target.runId) {
         const scope = { botId: value.target.botId, threadId: value.target.threadId }, store = new AssistantStore(this.manager.engine.store, scope);
         const run = this.manager.store.run(scope, value.target.runId);
+        if (run?.status === "completed") { this.collect(value, run); continue; }
         for (const wakeup of store.wakeups())
           if (["pending", "backoff", "running"].includes(wakeup.state)) store.saveWakeup({ ...wakeup, state: "interrupted" });
         for (const pending of this.manager.store.queuedRuns(scope))
           this.manager.store.updateRun(scope, pending.id, { status: "interrupted", endedAt: Date.now(), error: "Host restarted during delegation" });
         if (run && ["running", "waiting_approval"].includes(run.status))
           this.manager.store.updateRun(scope, run.id, { status: "interrupted", endedAt: Date.now(), error: "Host restarted during delegation" });
-        if (run?.status !== "completed") store.update({ lifecycle: "interrupted" });
+        store.update({ lifecycle: "interrupted" });
       }
       this.write({ ...value, status: "interrupted", error: "Host restarted during delegation; inspect recorded actions before continuing",
         completedAt: Date.now(), updatedAt: Date.now() });
