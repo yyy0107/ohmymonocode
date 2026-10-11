@@ -16,6 +16,7 @@ import {
   Folder,
   FolderPlus,
   LoaderCircle,
+  MessageSquare,
   MessageSquarePlus,
   Plus,
   Search,
@@ -30,6 +31,7 @@ import { useMobileSessionLists } from "./sessionListStore";
 import { MobileListSkeleton } from "./MobileListSkeleton";
 import { lightImpact } from "./haptics";
 import { sortMobileProjects } from "./sessionList";
+import { isChatFolder } from "../features/projects/model/chatFolderPath";
 import type { MobileRemoteHost } from "./useMobileHostDirectory";
 import {
   filterMobileSessions,
@@ -76,6 +78,9 @@ export function MobileHome({
   onProject,
   onSession,
   onNewSession,
+  onNewChat,
+  chatsPage = false,
+  onChats,
   onSearch,
   searchOpen = false,
   searchTrigger,
@@ -105,6 +110,12 @@ export function MobileHome({
   onProject: (project: HostProject) => void;
   onSession: (id: string, project: HostProject) => void;
   onNewSession: () => void;
+  /** Starts a projectless chat; absent when the Host cannot create one. */
+  onNewChat?: () => void;
+  /** Lists every projectless chat, like a single project. */
+  chatsPage?: boolean;
+  /** Opens the chats page from the Chats row atop the projects. */
+  onChats?: () => void;
   onSearch: () => void;
   searchOpen?: boolean;
   searchTrigger?: RefObject<HTMLButtonElement | null>;
@@ -129,7 +140,9 @@ export function MobileHome({
       searchTrigger.current = element;
     searchButton.current = element;
   }, [searchTrigger]);
-  const owners = useMemo(() => project ? [project] : projects, [project, projects]);
+  const chatProjects = useMemo(() => projects.filter((item) => isChatFolder(item.cwd)), [projects]);
+  const owners = useMemo(() => chatsPage ? chatProjects : project ? [project] : projects,
+    [chatsPage, chatProjects, project, projects]);
   const idsKey = JSON.stringify(owners.map((item) => item.id));
   const { histories, refresh } = useMobileSessionLists({
     idsKey, enabled: foreground && visible, loadSessions, cachedSessions, refreshKey,
@@ -137,7 +150,7 @@ export function MobileHome({
   const [filter, setFilter] = useMobilePageState<MobileSessionFilter>("filter", "all");
   const [filterOpen, setFilterOpen] = useState(false);
   const filterTrigger = useRef<HTMLButtonElement>(null);
-  const root = !project && !projectsPage;
+  const root = !project && !projectsPage && !chatsPage;
   // Only Home offers status filters; a project page always lists everything.
   const activeFilter = root ? filter : "all";
   const [projectsOpen, setProjectsOpen] = useMobilePageState("projectsOpen", true);
@@ -154,7 +167,7 @@ export function MobileHome({
     return cancelHold;
   }, [inactive, foreground, visible, project?.id, query]);
   const orderedProjects = useMemo(() => sortMobileProjects(
-    projects,
+    projects.filter((item) => !isChatFolder(item.cwd)),
     (id) => histories[id]?.sessions ?? [],
   ), [projects, histories]);
   const needle = query.trim().toLocaleLowerCase();
@@ -175,6 +188,7 @@ export function MobileHome({
   }, [remoteHosts]);
   const remoteProjects = useMemo(() => remoteHosts.flatMap((host) =>
     sortMobileProjects(host.projects, (id) => host.sessions.filter((item) => item.projectId === id))
+      .filter((item) => !isChatFolder(item.cwd))
       .filter((item) => !needle || `${item.name} ${item.cwd}`.toLocaleLowerCase().includes(needle))
       .map((item) => ({ host, project: item })),
   ), [remoteHosts, needle]);
@@ -323,7 +337,26 @@ export function MobileHome({
       </button>
     );
   };
+  const chatHistory = chatProjects.flatMap((item) => histories[item.id]?.sessions ?? []);
+  const chatsRow = (overview: boolean) => (
+    <button
+      type="button"
+      className="mobile-home-project"
+      key="chats"
+      data-chat-project
+      data-state={projectState(chatHistory)}
+      data-compact={overview || undefined}
+      onClick={onChats}
+    >
+      <MessageSquare size={23} />
+      <span>
+        <strong>{t("Chats")}</strong>
+      </span>
+      {projectActivity(chatHistory, overview)}
+    </button>
+  );
   const overviewProjects = [
+    ...(onChats && !needle ? [{ key: "chats", render: () => chatsRow(true) }] : []),
     ...matchingProjects.map((item) => ({ key: item.id, render: () =>
       projectRow(item, histories[item.id]?.sessions ?? [], () => onProject(item), { key: item.id }) })),
     ...remoteProjects.map(({ host, project: item }) => {
@@ -337,11 +370,11 @@ export function MobileHome({
   return (
     <main
       className="mobile-home"
-      data-project={!!project}
+      data-project={!!project || chatsPage}
       inert={inactive}
       aria-hidden={inactive || undefined}
     >
-      <div className="mobile-home-scroll" key={project?.id ?? "all"}>
+      <div className="mobile-home-scroll" key={chatsPage ? "chats" : project?.id ?? "all"}>
         {root && devices}
         {root && unavailable && !hasProjects && (projectsUnavailable || projectsPending) ? unavailable
           : projectsUnavailable && !hasProjects ? (
@@ -364,8 +397,8 @@ export function MobileHome({
           <section className="mobile-home-projects" aria-label={t("Projects")}>
             {projectsLoading ? (
               <MobileListSkeleton kind="projects" rows={Math.min(matchingProjects.length || 5, 5)} label={t("Loading conversations…")} />
-            ) : <MobileListPreview key={needle} stateKey={needle ? undefined : "projects"} initialLimit={50} items={matchingProjects} renderItem={(item) =>
-              projectRow(item, histories[item.id]?.sessions ?? [], () => onProject(item))} />}
+            ) : <>{onChats && !needle && chatsRow(false)}<MobileListPreview key={needle} stateKey={needle ? undefined : "projects"} initialLimit={50} items={matchingProjects} renderItem={(item) =>
+              projectRow(item, histories[item.id]?.sessions ?? [], () => onProject(item))} /></>}
             {!matchingProjects.length && !projectsPending && !projectsUnavailable && !projectsLoading && (
               <MobileEmpty icon={needle ? <Search size={40} /> : <Folder size={40} />}
                 title={t(needle ? "No matching projects" : "Projects")}>
@@ -496,28 +529,42 @@ export function MobileHome({
       )}
       {!!projects.length && !projectsPage && (
         <div className="mobile-home-dock">
-          {project && (
+          {(project || chatsPage) && (
             <button
               ref={setSearchButton}
               type="button"
               className="mobile-home-search"
-              aria-label={t(searchOpen ? "Close search" : "Search conversations")}
+              aria-label={t(searchOpen ? "Close search" : chatsPage ? "Search chats" : "Search conversations")}
               aria-expanded={searchOpen}
               onClick={onSearch}
             >
               <Search size={22} />
-              <span>{query || t("Search conversations")}</span>
+              <span>{query || t(chatsPage ? "Search chats" : "Search conversations")}</span>
             </button>
           )}
-          <button
-            type="button"
-            className="mobile-home-new"
-            aria-label={t("New conversation")}
-            onClick={onNewSession}
-          >
-            {project ? <MessageSquarePlus size={22} /> : <Plus size={22} />}
-            <span>{t(project ? "Chat" : "New conversation")}</span>
-          </button>
+          {chatsPage ? (
+            onNewChat && (
+              <button
+                type="button"
+                className="mobile-home-new"
+                aria-label={t("New chat")}
+                onClick={onNewChat}
+              >
+                <MessageSquarePlus size={22} />
+                <span>{t("Projectless chat")}</span>
+              </button>
+            )
+          ) : (
+            <button
+              type="button"
+              className="mobile-home-new"
+              aria-label={t("New conversation")}
+              onClick={onNewSession}
+            >
+              {project ? <MessageSquarePlus size={22} /> : <Plus size={22} />}
+              <span>{t(project ? "Chat" : "New conversation")}</span>
+            </button>
+          )}
         </div>
       )}
     </main>

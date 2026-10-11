@@ -666,6 +666,17 @@ export class MobileClient {
       this.projectList = [...this.projectList.filter((item) => item.id !== project.id), project];
     return project;
   }
+  /** A new projectless chat folder on the Host, listed as a project. */
+  async createChat() {
+    const epoch = this.cacheEpoch;
+    const project = await this.rpc<HostProject>("projects.createChat");
+    if (epoch !== this.cacheEpoch) throw new Error(translate("Host connection changed."));
+    this.projectTurn += 1;
+    this.projectLoad = undefined;
+    if (this.projectList)
+      this.projectList = [...this.projectList.filter((item) => item.id !== project.id), project];
+    return project;
+  }
   /** Last known list, including a bounded preview restored for this Host. */
   cachedSessions(projectId: string): HostSessionSummary[] | undefined {
     const connection = this.connection;

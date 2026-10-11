@@ -1917,6 +1917,7 @@ export function Composer({
               }
               chevron={!compact}
               onCwdChange={onCwdChange}
+              onClear={() => onCwdChange("~")}
               onNewTerminal={worktreeRemoved ? undefined : onNewTerminal}
               onClose={() => ref.current?.focus()}
             />

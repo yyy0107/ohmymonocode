@@ -139,6 +139,10 @@ export type ProjectListProps = {
   pinnedEntries?: ProjectListEntry[];
   recentEntries?: ProjectListEntry[];
   recentPending?: boolean;
+  /** Projectless chats, listed under a "Chats" row atop the projects. */
+  chatEntries?: ProjectListEntry[];
+  /** Starts a projectless chat from the Chats row. */
+  onNewChat?: () => void;
   /** Content of the collapsible Workflows section; absent hides it. */
   workflowsSection?: ReactNode;
   onProjectHoverOpen?: (path: string) => void;
@@ -204,6 +208,8 @@ export function ProjectList({
   pinnedEntries = [],
   recentEntries,
   recentPending = false,
+  chatEntries,
+  onNewChat,
   workflowsSection,
   onProjectHoverOpen,
 }: ProjectListProps) {
@@ -529,6 +535,24 @@ export function ProjectList({
     onReorderProjects(ids.filter((id) => allProjects.has(pathKey(id))));
   };
 
+  const chatProjectEntries = useMemo(
+    () =>
+      chatEntries === undefined || compact
+        ? []
+        : [
+            {
+              id: "chat-project",
+              content: () => (
+                <ChatProjectCard
+                  entries={chatEntries}
+                  searchActive={searchActive}
+                  onNewChat={onNewChat}
+                />
+              ),
+            },
+          ],
+    [chatEntries, compact, searchActive, onNewChat],
+  );
   return (
     <ProjectSummaryContext.Provider
       value={{
@@ -719,6 +743,7 @@ export function ProjectList({
             label={uiT("Recent projects")}
             expanded={sectionExpanded("projects")}
             onToggleExpanded={() => toggleSection("projects")}
+            leadingEntries={chatProjectEntries}
             items={groupedProjectSections.ungrouped}
             muteStatuses={muteStatuses}
             emptyLabel={
@@ -1062,6 +1087,111 @@ function ProjectSectionHeader({
         </button>
       ) : null}
       {onAdd ? <AddProjectButton onOpenFolder={onAdd} /> : null}
+    </div>
+  );
+}
+
+const CHAT_PROJECT_EXPANDED_KEY = "monocode.chatProjectExpanded.v1";
+
+/** Projectless chats grouped like one project at the top of the project list. */
+function ChatProjectCard({
+  entries,
+  searchActive,
+  onNewChat,
+}: {
+  entries: ProjectListEntry[];
+  searchActive: boolean;
+  onNewChat?: () => void;
+}) {
+  const { t: uiT } = useTranslation();
+  const [stored, setStored] = useState(
+    () => localStorage.getItem(CHAT_PROJECT_EXPANDED_KEY) !== "false",
+  );
+  const expanded = stored || (searchActive && entries.length > 0);
+  const toggle = () =>
+    setStored((value) => {
+      try {
+        localStorage.setItem(CHAT_PROJECT_EXPANDED_KEY, String(!value));
+      } catch {
+        // private mode / quota
+      }
+      return !value;
+    });
+  const preview = useSidebarListPreview(
+    entries.length,
+    searchActive ? "search" : "",
+    searchActive,
+  );
+  if (searchActive && entries.length === 0) return null;
+  const name = uiT("Chats");
+  return (
+    <div data-chat-project className="relative shrink-0">
+      <div
+        data-project-header=""
+        className="project-tree-header group relative flex h-8 items-stretch rounded-lg px-2 text-content/80 hover:bg-surface-hover hover:text-content"
+      >
+        <button
+          type="button"
+          aria-label={uiT(expanded ? "Collapse project" : "Expand project")}
+          aria-expanded={expanded}
+          title={uiT(expanded ? "Collapse project" : "Expand project")}
+          onClick={toggle}
+          className="grid w-4 shrink-0 place-items-center rounded-sm text-content/55 outline-none hover:text-content"
+        >
+          <span className="project-card-logo grid size-4 place-items-center group-hover:hidden group-has-[:focus-visible]:hidden">
+            <MessageSquare className="size-4" aria-hidden="true" />
+          </span>
+          <ChevronRight className="project-tree-chevron hidden size-3.5 group-hover:block group-has-[:focus-visible]:block" />
+        </button>
+        <button
+          type="button"
+          data-chat-project-toggle
+          aria-expanded={expanded}
+          onClick={toggle}
+          className="flex min-w-0 flex-1 items-center gap-2 pl-2 text-left group-hover:pr-7 group-has-[:focus-visible]:pr-7"
+        >
+          <span className={nameClassName.replace("font-medium", "font-normal")}>
+            {name}
+          </span>
+        </button>
+        {onNewChat ? (
+          <button
+            type="button"
+            aria-label={uiT("New chat")}
+            title={uiT("New chat")}
+            onClick={onNewChat}
+            className="absolute right-1 top-1/2 hidden size-6 -translate-y-1/2 place-items-center rounded-lg text-content/55 hover:bg-surface-hover hover:text-content group-hover:grid group-has-[:focus-visible]:grid"
+          >
+            <Plus className="size-3.5" />
+          </button>
+        ) : null}
+      </div>
+      <AnimatedCollapse
+        keepMounted
+        expanded={expanded}
+        motion="height"
+        className="project-tree-collapse"
+        durationMs={PROJECT_COLLAPSE_DURATION_MS}
+        animateContentResize
+      >
+        {() => (
+          <div data-chat-project-children>
+            {entries.length === 0 ? (
+              <p className="py-1 pl-8 text-[11px] leading-tight text-content/40">
+                {uiT("Chats you start will show up here")}
+              </p>
+            ) : null}
+            {entries.slice(0, preview.mountedCount).map((entry, index) => (
+              <AnimatedCollapse key={entry.id} expanded={index < preview.count}>
+                {() => (
+                  <SidebarEntry entry={entry} id={`chat:${entry.id}`} />
+                )}
+              </AnimatedCollapse>
+            ))}
+            {preview.button}
+          </div>
+        )}
+      </AnimatedCollapse>
     </div>
   );
 }

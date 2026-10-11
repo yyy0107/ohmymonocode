@@ -2116,6 +2116,21 @@ html.theme-light {
   color: var(--color-content) !important;
 }
 
+[data-composer-layout="desktop"] .composer-workspace-trigger[data-clearable] {
+  padding-left: 32px !important;
+}
+
+[data-composer-layout="desktop"] .composer-workspace-bar > div > button.cwd-picker-clear {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  z-index: 1;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  transform: translateY(-50%);
+}
+
 [data-composer-layout="desktop"] .composer-workspace-bar button span {
   font-family: var(--font-sans);
   font-size: 14px;

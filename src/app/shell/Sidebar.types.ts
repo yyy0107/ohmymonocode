@@ -113,6 +113,8 @@ export type SidebarProps = {
   selectedCommitSha?: string;
   textHarness?: HarnessId;
   onNew?: () => string | void;
+  /** Starts a projectless chat; its folder is created on the first message. */
+  onNewChat?: () => void;
   onToggleSidebar?: () => void;
   chromeInMenuBar?: boolean;
   /** Window-wide destinations shown above the project tree. */

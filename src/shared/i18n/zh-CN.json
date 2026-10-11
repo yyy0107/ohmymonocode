@@ -3625,5 +3625,11 @@
   "No parameters": "无参数",
   "required": "必填",
   "Show tools, resources and prompts": "查看工具、资源和提示词",
-  "This server has no local configuration to inspect.": "此服务器没有可检查的本地配置。"
+  "This server has no local configuration to inspect.": "此服务器没有可检查的本地配置。",
+  "Chats": "聊天",
+  "New chat": "新建聊天",
+  "Chats you start will show up here": "你开始的聊天会显示在这里",
+  "Clear project": "取消选择项目",
+  "Projectless chat": "聊天",
+  "Search chats": "搜索聊天"
 }

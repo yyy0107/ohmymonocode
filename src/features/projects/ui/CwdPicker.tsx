@@ -1,5 +1,5 @@
 import { useTranslation } from "../../../shared/i18n/useTranslation";
-import { ChevronDown, ChevronRight } from "../../../shared/ui/icons";
+import { ChevronDown, ChevronRight, X } from "../../../shared/ui/icons";
 import {
   useEffect,
   useMemo,
@@ -16,6 +16,7 @@ import {
   sameProjectPath,
   type RecentProject,
 } from "../model/recents";
+import { isChatFolder } from "../model/chatFolderPath";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
 import { LAYER } from "../../../shared/lib/layers";
 import { Popover } from "../../../shared/ui/Popover";
@@ -39,6 +40,8 @@ type Props = {
   chevron?: boolean;
   children?: ReactNode;
   onCwdChange: (path: string) => void;
+  /** Leaves the project; the next message starts a projectless chat. */
+  onClear?: () => void;
   onNewTerminal?: () => void;
   onClose?: () => void;
 };
@@ -71,6 +74,7 @@ export function CwdPicker({
   chevron = false,
   children,
   onCwdChange,
+  onClear,
   onNewTerminal,
   onClose,
 }: Props) {
@@ -86,8 +90,11 @@ export function CwdPicker({
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
-  const inProject = looksLikeProject(cwd);
-  const label = prettyCwd(cwd);
+  const chat = isChatFolder(cwd);
+  const inProject = looksLikeProject(cwd) && !chat;
+  const label =
+    cwd === "~" ? uiT("Choose project") : chat ? uiT("Projectless chat") : prettyCwd(cwd);
+  const clearable = !!onClear && inProject && enabled;
   // Read the saved rail order on opening, including changes made while Notes is open.
   const projects =
     mode === "move" ? projectRailItems(recents, activeCwd ?? "") : recents;
@@ -205,9 +212,27 @@ export function CwdPicker({
       ref={root}
       className={`relative flex h-full min-w-0${className ? ` ${className}` : ""}`}
     >
+      {clearable ? (
+        <button
+          type="button"
+          title={uiT("Clear project")}
+          aria-label={uiT("Clear project")}
+          data-tauri-drag-region="false"
+          data-cwd-clear
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            dismiss();
+            onClear();
+          }}
+          className="cwd-picker-clear flex shrink-0 items-center justify-center text-content/50 hover:text-content"
+        >
+          <X aria-hidden="true" className="size-3.5" />
+        </button>
+      ) : null}
       <button
         type="button"
         title={cwd}
+        data-clearable={clearable ? "" : undefined}
         aria-label={uiT("Project {value0}", { value0: String(label) })}
         aria-expanded={open}
         aria-haspopup="menu"
@@ -235,7 +260,12 @@ export function CwdPicker({
       >
         {children ?? (
           <>
-            <ProjectLogoIcon path={projectLogoPath} fallbackStrokeWidth={1.5} />
+            {clearable ? null : (
+              <ProjectLogoIcon
+                path={projectLogoPath}
+                fallbackStrokeWidth={1.5}
+              />
+            )}
             <span className="truncate font-mono text-[12px]">{label}</span>
           </>
         )}

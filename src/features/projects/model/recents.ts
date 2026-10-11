@@ -5,6 +5,7 @@ import {
   clearProjectTreeExpanded,
   rebaseProjectTreeExpanded,
 } from "./projectTree";
+import { isChatFolder } from "./chatFolderPath";
 
 const KEY = "monocode.recentProjects";
 const RAIL_ORDER_KEY = "monocode.projectRailOrder";
@@ -69,7 +70,7 @@ function save(next: RecentProject[]) {
 
 export function rememberProject(path: string): RecentProject[] {
   const normalized = normalize(path);
-  if (normalized === "~") return loadRecents();
+  if (normalized === "~" || isChatFolder(normalized)) return loadRecents();
   dropArchived(normalized);
   const prev = loadRecents().filter(
     (p) => !sameProjectPath(p.path, normalized),
@@ -376,11 +377,11 @@ export function collectRailProjects(
 ): Map<string, RecentProject> {
   const map = new Map<string, RecentProject>();
   for (const item of recents) {
-    if (!looksLikeProject(item.path)) continue;
+    if (!looksLikeProject(item.path) || isChatFolder(item.path)) continue;
     const path = normalize(item.path);
     map.set(pathKey(path), { path, openedAt: item.openedAt });
   }
-  if (currentCwd && looksLikeProject(currentCwd)) {
+  if (currentCwd && looksLikeProject(currentCwd) && !isChatFolder(currentCwd)) {
     const path = normalize(currentCwd);
     const key = pathKey(path);
     if (!map.has(key)) {

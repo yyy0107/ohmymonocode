@@ -45,6 +45,10 @@ import {
   sameProjectPath,
 } from "../../features/projects/model/recents";
 import {
+  isChatFolder,
+  useChatFolders,
+} from "../../features/projects/model/chatFolders";
+import {
   loadProjectTreeExpanded,
   saveProjectTreeExpanded,
   subscribeProjectTreeExpanded,
@@ -184,8 +188,12 @@ function SidebarComponent(props: SidebarProps) {
     )
       setSessionProjectPath(null);
   }, [allProjects, sessionProjectPath]);
-  const projectPathsKey = projects
-    .map((project) => pathKey(project.path))
+  const chatFolders = useChatFolders(props.recents !== undefined);
+  const projectPathsKey = [
+    ...projects.map((project) => project.path),
+    ...chatFolders,
+  ]
+    .map(pathKey)
     .join("\0");
   const loadedPaths =
     props.loadedProjectPaths ??
@@ -320,7 +328,10 @@ function SidebarComponent(props: SidebarProps) {
       searchRequests.current.clear();
       return;
     }
-    searchQueue.current = projects.flatMap(({ path }) => {
+    searchQueue.current = [
+      ...projects.map(({ path }) => path),
+      ...(loadAllProjectSummaries ? chatFolders : []),
+    ].flatMap((path) => {
       const key = pathKey(path);
       const remote = isRemoteProjectPath(path) || !!remoteProjectFor(path);
       if (
@@ -989,8 +1000,8 @@ function SidebarComponent(props: SidebarProps) {
   const shortcutSessions =
     props.recents === undefined
       ? []
-      : projects
-          .flatMap(({ path }) => {
+      : [...projects.map(({ path }) => path), ...chatFolders]
+          .flatMap((path) => {
             const remoteRows =
               isRemoteProjectPath(path) || remoteProjectFor(path)
                 ? cachedRemoteSessions(path)
@@ -1301,6 +1312,17 @@ function SidebarComponent(props: SidebarProps) {
                   : undefined
               }
               recentPending={summariesPending}
+              chatEntries={
+                props.recents !== undefined && tab === "sessions"
+                  ? recentSessions
+                      .filter((session) => isChatFolder(session.cwd))
+                      .map((session) => ({
+                        id: `${pathKey(session.cwd)}:${session.id}`,
+                        content: () => renderChildren(session.cwd, session.id),
+                      }))
+                  : undefined
+              }
+              onNewChat={props.onNewChat}
               workflowsSection={tab === "sessions" ? props.workflowsSection : undefined}
               onProjectHoverOpen={
                 props.onLoadProject || props.onPrefetchRemoteProject

@@ -212,6 +212,7 @@ import {
 } from "../features/sessions/model/attachments";
 import {
   basename,
+  createPath,
   notifyGitChanged,
   pickFolders,
   type GitFileDiffKind,
@@ -450,6 +451,11 @@ import {
   replaceProjectPath,
   sameProjectPath,
 } from "../features/projects/model/recents";
+import {
+  CHAT_ROOT,
+  chatFolderRelativePath,
+  rememberChatFolder,
+} from "../features/projects/model/chatFolders";
 import {
   applyPlaceSessionOnPane,
   filterTabsForProject,
@@ -985,6 +991,15 @@ function filesInWorkspaceTabs(tabs: readonly WorkspaceTab[]): FilePaneTab[] {
 }
 
 /** Native sheet. `window.confirm` is swallowed when a macOS menu accelerator fires. */
+async function createChatFolder(): Promise<string> {
+  try {
+    return await createPath(`~/${CHAT_ROOT}`, chatFolderRelativePath(), true);
+  } catch {
+    // The random suffix collided within the same second; draw again once.
+    return createPath(`~/${CHAT_ROOT}`, chatFolderRelativePath(), true);
+  }
+}
+
 function confirmDiscardUnsaved(message: string): Promise<boolean> {
   return ask(message, { title: "MonoCode", kind: "warning" });
 }
@@ -2658,6 +2673,11 @@ function Workspace({
     () => onNewInProject(sidebarCwd),
     [onNewInProject, sidebarCwd],
   );
+  // The chat folder is created when the first message is sent.
+  const onNewChat = useCallback(() => {
+    onNewInProject("~");
+    setProjectCwd("~");
+  }, [onNewInProject]);
 
   const ensureContentTab = useCallback(
     (cwd: string) => {
@@ -6511,6 +6531,44 @@ function Workspace({
         )
       )
         return false;
+      // A projectless chat gets its own dated folder when its first message is sent.
+      if (
+        storedCurrent.cwd === "~" &&
+        !options?.managed &&
+        isBlankSession(storedCurrent)
+      ) {
+        return (async () => {
+          let path: string;
+          try {
+            path = await createChatFolder();
+          } catch (error: unknown) {
+            enqueueHarnessEvent(sessionId, {
+              type: "session.error",
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "The chat folder could not be created.",
+            });
+            flushHarnessEvents();
+            return false;
+          }
+          rememberChatFolder(path);
+          const nextSessions = sessionsRef.current.map((session) =>
+            session.id === sessionId && session.cwd === "~"
+              ? { ...session, cwd: path }
+              : session,
+          );
+          sessionsRef.current = nextSessions;
+          setSessions(nextSessions);
+          setProjectCwd((current) => (current === "~" ? path : current));
+          return await submitAfterProjectSyncRef.current(
+            sessionId,
+            text,
+            attachments,
+            options,
+          );
+        })();
+      }
       const draftBlock = options?.draftBlockId
         ? storedCurrent.blocks.find(
             (block) =>
@@ -11606,6 +11664,7 @@ function Workspace({
                   }
                   textHarness={pickTextHarness(active?.harness)}
                   onNew={onNew}
+                  onNewChat={onNewChat}
                   openSessions={openProjectSessions}
                   openSessionIds={sidebarOpenSessionIds}
                   onOpenInboxItem={onOpenLinkedWorkItem}

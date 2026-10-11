@@ -338,6 +338,7 @@ export function createHostServer(
                 "connections.patch",
                 "sessions",
                 "projects.browse",
+                "projects.createChat",
                 "models.list",
                 "providerAccounts.defaults",
                 "providerAccounts.manage.v1",
@@ -419,6 +420,9 @@ export function createHostServer(
             break;
           case "projects.open":
             result = await engine.openProject(String(params.cwd ?? ""));
+            break;
+          case "projects.createChat":
+            result = await engine.createChat();
             break;
           case "models.list":
             result = await models(params.projectId);

@@ -3208,3 +3208,57 @@ it("hands over the right-clicked conversation in its own project", async () => {
   await act(async () => handoff.click());
   expect(delegateDesktopSession).toHaveBeenCalledWith(A, "a");
 });
+
+describe("chat project row", () => {
+  const C1 = "/home/me/Documents/ohmymonocode/2026-10-11/chat-101010-aaaaaa";
+  const C2 = "/home/me/Documents/ohmymonocode/2026-10-11/chat-202020-bbbbbb";
+  const chatRow = () => container.querySelector("[data-chat-project]")!;
+  const chatIds = () =>
+    [...chatRow().querySelectorAll<HTMLElement>("[data-session-card]")].map(
+      (row) => row.dataset.sessionCard,
+    );
+
+  it("lists chat-folder conversations first among projects, keeps them in recents and starts new chats", () => {
+    localStorage.setItem("monocode.chatFolders.v1", JSON.stringify([C1, C2]));
+    props.projectHistory = [
+      { ...summary("older-chat", C1), updatedAt: 10 },
+      { ...summary("newer-chat", C2), updatedAt: 30 },
+      { ...summary("project", A), updatedAt: 20 },
+    ];
+    props.recents = [
+      { path: A, openedAt: 1 },
+      { path: C1, openedAt: 2 },
+    ];
+    props.onNewChat = vi.fn();
+    saveProjectTreeExpanded([]);
+    act(() => render());
+    const projects = container.querySelector('[data-project-section="projects"]')!;
+    expect(projects.firstElementChild?.nextElementSibling?.querySelector("[data-chat-project]")).not.toBeNull();
+    expect(chatIds()).toEqual(["newer-chat", "older-chat"]);
+    expect(project(C1)).toBeNull();
+    const recentIds = [
+      ...container.querySelectorAll<HTMLElement>(
+        '[data-project-section="recent"] [data-session-card]',
+      ),
+    ].map((row) => row.dataset.sessionCard);
+    expect(recentIds).toEqual(["newer-chat", "project", "older-chat"]);
+    act(() =>
+      chatRow()
+        .querySelector<HTMLElement>('[data-session-card="newer-chat"]')!
+        .click(),
+    );
+    expect(props.onSelectSession).toHaveBeenCalledWith("newer-chat", C2);
+    act(() =>
+      chatRow()
+        .querySelector<HTMLButtonElement>('button[aria-label="New chat"]')!
+        .click(),
+    );
+    expect(props.onNewChat).toHaveBeenCalledOnce();
+    act(() => chatRow().querySelector<HTMLButtonElement>("[data-chat-project-toggle]")!.click());
+    expect(
+      chatRow().querySelector("[data-chat-project-toggle]")!.getAttribute("aria-expanded"),
+    ).toBe("false");
+    act(() => setUiLanguage("zh-CN"));
+    expect(chatRow().textContent).toContain("聊天");
+  });
+});

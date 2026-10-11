@@ -12,9 +12,11 @@ import { SessionTitleCoordinator } from "../src/integrations/harness/core/titleC
 import { TitleModelApi } from "./title-model";
 import { titleStateFor } from "../src/features/sessions/model/titlePolicy";
 import { ACCOUNT_PROVIDERS, desktopProviderAccounts, providerAccountDirectory, providerUsageProfile, resolveDefaultAccount } from "./provider-accounts";
-import { realpath, stat } from "node:fs/promises";
+import { mkdir, realpath, stat } from "node:fs/promises";
 import { readFileSync, unlinkSync } from "node:fs";
 import { basename, dirname, isAbsolute, join } from "node:path";
+import { homedir } from "node:os";
+import { CHAT_ROOT, chatFolderRelativePath } from "../src/features/projects/model/chatFolderPath";
 import { hostWorktreeAt, hostWorktrees, renameHostWorktreeBranch, resolveHostWorktree } from "./git-worktrees";
 import { hostBranches } from "./git-branches";
 import { availableWorktreeBranch, generateWorktreeBranch } from "../src/features/source-control/model/worktreeNaming";
@@ -808,6 +810,21 @@ export class HostEngine {
       throw new Error("Project path is not a directory");
     authorize?.(cwd);
     return this.store.addProject(cwd, basename(cwd));
+  }
+
+  /** A projectless chat: a new dated folder under `~/Documents/ohmymonocode`. */
+  async createChat(home = homedir()) {
+    for (let attempt = 0; ; attempt++) {
+      const cwd = join(home, CHAT_ROOT, chatFolderRelativePath());
+      try {
+        await mkdir(dirname(cwd), { recursive: true });
+        await mkdir(cwd);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "EEXIST" && attempt < 2) continue;
+        throw error;
+      }
+      return this.openProject(cwd);
+    }
   }
 
   async listSkills(projectId: unknown, harness: unknown, sessionId?: unknown, refresh = false) {

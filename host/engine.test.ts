@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, rmSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -1414,5 +1414,19 @@ describe("session checkpoints", () => {
     await vi.waitFor(() => expect(store.session(id).status).toBe("idle"));
     expect(await engine.sessionCheckpoint(id, "undo", undefined)).toEqual({ files: [] });
     expect(readFileSync(file, "utf8")).toBe("before\n");
+  });
+});
+
+describe("projectless chats", () => {
+  it("creates a dated chat folder under Documents and lists it as a project", async () => {
+    const { directory, engine, store } = setup();
+    const home = join(directory, "home");
+    const chat = await engine.createChat(home);
+    expect(chat.cwd).toMatch(
+      /\/home\/Documents\/ohmymonocode\/\d{4}-\d{2}-\d{2}\/chat-\d{6}-[a-z0-9]{6}$/,
+    );
+    expect(statSync(chat.cwd).isDirectory()).toBe(true);
+    expect(store.projects().some((project) => project.id === chat.id)).toBe(true);
+    expect((await engine.createChat(home)).id).not.toBe(chat.id);
   });
 });

@@ -579,3 +579,33 @@ it("does not clear the next page's search anchor when the retained project exits
   act(() => root.render(createElement(Fragment, null, next)));
   expect(searchTrigger.current).toBe(anchor);
 });
+
+describe("projectless chats", () => {
+  const chat: HostProject = {
+    id: "chat",
+    name: "chat-101010-aaaaaa",
+    cwd: "/home/me/Documents/ohmymonocode/2026-10-11/chat-101010-aaaaaa",
+  };
+  const loadSessions = async (id: string) =>
+    id === "chat" ? [session("chatting", id, 60)] : [session("work", id, 50)];
+
+  it("lists Chats first among projects instead of each chat folder and keeps chats in recents", async () => {
+    const onChats = vi.fn();
+    await render({ projects: [projects[0], chat], loadSessions, onChats });
+    const rows = [...node.querySelectorAll(".mobile-home-overview-projects .mobile-home-project")];
+    expect(rows.map((row) => row.textContent)).toEqual(["Chats", "monocode"]);
+    expect(ids(".mobile-home-recent")).toEqual(["chatting", "work"]);
+    act(() => (rows[0] as HTMLButtonElement).click());
+    expect(onChats).toHaveBeenCalledOnce();
+  });
+
+  it("shows only chat conversations on the chats page with search and a new chat action", async () => {
+    const onNewChat = vi.fn();
+    await render({ projects: [projects[0], chat], loadSessions, chatsPage: true, onNewChat });
+    expect(ids(".mobile-home-recent")).toEqual(["chatting"]);
+    expect(node.querySelector(".mobile-home-search")?.textContent).toBe("Search chats");
+    act(() => node.querySelector<HTMLButtonElement>('[aria-label="New chat"]')!.click());
+    expect(onNewChat).toHaveBeenCalledOnce();
+    expect(defaults.onNewSession).not.toHaveBeenCalled();
+  });
+});

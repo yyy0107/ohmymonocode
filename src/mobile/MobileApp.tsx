@@ -97,6 +97,7 @@ import { createMobileDraft, MobileDraftComposer } from "./MobileDraftComposer";
 import { normalizePairingCode } from "./pairing";
 import { MobileSheet, SHEET_WIDTH, type MobileSheetPoint } from "./MobileSheet";
 import { MobileDrawer } from "./MobileDrawer";
+import { isChatFolder } from "../features/projects/model/chatFolderPath";
 import { sessionListStore } from "./sessionListStore";
 import { MobileHome } from "./MobileHome";
 import { MobileHomeMenu } from "./MobileHomeMenu";
@@ -206,6 +207,8 @@ const MobileProjectPicker = lazyMobileSheet(async () => ({ default: (await impor
 const MobileHostPicker = lazyMobileSheet(async () => ({ default: (await import("./MobileHostPicker")).MobileHostPicker }));
 
 const client = new MobileClient(mobileStorage);
+/** Home page id for the projectless chats list; never a Host project id. */
+const CHATS_PAGE_ID = "monocode:chats";
 
 /**
  * `undefined` while checking; `null` when the Host cannot verify ownership
@@ -1640,6 +1643,12 @@ export function MobileApp() {
     setSettingsPage("root");
     setView(next);
   };
+  const openChats = () => {
+    setHomeProjectId(CHATS_PAGE_ID);
+    setAllProjectsPage(false);
+    setSearchOpen(false);
+    navigate("home");
+  };
   const openHome = (owner?: HostProject, allProjects = false) => {
     setHomeProjectId(owner?.id);
     setAllProjectsPage(allProjects);
@@ -1831,6 +1840,8 @@ export function MobileApp() {
   // Controls float above scrolling content; Home uses a plain title menu.
   const floatingHeader = true;
   const homeProject = projects.find((item) => item.id === homeProjectId);
+  const homeChats = homeProjectId === CHATS_PAGE_ID;
+  const homePageOpen = !!homeProject || homeChats;
   const route: MobileRoute = {
     key: view === "settings" ? `settings:${settingsPage}` : view === "chat" ? `chat:${chatPageKey}`
       : `home:${homeProjectId ?? (allProjectsPage ? "all" : "root")}`,
@@ -1849,7 +1860,7 @@ export function MobileApp() {
           )) ||
         t("New conversation")
       : view === "home"
-        ? homeProject?.name || (allProjectsPage ? t("Projects") : "MonoCode")
+        ? homeProject?.name || (homeChats ? t("Chats") : allProjectsPage ? t("Projects") : "MonoCode")
         : t(mobileSettingsTitle(settingsPage));
   // Memoized children keep their handlers across shell updates.
   const onTranscriptCommand = useStableCallback(async (command: HostCommand) =>
@@ -1924,7 +1935,7 @@ export function MobileApp() {
   const deviceConnections = client.connection && savedHosts.some((item) => item.endpoint === connectionKey)
     ? savedHosts.map((item) => item.endpoint === connectionKey ? client.connection! : item)
     : pairedConnections;
-  const homeOverview = view === "home" && !homeProject && !allProjectsPage;
+  const homeOverview = view === "home" && !homePageOpen && !allProjectsPage;
   const remoteHosts = useMobileHostDirectory(client, pairedConnections, connectionKey,
     homeScope === "all" && homeOverview && connected && foreground && !pageOverlayOpen);
   const onRemoteSession = useStableCallback((endpoint: string, id: string, owner: HostProject) =>
@@ -1958,6 +1969,20 @@ export function MobileApp() {
     void openProject(owner);
     void openSession();
   });
+  const onNewChat = useStableCallback(() => {
+    setError("");
+    void (async () => {
+      try {
+        const chat = await client.createChat();
+        setProjects(await client.projects());
+        void openProject(chat);
+        void openSession(undefined, undefined, "project");
+      } catch (problem) {
+        setError(message(problem));
+      }
+    })();
+  });
+  const chatSupported = client.hasCapability("projects.createChat");
   const onDrawerHome = useStableCallback(() => openHome());
   const onDrawerAllProjects = useStableCallback(() => openHome(undefined, true));
   const onDrawerProject = useStableCallback((owner: HostProject) => openHome(owner));
@@ -2072,7 +2097,7 @@ export function MobileApp() {
   const projectsUnavailable = projectListState === "failed" || hostStatus.state === "failed" || hostStatus.state === "disconnected";
   const projectsPending = projectListState === "loading" && !projectsUnavailable;
   // An unreachable device keeps Home's device row with a centered retry state.
-  const homeUnavailable = view === "home" && !homeProject && !allProjectsPage && !!client.connection &&
+  const homeUnavailable = view === "home" && !homePageOpen && !allProjectsPage && !!client.connection &&
     !(hostScopeReady && projects.length) && (projectsUnavailable || projectsPending);
   return (
     <MobileOverlayHostContext.Provider value={overlayHost}>
@@ -2109,12 +2134,14 @@ export function MobileApp() {
       </MobilePageOverlay>
       <SurfaceVisibilityContext.Provider value={!pageOverlayOpen}>
       <div className="mobile-assistant-background" inert={pageOverlayOpen} aria-hidden={pageOverlayOpen || undefined}>
-      <header ref={header} className="mobile-header" data-floating={floatingHeader} data-project={view === "home" && !!homeProject} data-search={view === "home" && searchOpen} inert={drawerOpen || pageOverlayOpen || hostPickerOpen}>
+      <header ref={header} className="mobile-header" data-floating={floatingHeader} data-project={view === "home" && homePageOpen} data-search={view === "home" && searchOpen} inert={drawerOpen || pageOverlayOpen || hostPickerOpen}>
         {view === "chat" && sessionEntrySource === "project" ? (
-          <IconButton label="Back" onClick={() => openHome(projects.find((item) => item.id === project?.id))}>
+          <IconButton label="Back" onClick={() => project && isChatFolder(project.cwd)
+            ? openChats()
+            : openHome(projects.find((item) => item.id === project?.id))}>
             <ArrowLeft size={22} />
           </IconButton>
-        ) : view === "chat" || (view === "home" && !homeProject) ? (
+        ) : view === "chat" || (view === "home" && !homePageOpen) ? (
           <IconButton
             label="Menu"
             inactive={view === "home" && searchOpen}
@@ -2146,7 +2173,7 @@ export function MobileApp() {
             <img className="mobile-logo" src="/monocode.png" alt="MonoCode" />
           </span>
         )}
-        {view === "home" ? homeProject ? (
+        {view === "home" ? homePageOpen ? (
           <div
             className="mobile-header-title"
             data-capsule="false"
@@ -2240,8 +2267,8 @@ export function MobileApp() {
           <IconButton buttonRef={aboutTrigger} label="About" onClick={() => setAboutOpen((open) => !open)}>
             <Info size={22} />
           </IconButton>
-        ) : view === "home" && (!homeProject || searchOpen) ? (
-          <IconButton buttonRef={homeProject ? undefined : searchTrigger} label={searchOpen ? "Close search" : "Search conversations"} onClick={toggleHomeSearch}>
+        ) : view === "home" && (!homePageOpen || searchOpen) ? (
+          <IconButton buttonRef={homePageOpen ? undefined : searchTrigger} label={searchOpen ? "Close search" : "Search conversations"} onClick={toggleHomeSearch}>
             {searchOpen ? <X size={22} /> : <Search size={22} />}
           </IconButton>
         ) : null}
@@ -2401,7 +2428,9 @@ export function MobileApp() {
           key={client.connection?.endpoint}
           projects={hostScopeReady ? projects : []}
           project={hostScopeReady ? homeProject : undefined}
-          projectsPage={!homeProject && allProjectsPage}
+          projectsPage={!homePageOpen && allProjectsPage}
+          chatsPage={homeChats}
+          onChats={chatSupported || projects.some((item) => isChatFolder(item.cwd)) ? openChats : undefined}
           projectsPending={projectsPending}
           projectsUnavailable={projectsUnavailable}
           foreground={connected && hostStatus.state === "connected" && foreground && !drawerOpen && !pageOverlayOpen && !hostPickerOpen}
@@ -2414,7 +2443,7 @@ export function MobileApp() {
           onProject={onDrawerProject}
           onSession={(id, owner) => {
             void openProject(owner);
-            void openSession(id, owner.id, homeProject ? "project" : "other");
+            void openSession(id, owner.id, homePageOpen ? "project" : "other");
           }}
           refreshKey={homeRefreshKey}
           sessionActionsId={sessionActionsOpen ? sessionActionsTarget : undefined}
@@ -2425,6 +2454,7 @@ export function MobileApp() {
           onSearch={toggleHomeSearch}
           searchOpen={searchOpen}
           searchTrigger={searchTrigger}
+          onNewChat={chatSupported ? onNewChat : undefined}
           onNewSession={() => {
             const owner = homeProject ?? projects.find((item) => item.id === project?.id) ?? projects[0];
             if (owner) {
