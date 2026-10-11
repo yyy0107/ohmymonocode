@@ -363,6 +363,11 @@ function AgentTranscriptComponent({
   const [visibleTurnCount, setVisibleTurnCount] = useState(FIRST_PAINT_TURNS);
   // Turns whose folded work the reader has opened, by turn id.
   const [openWork, setOpenWork] = useState<Record<string, boolean>>({});
+  // Live turns only: which rows each fold already held, and when rows joined it,
+  // so rows the answer just folded close in place instead of vanishing.
+  const foldHistory = useRef(
+    new Map<string, { folded: Set<string>; joined: Map<string, number> }>(),
+  );
   const [searchCurrent, setSearchCurrent] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const highlightOwner = useRef(Symbol("transcript-search"));
@@ -1093,7 +1098,9 @@ function AgentTranscriptComponent({
             item.type === "block"
               ? item.block.id === searchCurrent
               : item.blocks.some((block) => block.id === searchCurrent);
-          const renderItem = (item: TurnItem, itemIndex: number) =>
+          // A closing row keeps the look it had before the fold, so a live
+          // group shrinks away whole instead of first snapping to its summary.
+          const renderItem = (item: TurnItem, itemIndex: number, closing = false) =>
             item.type === "subagents" ? (
               <SubagentStack
                 key={item.blocks[0].id}
@@ -1115,10 +1122,11 @@ function AgentTranscriptComponent({
                   blocks={item.blocks}
                   cwd={cwd}
                   done={
-                    !visible ||
-                    settled ||
-                    itemIndex < foldedAt ||
-                    (answering && !workStillRunning)
+                    !closing &&
+                    (!visible ||
+                      settled ||
+                      itemIndex < foldedAt ||
+                      (answering && !workStillRunning))
                   }
                   onApproval={onApproval}
                   onOpenFile={onOpenFile}
@@ -1207,6 +1215,33 @@ function AgentTranscriptComponent({
               />
             </TurnRow>
           );
+          // Prose arriving folds the work before it into a closed row. Rows
+          // that just joined the fold close where they stood instead of
+          // vanishing in one frame; a settled or freshly opened turn never
+          // animates, because its history starts from the fold it already has.
+          let closingRows: typeof foldWork = [];
+          if (!live) foldHistory.current.delete(turnId);
+          else {
+            const keys = foldWork.map(({ entry }) => turnItemKey(entry));
+            let record = foldHistory.current.get(turnId);
+            if (!record) {
+              record = { folded: new Set(keys), joined: new Map() };
+              foldHistory.current.set(turnId, record);
+            }
+            const now = performance.now();
+            for (const key of keys)
+              if (!record.folded.has(key)) {
+                record.folded.add(key);
+                record.joined.set(key, now);
+              }
+            for (const [key, at] of record.joined)
+              if (now - at > 1000) record.joined.delete(key);
+            const joined = record.joined;
+            if (!workOpen)
+              closingRows = foldWork.filter(({ entry }) =>
+                joined.has(turnItemKey(entry)),
+              );
+          }
           return (
             <div
               key={turn[0].id}
@@ -1254,6 +1289,15 @@ function AgentTranscriptComponent({
                         ))
                       }
                     </TurnRow>,
+                    ...closingRows.map(({ entry, index }) => (
+                      <FoldingRow key={`folding:${turnItemKey(entry)}`}>
+                        {() => (
+                          <div className="flow-root pb-1">
+                            {renderItem(entry, index, true)}
+                          </div>
+                        )}
+                      </FoldingRow>
+                    )),
                     // Delegated runs sit under the agent's own work, not
                     // among it: they are a second thing the turn is doing,
                     // and reading them as the first steps of the main trail
@@ -2436,6 +2480,16 @@ function TurnRow({
       )}
     </AnimatedCollapse>
   );
+}
+
+/** Rows that just joined a closed fold: shown where they stood, then closed. */
+function FoldingRow({ children }: { children: () => ReactNode }) {
+  const [expanded, setExpanded] = useState(true);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setExpanded(false));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  return <AnimatedCollapse expanded={expanded}>{children}</AnimatedCollapse>;
 }
 
 /** A turn item's identity, stable as the group it names grows. */
