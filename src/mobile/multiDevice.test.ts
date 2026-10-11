@@ -96,7 +96,7 @@ const button = (label: string) => [...node.querySelectorAll<HTMLButtonElement>("
 const mount = () => act(async () => root.render(createElement(MobileApp)));
 async function picker() {
   await act(async () => button("Menu").click());
-  await act(async () => button("Switch device").click());
+  await act(async () => { button("Switch device").click(); await vi.dynamicImportSettled(); });
 }
 async function switchTo(name: string) {
   await picker();
@@ -128,7 +128,7 @@ it.each([false, true])("keeps unseen replies ready for the drawer after leaving 
   const badge = () => active(".mobile-drawer-assistant")?.querySelector(".mobile-drawer-assistant-badge");
   await mount();
   await act(async () => button("Menu").click());
-  await act(async () => button("My assistant").click());
+  await act(async () => { button("My assistant").click(); await vi.dynamicImportSettled(); });
   messages = [{ id: "seen", kind: "assistant", revision: 1, createdAt: 1, text: "Seen reply" }];
   await act(async () => vi.advanceTimersByTimeAsync(2000));
   expect(localStorage.getItem("monocode.assistant-read:a")).toBe("1");
@@ -289,11 +289,12 @@ it("opens the selected device's error state on an offline launch and can switch 
 });
 
 it("keeps refreshing the original device when an unresolved command prevents switching", async () => {
-  await mount();
+  // Left by an earlier run: only the client writes the journal while it runs.
   fixture.values.set("pending", JSON.stringify({
     endpoint: a.endpoint, environmentId: a.environmentId,
     command: { type: "send", commandId: "pending", sessionId: "shared-session", text: "Hello" },
   }));
+  await mount();
   await switchTo("Device B");
   expect(fixture.client!.connection?.environmentId).toBe("a");
   fixture.request.mockImplementation((endpoint, input) => input.method === "sessions.list"

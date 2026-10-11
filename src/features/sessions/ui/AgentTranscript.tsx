@@ -352,6 +352,13 @@ function AgentTranscriptComponent({
   const scroller = useRef<HTMLDivElement>(null);
   const transcriptEnd = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
+  // Following glides only for a stream the reader is already watching; the
+  // layout settling right after a chat appears still pins before paint.
+  const glideFollow = useRef({ busy: !!busy, since: Infinity });
+  glideFollow.current.busy = !!busy;
+  useEffect(() => {
+    glideFollow.current.since = visible ? performance.now() : Infinity;
+  }, [visible]);
   const showJumpRef = useRef(false);
   const distanceFromBottom = useRef(0);
   const scrollGeometry = useRef({ top: 0, height: 0, viewport: 0 });
@@ -365,6 +372,11 @@ function AgentTranscriptComponent({
   const [visibleTurnCount, setVisibleTurnCount] = useState(FIRST_PAINT_TURNS);
   // Turns whose folded work the reader has opened, by turn id.
   const [openWork, setOpenWork] = useState<Record<string, boolean>>({});
+  // Live turns only: which rows each fold already held, and when rows joined it,
+  // so rows the answer just folded close in place instead of vanishing.
+  const foldHistory = useRef(
+    new Map<string, { folded: Set<string>; joined: Map<string, number> }>(),
+  );
   const [searchCurrent, setSearchCurrent] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const highlightOwner = useRef(Symbol("transcript-search"));
@@ -524,10 +536,26 @@ function AgentTranscriptComponent({
       syncPinned(el);
       // Directionless trackpad events can precede off-thread scrolling.
       // Wait for the gesture to reveal its direction before pinning again.
-      if (stickToBottom.current && performance.now() >= wheelHold.current)
-        pinTranscript(el);
+      if (!stickToBottom.current || performance.now() < wheelHold.current) return;
+      // On the phone, a row arriving glides the view down instead of snapping
+      // it up a row at a time. Larger changes, like opening or restoring a
+      // chat, still pin at once; any touch stops the glide where it is.
+      const gap = el.scrollHeight - el.clientHeight - el.scrollTop;
+      const glide = glideFollow.current;
+      if (
+        promptMotion === "mobile" &&
+        glide.busy &&
+        performance.now() - glide.since >= FOLLOW_GLIDE_SETTLE_MS &&
+        gap > 2 &&
+        gap <= el.clientHeight
+      )
+        animateToBottom(el, () => {
+          rememberScroll(el);
+          syncPinned(el);
+        }, FOLLOW_GLIDE);
+      else pinTranscript(el);
     },
-    [pinTranscript, syncPinned],
+    [pinTranscript, promptMotion, rememberScroll, syncPinned],
   );
 
   const jumpToBottom = useCallback(() => {
@@ -1109,7 +1137,9 @@ function AgentTranscriptComponent({
             item.type === "block"
               ? item.block.id === searchCurrent
               : item.blocks.some((block) => block.id === searchCurrent);
-          const renderItem = (item: TurnItem, itemIndex: number) =>
+          // A closing row keeps the look it had before the fold, so a live
+          // group shrinks away whole instead of first snapping to its summary.
+          const renderItem = (item: TurnItem, itemIndex: number, closing = false) =>
             item.type === "subagents" ? (
               <SubagentStack
                 key={item.blocks[0].id}
@@ -1131,10 +1161,11 @@ function AgentTranscriptComponent({
                   blocks={item.blocks}
                   cwd={cwd}
                   done={
-                    !visible ||
-                    settled ||
-                    itemIndex < foldedAt ||
-                    (answering && !workStillRunning)
+                    !closing &&
+                    (!visible ||
+                      settled ||
+                      itemIndex < foldedAt ||
+                      (answering && !workStillRunning))
                   }
                   onApproval={onApproval}
                   onOpenFile={onOpenFile}
@@ -1223,6 +1254,33 @@ function AgentTranscriptComponent({
               />
             </TurnRow>
           );
+          // Prose arriving folds the work before it into a closed row. Rows
+          // that just joined the fold close where they stood instead of
+          // vanishing in one frame; a settled or freshly opened turn never
+          // animates, because its history starts from the fold it already has.
+          let closingRows: typeof foldWork = [];
+          if (!live) foldHistory.current.delete(turnId);
+          else {
+            const keys = foldWork.map(({ entry }) => turnItemKey(entry));
+            let record = foldHistory.current.get(turnId);
+            if (!record) {
+              record = { folded: new Set(keys), joined: new Map() };
+              foldHistory.current.set(turnId, record);
+            }
+            const now = performance.now();
+            for (const key of keys)
+              if (!record.folded.has(key)) {
+                record.folded.add(key);
+                record.joined.set(key, now);
+              }
+            for (const [key, at] of record.joined)
+              if (now - at > 1000) record.joined.delete(key);
+            const joined = record.joined;
+            if (!workOpen)
+              closingRows = foldWork.filter(({ entry }) =>
+                joined.has(turnItemKey(entry)),
+              );
+          }
           return (
             <div
               key={turn[0].id}
@@ -1270,6 +1328,15 @@ function AgentTranscriptComponent({
                         ))
                       }
                     </TurnRow>,
+                    ...closingRows.map(({ entry, index }) => (
+                      <FoldingRow key={`folding:${turnItemKey(entry)}`}>
+                        {() => (
+                          <div className="flow-root pb-1">
+                            {renderItem(entry, index, true)}
+                          </div>
+                        )}
+                      </FoldingRow>
+                    )),
                     // Delegated runs sit under the agent's own work, not
                     // among it: they are a second thing the turn is doing,
                     // and reading them as the first steps of the main trail
@@ -2452,6 +2519,16 @@ function TurnRow({
       )}
     </AnimatedCollapse>
   );
+}
+
+/** Rows that just joined a closed fold: shown where they stood, then closed. */
+function FoldingRow({ children }: { children: () => ReactNode }) {
+  const [expanded, setExpanded] = useState(true);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setExpanded(false));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  return <AnimatedCollapse expanded={expanded}>{children}</AnimatedCollapse>;
 }
 
 /** A turn item's identity, stable as the group it names grows. */
@@ -4255,7 +4332,17 @@ const JUMP_INTERRUPTS = ["wheel", "touchstart", "pointerdown", "keydown"];
  * Glide to the bottom, following content that keeps streaming in. Any reader
  * input stops the glide where it is.
  */
-function animateToBottom(el: HTMLElement | null, done: () => void) {
+type GlideTiming = { base: number; perPx: number; max: number };
+const JUMP_GLIDE: GlideTiming = { base: 260, perPx: 1 / 12, max: 560 };
+const FOLLOW_GLIDE_SETTLE_MS = 600;
+/** Following new rows: short enough to keep up with a stream. */
+const FOLLOW_GLIDE: GlideTiming = { base: 120, perPx: 1 / 4, max: 220 };
+
+function animateToBottom(
+  el: HTMLElement | null,
+  done: () => void,
+  timing: GlideTiming = JUMP_GLIDE,
+) {
   if (!el || jumpingScrollers.has(el)) return;
   const bottom = () => Math.max(0, el.scrollHeight - el.clientHeight);
   const from = el.scrollTop;
@@ -4268,7 +4355,7 @@ function animateToBottom(el: HTMLElement | null, done: () => void) {
     done();
     return;
   }
-  const duration = Math.min(560, 260 + distance / 12);
+  const duration = Math.min(timing.max, timing.base + distance * timing.perPx);
   const start = performance.now();
   let frame = 0;
   const finish = (snap: boolean) => {

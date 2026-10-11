@@ -1,21 +1,3 @@
-.mobile-git-counts {
-  display: inline-flex;
-  flex-shrink: 0;
-  gap: 8px;
-  font-variant-numeric: tabular-nums;
-}
-.mobile-git-counts [data-kind="add"] {
-  color: #34d399;
-}
-.mobile-git-counts [data-kind="del"] {
-  color: #fb7185;
-}
-html.theme-light .mobile-git-counts [data-kind="add"] {
-  color: #047857;
-}
-html.theme-light .mobile-git-counts [data-kind="del"] {
-  color: #be123c;
-}
 .mobile-git-review {
   padding-bottom: 16px;
 }
@@ -184,10 +166,4 @@ html.theme-light .mobile-git-action[data-confirming] {
   --diffs-bg-deletion-emphasis-override: #ffd0ca;
   --diffs-addition-color-override: #199f73;
   --diffs-deletion-color-override: #d84444;
-}
-.mobile-progress-git-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
 }

@@ -1,3 +1,4 @@
+import { MobileSpinner } from "./MobileSpinner";
 import { MobileAgentSheet } from "./MobileAgentSheet";
 import type { ComponentType } from "react";
 import type { Block } from "../features/sessions/model/session";
@@ -18,7 +19,6 @@ import {
   ChevronRight,
   CircleX,
   Eye,
-  LoaderCircle,
   Pencil,
   Sparkles,
   StickyNote,
@@ -157,7 +157,7 @@ export function MobileActivitySheet({
                               </span>
                             )}
                             {state === "pending" ? (
-                              <LoaderCircle
+                              <MobileSpinner
                                 size={16}
                                 className="mobile-spin"
                                 aria-label={t("Running")}

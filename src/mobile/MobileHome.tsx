@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { MobileSpinner } from "./MobileSpinner";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import type {
   HostProject,
   HostSessionSummary,
@@ -25,6 +26,7 @@ import { MobileSheet, type MobileSheetPoint } from "./MobileSheet";
 import { MobileListPreview } from "./MobileListPreview";
 import { MobileSessionRow } from "./MobileSessionRow";
 import { MobileEmpty } from "./MobileEmpty";
+import { useMobileSessionLists } from "./sessionListStore";
 import { MobileListSkeleton } from "./MobileListSkeleton";
 import { lightImpact } from "./haptics";
 import { sortMobileProjects } from "./sessionList";
@@ -43,11 +45,6 @@ const FILTER_ICONS: Record<MobileSessionFilter, typeof Check> = {
   completed: Check,
   archived: Archive,
 };
-
-interface History {
-  sessions?: HostSessionSummary[];
-  failed: boolean;
-}
 
 /** Where a conversation listed from another paired device lives. */
 interface RemoteOrigin {
@@ -126,7 +123,6 @@ export function MobileHome({
 }) {
   const { t } = useTranslation();
   const visible = useSurfaceVisibility();
-  const wasVisible = useRef(foreground && visible);
   const searchButton = useRef<HTMLButtonElement | null>(null);
   const setSearchButton = useCallback((element: HTMLButtonElement | null) => {
     if (searchTrigger && (element || searchTrigger.current === searchButton.current))
@@ -135,12 +131,9 @@ export function MobileHome({
   }, [searchTrigger]);
   const owners = useMemo(() => project ? [project] : projects, [project, projects]);
   const idsKey = JSON.stringify(owners.map((item) => item.id));
-  const [histories, setHistories] = useState<Record<string, History>>(() =>
-    Object.fromEntries(owners.flatMap((item) => {
-      const sessions = cachedSessions?.(item.id);
-      return sessions ? [[item.id, { sessions, failed: false }]] : [];
-    })),
-  );
+  const { histories, refresh } = useMobileSessionLists({
+    idsKey, enabled: foreground && visible, loadSessions, cachedSessions, refreshKey,
+  });
   const [filter, setFilter] = useMobilePageState<MobileSessionFilter>("filter", "all");
   const [filterOpen, setFilterOpen] = useState(false);
   const filterTrigger = useRef<HTMLButtonElement>(null);
@@ -150,7 +143,6 @@ export function MobileHome({
   const [projectsOpen, setProjectsOpen] = useMobilePageState("projectsOpen", true);
   const [pinnedOpen, setPinnedOpen] = useMobilePageState("pinnedOpen", true);
   const remoteHosts = useMemo(() => root ? remote ?? [] : [], [root, remote]);
-  const [retry, setRetry] = useState(0);
   const hold = useRef<{ pointerId: number; x: number; y: number; timer: ReturnType<typeof setTimeout>; moved: boolean; opened: boolean } | undefined>(undefined);
   const suppressClick = useRef<string | undefined>(undefined);
   const cancelHold = () => {
@@ -161,55 +153,6 @@ export function MobileHome({
     cancelHold();
     return cancelHold;
   }, [inactive, foreground, visible, project?.id, query]);
-  // Projects can arrive after mount or change when navigating within Home.
-  // Pick up lists refreshed by the drawer before Home resumes painting/polling.
-  useLayoutEffect(() => {
-    const resumed = foreground && visible && !wasVisible.current;
-    wasVisible.current = foreground && visible;
-    const ids: string[] = JSON.parse(idsKey);
-    setHistories((current) => {
-      let next = current;
-      for (const id of ids) {
-        if (current[id]?.sessions && !resumed) continue;
-        const sessions = cachedSessions?.(id);
-        if (sessions && current[id]?.sessions !== sessions)
-          next = { ...next, [id]: { sessions, failed: current[id]?.failed ?? false } };
-      }
-      return next;
-    });
-  }, [idsKey, cachedSessions, foreground, visible]);
-
-  useEffect(() => {
-    if (!foreground || !visible) return;
-    const ids: string[] = JSON.parse(idsKey);
-    let live = true;
-    let timer: ReturnType<typeof setTimeout>;
-    const refresh = async () => {
-      const results = await Promise.allSettled(
-        ids.map((id) => loadSessions(id)),
-      );
-      if (!live) return;
-      setHistories((current) => {
-        let next = current;
-        results.forEach((result, index) => {
-          const id = ids[index];
-          const sessions = result.status === "fulfilled" ? result.value : current[id]?.sessions;
-          const failed = result.status === "rejected";
-          if (current[id]?.sessions === sessions && current[id]?.failed === failed) return;
-          if (next === current) next = { ...current };
-          next[id] = { sessions, failed };
-        });
-        return next;
-      });
-      timer = setTimeout(refresh, 3_000);
-    };
-    void refresh();
-    return () => {
-      live = false;
-      clearTimeout(timer);
-    };
-  }, [idsKey, foreground, visible, loadSessions, retry, refreshKey]);
-
   const orderedProjects = useMemo(() => sortMobileProjects(
     projects,
     (id) => histories[id]?.sessions ?? [],
@@ -347,7 +290,7 @@ export function MobileHome({
         )}
         {running && (
           <span className="mobile-home-project-state" role="img" aria-label={t("Working")}>
-            <LoaderCircle size={18} className="mobile-spin" aria-hidden="true" />
+            <MobileSpinner size={18} className="mobile-spin" aria-hidden="true" />
           </span>
         )}
       </span>
@@ -496,7 +439,7 @@ export function MobileHome({
               </span>
               <button
                 type="button"
-                onClick={() => setRetry((value) => value + 1)}
+                onClick={() => refresh()}
               >
                 {t("Retry")}
               </button>

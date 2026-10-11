@@ -1,4 +1,5 @@
 import { MobileListPreview } from "./MobileListPreview";
+import { MobileSpinner } from "./MobileSpinner";
 import {
   memo,
   useCallback,
@@ -18,7 +19,6 @@ import {
   File,
   Folder,
   Home,
-  LoaderCircle,
   MessageSquarePlus,
   MoreHorizontal,
   Pin,
@@ -31,16 +31,18 @@ import type {
 } from "../features/connections/model/protocol";
 import { sessionDisplayTitle } from "../features/sessions/model/session";
 import { HarnessIcon } from "../features/sessions/ui/HarnessIcon";
-import { AnimatedCollapse } from "../shared/ui/AnimatedCollapse";
+import { AnimatedCollapse, useCollapseMotion } from "../shared/ui/AnimatedCollapse";
+import { SurfaceVisibilityContext, useSurfaceVisibility } from "../shared/ui/SurfaceVisibility";
 import { useTranslation } from "../shared/i18n/useTranslation";
 import type { HostConnectionStatus } from "./client";
 import { MobileHostStatus } from "./MobileHostStatus";
 import { lightImpact } from "./haptics";
 import { formatMobileRelativeTime } from "./relativeTime";
+import { useMobileSessionLists, type MobileProjectHistory } from "./sessionListStore";
 import { sortMobileProjects, sortMobileSessions } from "./sessionList";
 import { useListReorderMotion } from "../shared/hooks/useListReorderMotion";
 import type { MobileSheetPoint } from "./MobileSheet";
-import { MOBILE_SPRINGS, springTransition } from "./motion";
+import { MOBILE_SPRINGS, springDuration, springTransition } from "./motion";
 import {
   canPullDrawerFrom,
   canPushDrawerFrom,
@@ -49,11 +51,7 @@ import {
   settleDrawerOpen,
 } from "./drawerGesture";
 
-interface ProjectHistory {
-  sessions?: HostSessionSummary[];
-  loading: boolean;
-  failed: boolean;
-}
+type ProjectHistory = MobileProjectHistory;
 
 interface Swipe {
   id: number;
@@ -66,6 +64,7 @@ interface Swipe {
   dragging: boolean;
   last: { x: number; t: number };
   velocity: number;
+  release: () => void;
 }
 
 // Memoized: the drawer stays mounted under the conversation, and typing in
@@ -146,6 +145,7 @@ export const MobileDrawer = memo(function MobileDrawer({
   assistantUnreadCount?: number;
 }) {
   const { language, t } = useTranslation();
+  const surfaceVisible = useSurfaceVisibility();
   const open = requestedOpen && active;
   const [moreOpen, setMoreOpen] = useState(false);
   const moreId = useId();
@@ -154,32 +154,21 @@ export const MobileDrawer = memo(function MobileDrawer({
     project && !projects.some((item) => item.id === project.id)
       ? [project, ...projects]
       : projects, [project, projects]);
-  const projectIds = useMemo(() => JSON.stringify(treeProjects.map((item) => item.id)), [treeProjects]);
-  const [histories, setHistories] = useState<
-    Record<string, ProjectHistory | undefined>
-  >(() => Object.fromEntries(treeProjects.flatMap((item) => {
-    const sessions = cachedSessions?.(item.id);
-    return sessions ? [[item.id, { sessions, loading: false, failed: false }]] : [];
-  })));
-  // Home and chat can refresh the shared cache while the drawer stays closed.
-  useLayoutEffect(() => {
-    const ids: string[] = JSON.parse(projectIds);
-    setHistories((current) => {
-      let next = current;
-      for (const id of ids) {
-        if (!open && current[id]) continue;
-        const sessions = cachedSessions?.(id);
-        if (sessions && current[id]?.sessions !== sessions)
-          next = { ...next, [id]: { sessions, loading: false, failed: false } };
-      }
-      return next;
-    });
-  }, [open, projectIds, cachedSessions, refreshKey]);
-  const historyTurn = useRef<Record<string, number>>({});
+  // The current project has a faster subscription owned by the app.
+  const historyIds = useMemo(() => JSON.stringify(treeProjects.filter((item) => item.id !== project?.id)
+    .map((item) => item.id)), [treeProjects, project?.id]);
+  const { histories, refresh: readHistories } = useMobileSessionLists({
+    idsKey: historyIds, enabled: open && foreground, visible: open, loadSessions, cachedSessions, refreshKey,
+  });
   const panel = useRef<HTMLElement>(null);
   const backdrop = useRef<HTMLDivElement>(null);
   const sessionsList = useRef<HTMLDivElement>(null);
   const swipe = useRef<Swipe>(undefined);
+  const clearSwipe = () => {
+    const current = swipe.current;
+    swipe.current = undefined;
+    current?.release();
+  };
   const dragClickUntil = useRef(0);
   const hold = useRef<{
     pointerId: number;
@@ -203,7 +192,7 @@ export const MobileDrawer = memo(function MobileDrawer({
       clearTimeout(hold.current.timer);
       hold.current.opened = true;
     }
-    swipe.current = undefined;
+    clearSwipe();
     setDragging(false);
     onSessionActions(summary, trigger, point);
   };
@@ -234,12 +223,15 @@ export const MobileDrawer = memo(function MobileDrawer({
     };
     hold.current = press;
   };
-  // While a finger moves the drawer, its position is written straight to the
-  // DOM: a React render per pointer move would rebuild every session row.
+  // While a finger moves the drawer, write at most once per animation frame;
+  // a React render per pointer move would rebuild every session row.
   const [dragging, setDragging] = useState(false);
+  const releaseDuration = useRef(springDuration(MOBILE_SPRINGS.smooth));
+  const { foldState, finish } = useCollapseMotion(open || dragging, releaseDuration.current);
+  const settledClosed = !open && !dragging && foldState === "closed";
   useLayoutEffect(() => {
     if (active && !covered) return;
-    swipe.current = undefined;
+    clearSwipe();
     cancelHold();
     setDragging(false);
   }, [active, covered]);
@@ -256,6 +248,7 @@ export const MobileDrawer = memo(function MobileDrawer({
   const releaseTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const clearRelease = () => {
     clearTimeout(releaseTimer.current);
+    releaseDuration.current = springDuration(MOBILE_SPRINGS.smooth);
     backdrop.current?.style.removeProperty("--mobile-drawer-easing");
     backdrop.current?.style.removeProperty("--mobile-drawer-duration");
   };
@@ -288,63 +281,31 @@ export const MobileDrawer = memo(function MobileDrawer({
         trigger.focus({ preventScroll: true });
     };
   }, [open]);
-  const readHistory = useCallback(
-    async (projectId: string, isCurrent: () => boolean = () => true) => {
-      const turn = (historyTurn.current[projectId] ?? 0) + 1;
-      historyTurn.current[projectId] = turn;
-      // Refresh known rows silently. Toggling loading on every poll rebuilt the
-      // entire list twice even when the client returned the same cached array.
-      setHistories((current) => current[projectId]?.sessions ||
-        (current[projectId]?.loading && !current[projectId]?.failed) ? current : ({
-          ...current,
-          [projectId]: { ...current[projectId], loading: true, failed: false },
-        }));
-      try {
-        const sessions = await loadSessions(projectId);
-        if (isCurrent() && historyTurn.current[projectId] === turn)
-          setHistories((current) => current[projectId]?.sessions === sessions &&
-            !current[projectId]?.loading && !current[projectId]?.failed ? current : ({
-              ...current,
-              [projectId]: { sessions, loading: false, failed: false },
-            }));
-      } catch {
-        if (isCurrent() && historyTurn.current[projectId] === turn)
-          setHistories((current) => current[projectId]?.failed && !current[projectId]?.loading ? current : ({
-            ...current,
-            [projectId]: {
-              ...current[projectId],
-              loading: false,
-              failed: true,
-            },
-          }));
-      }
-    },
-    [loadSessions],
-  );
-  // Every project feeds the flat Pinned and Recents lists.
-  // The app already polls the current project's list.
-  useEffect(() => {
-    if (!open || !foreground) return;
-    const ids: string[] = JSON.parse(projectIds);
-    let live = true;
-    let timer: ReturnType<typeof setTimeout>;
-    const refresh = async () => {
-      await Promise.allSettled(
-        ids.filter((id) => id !== project?.id).map((id) => readHistory(id, () => live)),
-      );
-      if (live) timer = setTimeout(refresh, 3_000);
-    };
-    void refresh();
-    return () => {
-      live = false;
-      clearTimeout(timer);
-    };
-  }, [open, foreground, projectIds, project?.id, readHistory]);
   // One gesture pipeline: a pull on the conversation opens the drawer, a push
   // anywhere on screen closes it. The drawer follows the finger
   // and settles by distance or flick speed.
   useEffect(() => {
     if (!active || covered) return;
+    let moveFrame: number | undefined;
+    const cancelMove = () => {
+      if (moveFrame !== undefined) cancelAnimationFrame(moveFrame);
+      moveFrame = undefined;
+    };
+    const placeDrag = () => {
+      moveFrame = undefined;
+      const current = swipe.current;
+      if (!current?.dragging) return;
+      followRef.current(
+        clampDrawer(current.origin + current.last.x - current.x, current.width),
+        current.width,
+      );
+    };
+    // Touch Events stay on their original target even if a list refresh removes
+    // it. Keep preventing native scrolling there after the drawer owns the drag;
+    // the document listener alone stops receiving those detached-target events.
+    const holdTouch = (event: Event) => {
+      if (swipe.current?.dragging && event.cancelable) event.preventDefault();
+    };
     const begin = (event: PointerEvent) => {
       // A new touch means the previous drag produced no click to swallow.
       dragClickUntil.current = 0;
@@ -358,6 +319,8 @@ export const MobileDrawer = memo(function MobileDrawer({
       const settling = element
         .getAnimations?.()
         .some((animation) => animation.playState === "running");
+      const target = event.target instanceof Element ? event.target : undefined;
+      target?.addEventListener("touchmove", holdTouch, { capture: true, passive: false });
       swipe.current = {
         id: event.pointerId,
         x: event.clientX,
@@ -370,6 +333,12 @@ export const MobileDrawer = memo(function MobileDrawer({
         dragging: false,
         last: { x: event.clientX, t: event.timeStamp },
         velocity: 0,
+        release: () => {
+          cancelMove();
+          target?.removeEventListener("touchmove", holdTouch, true);
+          if (element.hasPointerCapture?.(event.pointerId))
+            element.releasePointerCapture(event.pointerId);
+        },
       };
     };
     const move = (event: PointerEvent) => {
@@ -384,10 +353,13 @@ export const MobileDrawer = memo(function MobileDrawer({
         );
         if (intent === "undecided") return;
         if (intent === "scroll") {
-          swipe.current = undefined;
+          clearSwipe();
           return;
         }
         current.dragging = true;
+        // Session rows (including their status label) can be replaced mid-drag.
+        // Route the pointer stream through the stable drawer panel instead.
+        panel.current?.setPointerCapture?.(event.pointerId);
         // The gesture now belongs to the drawer, not to text selection or a
         // pending long press on a session row.
         window.getSelection()?.removeAllRanges();
@@ -401,20 +373,26 @@ export const MobileDrawer = memo(function MobileDrawer({
       if (elapsed > 0)
         current.velocity = (event.clientX - current.last.x) / elapsed;
       current.last = { x: event.clientX, t: event.timeStamp };
-      followRef.current(
-        clampDrawer(current.origin + dx, current.width),
-        current.width,
-      );
+      moveFrame ??= requestAnimationFrame(placeDrag);
     };
     const end = (event: PointerEvent) => {
       const current = swipe.current;
       if (!current || current.id !== event.pointerId) return;
-      swipe.current = undefined;
-      if (!current.dragging) return;
+      if (!current.dragging) {
+        clearSwipe();
+        return;
+      }
+      // A cancelled pointer may carry no coordinates. Keep the last actual
+      // touch, and flush pending input before the spring takes over.
+      if (event.type !== "pointercancel") current.last.x = event.clientX;
+      cancelMove();
+      placeDrag();
+      if (panel.current) getComputedStyle(panel.current).transform;
+      clearSwipe();
       // A drag may start on a button; the click that follows must not land.
       dragClickUntil.current = Date.now() + 400;
       const translate = clampDrawer(
-        current.origin + event.clientX - current.x,
+        current.origin + current.last.x - current.x,
         current.width,
       );
       const open =
@@ -429,6 +407,7 @@ export const MobileDrawer = memo(function MobileDrawer({
         event.type === "pointercancel" ? 0 : current.velocity * Math.sign(distance),
       );
       clearReleaseRef.current();
+      releaseDuration.current = settle.duration;
       const layer = backdrop.current;
       if (layer) {
         layer.style.setProperty(
@@ -456,9 +435,6 @@ export const MobileDrawer = memo(function MobileDrawer({
     // Once the drawer owns a drag, keep the browser from turning the same
     // touch into a scroll or navigation, which would cancel the pointer and
     // snap the drawer back mid-gesture.
-    const holdTouch = (event: TouchEvent) => {
-      if (swipe.current?.dragging && event.cancelable) event.preventDefault();
-    };
     document.addEventListener("pointerdown", begin, true);
     document.addEventListener("touchmove", holdTouch, {
       capture: true,
@@ -469,13 +445,14 @@ export const MobileDrawer = memo(function MobileDrawer({
     document.addEventListener("pointerup", end, true);
     document.addEventListener("pointercancel", end, true);
     return () => {
+      cancelMove();
       document.removeEventListener("pointerdown", begin, true);
       document.removeEventListener("touchmove", holdTouch, true);
       document.removeEventListener("click", swallowClick, true);
       document.removeEventListener("pointermove", move, true);
       document.removeEventListener("pointerup", end, true);
       document.removeEventListener("pointercancel", end, true);
-      swipe.current = undefined;
+      clearSwipe();
     };
   }, [active, covered]);
 
@@ -580,7 +557,7 @@ export const MobileDrawer = memo(function MobileDrawer({
               <span className="mobile-drawer-session-project">{owner.name}</span>
             )}
             {!item.needsInput && (item.status === "running" ? (
-              <LoaderCircle size={16} className="mobile-spin" aria-label={t("Working")} />
+              <MobileSpinner size={16} className="mobile-spin" aria-label={t("Working")} />
             ) : (
               <span>{formatMobileRelativeTime(item.updatedAt, now, language)}</span>
             ))}
@@ -597,11 +574,13 @@ export const MobileDrawer = memo(function MobileDrawer({
     );
   };
   return (
+    <SurfaceVisibilityContext.Provider value={surfaceVisible && open && foreground && !covered}>
     <div
       ref={backdrop}
       className="mobile-drawer-backdrop"
       data-open={open}
       data-dragging={dragging || undefined}
+      data-settled-closed={settledClosed || undefined}
       inert={!open && !dragging}
       aria-hidden={!open && !dragging}
       onClick={(event) => {
@@ -614,6 +593,9 @@ export const MobileDrawer = memo(function MobileDrawer({
         aria-label={t("Menu")}
         inert={covered}
         tabIndex={-1}
+        onTransitionEnd={(event) => {
+          if (event.target === event.currentTarget && event.propertyName === "transform") finish();
+        }}
         onKeyDown={(event) => {
           if (event.key === "Escape") close();
         }}
@@ -703,7 +685,7 @@ export const MobileDrawer = memo(function MobileDrawer({
             <p className="mobile-drawer-empty">{t("Couldn’t load projects")}</p>
           ) : projectsPending || treeLoading ? (
             <div className="mobile-loading mobile-drawer-group-status" role="status">
-              <LoaderCircle size={15} className="mobile-spin" />
+              <MobileSpinner size={15} className="mobile-spin" />
               {t("Loading conversations…")}
             </div>
           ) : !tree.length ? (
@@ -740,7 +722,7 @@ export const MobileDrawer = memo(function MobileDrawer({
                   key={item.id}
                   type="button"
                   className="mobile-drawer-empty mobile-drawer-group-status"
-                  onClick={() => readHistory(item.id)}
+                  onClick={() => readHistories([item.id])}
                 >
                   {t("Couldn’t load sessions")} · {item.name} · {t("Retry")}
                 </button>
@@ -758,6 +740,7 @@ export const MobileDrawer = memo(function MobileDrawer({
         </button>
       </nav>
     </div>
+    </SurfaceVisibilityContext.Provider>
   );
 }, (previous, next) => {
   // Closed drawers retain their last rendered preview while chat streams and

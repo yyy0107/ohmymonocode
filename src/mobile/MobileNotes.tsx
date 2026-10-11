@@ -1,3 +1,4 @@
+import { MobileSpinner } from "./MobileSpinner";
 import {
   useCallback,
   useEffect,
@@ -10,7 +11,6 @@ import {
 import {
   ArrowLeft,
   File,
-  LoaderCircle,
   RefreshCw,
   Search,
   X,
@@ -230,7 +230,7 @@ export function MobileNotes({
               </button>
               <h1>{t("Notes")}</h1>
               {working ? (
-                <LoaderCircle
+                <MobileSpinner
                   size={22}
                   className="mobile-spin"
                   role="status"
@@ -266,7 +266,7 @@ export function MobileNotes({
               )}
               {loading && !notes.length ? (
                 <p className="mobile-notes-empty" role="status">
-                  <LoaderCircle
+                  <MobileSpinner
                     size={24}
                     className="mobile-spin"
                     aria-label={t("Loading notes…")}

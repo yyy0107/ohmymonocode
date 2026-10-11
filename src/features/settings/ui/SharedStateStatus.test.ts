@@ -96,3 +96,23 @@ it("keeps this device's pending settings and workspace writes visible", async ()
   await render(() => false);
   expect(container.querySelector('[role="status"]')).toBeNull();
 });
+
+it("waits out routine workspace writes but shows errors immediately", async () => {
+  vi.useFakeTimers();
+  try {
+    configureProjectPreferenceStores(undefined);
+    activatePreferenceStore(undefined);
+    await act(async () => root.render(createElement(SharedStateStatus, { pending: () => true, pendingDelayMs: 1500 })));
+    expect(container.querySelector('[role="status"]')).toBeNull();
+    await act(async () => { vi.advanceTimersByTime(1500); });
+    expect(container.textContent).toBe("Not yet synced");
+
+    vi.mocked(primary.request).mockRejectedValue(new Error("Update Host to share settings."));
+    activatePreferenceStore(primary.store);
+    await primary.store.sync();
+    await act(async () => root.render(createElement(SharedStateStatus, { pending: () => false, pendingDelayMs: 1500 })));
+    expect(container.textContent).toBe("Not yet synced · Update Host to share settings.");
+  } finally {
+    vi.useRealTimers();
+  }
+});

@@ -14,7 +14,8 @@ import { displayPath, resolveWorkspacePath } from "../shared/lib/paths";
 import { useTranslation } from "../shared/i18n/useTranslation";
 import { Check, ChevronRight, Copy, File as FileIcon } from "../shared/ui/icons";
 import { MobileSheet, MobileSheetHeader } from "./MobileSheet";
-import { MobileDiffCounts } from "./MobileGitReviewSheet";
+import { MobileDiffCounts } from "./MobileDiffCounts";
+import "./mobileGitReview.css";
 
 type ReadOutput = { count: number; start?: number; end?: number };
 

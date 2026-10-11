@@ -90,13 +90,67 @@ function touch(type: string, y = 100, x = 100, target: Element = row()) {
     ),
   );
 }
+function frame() {
+  act(() => vi.advanceTimersByTime(16));
+}
+function touchMove(target: Element) {
+  const event = new Event("touchmove", { bubbles: true, cancelable: true });
+  act(() => target.dispatchEvent(event));
+  return event.defaultPrevented;
+}
+function captureOn(panel: HTMLElement) {
+  const captured = new Set<number>();
+  panel.setPointerCapture = vi.fn((id) => { captured.add(id); });
+  panel.hasPointerCapture = (id) => captured.has(id);
+  panel.releasePointerCapture = vi.fn((id) => { captured.delete(id); });
+  return captured;
+}
 describe("mobile sidebar sessions", () => {
+  it("pauses retained spinners without pausing the drawer's closing transition", () => {
+    const props = { sessions: [{
+      id: "running", title: "Working", projectId: "project", harness: "codex", status: "running", revision: 1, updatedAt: 100,
+    }] };
+    render(false, props);
+    const spinner = node.querySelector(".mobile-spin")!;
+    const layer = node.querySelector<HTMLElement>(".mobile-drawer-backdrop")!;
+    expect(spinner.hasAttribute("data-animation-paused")).toBe(true);
+    render(true, props);
+    expect(spinner.hasAttribute("data-animation-paused")).toBe(false);
+    render(true, { ...props, foreground: false });
+    expect(spinner.hasAttribute("data-animation-paused")).toBe(true);
+    render(true, props);
+    expect(spinner.hasAttribute("data-animation-paused")).toBe(false);
+    render(false, props);
+    expect(spinner.hasAttribute("data-animation-paused")).toBe(true);
+    expect(layer.dataset.settledClosed).toBeUndefined();
+    expect(layer.hasAttribute("data-animation-paused")).toBe(false);
+  });
+
+  it("keeps the glass layer through closing and a rapid reversal, then releases it", () => {
+    render(false);
+    const layer = node.querySelector<HTMLElement>(".mobile-drawer-backdrop")!;
+    expect(layer.dataset.settledClosed).toBe("true");
+    render(true);
+    expect(layer.dataset.settledClosed).toBeUndefined();
+    render(false);
+    act(() => vi.advanceTimersByTime(100));
+    expect(layer.dataset.settledClosed).toBeUndefined();
+    render(true);
+    act(() => vi.advanceTimersByTime(500));
+    expect(layer.dataset.settledClosed).toBeUndefined();
+    render(false);
+    expect(layer.dataset.settledClosed).toBeUndefined();
+    act(() => vi.advanceTimersByTime(410));
+    expect(layer.dataset.settledClosed).toBe("true");
+  });
+
   it("finishes closing and ignores pulls while its owning page is inactive", () => {
     render();
     const panel = node.querySelector<HTMLElement>(".mobile-drawer")!;
     Object.defineProperty(panel, "offsetWidth", { value: 300 });
     touch("pointerdown", 100, 250);
     touch("pointermove", 100, 100);
+    frame();
     expect(panel.style.transform).toBe("translateX(-150px)");
     const { onOpenChange } = render(true, { active: false });
     expect(node.querySelector(".mobile-drawer")).toBe(panel);
@@ -157,7 +211,7 @@ describe("mobile sidebar sessions", () => {
     act(() => row().click());
     expect(onSession).toHaveBeenCalledOnce();
   });
-  it("opens actions for a pinned conversation from another project", () => {
+  it("opens actions for a pinned conversation from another project", async () => {
     const other = { id: "other", name: "Other", cwd: "/other" };
     const pinned: HostSessionSummary = {
       id: "other-pinned",
@@ -177,7 +231,9 @@ describe("mobile sidebar sessions", () => {
     touch("pointerdown", 100, 100, target);
     act(() => vi.advanceTimersByTime(450));
     expect(onSessionActions).toHaveBeenCalledExactlyOnceWith(pinned, target, { x: 100, y: 100 });
+    await act(async () => {});
   });
+
   it("leaves scroll gestures to the list without opening actions or navigating", () => {
     const { onSession, onSessionActions } = render();
     touch("pointerdown");
@@ -249,13 +305,47 @@ describe("mobile sidebar sessions", () => {
     touch("pointerdown", 100, 250);
     touch("pointermove", 100, 200);
     touch("pointermove", 100, 100);
+    frame();
     expect(panel.style.transform).toBe("translateX(-150px)");
     act(() => vi.advanceTimersByTime(100));
     touch("pointermove", 100, 230);
+    frame();
     expect(panel.style.transform).toBe("translateX(-20px)");
     touch("pointerup", 100, 230);
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(lightImpact).not.toHaveBeenCalled();
+  });
+  it("coalesces moves and flushes the last touch on cancel without a late frame", () => {
+    const { onOpenChange } = render();
+    const panel = node.querySelector<HTMLElement>(".mobile-drawer")!;
+    Object.defineProperty(panel, "offsetWidth", { value: 300 });
+    const write = vi.spyOn(panel.style, "setProperty");
+    const positions = () => write.mock.calls.filter(([key]) => key === "transform").map(([, value]) => value);
+    touch("pointerdown", 100, 250);
+    touch("pointermove", 100, 200);
+    touch("pointermove", 100, 100);
+    expect(positions()).toEqual([]);
+    frame();
+    expect(positions()).toEqual(["translateX(-150px)"]);
+    touch("pointermove", 100, 230);
+    // Native cancellation need not contain the last touch's coordinates.
+    touch("pointercancel", 0, 0);
+    expect(positions()).toEqual(["translateX(-150px)", "translateX(-20px)"]);
+    expect(panel.style.transform).toBe("");
+    frame();
+    expect(positions()).toHaveLength(2);
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+  it("discards a pending drag frame when a covering surface takes ownership", () => {
+    render();
+    const panel = node.querySelector<HTMLElement>(".mobile-drawer")!;
+    Object.defineProperty(panel, "offsetWidth", { value: 300 });
+    touch("pointerdown", 100, 250);
+    touch("pointermove", 100, 100);
+    render(true, { covered: true });
+    frame();
+    expect(panel.style.transform).toBe("");
+    expect(panel.parentElement!.dataset.dragging).toBeUndefined();
   });
   it("hands the settled position back to the stylesheet when a drag ends", () => {
     render();
@@ -272,6 +362,7 @@ describe("mobile sidebar sessions", () => {
     touch("pointerdown", 100, 250);
     touch("pointermove", 100, 200);
     touch("pointermove", 100, 100);
+    frame();
     expect(backdrop.dataset.dragging).toBe("true");
     expect(progress()).toBe("0.5");
     act(() => vi.advanceTimersByTime(100));
@@ -295,6 +386,63 @@ describe("mobile sidebar sessions", () => {
     touch("pointerup", 100, 60);
     expect(move()).toBe(false);
   });
+  it("finishes a drag when a session refresh replaces the original touch target", () => {
+    const summary: HostSessionSummary = {
+      id: "recent", title: "Recent conversation", projectId: "project", harness: "codex",
+      status: "idle", revision: 1, updatedAt: 100,
+    };
+    const onOpenChange = vi.fn();
+    render(true, { sessions: [summary], onOpenChange });
+    const panel = node.querySelector<HTMLElement>(".mobile-drawer")!;
+    Object.defineProperty(panel, "offsetWidth", { value: 300 });
+    const captured = captureOn(panel);
+    const target = row().querySelector("small > span")!;
+    touch("pointerdown", 100, 250, target);
+    touch("pointermove", 100, 200, target);
+    expect(captured.has(1)).toBe(true);
+
+    render(true, { sessions: [{ ...summary, status: "running", revision: 2 }], onOpenChange });
+    expect(target.isConnected).toBe(false);
+    expect(row().querySelector(".mobile-spin")).not.toBeNull();
+    // Native Touch Events remain on this detached span. Pointer capture only
+    // routes Pointer Events, so it cannot replace this preventDefault path.
+    expect(touchMove(target)).toBe(true);
+    touch("pointermove", 100, 20, panel);
+    touch("pointerup", 100, 20, panel);
+    expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+    expect(captured.size).toBe(0);
+    expect(touchMove(target)).toBe(false);
+  });
+  it.each(["pointerup", "pointercancel", "tap", "scroll", "covered", "inactive", "unmount", "longpress"])(
+    "releases the original touch target and pointer capture after %s",
+    (exit) => {
+      render();
+      const panel = node.querySelector<HTMLElement>(".mobile-drawer")!;
+      const captured = captureOn(panel);
+      const target = row().querySelector("small > span")!;
+      touch("pointerdown", 100, 250, target);
+      if (!["tap", "scroll", "longpress"].includes(exit)) {
+        touch("pointermove", 100, 200, target);
+        expect(captured.has(1)).toBe(true);
+      }
+      if (exit === "scroll") touch("pointermove", 160, 250, target);
+      else if (exit === "covered") render(true, { covered: true });
+      else if (exit === "inactive") render(true, { active: false });
+      else if (exit === "unmount") act(() => root.render(null));
+      else if (exit === "longpress") act(() => vi.advanceTimersByTime(450));
+      else touch(exit === "tap" ? "pointerup" : exit, 100, 200, panel);
+      expect(captured.size).toBe(0);
+
+      render();
+      target.remove();
+      // A later drag must not reactivate a leaked listener on the old target.
+      touch("pointerdown", 100, 250);
+      touch("pointermove", 100, 200);
+      expect(touchMove(row())).toBe(true);
+      expect(touchMove(target)).toBe(false);
+      touch("pointercancel", 100, 200);
+    },
+  );
   it("leaves pushes on a sheet above the drawer alone", () => {
     const { onOpenChange } = render();
     const sheet = document.createElement("div");
@@ -442,7 +590,7 @@ describe("mobile sidebar recents", () => {
   it("holds uncached history in loading state until it arrives", async () => {
     const responses = new Map<string, (sessions: HostSessionSummary[]) => void>();
     const loadSessions = (id: string) => new Promise<HostSessionSummary[]>((done) => { responses.set(id, done); });
-    render(true, { projects, project, sessions: [], loadSessions });
+    await act(async () => render(true, { projects, project, sessions: [], loadSessions }));
     expect(recentIds()).toHaveLength(0);
     expect(node.querySelector('.mobile-drawer-sessions .mobile-loading[role="status"]')).not.toBeNull();
     await act(async () => {
@@ -523,7 +671,7 @@ describe("mobile sidebar recents", () => {
     expect(recentIds()).toEqual(["android-chat"]);
     expect(node.querySelector("button.mobile-drawer-group-status")).toBeNull();
   });
-  it("ignores older history requests after reopening the drawer", async () => {
+  it("shares an in-flight history request on reopening and refreshes at the next interval", async () => {
     let resolveOld!: (sessions: HostSessionSummary[]) => void;
     const old = new Promise<HostSessionSummary[]>((resolve) => {
       resolveOld = resolve;
@@ -536,9 +684,13 @@ describe("mobile sidebar recents", () => {
     await act(async () => render(true, props));
     await act(async () => render(false, props));
     await act(async () => render(true, props));
+    expect(loadSessions).toHaveBeenCalledTimes(1);
     await act(async () =>
-      resolveOld([session("android", 50, { title: "Stale history" })]),
+      resolveOld([session("android", 50, { title: "First response" })]),
     );
+    expect(node.querySelector('[data-session-id="android-chat"] strong')?.textContent).toBe("First response");
+    await act(async () => vi.advanceTimersByTimeAsync(3_000));
+    expect(loadSessions).toHaveBeenCalledTimes(2);
     expect(
       node.querySelector('[data-session-id="android-chat"] strong')?.textContent,
     ).toBe("android chat");

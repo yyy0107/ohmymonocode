@@ -10,6 +10,7 @@ import type { AssistantNotificationActivity } from "../features/assistant/model/
 import { sessionDisplayTitle } from "../features/sessions/model/session";
 import { HARNESS_ICONS } from "../features/sessions/ui/HarnessIcon";
 import { notificationText } from "./notificationText";
+import type { NativeActivityRow } from "./nativeActivitySync";
 
 export type MobileNotificationPermission =
   "prompt" | "granted" | "denied" | "unsupported";
@@ -31,7 +32,15 @@ export interface MobileNotificationsPlugin {
   stop(): Promise<void>;
   observe(options: {
     environmentId: string;
-    sessions: readonly HostSessionSummary[];
+    sessions: readonly NativeActivityRow[];
+    assistant?: AssistantNotificationActivity | null;
+    enabled: boolean;
+  }): Promise<ActivityResult>;
+  /** Only rows changed since the last full observe, and ids that are gone. */
+  observeChanges(options: {
+    environmentId: string;
+    sessions: readonly NativeActivityRow[];
+    removed: readonly string[];
     assistant?: AssistantNotificationActivity | null;
     enabled: boolean;
   }): Promise<ActivityResult>;

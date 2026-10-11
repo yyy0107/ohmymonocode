@@ -11,21 +11,7 @@ import type { SessionChangesIndex } from "./mobileSessionChanges";
 import { MobileSheet } from "./MobileSheet";
 import { MobileGitDiff } from "./MobileGitDiff";
 import "./mobileGitReview.css";
-
-export function MobileDiffCounts({
-  additions,
-  deletions,
-}: {
-  additions: number;
-  deletions: number;
-}) {
-  return (
-    <span className="mobile-git-counts">
-      <span data-kind="add">+{additions}</span>
-      <span data-kind="del">−{deletions}</span>
-    </span>
-  );
-}
+import { MobileDiffCounts } from "./MobileDiffCounts";
 
 /** Keep or undo the edits one conversation made. */
 export type MobileSessionChangeActions = {

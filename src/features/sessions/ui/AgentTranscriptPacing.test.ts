@@ -212,3 +212,26 @@ it("releases waiting replies when the earlier message leaves the transcript", ()
     second.text,
   );
 });
+
+it("closes work the answer folds where it stood instead of dropping it in one frame", () => {
+  const work: Block[] = [
+    { id: "user", role: "user", text: "Review the diff" },
+    { id: "intro", role: "assistant", text: "Checking the repo first." },
+    { ...tool("first"), tool: { kind: "shell", status: "completed" } },
+  ];
+  render(work);
+  act(() => vi.advanceTimersByTime(2_000));
+  expect(container.textContent).toContain("Run first");
+
+  render([...work, { id: "answer", role: "assistant", text: "Here is the answer." }]);
+  const closing = () =>
+    [...container.querySelectorAll('.zen-fold-item')].filter(
+      (item) => item.textContent?.includes("Run first"),
+    );
+  // Still on screen in the frame the fold lands, then closing in place.
+  expect(closing().length).toBeGreaterThan(0);
+  act(() => vi.advanceTimersByTime(20));
+  expect(closing().some((item) => item.getAttribute("data-fold-state") === "closing")).toBe(true);
+  act(() => vi.advanceTimersByTime(1_000));
+  expect(closing()).toHaveLength(0);
+});

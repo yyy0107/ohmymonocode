@@ -42,6 +42,7 @@ import {
   reuseRemoteAttachmentPreviews,
   withRemoteAttachmentPreviews,
 } from "../features/connections/model/remoteAttachmentPreviews";
+import { withoutSessionPreviewData } from "./sessionPreviewCache";
 import type { MobileStorage } from "./storage";
 import { translate } from "../shared/i18n/language";
 import type { NativeSessionAccess } from "../integrations/harness/core/nativeSessions";
@@ -242,6 +243,9 @@ export class MobileClient {
     });
   }
   private snapshots = new Map<string, HostSession>();
+  // Eight conversations retain text; only the current and most recently read
+  // conversation retain downloaded images. Late hydration never changes recency.
+  private previewSessions = new Set<string>();
   private sessionLoads = new Map<string, Promise<HostSession>>();
   private previewLoads = new Map<string, Promise<HostSession | undefined>>();
   private catalogs = new Map<string, { value: HostModelCatalog; expires: number }>();
@@ -265,6 +269,7 @@ export class MobileClient {
     this.cancelSummaryWrite();
     this.cacheEpoch += 1;
     this.snapshots.clear();
+    this.previewSessions.clear();
     this.sessionLoads.clear();
     this.previewLoads.clear();
     this.catalogs.clear();
@@ -277,6 +282,7 @@ export class MobileClient {
     this.summaryTurns.clear();
   }
   private rememberSession(value: HostSession): HostSession {
+    if (!this.previewSessions.has(value.session.id)) value = withoutSessionPreviewData(value);
     this.snapshots.delete(value.session.id);
     this.snapshots.set(value.session.id, value);
     if (this.snapshots.size > 8)
@@ -308,10 +314,23 @@ export class MobileClient {
   cachedSession(sessionId: string): HostSession | undefined {
     const value = this.snapshots.get(sessionId);
     if (value) {
+      this.retainSessionPreviews(sessionId);
       this.snapshots.delete(sessionId);
       this.snapshots.set(sessionId, value);
     }
     return value;
+  }
+  private retainSessionPreviews(sessionId: string) {
+    this.previewSessions.delete(sessionId);
+    this.previewSessions.add(sessionId);
+    if (this.previewSessions.size <= 2) return;
+    const oldest = this.previewSessions.values().next().value!;
+    this.previewSessions.delete(oldest);
+    const snapshot = this.snapshots.get(oldest);
+    if (snapshot) this.snapshots.set(oldest, withoutSessionPreviewData(snapshot));
+    // In-flight transfer promises are shared only until they settle in
+    // remoteAttachmentPreviews. They must not repopulate this evicted preview.
+    this.previewLoads.delete(oldest);
   }
   private dispatching = false;
   private switchAttempt = 0;
@@ -398,6 +417,8 @@ export class MobileClient {
   }
 
   async restore(): Promise<boolean> {
+    // Starting over reads the journal from storage again.
+    this.pendingValue = undefined;
     const saved = await this.storage.get("connection");
     if (!saved) return false;
     const connection = JSON.parse(saved) as Connection;
@@ -520,6 +541,7 @@ export class MobileClient {
     await this.storage.set("connections", JSON.stringify(remaining));
   }
   async disconnect(): Promise<void> {
+    this.pendingValue = undefined;
     const endpoint = this.connection?.endpoint;
     const remaining = (await this.savedConnections())
       .filter((item) => item.endpoint !== endpoint);
@@ -781,6 +803,7 @@ export class MobileClient {
     this.nextSummaryTurn(projectId);
     if (sessions) this.rememberSummaries(projectId, sessions.filter((item) => item.id !== sessionId));
     this.snapshots.delete(sessionId);
+    this.previewSessions.delete(sessionId);
     this.sessionLoads.delete(sessionId);
     this.previewLoads.delete(sessionId);
   }
@@ -902,6 +925,7 @@ export class MobileClient {
   }
 
   async session(sessionId: string, minimumRevision?: number): Promise<HostSession> {
+    this.retainSessionPreviews(sessionId);
     const existing = this.sessionLoads.get(sessionId);
     if (existing) {
       const result = await existing;
@@ -939,7 +963,7 @@ export class MobileClient {
     if (existing) return existing;
     const known = this.snapshots.get(sessionId);
     const connection = this.connection;
-    if (!known || !connection || ![...walkTranscript(known.session.blocks)].some((block) =>
+    if (!known || !connection || !this.previewSessions.has(sessionId) || ![...walkTranscript(known.session.blocks)].some((block) =>
       block.attachments?.some((file) => file.kind === "image" &&
         file.data === undefined && !file.previewUrl && file.size <= MOBILE_ATTACHMENT_BYTES)))
       return known;
@@ -958,9 +982,28 @@ export class MobileClient {
     this.previewLoads.set(sessionId, pending);
     return pending;
   }
+  /**
+   * The journal only changes through this client, so one Keystore read serves
+   * every later poll instead of a native decrypt on each 250ms session sync.
+   */
+  private pendingValue: Promise<string | null> | undefined;
   async pending(): Promise<PendingCommand | undefined> {
-    const value = await this.storage.get("pending");
+    const read = (this.pendingValue ??= this.storage.get("pending"));
+    let value: string | null;
+    try {
+      value = await read;
+    } catch (error) {
+      if (this.pendingValue === read) this.pendingValue = undefined;
+      throw error;
+    }
     return value ? (JSON.parse(value) as PendingCommand) : undefined;
+  }
+  private async writePending(value: string | null) {
+    this.pendingValue = undefined;
+    if (value === null) await this.storage.remove("pending");
+    else await this.storage.set("pending", value);
+    // A failed write leaves the cache empty, so the next read asks storage.
+    this.pendingValue = Promise.resolve(value);
   }
   async uploadAttachments(
     files: Attachment[],
@@ -1048,8 +1091,7 @@ export class MobileClient {
           "Resolve the pending request before sending another message.",
         );
       const { endpoint, environmentId } = this.connection;
-      await this.storage.set(
-        "pending",
+      await this.writePending(
         JSON.stringify({
           endpoint,
           environmentId,
@@ -1099,19 +1141,19 @@ export class MobileClient {
             sessionId: receipt.sessionId,
           },
         };
-        await this.storage.set("pending", JSON.stringify(pending));
+        await this.writePending(JSON.stringify(pending));
         receipt = await this.rpc<CommandReceipt>(
           "commands.dispatch",
           pending.command,
         );
       }
-      await this.storage.remove("pending");
+      await this.writePending(null);
       return receipt;
     } catch (error) {
       // A Host 400 is a definitive command rejection. Transport failures remain
       // journaled so a retry can ask for the same receipt instead of resending.
       if (error instanceof HostRequestError && error.status === 400)
-        await this.storage.remove("pending");
+        await this.writePending(null);
       throw error;
     }
   }

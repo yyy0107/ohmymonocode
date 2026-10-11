@@ -80,14 +80,14 @@ const currentPage = () => dialog()!.querySelector<HTMLElement>('[data-page-activ
 const finishNavigation = () => act(() => vi.advanceTimersByTime(240));
 
 describe("mobile activity sheet", () => {
-  it("opens a settled group's steps in a sheet, then a step's details with a way back", () => {
+  it("opens a settled group's steps in a sheet, then a step's details with a way back", async () => {
     const node = render(settledTurn);
     // The turn's fold line is the one tap between the answer and its steps.
     const fold = node.querySelector<HTMLButtonElement>("[data-activity-sheet]")!;
     expect(fold.getAttribute("aria-label")).toBe("Show the work");
     expect(fold.hasAttribute("aria-expanded")).toBe(false);
     expect(fold.textContent).toContain("+2−1");
-    act(() => fold.click());
+    await act(async () => { fold.click(); await vi.dynamicImportSettled(); });
     const sheet = dialog()!;
     sheet.dataset.detent = "full";
     sheet.style.transform = "translateY(0px)";
@@ -126,9 +126,9 @@ describe("mobile activity sheet", () => {
     expect(dialog()?.querySelector(".mobile-activity-sheet")).not.toBeNull();
   });
 
-  it("reverses immediately inside the same sheet and keeps keyboard focus on the active page", () => {
+  it("reverses immediately inside the same sheet and keeps keyboard focus on the active page", async () => {
     const node = render(settledTurn);
-    act(() => node.querySelector<HTMLButtonElement>("[data-activity-sheet]")!.click());
+    await act(async () => { node.querySelector<HTMLButtonElement>("[data-activity-sheet]")!.click(); await vi.dynamicImportSettled(); });
     const sheet = dialog();
     const list = currentPage();
     const step = list.querySelectorAll<HTMLButtonElement>(".mobile-activity-step > button")[1];
@@ -151,10 +151,10 @@ describe("mobile activity sheet", () => {
     expect(currentPage().querySelector(".mobile-tool-sheet")).not.toBeNull();
   });
 
-  it("switches without retaining an outgoing page when reduced motion is requested", () => {
+  it("switches without retaining an outgoing page when reduced motion is requested", async () => {
     vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true } as MediaQueryList);
     const node = render(settledTurn);
-    act(() => node.querySelector<HTMLButtonElement>("[data-activity-sheet]")!.click());
+    await act(async () => { node.querySelector<HTMLButtonElement>("[data-activity-sheet]")!.click(); await vi.dynamicImportSettled(); });
     const sheet = dialog();
     act(() => currentPage().querySelector<HTMLButtonElement>(".mobile-activity-step > button")!.click());
     expect(dialog()).toBe(sheet);
@@ -167,12 +167,12 @@ describe("mobile activity sheet", () => {
 
   it("preserves the route back to the activity list after viewing a tool's file", async () => {
     const node = render(settledTurn, "idle", async () => new TextEncoder().encode("export const value = 1;"));
-    act(() => node.querySelector<HTMLButtonElement>("[data-activity-sheet]")!.click());
+    await act(async () => { node.querySelector<HTMLButtonElement>("[data-activity-sheet]")!.click(); await vi.dynamicImportSettled(); });
     act(() => currentPage().querySelector<HTMLButtonElement>(".mobile-activity-step > button")!.click());
     finishNavigation();
     const viewFile = [...currentPage().querySelectorAll<HTMLButtonElement>("button")]
       .find((button) => button.textContent === "View file")!;
-    await act(async () => viewFile.click());
+    await act(async () => { viewFile.click(); await vi.dynamicImportSettled(); });
     finishNavigation();
     expect(dialog()!.querySelector(".mobile-file-sheet")).not.toBeNull();
     act(() => dialog()!.querySelector<HTMLButtonElement>('[aria-label="Back"]')!.click());
@@ -183,7 +183,7 @@ describe("mobile activity sheet", () => {
     expect(currentPage().querySelectorAll(".mobile-activity-step")).toHaveLength(2);
   });
 
-  it("opens a live group's steps from its header while the turn runs", () => {
+  it("opens a live group's steps from its header while the turn runs", async () => {
     const node = render([
       { id: "user", role: "user", text: "Fix it", startedAt: Date.now() },
       edit("a", "a.ts"),
@@ -191,7 +191,7 @@ describe("mobile activity sheet", () => {
     ], "running");
     const group = node.querySelector<HTMLButtonElement>("[data-activity-sheet]")!;
     expect(group.getAttribute("aria-haspopup")).toBe("dialog");
-    act(() => group.click());
+    await act(async () => { group.click(); await vi.dynamicImportSettled(); });
     const running = dialog()!.querySelectorAll(".mobile-activity-step")[1];
     expect(running.querySelector(".mobile-spin")).not.toBeNull();
   });

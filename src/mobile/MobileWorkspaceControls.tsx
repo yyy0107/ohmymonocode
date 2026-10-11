@@ -1,3 +1,4 @@
+import { MobileSpinner } from "./MobileSpinner";
 import { useEffect, useLayoutEffect, useState, type RefObject } from "react";
 import {
   Check,
@@ -5,7 +6,6 @@ import {
   Folder,
   FolderTree,
   GitBranch,
-  LoaderCircle,
 } from "../shared/ui/icons";
 import { useTranslation } from "../shared/i18n/useTranslation";
 import { MobileSheet, SHEET_WIDTH } from "./MobileSheet";
@@ -95,7 +95,7 @@ export function MobileWorkspaceControls({
   const [worktrees, retryWorktrees] = useSheetLoad(open, page === "worktrees", loadWorktrees);
   const current = branches.state === "ready" ? branches.value.current : null;
   const base = workspace.base ?? current ?? "HEAD";
-  const spinner = <LoaderCircle size={20} className="mobile-spin" role="status" aria-label={t("Loading…")} />;
+  const spinner = <MobileSpinner size={20} className="mobile-spin" role="status" aria-label={t("Loading…")} />;
   const failure = (text: string, retry: () => void) => (
     <div className="mobile-workspace-status">
       <p className="mobile-form-error" role="alert">{t(text)}</p>

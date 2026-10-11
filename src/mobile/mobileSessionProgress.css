@@ -173,3 +173,9 @@
 button.mobile-progress-row:active {
   --mobile-press-color: var(--color-selection);
 }
+.mobile-progress-git-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}

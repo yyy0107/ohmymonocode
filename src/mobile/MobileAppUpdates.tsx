@@ -1,7 +1,8 @@
+import { MobileSpinner } from "./MobileSpinner";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
-import { ArrowDownCircle, LoaderCircle, RefreshCw } from "../shared/ui/icons";
+import { ArrowDownCircle, RefreshCw } from "../shared/ui/icons";
 import { MobileSwap } from "./MobileSwap";
 import { useTranslation } from "../shared/i18n/useTranslation";
 import {
@@ -223,7 +224,7 @@ export function MobileAppUpdates({
             >
               <MobileSwap swapKey={checking ? "busy" : "idle"}>
                 {checking ? (
-                  <LoaderCircle size={16} className="mobile-spin" />
+                  <MobileSpinner size={16} className="mobile-spin" />
                 ) : (
                   <RefreshCw size={16} />
                 )}
@@ -239,7 +240,7 @@ export function MobileAppUpdates({
               >
                 <MobileSwap swapKey={installing ? "busy" : "idle"}>
                   {installing ? (
-                    <LoaderCircle size={16} className="mobile-spin" />
+                    <MobileSpinner size={16} className="mobile-spin" />
                   ) : (
                     <ArrowDownCircle size={16} />
                   )}

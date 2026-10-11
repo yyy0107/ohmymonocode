@@ -43,6 +43,10 @@ body,
      flash ignores capsule corners and lands a frame late. */
   -webkit-tap-highlight-color: transparent;
 }
+/* This visibility wrapper belongs to the shell, including before Assistant loads. */
+.mobile-assistant-background {
+  display: contents;
+}
 html.theme-light .mobile-app {
   --mobile-accent: #007aff;
   --mobile-card: #fff;
@@ -290,7 +294,7 @@ html .popover-backdrop.popover-backdrop {
   -webkit-backdrop-filter: blur(var(--mobile-glass-surface-blur, var(--mobile-glass-blur)))
     saturate(var(--mobile-glass-saturation))
     brightness(var(--mobile-glass-brightness));
-  backdrop-filter: var(--mobile-glass-refraction, )
+  backdrop-filter: var(--mobile-glass-motion-refraction, var(--mobile-glass-refraction, ))
     blur(var(--mobile-glass-surface-blur, var(--mobile-glass-blur)))
     saturate(var(--mobile-glass-saturation))
     brightness(var(--mobile-glass-brightness));
@@ -365,6 +369,37 @@ html .popover-backdrop.popover-backdrop::before {
 html .popover-backdrop.popover-backdrop::before {
   inset: -1.5px;
   padding: 2px;
+}
+/* Motion changes only the glass surfaces, without invalidating inherited
+   properties throughout the transcript. Omit the initial value so var() keeps
+   its refraction fallback outside motion. */
+@property --mobile-glass-motion-refraction {
+  syntax: "*";
+  inherits: false;
+}
+/* An empty function list removes only the SVG lens. Existing backdrop-filter:
+   none rules on solid sheets and nested composers retain their priority. Keep
+   positive classes at each selector's right edge: a bare :not() makes a root
+   attribute change invalidate every element, even outside the header. */
+html[data-mobile-glass="liquid"][data-mobile-glass-motion] :is(
+    .mobile-header[data-floating="true"] > .mobile-icon-button:not([data-capsule="false"]),
+    .mobile-header[data-floating="true"] > .mobile-header-title:not([data-capsule="false"]),
+    .mobile-header[data-floating="true"] > .mobile-header-actions:not([data-capsule="false"]),
+    .mobile-header[data-floating="true"] > .mobile-header-search:not([data-capsule="false"]),
+    .mobile-header[data-floating="true"] > .mobile-header-logo:not([data-capsule="false"]),
+    .mobile-composer,
+    .mobile-composer-card > .mobile-composer-context,
+    .mobile-composer-card > .mobile-composer-input,
+    .mobile-jump,
+    .mobile-queue-pill,
+    .mobile-progress-capsule,
+    .mobile-glass-preview-chip,
+    .mobile-drawer,
+    .mobile-sheet,
+    .mobile-shared-question,
+    .popover-backdrop
+  ) {
+  --mobile-glass-motion-refraction: ;
 }
 /* Solid restores opaque surfaces without paying for backdrop filters. */
 html[data-mobile-glass="solid"] :is(
@@ -3919,6 +3954,16 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
 .mobile-drawer-backdrop[data-dragging] .mobile-drawer {
   transition: none;
 }
+/* Release the hidden layers only after the closing spring finishes. A pull
+   enables them immediately, before React commits the gesture state. */
+.mobile-drawer-backdrop[data-settled-closed]:not([data-dragging]) .mobile-drawer {
+  will-change: auto;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.mobile-drawer-backdrop[data-settled-closed]:not([data-dragging])::before {
+  will-change: auto;
+}
 @media (prefers-reduced-motion: reduce) {
   .mobile-drawer,
   .mobile-drawer-backdrop,
@@ -3940,6 +3985,8 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
   flex-shrink: 0;
   max-height: 60%;
   overflow-y: auto;
+  /* Native gesture arbitration stops at the nearest scroll container. */
+  touch-action: pan-y;
   overscroll-behavior: contain;
   scrollbar-width: none;
   padding-bottom: 8px;
@@ -4011,6 +4058,7 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  touch-action: pan-y;
   overscroll-behavior: contain;
   padding-top: 4px;
   scrollbar-width: none;

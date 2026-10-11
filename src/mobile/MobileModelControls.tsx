@@ -1,10 +1,10 @@
+import { MobileSpinner } from "./MobileSpinner";
 import { sessionComposerConfiguration } from "../features/sessions/model/composerConfiguration";
 import { useLayoutEffect, useState, type RefObject } from "react";
 import {
   Check,
   ChevronRight,
   Gauge,
-  LoaderCircle,
   SlidersHorizontal,
   Sparkles,
 } from "../shared/ui/icons";
@@ -147,7 +147,7 @@ export function MobileModelControls({
   const agentLocked = lockedAgent && !allowHandoff;
   const selectedSetting = settings.find((setting) => setting.id === settingId);
   const rowIndicator = loading ? (
-    <LoaderCircle size={20} className="mobile-spin" role="status" aria-label={t("Loading…")} />
+    <MobileSpinner size={20} className="mobile-spin" role="status" aria-label={t("Loading…")} />
   ) : <ChevronRight size={20} />;
   const providers = REMOTE_PROVIDERS.filter(
     (provider) =>

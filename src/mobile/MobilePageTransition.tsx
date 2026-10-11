@@ -255,6 +255,8 @@ export function MobilePageOverlay({ open, children, keepMounted = false }: {
   );
 }
 
+const HEADER_START_OPACITY = 0.4;
+
 /** The persistent header animates without duplicating its focus/anchor refs. */
 export function useMobileHeaderMotion(ref: RefObject<HTMLElement | null>, route: MobileRoute, animate: boolean) {
   const previous = useRef(route);
@@ -262,8 +264,10 @@ export function useMobileHeaderMotion(ref: RefObject<HTMLElement | null>, route:
     const before = previous.current;
     previous.current = route;
     if (before.key === route.key || !animate || reducedMotion()) return;
+    // The animation starts in the commit that mounts the next page, whose
+    // work can hold the first frames; starting from zero blanked the header.
     const animation = ref.current?.animate?.([
-      { opacity: 0, transform: `translateX(${mobileRouteDirection(before, route) * 10}px)` },
+      { opacity: HEADER_START_OPACITY, transform: `translateX(${mobileRouteDirection(before, route) * 10}px)` },
       { opacity: 1, transform: "translateX(0px)" },
     ], { duration: MOBILE_PAGE_MOTION_MS, easing: EASING });
     void animation?.finished.catch(() => {});

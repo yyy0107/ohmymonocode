@@ -1,6 +1,6 @@
+import { MobileSpinner } from "./MobileSpinner";
 import {
   Internet,
-  LoaderCircle,
   PairingCode,
   ScanQrCode,
 } from "../shared/ui/icons";
@@ -184,7 +184,7 @@ export function MobileConnectionSheet({
               >
                 <MobileSwap swapKey={disabled ? "busy" : "idle"}>
                   {disabled ? (
-                    <LoaderCircle size={16} className="mobile-spin" />
+                    <MobileSpinner size={16} className="mobile-spin" />
                   ) : (
                     <Internet size={16} />
                   )}

@@ -158,6 +158,19 @@ public final class MonoCodeNotificationsPlugin extends Plugin {
             call.resolve(MobileActivityTracker.observe(getContext(), environmentId, call.getArray("sessions"), call.getBoolean("enabled", false), texts));
         } catch (Exception error) { call.reject("Unable to track conversation activity", error); }
     }
+    /** Changes since the last full observe; parsing the whole list each poll stalled the main thread. */
+    @PluginMethod public void observeChanges(PluginCall call) {
+        try {
+            String environmentId = call.getString("environmentId");
+            if (environmentId == null || call.getArray("sessions") == null || call.getArray("removed") == null) {
+                call.reject("Missing activity changes"); return;
+            }
+            JSONObject texts = new JSONObject(MobileActivityTracker.preferences(getContext()).getString("texts", "{}"));
+            MobileActivityTracker.observeAssistant(getContext(), environmentId, call.getObject("assistant"), call.getBoolean("enabled", false), texts);
+            call.resolve(MobileActivityTracker.observeChanges(getContext(), environmentId, call.getArray("sessions"),
+                call.getArray("removed"), call.getBoolean("enabled", false), texts));
+        } catch (Exception error) { call.reject("Unable to track conversation activity", error); }
+    }
     @PluginMethod public void consumeOpen(PluginCall call) {
         JSObject result = new JSObject();
         if (pendingOpen != null) result.put("target", pendingOpen);

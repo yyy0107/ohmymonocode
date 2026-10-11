@@ -1,4 +1,3 @@
-import { MobileAgentSheet } from "./MobileAgentSheet";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AgentTranscript } from "../features/sessions/ui/AgentTranscript";
@@ -24,12 +23,8 @@ import {
   mobileTranscriptPlatform,
   createMobileTranscriptPlatform,
 } from "./transcriptPlatform";
-import { MobileToolSheet } from "./MobileToolSheet";
-import { MobileActivitySheet } from "./MobileActivitySheet";
-import { MobileFileSheet } from "./MobileFileSheet";
 import { MobileSheet } from "./MobileSheet";
 import { MobileSessionProgress } from "./MobileSessionProgress";
-import { MobileGitReviewSheet } from "./MobileGitReviewSheet";
 import type { MobileGitSource } from "./mobileGit";
 import type { MobileSessionChangesSource } from "./mobileSessionChanges";
 import { useMobileGitIndex } from "./useMobileGitIndex";
@@ -38,6 +33,13 @@ import { useTranslation } from "../shared/i18n/useTranslation";
 import { useTranscriptLayout } from "../features/sessions/hooks/useTranscriptLayout";
 import { useSurfaceVisibility } from "../shared/ui/SurfaceVisibility";
 import { useStableCallback } from "./useStableCallback";
+import { lazyMobileSheet } from "./mobileLazy";
+
+const MobileAgentSheet = lazyMobileSheet(async () => ({ default: (await import("./MobileAgentSheet")).MobileAgentSheet }));
+const MobileToolSheet = lazyMobileSheet(async () => ({ default: (await import("./MobileToolSheet")).MobileToolSheet }));
+const MobileActivitySheet = lazyMobileSheet(async () => ({ default: (await import("./MobileActivitySheet")).MobileActivitySheet }));
+const MobileFileSheet = lazyMobileSheet(async () => ({ default: (await import("./MobileFileSheet")).MobileFileSheet }));
+const MobileGitReviewSheet = lazyMobileSheet(async () => ({ default: (await import("./MobileGitReviewSheet")).MobileGitReviewSheet }));
 
 type Detail =
   | { kind: "progress" }

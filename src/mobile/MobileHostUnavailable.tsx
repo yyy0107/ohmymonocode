@@ -1,5 +1,5 @@
+import { MobileSpinner } from "./MobileSpinner";
 import { useTranslation } from "../shared/i18n/useTranslation";
-import { LoaderCircle } from "../shared/ui/icons";
 
 function formatLastOnline(at: number, now: number, language: string) {
   const sameDay = new Date(at).toDateString() === new Date(now).toDateString();
@@ -20,7 +20,7 @@ export function MobileHostUnavailable({ failed, retrying, lastOnline, now, onRet
   return (
     <div className="mobile-host-unavailable" role={failed ? "alert" : "status"} aria-busy={spinning}>
       <span className="mobile-host-unavailable-spinner" data-visible={spinning} aria-hidden="true">
-        <LoaderCircle size={24} className={spinning ? "mobile-spin" : undefined} />
+        <MobileSpinner size={24} className={spinning ? "mobile-spin" : undefined} />
       </span>
       <img className="mobile-host-unavailable-logo" src="/monocode.png" alt="" />
       <strong>{t(failed ? "Couldn’t connect" : "Connecting…")}</strong>

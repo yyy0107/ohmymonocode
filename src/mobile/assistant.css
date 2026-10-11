@@ -1,7 +1,4 @@
 /* Assistant chat follows the phone's inset cards and floating controls. */
-.mobile-assistant-background {
-  display: contents;
-}
 .mobile-assistant-overlay {
   position: absolute;
   inset: 0;

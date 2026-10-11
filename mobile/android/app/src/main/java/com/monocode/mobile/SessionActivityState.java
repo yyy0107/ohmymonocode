@@ -1,6 +1,7 @@
 package com.monocode.mobile;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -35,34 +36,49 @@ public final class SessionActivityState {
         Set<String> ids = new HashSet<>();
         for (Activity activity : activities) {
             ids.add(activity.id);
-            Entry entry = entries.get(activity.id);
-            if (entry != null && entry.revision > activity.revision) continue;
-            if (activity.archived) {
-                markRead(activity.id, activity.revision);
-                Entry archived = entries.get(activity.id);
-                archived.revision = Math.max(archived.revision, activity.revision);
-                if (activity.finished != null) archived.finished = activity.finished;
-                if (activity.input != null) archived.input = activity.input;
-                continue;
-            }
-            if (entry == null) {
-                entry = new Entry();
-                entry.read = initialized ? 0 : activity.revision;
-                if (!initialized) { entry.finished = activity.finished; entry.input = activity.input; }
-                entries.put(activity.id, entry);
-            }
-            entry.revision = activity.revision;
-            entry.reply = Math.max(entry.reply, activity.reply);
-            boolean newFinish = activity.finished != null && !Objects.equals(activity.finished, entry.finished);
-            boolean newInput = activity.input != null && !Objects.equals(activity.input, entry.input);
-            if (activity.finished != null) entry.finished = activity.finished;
-            if (activity.input != null) entry.input = activity.input;
-            if (entry.reply > entry.read && !Objects.equals(activity.id, visibleId) && (newFinish || newInput))
-                notices.add(new Notice(activity, newInput));
+            apply(activity, visibleId, notices);
         }
         entries.keySet().retainAll(ids);
         initialized = true;
         return notices;
+    }
+    /**
+     * The changes since a full snapshot this state already holds: rows that
+     * changed and ids that are gone. An unchanged row would apply as a no-op,
+     * so leaving it out keeps the result the same as a full observe.
+     */
+    public List<Notice> observeChanges(List<Activity> changed, Collection<String> removed, String visibleId) {
+        if (!initialized) throw new IllegalStateException("Activity changes need a full snapshot first");
+        List<Notice> notices = new ArrayList<>();
+        for (Activity activity : changed) apply(activity, visibleId, notices);
+        entries.keySet().removeAll(removed);
+        return notices;
+    }
+    private void apply(Activity activity, String visibleId, List<Notice> notices) {
+        Entry entry = entries.get(activity.id);
+        if (entry != null && entry.revision > activity.revision) return;
+        if (activity.archived) {
+            markRead(activity.id, activity.revision);
+            Entry archived = entries.get(activity.id);
+            archived.revision = Math.max(archived.revision, activity.revision);
+            if (activity.finished != null) archived.finished = activity.finished;
+            if (activity.input != null) archived.input = activity.input;
+            return;
+        }
+        if (entry == null) {
+            entry = new Entry();
+            entry.read = initialized ? 0 : activity.revision;
+            if (!initialized) { entry.finished = activity.finished; entry.input = activity.input; }
+            entries.put(activity.id, entry);
+        }
+        entry.revision = activity.revision;
+        entry.reply = Math.max(entry.reply, activity.reply);
+        boolean newFinish = activity.finished != null && !Objects.equals(activity.finished, entry.finished);
+        boolean newInput = activity.input != null && !Objects.equals(activity.input, entry.input);
+        if (activity.finished != null) entry.finished = activity.finished;
+        if (activity.input != null) entry.input = activity.input;
+        if (entry.reply > entry.read && !Objects.equals(activity.id, visibleId) && (newFinish || newInput))
+            notices.add(new Notice(activity, newInput));
     }
     public void markRead(String id, long revision) {
         markRead(id, revision, null, null);

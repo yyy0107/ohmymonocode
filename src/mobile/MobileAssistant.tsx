@@ -1,3 +1,4 @@
+import { MobileSpinner } from "./MobileSpinner";
 import { AttachmentList } from "../features/sessions/ui/AttachmentList";
 import { AssistantAttachmentPreview } from "../features/assistant/ui/AssistantAttachmentPreview";
 import {
@@ -37,7 +38,6 @@ import {
   ChevronRight,
   Copy,
   CornerDownRight,
-  LoaderCircle,
   MoreHorizontal,
   Pause,
   Play,
@@ -442,7 +442,7 @@ function MobileAssistantComposer({
             disabled={sendDisabled}
           >
             {sending ? (
-              <LoaderCircle size={21} className="mobile-spin" aria-hidden="true" />
+              <MobileSpinner size={21} className="mobile-spin" aria-hidden="true" />
             ) : (
               <ArrowUp size={21} aria-hidden="true" />
             )}

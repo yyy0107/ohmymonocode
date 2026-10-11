@@ -20,33 +20,9 @@ import {
   type TranscriptLayout,
 } from "../features/settings/model/appearance";
 
-export type MobileSettingsPage =
-  "root" | "agents" | "notifications" | "chat" |
-  "connections" | "updates" | "glass" | "archive" | "accounts";
-export type MobilePreferencePanel =
-  "theme" | "accent" | "language" | "glass" | "follow-up" | "transcript-layout" |
-  "agent-defaults" | "default-permissions" | "account-claude" | "account-codex" |
-  "connection-menu" | "connection-edit" | "connection-delete" | null;
-
-const SETTINGS_TITLES: Record<MobileSettingsPage, string> = {
-  root: "Settings",
-  agents: "New conversations",
-  accounts: "Accounts and usage",
-  notifications: "Notifications",
-  chat: "Message composer",
-  connections: "Connections",
-  updates: "App updates",
-  glass: "Glass",
-  archive: "Archived conversations",
-};
-
-export function mobileSettingsTitle(page: MobileSettingsPage) {
-  return SETTINGS_TITLES[page];
-}
-
-export function mobileSettingsParent(_page: MobileSettingsPage): MobileSettingsPage {
-  return "root";
-}
+import type { MobilePreferencePanel, MobileSettingsPage } from "./mobileSettingsRoutes";
+export { mobileSettingsTitle, mobileSettingsParent } from "./mobileSettingsRoutes";
+export type { MobilePreferencePanel, MobileSettingsPage } from "./mobileSettingsRoutes";
 
 function GlassPreview({ label }: { label: string }) {
   return (

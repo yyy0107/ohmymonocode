@@ -100,7 +100,7 @@ const diffText = (scope: ParentNode = page()) =>
     .map((node) => node.shadowRoot?.querySelector("[data-diff]")?.textContent ?? "")
     .join("\n");
 const click = async (button: HTMLElement) => {
-  await act(async () => button.click());
+  await act(async () => { button.click(); await vi.dynamicImportSettled(); });
 };
 const settle = () => act(async () => vi.advanceTimersByTime(400));
 async function openReview() {

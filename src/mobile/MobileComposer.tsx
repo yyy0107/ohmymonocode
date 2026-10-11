@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { MobileSpinner } from "./MobileSpinner";
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Keyboard } from "@capacitor/keyboard";
 import {
@@ -10,7 +11,6 @@ import {
   Folder,
   FolderTree,
   ImagePlus,
-  LoaderCircle,
   Plus,
   Square,
   X,
@@ -147,7 +147,7 @@ function MobileComposerAttachments({ attachments, onRemove }: {
   </div>;
 }
 
-export function MobileComposer(props: Props) {
+export const MobileComposer = memo(function MobileComposer(props: Props) {
   const { t } = useTranslation();
   const area = useRef<HTMLTextAreaElement>(null);
   const form = useRef<HTMLFormElement>(null);
@@ -367,7 +367,7 @@ export function MobileComposer(props: Props) {
         aria-label={t("Send message")}
       >
         {props.working ? (
-          <LoaderCircle size={20} className="mobile-spin" />
+          <MobileSpinner size={20} className="mobile-spin" />
         ) : (
           <ArrowUp size={20} />
         )}
@@ -473,7 +473,7 @@ export function MobileComposer(props: Props) {
                 {effort && <small>{t(effort)}</small>}
               </span>
               {props.catalogLoading ? (
-                <LoaderCircle size={16} className="mobile-spin" role="status" aria-label={t("Loading…")} />
+                <MobileSpinner size={16} className="mobile-spin" role="status" aria-label={t("Loading…")} />
               ) : (
                 <ChevronsUpDown size={16} aria-hidden="true" />
               )}
@@ -499,7 +499,7 @@ export function MobileComposer(props: Props) {
                   : <Folder size={18} aria-hidden="true" />}
                 <span>{workspaceName}</span>
                 {workspace.creating ? (
-                  <LoaderCircle size={16} className="mobile-spin" aria-hidden="true" />
+                  <MobileSpinner size={16} className="mobile-spin" aria-hidden="true" />
                 ) : (
                   <ChevronsUpDown size={16} aria-hidden="true" />
                 )}
@@ -865,4 +865,4 @@ export function MobileComposer(props: Props) {
       </MobileSheet>
     </>
   );
-}
+});

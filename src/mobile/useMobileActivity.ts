@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { takeAssistantNotification } from "../features/assistant/model/assistantNotifications";
 import type { MobileClient } from "./client";
+import type { SessionSnapshotStore } from "./sessionSnapshotStore";
+import { pendingSessionInputKey } from "../features/sessions/model/sessionActivity";
 import {
   loadMobileActivity,
   saveMobileActivity,
@@ -19,6 +21,9 @@ import {
   type MobileNotificationTarget,
 } from "./notifications";
 import { translate } from "../shared/i18n/language";
+import { NativeActivitySync } from "./nativeActivitySync";
+import type { HostSessionSummary } from "../features/connections/model/protocol";
+import type { AssistantNotificationActivity } from "../features/assistant/model/assistantNotifications";
 
 const ENABLED_KEY = "monocode.mobileNotifications";
 
@@ -33,12 +38,54 @@ function playActivityCue(notices: readonly ActivityNotice[]) {
     )
       return;
 }
+/** Sends only what changed since the tracker's last snapshot, falling back
+ * to the full list when it has none or rejects the changes. */
+async function observeNative(
+  sync: NativeActivitySync,
+  environmentId: string,
+  sessions: readonly HostSessionSummary[],
+  assistant: AssistantNotificationActivity | null | undefined,
+  enabled: boolean,
+) {
+  const { update, commit } = sync.plan(environmentId, sessions);
+  if (!update.full) {
+    try {
+      const state = await MobileNotifications.observeChanges({
+        environmentId,
+        sessions: update.sessions,
+        removed: update.removed,
+        assistant,
+        enabled,
+      });
+      commit();
+      return state;
+    } catch {
+      sync.reset();
+    }
+  }
+  const full = update.full ? { update, commit } : sync.plan(environmentId, sessions);
+  try {
+    const state = await MobileNotifications.observe({
+      environmentId,
+      sessions: full.update.sessions,
+      assistant,
+      enabled,
+    });
+    full.commit();
+    return state;
+  } catch (problem) {
+    sync.reset();
+    throw problem;
+  }
+}
+
 export function useMobileActivity(
   client: MobileClient,
   options: {
     connected: boolean;
     foreground: boolean;
     assistantVisible?: boolean;
+    snapshots?: Pick<SessionSnapshotStore, "getRendered" | "subscribeRendered">;
     visibleSession?: {
       id: string;
       projectId: string;
@@ -50,11 +97,17 @@ export function useMobileActivity(
     onOpen: (target: MobileNotificationTarget) => void | Promise<void>;
   },
 ) {
-  const { connected, foreground, visibleSession, assistantVisible, language } = options;
+  const { connected, foreground, visibleSession, assistantVisible, language, snapshots } = options;
   const environmentId = connected
     ? client.connection?.environmentId
     : undefined;
-  const [unreadIds, setUnreadIds] = useState<Set<string>>(() => new Set());
+  const [unreadIds, commitUnreadIds] = useState<Set<string>>(() => new Set());
+  const setUnreadIds = useCallback((update: Set<string> | ((previous: Set<string>) => Set<string>)) => {
+    commitUnreadIds((previous) => {
+      const next = typeof update === "function" ? update(previous) : update;
+      return next.size === previous.size && [...next].every((id) => previous.has(id)) ? previous : next;
+    });
+  }, []);
   const [enabled, setEnabled] = useState(() => {
     try {
       return localStorage.getItem(ENABLED_KEY) !== "0";
@@ -67,8 +120,20 @@ export function useMobileActivity(
   const [notificationError, setNotificationError] = useState("");
   const hadConnection = useRef(false);
   const activity = useRef<MobileActivity | undefined>(undefined);
+  const nativeSync = useRef(new NativeActivitySync());
   const current = useRef({ ...options, environmentId, enabled, permission });
   current.current = { ...options, environmentId, enabled, permission };
+  const readVisibleSession = useCallback(() => {
+    const { visibleSession: visible, snapshots: source } = current.current;
+    if (!visible || !source) return visible;
+    const rendered = source.getRendered();
+    if (rendered?.session.id !== visible.id) return undefined;
+    return {
+      id: rendered.session.id, projectId: rendered.projectId, revision: rendered.revision,
+      lastCompletedRunId: rendered.lastCompletedRunId,
+      pendingInputKey: pendingSessionInputKey(rendered.session, rendered.runId),
+    };
+  }, []);
   const onOpen = (target: MobileNotificationTarget) => {
     if (target.environmentId !== current.current.environmentId) return;
     void Promise.resolve(current.current.onOpen(target)).catch(() => {});
@@ -206,52 +271,45 @@ export function useMobileActivity(
   useEffect(() => {
     if (!environmentId) return;
     let live = true;
-    if (foreground && visibleSession && activity.current) {
-      activity.current.markRead(visibleSession.id, visibleSession.revision, {
-        finished: visibleSession.lastCompletedRunId,
-        input: visibleSession.pendingInputKey,
-      });
-      saveMobileActivity(environmentId, activity.current);
-    }
-    if (nativeActivityNotifications()) {
-      void MobileNotifications.setVisible({
-        environmentId,
-        foreground,
-        assistantVisible,
-        sessionId: visibleSession?.id,
-        revision: visibleSession?.revision,
-        ...(visibleSession?.lastCompletedRunId !== undefined
-          ? { lastCompletedRunId: visibleSession.lastCompletedRunId }
-          : {}),
-        ...(visibleSession?.pendingInputKey !== undefined
-          ? { pendingInputKey: visibleSession.pendingInputKey }
-          : {}),
-      })
-        .then((result) => {
-          if (live)
-            setUnreadIds(
-              new Set([
-                ...result.unreadIds,
-                ...(activity.current?.manualUnreadIds() ?? []),
-              ]),
-            );
-        })
-        .catch(() => {});
-    } else if (foreground && visibleSession && activity.current) {
-      setUnreadIds(new Set(activity.current.unreadIds()));
-    }
-    return () => {
-      live = false;
+    let generation = 0;
+    let previousKey: string | undefined;
+    const update = () => {
+      // A transcript layout commit can notify the previous subscription before
+      // passive effect cleanup. Never acknowledge it with stale Host/visibility.
+      if (!live || current.current.environmentId !== environmentId) return;
+      const { foreground, assistantVisible } = current.current;
+      const visible = readVisibleSession();
+      const key = JSON.stringify([foreground, assistantVisible, visible]);
+      if (key === previousKey) return;
+      previousKey = key;
+      const turn = ++generation;
+      if (foreground && visible && activity.current) {
+        activity.current.markRead(visible.id, visible.revision, {
+          finished: visible.lastCompletedRunId, input: visible.pendingInputKey,
+        });
+        saveMobileActivity(environmentId, activity.current);
+      }
+      if (nativeActivityNotifications()) {
+        void MobileNotifications.setVisible({
+          environmentId, foreground, assistantVisible,
+          sessionId: visible?.id, revision: visible?.revision,
+          ...(visible?.lastCompletedRunId !== undefined ? { lastCompletedRunId: visible.lastCompletedRunId } : {}),
+          ...(visible?.pendingInputKey !== undefined ? { pendingInputKey: visible.pendingInputKey } : {}),
+        }).then((result) => {
+          if (live && turn === generation && current.current.environmentId === environmentId
+            && current.current.foreground === foreground && current.current.assistantVisible === assistantVisible)
+            setUnreadIds(new Set([...result.unreadIds, ...(activity.current?.manualUnreadIds() ?? [])]));
+        }).catch(() => {});
+      } else if (foreground && visible && activity.current) {
+        setUnreadIds(new Set(activity.current.unreadIds()));
+      }
     };
-  }, [
-    environmentId,
-    foreground,
-    assistantVisible,
-    visibleSession?.id,
-    visibleSession?.revision,
-    visibleSession?.lastCompletedRunId,
-    visibleSession?.pendingInputKey,
-  ]);
+    const unsubscribe = snapshots?.subscribeRendered(update);
+    update();
+    return () => { live = false; unsubscribe?.(); };
+  }, [environmentId, foreground, assistantVisible, visibleSession?.id,
+    visibleSession?.revision, visibleSession?.lastCompletedRunId, visibleSession?.pendingInputKey,
+    snapshots, readVisibleSession, setUnreadIds]);
 
   useEffect(() => {
     if (!environmentId || !foreground) return;
@@ -266,18 +324,18 @@ export function useMobileActivity(
           playActivityCue(
             activity.current?.observe(
               result.sessions,
-              current.current.visibleSession?.id,
+              readVisibleSession()?.id,
             ) ?? [],
           );
           if (activity.current) saveMobileActivity(environmentId, activity.current);
-          const state = await MobileNotifications.observe({
+          const state = await observeNative(
+            nativeSync.current,
             environmentId,
-            sessions: result.sessions,
-            assistant: result.assistant,
-            enabled:
-              current.current.enabled &&
+            result.sessions,
+            result.assistant,
+            current.current.enabled &&
               current.current.permission === "granted",
-          });
+          );
           if (live)
             setUnreadIds(
               new Set([
@@ -292,10 +350,10 @@ export function useMobileActivity(
             showBrowserAssistantNotification(result.assistant, environmentId, onOpen);
           const notices = activity.current.observe(
             result.sessions,
-            current.current.visibleSession?.id,
+            readVisibleSession()?.id,
           );
           playActivityCue(notices);
-          const visible = current.current.visibleSession;
+          const visible = readVisibleSession();
           if (visible)
             activity.current.markRead(visible.id, visible.revision, {
               finished: visible.lastCompletedRunId,
