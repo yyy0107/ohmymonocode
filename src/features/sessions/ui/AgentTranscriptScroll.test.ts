@@ -788,6 +788,15 @@ describe.each([false, true])(
       expect(geometry.top).toBe(596);
     });
 
+    it("keeps following when a zoomed offset settles back by a sub-pixel", () => {
+      const { scroller, geometry, observer } = mountScroller();
+      geometry.top = 599.6;
+      act(() => scroller.dispatchEvent(new Event("scroll")));
+      geometry.height = 1100;
+      act(() => observer.resize());
+      expect(geometry.top).toBe(700);
+    });
+
     it.each(["viewport grows", "content shrinks"])(
       "keeps following when the browser clamps to the bottom as %s",
       (change) => {

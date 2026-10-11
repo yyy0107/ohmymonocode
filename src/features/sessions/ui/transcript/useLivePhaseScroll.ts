@@ -9,7 +9,13 @@ export function followsAfterScroll(
   previousBottom?: number,
 ): boolean {
   const movement = el.scrollTop - previousTop;
-  if (movement === 0 || scrollClampedToBottom(el, previousTop))
+  // A zoomed webview reports fractional offsets that can settle back by a
+  // sub-pixel after a pin or glide; that is not the reader scrolling up.
+  if (
+    movement === 0 ||
+    (following && movement > -1) ||
+    scrollClampedToBottom(el, previousTop)
+  )
     return following;
   // A small downward reversal while reading inside the bottom margin must
   // not restart following. Resume only when the reader reaches the end.
