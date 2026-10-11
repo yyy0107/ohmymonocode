@@ -732,6 +732,53 @@ describe.each([false, true])(
       expect(geometry.top).toBe(700);
     });
 
+    it.each(["scroll event", "resize", "stream update"])(
+      "resumes after reaching the old bottom before a growing %s",
+      (change) => {
+        const { scroller, geometry, observer, blocks } = mountScroller();
+        act(() => {
+          geometry.top = 400;
+          scroller.dispatchEvent(new Event("scroll"));
+        });
+        // Scrolling reaches the end, but output arrives before its event.
+        geometry.top = 600;
+        geometry.height = 1100;
+        act(() => {
+          if (change === "stream update") {
+            root.render(createElement(AgentTranscript, {
+              blocks: [blocks[0], { ...blocks[1], text: "One\n\nTwo" }],
+              busy: true,
+              touchScroll,
+            }));
+          } else {
+            if (change === "scroll event")
+              scroller.dispatchEvent(new Event("scroll"));
+            observer.resize();
+          }
+        });
+        expect(geometry.top).toBe(700);
+        act(() => scroller.dispatchEvent(new Event("scroll")));
+        geometry.height = 1200;
+        act(() => observer.resize());
+        expect(geometry.top).toBe(800);
+      },
+    );
+
+    it("does not resume before reaching the old bottom during output growth", () => {
+      const { scroller, geometry, observer } = mountScroller();
+      act(() => {
+        geometry.top = 400;
+        scroller.dispatchEvent(new Event("scroll"));
+      });
+      geometry.top = 590;
+      geometry.height = 1100;
+      act(() => {
+        scroller.dispatchEvent(new Event("scroll"));
+        observer.resize();
+      });
+      expect(geometry.top).toBe(590);
+    });
+
     it("pauses following for a scrollbar move inside the bottom margin", () => {
       const { scroller, geometry, observer } = mountScroller();
       geometry.top = 596;

@@ -6,13 +6,22 @@ export function followsAfterScroll(
   el: HTMLElement,
   previousTop: number,
   following: boolean,
+  previousBottom?: number,
 ): boolean {
   const movement = el.scrollTop - previousTop;
   if (movement === 0 || scrollClampedToBottom(el, previousTop))
     return following;
   // A small downward reversal while reading inside the bottom margin must
   // not restart following. Resume only when the reader reaches the end.
-  return movement > 0 && el.scrollHeight - el.scrollTop - el.clientHeight <= 1;
+  // A downward move cannot release an existing pin. New output may also land
+  // between reaching the old end and the browser delivering its scroll event.
+  return (
+    movement > 0 &&
+    (following ||
+      el.scrollHeight - el.scrollTop - el.clientHeight <= 1 ||
+      (previousBottom !== undefined &&
+        Math.abs(el.scrollTop - previousBottom) <= 1))
+  );
 }
 
 function scrollClampedToBottom(el: HTMLElement, previousTop: number): boolean {
@@ -33,19 +42,33 @@ export function useLivePhaseScroll(
 ) {
   const stickToBottom = useRef(true);
   const lastScrollTop = useRef(0);
+  const lastBottom = useRef(0);
   const wasEnabled = useRef(false);
 
-  const pin = useCallback(() => {
+  const rememberScroll = useCallback(() => {
+    if (!el) return;
+    lastScrollTop.current = el.scrollTop;
+    lastBottom.current = Math.max(0, el.scrollHeight - el.clientHeight);
+  }, [el]);
+
+  const syncFollowing = useCallback(() => {
     if (!el) return;
     // Reconcile a manual scroll the browser applied before its event fired.
     stickToBottom.current = followsAfterScroll(
       el,
       lastScrollTop.current,
       stickToBottom.current,
+      lastBottom.current,
     );
+    rememberScroll();
+  }, [el, rememberScroll]);
+
+  const pin = useCallback(() => {
+    if (!el) return;
+    syncFollowing();
     if (stickToBottom.current) el.scrollTop = el.scrollHeight;
-    lastScrollTop.current = el.scrollTop;
-  }, [el]);
+    rememberScroll();
+  }, [el, rememberScroll, syncFollowing]);
 
   useLayoutEffect(() => {
     if (!enabled) {
@@ -54,23 +77,16 @@ export function useLivePhaseScroll(
     }
     if (!wasEnabled.current) {
       stickToBottom.current = true;
-      lastScrollTop.current = el?.scrollTop ?? 0;
+      rememberScroll();
       wasEnabled.current = true;
     }
     pin();
-  }, [el, enabled, pin, steps]);
+  }, [el, enabled, pin, rememberScroll, steps]);
 
   useEffect(() => {
     if (!el || !enabled) return;
 
-    const onScroll = () => {
-      stickToBottom.current = followsAfterScroll(
-        el,
-        lastScrollTop.current,
-        stickToBottom.current,
-      );
-      lastScrollTop.current = el.scrollTop;
-    };
+    const onScroll = syncFollowing;
     const onWheel = (e: WheelEvent) => {
       if (!nestedScrollAbsorbsWheel(el, e.deltaY)) return;
       if (e.deltaY < 0) stickToBottom.current = false;
@@ -81,6 +97,7 @@ export function useLivePhaseScroll(
     el.addEventListener("wheel", onWheel, { passive: true });
     const inner = el.firstElementChild;
     const observer = new ResizeObserver(pin);
+    observer.observe(el);
     if (inner) observer.observe(inner);
     pin();
     return () => {
@@ -88,5 +105,5 @@ export function useLivePhaseScroll(
       el.removeEventListener("wheel", onWheel);
       observer.disconnect();
     };
-  }, [el, enabled, pin]);
+  }, [el, enabled, pin, syncFollowing]);
 }

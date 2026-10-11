@@ -489,11 +489,16 @@ function AgentTranscriptComponent({
       // The jump animation owns the offset until it lands or is interrupted.
       if (jumpingScrollers.has(el)) return;
       const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+      const previous = scrollGeometry.current;
+      const previousBottom = Math.max(0, previous.height - previous.viewport);
       if (touchScroll) {
-        const previous = scrollGeometry.current;
         const layoutChanged =
           previous.height !== el.scrollHeight ||
           previous.viewport !== el.clientHeight;
+        // Reaching the end can precede both new output and its scroll event.
+        const reachedPreviousBottom =
+          el.scrollTop > previous.top + 1 &&
+          Math.abs(el.scrollTop - previousBottom) <= 1;
         if (!layoutChanged && el.scrollTop < previous.top - 1)
           stickToBottom.current = false;
         if (
@@ -501,9 +506,10 @@ function AgentTranscriptComponent({
           !touchReadingUp.current &&
           // A slight downward reversal inside the bottom margin is still
           // reading history. Resume only after reaching the actual end.
-          distance <= 1 &&
-          (scrollDirection.current === "down" ||
-            (!layoutChanged && el.scrollTop > previous.top + 1))
+          (reachedPreviousBottom ||
+            (distance <= 1 &&
+              (scrollDirection.current === "down" ||
+                (!layoutChanged && el.scrollTop > previous.top + 1))))
         )
           stickToBottom.current = true;
         scrollGeometry.current = {
@@ -519,8 +525,9 @@ function AgentTranscriptComponent({
       // Browser clamping after layout changes is not reading intent either.
       stickToBottom.current = followsAfterScroll(
         el,
-        scrollGeometry.current.top,
+        previous.top,
         stickToBottom.current,
+        previousBottom,
       );
       rememberScroll(el);
       syncJumpVisibility(el);
@@ -783,9 +790,10 @@ function AgentTranscriptComponent({
   }, [visible, pinTranscript, rememberScroll, setShowJump]);
 
   useLayoutEffect(() => {
-    if (!visible || !stickToBottom.current) return;
+    if (!visible) return;
     const el = scroller.current;
     syncTranscriptViewport(el);
+    // Reconcile a pending scroll-to-end even while following was paused.
     followTranscript(el);
   }, [blocks, busy, followTranscript, visible]);
 
@@ -1041,7 +1049,10 @@ function AgentTranscriptComponent({
       ref={setScroller}
       className="agent-transcript h-full overflow-y-auto overscroll-none [overflow-anchor:none] font-mono text-[13px] leading-5"
     >
-      <div className="mx-auto flex w-full min-w-0 max-w-4xl @[1280px]:max-w-6xl flex-col gap-1 pb-8">
+      {/* Contain wide rows inside the vertical scroller; code blocks and tables
+          retain their own horizontal scrolling. Clip the content column so
+          WebKit can keep scrolling the transcript vertically. */}
+      <div className="mx-auto flex w-full min-w-0 max-w-4xl @[1280px]:max-w-6xl flex-col gap-1 overflow-x-clip wrap-anywhere pb-8">
         {firstVisibleTurn > 0 ? (
           <div className="flex justify-center px-4 @md:px-6 py-3">
             <button
