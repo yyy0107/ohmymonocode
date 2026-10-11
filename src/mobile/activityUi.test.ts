@@ -445,6 +445,7 @@ describe("mobile unread indicators and notification navigation", () => {
       row.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 8, pointerType: "touch" }));
       row.click();
     });
+    await act(async () => vi.dynamicImportSettled());
   };
   it("pins and archives the held conversation without switching away from the current conversation", async () => {
     mocked.summaries.push(summary("second", "project"));

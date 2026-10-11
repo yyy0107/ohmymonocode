@@ -161,6 +161,7 @@ describe("mobile session progress", () => {
     finish();
     click(capsule()!);
     click(row("Review changes"));
+    await act(async () => vi.dynamicImportSettled());
     expect(dialog()?.textContent).toContain("Checking compatibility.");
     await act(async () =>
       update({

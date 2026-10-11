@@ -116,6 +116,7 @@ async function openSettings() {
   await act(async () =>
     node.querySelector<HTMLButtonElement>(".mobile-drawer-settings")!.click(),
   );
+  await act(async () => vi.dynamicImportSettled());
   await act(async () =>
     node.querySelector<HTMLButtonElement>('[aria-label="Message composer"]')!.click(),
   );

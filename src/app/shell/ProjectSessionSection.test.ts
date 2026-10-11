@@ -242,6 +242,7 @@ beforeEach(() => {
         resizeCallbacks.push(callback);
       }
       observe() {}
+      unobserve() {}
       disconnect() {}
     },
   );

@@ -166,6 +166,7 @@ it("moves the device selector above navigation, uses dots, and probes without ch
   expect(selector.querySelector(".mobile-host-status-label")).toBeNull();
   expect(node.querySelector(".mobile-drawer-settings")!.textContent).toBe("Settings");
   await act(async () => selector.click());
+  await act(async () => vi.dynamicImportSettled());
   expect(node.querySelector('.mobile-drawer-backdrop')!.getAttribute("data-open")).toBe("true");
   expect(node.querySelector('.mobile-drawer')!.hasAttribute("inert")).toBe(true);
   expect(active('[role="dialog"]')!.closest('.mobile-sheet-backdrop')!.getAttribute("data-placement")).toBe("anchor");

@@ -211,6 +211,7 @@ async function click(label: string, scope: Element = node) {
   expect(button, label).toBeDefined();
   expect(button!.disabled, label).toBe(false);
   await act(async () => button!.click());
+  await act(async () => vi.dynamicImportSettled());
 }
 async function settings() {
   // Settings lives at the foot of the drawer on Home and in chats alike.
