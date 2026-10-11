@@ -188,6 +188,9 @@
   padding: 0;
   text-align: left;
 }
+.mobile-header[data-project="true"]:has(> .mobile-icon-button:last-child) > .mobile-header-title {
+  inset-inline-end: 68px;
+}
 .mobile-project-header-text,
 .mobile-project-header-name {
   display: flex;

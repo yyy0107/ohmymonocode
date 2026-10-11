@@ -566,10 +566,10 @@ it("pauses list refresh while the retained page is hidden", async () => {
   expect(loadSessions).toHaveBeenCalledTimes(2);
 });
 
-it("does not clear the next page's search anchor when the retained project exits", () => {
+it("does not clear the next page's search anchor when the retained chats page exits", () => {
   const searchTrigger = createRef<HTMLButtonElement>();
   const previous = createElement(MobileHome, { ...defaults, key: "previous", foreground: false,
-    project: projects[0], searchTrigger });
+    chatsPage: true, searchTrigger });
   const next = createElement("button", { key: "next", ref: searchTrigger, "data-next-search": true }, "Search");
   act(() => root.render(createElement(Fragment, null, previous)));
   expect(searchTrigger.current?.className).toBe("mobile-home-search");

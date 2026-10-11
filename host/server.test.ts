@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -597,6 +598,78 @@ describe("remote host API", () => {
     expect((await s.call("sessions.list", { projectId: s.project.id })).value.result).toEqual([]);
   });
 
+  it.each([
+    { linked: false, existing: false },
+    { linked: false, existing: true },
+    { linked: true, existing: false },
+    { linked: true, existing: true },
+  ])("creates an independent worktree while its source session runs (%j)", async ({ linked, existing }) => {
+    const s = await setup();
+    const git = (cwd: string, ...args: string[]) =>
+      execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+    git(s.project.cwd, "init", "-q", "-b", "main");
+    git(s.project.cwd, "config", "core.autocrlf", "false");
+    writeFileSync(join(s.project.cwd, ".gitignore"), "host.db*\n");
+    writeFileSync(join(s.project.cwd, "file.txt"), "initial\n");
+    git(s.project.cwd, "add", ".gitignore", "file.txt");
+    git(s.project.cwd, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-qm", "initial");
+    cleanups.push(async () => rmSync(join(s.project.cwd, "..", `${s.project.name}-worktrees`), { recursive: true, force: true }));
+    const params = { projectId: s.project.id, branch: "independent", base: "HEAD", existing };
+    let cwd = s.project.cwd;
+    if (linked) {
+      const source = await s.call("git.worktreeCreate", { ...params, branch: "source", existing: false });
+      expect(source.status).toBe(200);
+      cwd = source.value.result.path;
+      writeFileSync(join(cwd, "file.txt"), "source commit\n");
+      git(cwd, "add", "file.txt");
+      git(cwd, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-qm", "source");
+    }
+    if (existing) git(cwd, "branch", "independent");
+    // Both the repository and a selected linked source must survive creation.
+    for (const path of new Set([s.project.cwd, cwd])) {
+      await withCheckoutRemoval(s.store, path, async () => {
+        expect((await s.call("git.worktreeCreate", { ...params, cwd })).value.error).toContain("being removed");
+      });
+    }
+    const opened = await s.call("commands.dispatch", {
+      type: "create", commandId: "running-source", projectId: s.project.id,
+      ...(linked ? { worktreeCwd: cwd } : {}),
+      harness: "codex", model: "codex:test", runtimeMode: "supervised",
+    });
+    expect(opened.status).toBe(200);
+    const sessionId = opened.value.result.sessionId;
+    expect((await s.call("commands.dispatch", {
+      type: "send", commandId: "start-source", sessionId, text: "Keep working",
+    })).status).toBe(200);
+    await vi.waitFor(() => expect(s.send).toHaveBeenCalledTimes(1));
+    writeFileSync(join(cwd, "file.txt"), "staged work\n");
+    git(cwd, "add", "file.txt");
+    writeFileSync(join(cwd, "file.txt"), "unfinished work\n");
+    const head = git(cwd, "rev-parse", "HEAD");
+    const branch = git(cwd, "branch", "--show-current");
+    const status = git(cwd, "status", "--porcelain");
+    const index = git(cwd, "show", ":file.txt");
+
+    const created = await s.call("git.worktreeCreate", { ...params, cwd });
+    expect(created.value.error).toBeUndefined();
+    expect(created.status).toBe(200);
+    expect(created.value.result).toMatchObject({ branch: "independent", head });
+    expect(readFileSync(join(created.value.result.path, "file.txt"), "utf8"))
+      .toBe(linked ? "source commit\n" : "initial\n");
+    expect(s.store.session(sessionId).status).toBe("running");
+    expect(git(cwd, "branch", "--show-current")).toBe(branch);
+    expect(git(cwd, "rev-parse", "HEAD")).toBe(head);
+    expect(git(cwd, "status", "--porcelain")).toBe(status);
+    expect(git(cwd, "show", ":file.txt")).toBe(index);
+    expect(readFileSync(join(cwd, "file.txt"), "utf8")).toBe("unfinished work\n");
+    for (const method of ["git.switch", "git.createBranch"])
+      expect((await s.call(method, { projectId: s.project.id, cwd, branch: "other" })).value.error)
+        .toContain("Wait for running host sessions");
+    expect((await s.call("git.worktreeCreate", { ...params, cwd })).value.error)
+      .toContain("already has a working copy");
+    expect(s.store.db.prepare("SELECT id FROM checkout_resources WHERE id LIKE 'worktree-create:%'").all()).toEqual([]);
+  });
+
   it("lists, creates, and selects registered remote worktrees through RPC", async () => {
     const s = await setup();
     const git = (...args: string[]) =>
@@ -604,7 +677,8 @@ describe("remote host API", () => {
     git("init", "-q");
     git("config", "core.autocrlf", "false");
     git("checkout", "-q", "-b", "main");
-    writeFileSync(join(s.project.cwd, ".gitignore"), "host.db*\n");
+    // Host runtime data shares this fixture directory with the repository.
+    writeFileSync(join(s.project.cwd, ".gitignore"), "host.db*\nworkflow-skill/\n");
     writeFileSync(join(s.project.cwd, "file.txt"), "initial\n");
     git("add", ".gitignore", "file.txt");
     git(
@@ -622,6 +696,7 @@ describe("remote host API", () => {
       projectId: s.project.id,
       branch: "feature",
     });
+    expect(branch.value.error).toBeUndefined();
     expect(branch.value.result.current).toBe("feature");
     expect(
       (await s.call("git.switch", { projectId: s.project.id, branch: "main" }))

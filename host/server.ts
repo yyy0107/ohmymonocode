@@ -803,15 +803,24 @@ export function createHostServer(
               String(params.projectId ?? ""),
             );
             const cwd = await resolveHostWorktreeAsync(project.cwd, params.cwd);
-            result = await mutateWorkspace(project.id, cwd, () =>
-              createHostWorktree(
+            engine.assertProjectWrite(project.id);
+            engine.assertWorkspaceWrite(cwd);
+            // Creating a separate checkout only reads the source commit. Keep
+            // its directories alive without requiring running sessions to stop.
+            const releases: Array<() => void> = [];
+            try {
+              for (const path of new Set([project.cwd, cwd]))
+                releases.push(claimCheckoutResource(engine.store, `worktree-create:${randomUUID()}`, path));
+              result = await createHostWorktree(
                 project.cwd,
                 params.branch,
                 params.base,
                 params.existing,
                 cwd,
-              ),
-            );
+              );
+            } finally {
+              for (const release of releases) release();
+            }
             workspace.invalidateRoots();
             break;
           }

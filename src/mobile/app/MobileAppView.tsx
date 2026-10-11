@@ -519,8 +519,8 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
           <IconButton buttonRef={aboutTrigger} label="About" onClick={() => setAboutOpen((open) => !open)}>
             <Info size={22} />
           </IconButton>
-        ) : view === "home" && (!homePageOpen || searchOpen) ? (
-          <IconButton buttonRef={homePageOpen ? undefined : searchTrigger} label={searchOpen ? "Close search" : "Search conversations"} onClick={toggleHomeSearch}>
+        ) : view === "home" && (!homeChats || searchOpen) ? (
+          <IconButton buttonRef={homeChats ? undefined : searchTrigger} label={searchOpen ? "Close search" : "Search conversations"} onClick={toggleHomeSearch}>
             {searchOpen ? <X size={22} /> : <Search size={22} />}
           </IconButton>
         ) : null}

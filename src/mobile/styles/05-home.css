@@ -669,6 +669,13 @@
 .mobile-home[data-project="true"] .mobile-home-new:active {
   --mobile-press-color: rgb(0 0 0 / 0.15);
 }
+.mobile-home[data-project="true"] .mobile-home-dock:has(> .mobile-home-new:only-child) {
+  justify-content: flex-end;
+}
+.mobile-home[data-project="true"] .mobile-home-new:only-child {
+  flex: none;
+  padding-inline: 22px;
+}
 .mobile-chat {
   /* Horizontal pulls reach JavaScript to open the drawer; nested code
      blocks and tables still scroll sideways on their own. */

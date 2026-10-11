@@ -634,7 +634,7 @@ function MobileHomeView({ vm }: { vm: MobileHomeViewModel }) {
       )}
       {!!projects.length && !projectsPage && (
         <div className="mobile-home-dock">
-          {(project || chatsPage) && (
+          {chatsPage && (
             <button
               ref={setSearchButton}
               type="button"

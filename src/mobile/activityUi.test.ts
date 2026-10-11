@@ -264,14 +264,15 @@ describe("mobile header search", () => {
   it("keeps project search scoped, supports rapid reversal and localizes keyboard dismissal", async () => {
     await act(async () => root.render(createElement(MobileApp)));
     await goToProject("/project");
-    expect(node.querySelector('header button[aria-label="Search conversations"]')).toBeNull();
+    expect(node.querySelector('header button[aria-label="Search conversations"]')).not.toBeNull();
     expect(node.querySelector("header .mobile-header-title")!.tagName).toBe("DIV");
     expect(node.querySelector(".mobile-project-header-name svg")).toBeNull();
     // The header names the Host and reports its state through the status dot.
     expect(node.querySelector("header .mobile-header-host .mobile-host-status")!.getAttribute("aria-label")).toBe("Connected");
     expect(activePage().querySelector(".mobile-home-host")).toBeNull();
     const projectSearch = searchButton();
-    expect(projectSearch.closest(".mobile-home-dock")).not.toBeNull();
+    expect(projectSearch.closest("header")).not.toBeNull();
+    expect(activePage().querySelector(".mobile-home-search")).toBeNull();
     await act(async () => searchButton().click());
     await typeQuery("Other");
     expect(visibleIds()).toEqual([]);
@@ -348,7 +349,7 @@ describe("mobile project conversation Back navigation", () => {
     if (entry === "pinned") mocked.summaries[1].pinned = true;
     await openProjectPage();
     if (entry === "search") {
-      await act(async () => activePage().querySelector<HTMLButtonElement>(".mobile-home-search")!.click());
+      await act(async () => headerButton("Search conversations")!.click());
       await act(async () => {
         const input = node.querySelector<HTMLInputElement>(".mobile-header-search input")!;
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Other");
