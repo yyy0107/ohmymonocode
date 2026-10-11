@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Loading earlier messages avoids duplicate scroll compensation. Sidebar preference updates remain consistent under React StrictMode, including rapid toggles and save failures.
 - Mobile drawer gestures survive list refreshes, page headers remain visible during navigation, and read acknowledgements follow visible conversation updates.
 - Pending-input notification cards can be dismissed and close automatically when idle; dismissing a card leaves its request pending.
+- Conversations keep following the bottom as streamed output grows or the live activity window resizes, while wide content stays contained and code remains horizontally scrollable.
+- Conversation change reviews wait until the current turn finishes. Review menus hide unavailable Git sources and keep conversation changes available outside Git repositories.
 
 <!-- /release-notes -->
 
@@ -40,6 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 加载更早消息时避免重复滚动补偿；侧栏偏好更新在 React StrictMode 下保持一致，覆盖快速切换和保存失败。
 - 手机抽屉手势在列表刷新时继续有效，页面切换期间保留标题显示，已读确认跟随实际可见的会话更新。
 - 待输入通知卡片支持关闭，并在无交互时自动收起；关闭卡片不会处理其待办请求。
+- 流式输出增长或运行记录窗口调整大小时，会话继续跟随底部；宽内容限制在会话区域内，代码仍可横向滚动。
+- 会话改动审查在当前轮次结束后显示；审查菜单隐藏不可用的 Git 来源，并在非 Git 仓库中保留会话改动查看。
 
 <!-- /release-notes -->
 
