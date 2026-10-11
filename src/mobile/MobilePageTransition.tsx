@@ -12,7 +12,7 @@ import { SurfaceVisibilityContext, useSurfaceVisibility } from "../shared/ui/Sur
 import { MobilePageStateContext, type MobilePageState } from "./mobilePageState";
 import { MobileOverlayLevelContext } from "./MobileOverlayHost";
 import { ReadonlyTextStateContext } from "../shared/ui/ReadonlyTextView";
-import "./pageMotion.css";
+import "./styles/page-motion.css";
 
 export const MOBILE_PAGE_MOTION_MS = 220;
 const EASING = "cubic-bezier(0.2, 0, 0, 1)";

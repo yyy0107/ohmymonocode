@@ -8,7 +8,7 @@ const DISMISS_SHARE = 0.28;
 const DISMISS_VELOCITY = 0.55;
 /** Movement before a press counts as a drag rather than a tap or scroll. */
 const SLOP_PX = 6;
-/** Keep in sync with mobile-sheet animations in mobile.css. */
+/** Keep in sync with mobile-sheet animations in styles/08-sheets.css. */
 export const SHEET_MOTION_MS = 200;
 export const SHEET_CLOSE_MS = 120;
 

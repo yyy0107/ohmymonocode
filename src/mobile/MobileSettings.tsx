@@ -384,22 +384,9 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
   if (page === "glass")
     return (
       <main key="glass" className="mobile-content mobile-settings">
-        <Group
-          title="Glass"
-          footer={
-            glass.effect === "liquid"
-              ? t("Edge refraction is available on Android.")
-              : undefined
-          }
-        >
+        <Group title="Glass">
           <GlassPreview
-            label={
-              glass.effect === "liquid"
-                ? t("Liquid glass")
-                : glass.effect === "frosted"
-                  ? t("Frosted glass")
-                  : t("Solid")
-            }
+            label={glass.effect === "frosted" ? t("Frosted glass") : t("Solid")}
           />
           <div className="mobile-settings-row">
             <SettingsIcon name="glass" />
@@ -421,7 +408,6 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
                 onGlassChange({ ...glass, effect: effect as GlassEffect })
               }
               options={[
-                { value: "liquid", label: t("Liquid glass") },
                 { value: "frosted", label: t("Frosted glass") },
                 { value: "solid", label: t("Solid") },
               ]}
@@ -799,7 +785,7 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
           <span className="mobile-settings-label">
             <span>{t("Glass")}</span>
             <small className="mobile-settings-value">
-              {t(glass.effect === "liquid" ? "Liquid glass" : glass.effect === "frosted" ? "Frosted glass" : "Solid")}
+              {t(glass.effect === "frosted" ? "Frosted glass" : "Solid")}
             </small>
           </span>
           <ChevronRight size={18} />

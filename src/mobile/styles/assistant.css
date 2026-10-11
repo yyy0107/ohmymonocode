@@ -119,22 +119,22 @@
   height: 5px;
   margin-inline-end: 4px;
   border-radius: 50%;
-  background: #8e8e93;
+  background: var(--color-m-ink-tertiary);
   vertical-align: 1px;
 }
 .mobile-assistant-identity [data-lifecycle="idle"]::before {
-  background: #34c759;
+  background: var(--color-m-success);
 }
 .mobile-assistant-identity [data-lifecycle="running"]::before {
   background: var(--mobile-accent);
 }
 .mobile-assistant-identity
   :is([data-lifecycle="backoff"], [data-lifecycle="paused"])::before {
-  background: #ff9f0a;
+  background: var(--color-m-warning);
 }
 .mobile-assistant-identity
   :is([data-lifecycle="failed"], [data-lifecycle="interrupted"])::before {
-  background: #ff453a;
+  background: var(--color-m-danger);
 }
 /* Only the scroll container consumes the animated dock height. Message text
    must not inherit a new custom-property value on every resize frame. */
@@ -271,15 +271,18 @@
   scroll-padding-top: 12px;
 }
 .assistant-chat[data-layout="mobile"] .assistant-message {
-  max-width: 88%;
-  padding: 13px 16px;
-  border-radius: 25px;
-  line-height: 1.55;
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: var(--radius-m-bubble);
+  font-size: 15px;
+  line-height: 22px;
   flex-shrink: 0;
 }
 .assistant-chat[data-layout="mobile"] .assistant-message-assistant {
   align-self: flex-start;
-  background: var(--mobile-fill);
+  border-bottom-left-radius: 6px;
+  background: var(--color-m-card);
+  color: var(--color-m-ink);
 }
 .assistant-chat[data-layout="mobile"] :is(.assistant-message-assistant, .assistant-message-user) {
   -webkit-touch-callout: none;
@@ -287,11 +290,9 @@
   user-select: none;
 }
 .assistant-chat[data-layout="mobile"] .assistant-message-user {
-  border-bottom-right-radius: 8px;
-  background: var(--mobile-selected);
-}
-html.theme-light:not(.has-user-accent) .assistant-chat[data-layout="mobile"] .assistant-message-user {
-  background: #d9edfa;
+  border-bottom-right-radius: 6px;
+  background: var(--color-m-bubble-user);
+  color: var(--color-m-bubble-user-ink);
 }
 .assistant-chat[data-layout="mobile"] .assistant-message-status {
   align-self: center;
@@ -371,7 +372,7 @@ html.theme-light:not(.has-user-accent) .assistant-chat[data-layout="mobile"] .as
 .assistant-chat[data-layout="mobile"]
   .assistant-card[data-status="completed"]
   [role="status"] {
-  color: #218c48;
+  color: var(--color-m-success);
 }
 .assistant-chat[data-layout="mobile"]
   .assistant-card[data-status="running"]
@@ -381,7 +382,7 @@ html.theme-light:not(.has-user-accent) .assistant-chat[data-layout="mobile"] .as
 .assistant-chat[data-layout="mobile"]
   .assistant-card[data-status="failed"]
   [role="status"] {
-  color: #e04b44;
+  color: var(--color-m-danger);
 }
 .assistant-chat[data-layout="mobile"] .assistant-card button {
   grid-area: 1 / 2;
@@ -403,7 +404,7 @@ html.theme-light:not(.has-user-accent) .assistant-chat[data-layout="mobile"] .as
   margin: auto;
   max-width: 265px;
   text-align: center;
-  color: color-mix(in srgb, var(--color-content) 52%, transparent);
+  color: var(--color-m-ink-tertiary);
 }
 .mobile-assistant-welcome > span {
   display: inline-flex;
@@ -413,7 +414,7 @@ html.theme-light:not(.has-user-accent) .assistant-chat[data-layout="mobile"] .as
 .mobile-assistant-welcome h2 {
   font-size: 22px;
   font-weight: 550;
-  color: var(--color-content);
+  color: var(--color-m-ink);
 }
 .mobile-assistant-welcome p {
   margin-top: 10px;
@@ -448,7 +449,7 @@ html.theme-light:not(.has-user-accent) .assistant-chat[data-layout="mobile"] .as
   height: 44px;
 }
 .mobile-assistant-overlay .mobile-assistant-disable {
-  color: #ff453a;
+  color: var(--color-m-danger);
 }
 .mobile-assistant-compose-dock {
   --mobile-dock-inset: max(14px, var(--mobile-safe-bottom) - var(--mobile-keyboard-height));
@@ -468,7 +469,7 @@ html.theme-light:not(.has-user-accent) .assistant-chat[data-layout="mobile"] .as
 .assistant-chat[data-layout="mobile"] .mobile-assistant-compose-dock > .assistant-error {
   margin: 0 0 12px;
   max-height: 25dvh;
-  background: color-mix(in srgb, #e04844 8%, var(--color-background-base));
+  background: color-mix(in srgb, var(--color-m-danger) 10%, var(--color-m-card));
 }
 .assistant-chat[data-layout="mobile"] .mobile-assistant-reply-backdrop {
   position: absolute;
@@ -477,7 +478,7 @@ html.theme-light:not(.has-user-accent) .assistant-chat[data-layout="mobile"] .as
   padding: 0;
   border: 0;
   border-radius: 0;
-  background: color-mix(in srgb, var(--color-background-base) 20%, transparent);
+  background: color-mix(in srgb, var(--color-m-app) 20%, transparent);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   opacity: 0;
@@ -528,10 +529,10 @@ html.theme-light:not(.has-user-accent) .assistant-chat[data-layout="mobile"] .as
 .assistant-chat[data-layout="mobile"] .mobile-assistant-compose {
   min-height: 54px;
   width: 100%;
-  padding: 6px;
-  border-radius: 28px;
-  background: var(--mobile-card);
-  box-shadow: 0 6px 24px #00000006;
+  padding: 5px;
+  border-radius: var(--radius-m-composer);
+  background: var(--color-m-composer);
+  box-shadow: 0 0 0 1px var(--color-m-composer-ring), var(--m-shadow-float);
   /* The card is opaque; a backdrop filter only made every keystroke repaint
      through blur and refraction. */
   -webkit-backdrop-filter: none;
@@ -582,7 +583,7 @@ html.theme-light:not(.has-user-accent) .assistant-chat[data-layout="mobile"] .as
 }
 .assistant-chat[data-layout="mobile"] .mobile-assistant-send:disabled {
   background: var(--mobile-fill);
-  color: var(--color-content);
+  color: var(--color-m-ink);
 }
 .assistant-chat[data-layout="mobile"] .mobile-assistant-send[aria-busy="true"] {
   background: var(--mobile-accent);
@@ -696,7 +697,7 @@ html.theme-light:not(.has-user-accent) .assistant-chat[data-layout="mobile"] .as
   border-radius: 14px;
   background: var(--mobile-card);
   font-size: var(--mobile-font-md);
-  color: color-mix(in srgb, var(--color-content) 58%, transparent);
+  color: var(--color-m-ink-secondary);
   gap: 8px;
 }
 .assistant-settings[data-layout="mobile"] .assistant-settings-row {
@@ -720,27 +721,27 @@ html.theme-light:not(.has-user-accent) .assistant-chat[data-layout="mobile"] .as
   background: var(--mobile-fill);
   font-size: var(--mobile-font-xl);
   line-height: 1.5;
-  color: var(--color-content);
+  color: var(--color-m-ink);
   transition: border-color 160ms ease;
 }
 .assistant-settings[data-layout="mobile"]
   :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus {
-  border-color: color-mix(in srgb, var(--color-content) 28%, transparent);
+  border-color: color-mix(in srgb, var(--color-m-ink) 28%, transparent);
 }
 .assistant-settings[data-layout="mobile"]
   :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea)[aria-invalid="true"] {
-  border-color: #e04b44;
+  border-color: var(--color-m-danger);
 }
 .assistant-settings[data-layout="mobile"]
   :is(input, textarea)::placeholder {
-  color: color-mix(in srgb, var(--color-content) 44%, transparent);
+  color: var(--color-m-ink-tertiary);
 }
 .assistant-settings[data-layout="mobile"] select {
   padding-inline-end: 20px;
 }
 .assistant-settings[data-layout="mobile"] select option {
-  color: var(--color-content);
-  background: var(--color-background-base);
+  color: var(--color-m-ink);
+  background: var(--color-m-app);
 }
 .assistant-settings[data-layout="mobile"] textarea {
   min-height: 96px;
@@ -909,7 +910,7 @@ html.theme-light:not(.has-user-accent) .assistant-chat[data-layout="mobile"] .as
   border: 0;
   border-radius: 18px;
   background: var(--mobile-card);
-  color: var(--color-content);
+  color: var(--color-m-ink);
   font: inherit;
   font-size: var(--mobile-font-lg);
   text-align: start;
@@ -940,10 +941,10 @@ html.theme-light:not(.has-user-accent) .assistant-chat[data-layout="mobile"] .as
   text-align: end;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: color-mix(in srgb, var(--color-content) 58%, transparent);
+  color: var(--color-m-ink-secondary);
 }
 .mobile-assistant-select-value[data-empty] {
-  color: color-mix(in srgb, var(--color-content) 38%, transparent);
+  color: var(--color-m-ink-tertiary);
 }
 .mobile-assistant-select-trigger > svg {
   flex-shrink: 0;
@@ -964,7 +965,7 @@ html.theme-light:not(.has-user-accent) .assistant-chat[data-layout="mobile"] .as
 }
 .mobile-assistant-select[data-compact] .mobile-assistant-select-value {
   text-align: start;
-  color: var(--color-content);
+  color: var(--color-m-ink);
 }
 .mobile-assistant-select-search {
   width: 100%;
@@ -1019,7 +1020,7 @@ html.theme-light:not(.has-user-accent) .assistant-chat[data-layout="mobile"] .as
   gap: 8px;
 }
 .mobile-assistant-memory-forget {
-  color: #d54a4a;
+  color: var(--color-m-danger);
 }
 .mobile-assistant-memory-actions .mobile-button:disabled {
   opacity: 0.45;

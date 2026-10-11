@@ -8,7 +8,7 @@ import { App } from "@capacitor/app";
 import { AttachmentChip } from "../features/sessions/ui/AttachmentChip";
 import { setUiLanguage, UI_LANGUAGE_KEY } from "../shared/i18n/language";
 import { ensureRandomUUID } from "./browserCrypto";
-import { LIQUID_GLASS_SELECTOR } from "./liquidGlass";
+import { MOBILE_MATERIAL_SELECTOR } from "./theme/material";
 import { loadThemePreference } from "../features/settings/model/appearance";
 
 const nativeBack = vi.hoisted(() => ({
@@ -387,7 +387,7 @@ describe("mobile connection settings", () => {
     await render();
     const title = active<HTMLButtonElement>('.mobile-header-title[data-capsule="false"]')!;
     expect(title.tagName).toBe("BUTTON");
-    expect(title.matches(LIQUID_GLASS_SELECTOR)).toBe(false);
+    expect(title.matches(MOBILE_MATERIAL_SELECTOR)).toBe(false);
     expect(title.getAttribute("aria-expanded")).toBe("false");
     await act(async () => { title.focus(); title.click(); });
     expect(title.getAttribute("aria-expanded")).toBe("true");

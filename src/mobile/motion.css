@@ -42,8 +42,8 @@
    the trailing spring, stretching the painted capsule over a stable layout
    box. Both positions retarget from their current value on rapid taps. */
 .mobile-segmented {
-  --segment-pad: 4px;
-  --segment-gap: 4px;
+  --segment-pad: 2px;
+  --segment-gap: 2px;
   --segment-cell: calc(
     (100% - 2 * var(--segment-pad) - (var(--segment-count) - 1) * var(--segment-gap)) /
       var(--segment-count)
@@ -64,9 +64,9 @@
   transform:
     translateX(calc(var(--mobile-segment-sign) * var(--mobile-segment-start) * (100% + var(--segment-gap))))
     scaleX(calc(1 + var(--mobile-segment-end) - var(--mobile-segment-start)));
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--color-content) 14%, var(--color-background-base));
-  box-shadow: 0 1px 4px color-mix(in srgb, #000 12%, transparent);
+  border-radius: 999px;
+  background: var(--color-m-raised);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
   pointer-events: none;
   transition:
     --mobile-segment-start var(--mobile-spring-smooth-duration) var(--mobile-spring-smooth),

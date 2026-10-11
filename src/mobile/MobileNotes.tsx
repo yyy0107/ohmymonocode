@@ -33,7 +33,7 @@ import { MobilePageTransition } from "./MobilePageTransition";
 import { mobileTranscriptPlatform } from "./transcriptPlatform";
 import { formatMobileRelativeTime } from "./relativeTime";
 import { MobileEmpty } from "./MobileEmpty";
-import "./mobileNotes.css";
+import "./styles/notes.css";
 
 export type MobileNotesHandle = { back: () => void };
 type NotesApi = ReturnType<typeof scopedNotes>;

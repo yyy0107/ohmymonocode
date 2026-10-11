@@ -25,7 +25,7 @@
   min-width: 0;
   overflow-wrap: anywhere;
   font-size: var(--mobile-font-md);
-  color: color-mix(in srgb, var(--color-content) 70%, transparent);
+  color: var(--color-m-ink-secondary);
 }
 .mobile-account-toolbar .mobile-icon-button {
   background: var(--mobile-card);
@@ -51,12 +51,12 @@
 }
 .mobile-account-notice p {
   margin-top: 4px;
-  color: color-mix(in srgb, var(--color-content) 70%, transparent);
+  color: var(--color-m-ink-secondary);
 }
 .mobile-settings-group h2.mobile-account-provider {
   margin: 0 4px 10px;
   font-weight: 600;
-  color: color-mix(in srgb, var(--color-content) 75%, transparent);
+  color: var(--color-m-ink-secondary);
 }
 .mobile-account-list {
   display: grid;
@@ -88,7 +88,7 @@
   line-height: 1.6;
 }
 .mobile-account-plan {
-  color: color-mix(in srgb, var(--color-content) 75%, transparent);
+  color: var(--color-m-ink-secondary);
   background: var(--mobile-fill);
 }
 .mobile-account-badge {
@@ -107,7 +107,7 @@
   font-size: var(--mobile-font-sm);
   line-height: 1.5;
   overflow-wrap: anywhere;
-  color: color-mix(in srgb, var(--color-content) 65%, transparent);
+  color: var(--color-m-ink-secondary);
 }
 .mobile-account-status {
   margin-top: 10px;
@@ -117,7 +117,7 @@
 .mobile-account-updated {
   margin-top: 12px;
   font-size: var(--mobile-font-xs);
-  color: color-mix(in srgb, var(--color-content) 50%, transparent);
+  color: var(--color-m-ink-tertiary);
 }
 .mobile-account-meters {
   display: grid;

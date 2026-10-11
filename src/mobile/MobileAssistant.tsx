@@ -52,7 +52,7 @@ import { HARNESS_TITLE } from "../features/sessions/model/session";
 import { preserveInputFocus, usePreserveInputFocusOnTouch } from "./inputFocus";
 import { useMobileTextareaAutosize } from "./useMobileTextareaAutosize";
 import { keyboardHeight, keyboardMotionRemaining, onKeyboardMotion } from "./keyboardMotion";
-import "./assistant.css";
+import "./styles/assistant.css";
 
 const BackHandlers = createContext(new Map<number, () => void>());
 function useAssistantBack(priority: number, open: boolean, close: () => void) {

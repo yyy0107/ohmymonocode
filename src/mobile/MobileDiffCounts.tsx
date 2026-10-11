@@ -1,4 +1,4 @@
-import "./mobileDiffCounts.css";
+import "./styles/diff-counts.css";
 
 export function MobileDiffCounts({
   additions,

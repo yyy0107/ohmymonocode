@@ -10,7 +10,7 @@ import { useTranslation } from "../shared/i18n/useTranslation";
 import { Info, RefreshCw } from "../shared/ui/icons";
 import { useSurfaceVisibility } from "../shared/ui/SurfaceVisibility";
 import type { MobileClient } from "./client";
-import "./mobileProviderAccounts.css";
+import "./styles/provider-accounts.css";
 
 const PROVIDERS = ["claude", "codex"] as const;
 type State = {

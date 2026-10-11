@@ -62,35 +62,37 @@
   --animate-m-panel-in: m-panel-in 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-m-typing: m-typing 1.2s ease-in-out infinite;
 
-  @keyframes m-msg-in {
-    from {
-      opacity: 0;
-      transform: translateY(6px);
-    }
+}
+
+/* Keyframes stay global: plain stylesheets reference them, not only utilities. */
+@keyframes m-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
   }
-  @keyframes m-pop-in {
-    from {
-      opacity: 0;
-      transform: scale(0.96);
-    }
+}
+@keyframes m-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
   }
-  @keyframes m-panel-in {
-    from {
-      opacity: 0;
-      transform: translateY(12px);
-    }
+}
+@keyframes m-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
   }
-  @keyframes m-typing {
-    0%,
-    60%,
-    100% {
-      transform: translateY(0);
-      opacity: 0.45;
-    }
-    30% {
-      transform: translateY(-3px);
-      opacity: 1;
-    }
+}
+@keyframes m-typing {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
   }
 }
 
@@ -98,6 +100,8 @@
    tree-shaken and skins may redeclare them. */
 :root {
   --m-hit: 44px;
+  --m-control: 36px;
+  --m-pill: 28px;
   --m-space-1: 8px;
   --m-space-2: 12px;
   --m-space-3: 16px;
@@ -110,10 +114,11 @@
   /* Frosted material: a translucent raised tone over a blurred backdrop.
      glassSettings.ts rewrites the fill/blur for Settings → Glass. */
   --m-material-fill: 78%;
+  --m-material-panel-fill: 88%;
   --m-material-blur: 20px;
   --m-material-saturate: 140%;
   --m-material: color-mix(in srgb, var(--color-m-raised) var(--m-material-fill), transparent);
-  --m-material-panel: color-mix(in srgb, var(--color-m-menu) calc(var(--m-material-fill) + 12%), transparent);
+  --m-material-panel: color-mix(in srgb, var(--color-m-menu) var(--m-material-panel-fill), transparent);
   --m-material-filter: blur(var(--m-material-blur)) saturate(var(--m-material-saturate));
   --m-shadow-float: 0 8px 28px rgb(0 0 0 / 0.28), 0 1px 3px rgb(0 0 0 / 0.18);
 }

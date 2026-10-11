@@ -1,14 +1,15 @@
 // @vitest-environment happy-dom
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { MobileMessageQueue } from "./MobileMessageQueue";
-import { LIQUID_GLASS_SELECTOR } from "./liquidGlass";
+import { MOBILE_MATERIAL_SELECTOR } from "./theme/material";
 import { setUiLanguage } from "../shared/i18n/language";
 import type { QueuedMessage } from "../features/sessions/model/session";
 import { SurfaceVisibilityContext } from "../shared/ui/SurfaceVisibility";
-const mobileCss = readFileSync("src/mobile/mobile.css", "utf8");
+const mobileCss = ["src/mobile/theme/tokens.css", ...readdirSync("src/mobile/styles").filter((name) => /^\d+-.+\.css$/.test(name)).sort().map((name) => `src/mobile/styles/${name}`)]
+  .map((path) => readFileSync(path, "utf8")).join("\n");
 vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
 let root: Root, node: HTMLDivElement;
 const message: QueuedMessage = {
@@ -136,7 +137,7 @@ function finishMenuExit() {
   act(() => backdrop.dispatchEvent(new Event("animationend", { bubbles: true })));
   expect(node.querySelector('[role="dialog"]')).toBeNull();
 }
-it.each(["liquid", "frosted", "solid"])(
+it.each(["frosted", "solid"])(
   "removes the queue fill and shadows while preserving the border and glass in %s mode",
   (effect) => {
     const html = document.documentElement;
@@ -166,7 +167,7 @@ it.each(["liquid", "frosted", "solid"])(
           if (effect !== "solid") {
             expect(computed.getPropertyValue("backdrop-filter")).toContain("blur(");
           }
-          expect(item.matches(LIQUID_GLASS_SELECTOR)).toBe(true);
+          expect(item.matches(MOBILE_MATERIAL_SELECTOR)).toBe(true);
         }
       }
     } finally {

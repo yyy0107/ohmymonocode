@@ -24,7 +24,7 @@ import { MobileSheet } from "./MobileSheet";
 import { MobileSheetPresence } from "./MobileSheetPresence";
 import { MobileDiffCounts } from "./MobileDiffCounts";
 import type { MobileGitIndexState } from "./useMobileGitIndex";
-import "./mobileSessionProgress.css";
+import "./styles/session-progress.css";
 
 /** A compact transcript summary; its sheet uses the same data as desktop. */
 export function MobileSessionProgress({

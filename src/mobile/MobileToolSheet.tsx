@@ -17,7 +17,7 @@ import { AnimatedCollapse } from "../shared/ui/AnimatedCollapse";
 import { MobileSheet, MobileSheetHeader } from "./MobileSheet";
 import { MobileDiffCounts } from "./MobileDiffCounts";
 import { MobileToolDiff } from "./MobileGitDiff";
-import "./mobileGitReview.css";
+import "./styles/git-review.css";
 
 type ReadOutput = { count: number; start?: number; end?: number };
 

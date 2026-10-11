@@ -10,7 +10,7 @@ import type { MobileGitIndexState } from "./useMobileGitIndex";
 import type { SessionChangesIndex } from "./mobileSessionChanges";
 import { MobileSheet } from "./MobileSheet";
 import { MobileGitDiff } from "./MobileGitDiff";
-import "./mobileGitReview.css";
+import "./styles/git-review.css";
 import { MobileDiffCounts } from "./MobileDiffCounts";
 
 /** Keep or undo the edits one conversation made. */

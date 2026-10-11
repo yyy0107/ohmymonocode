@@ -16,7 +16,7 @@
   min-height: 44px;
   padding: 8px 12px;
   border-radius: 24px;
-  color: var(--color-content);
+  color: var(--color-m-ink);
   font-size: var(--mobile-font-md);
   text-align: start;
   pointer-events: auto;
@@ -41,7 +41,7 @@
 .mobile-progress-icon,
 .mobile-progress-capsule > svg {
   flex-shrink: 0;
-  color: color-mix(in srgb, var(--color-content) 60%, transparent);
+  color: var(--color-m-ink-secondary);
 }
 .mobile-progress-icon {
   display: grid;
@@ -58,7 +58,7 @@
   flex-shrink: 0;
   font-size: var(--mobile-font-xs);
   font-variant-numeric: tabular-nums;
-  color: color-mix(in srgb, var(--color-content) 55%, transparent);
+  color: var(--color-m-ink-secondary);
 }
 .mobile-desktop-transcript[data-progress="true"] > .agent-transcript {
   padding-top: calc(
@@ -92,7 +92,7 @@
   margin-inline-start: auto;
   font-size: var(--mobile-font-sm);
   font-weight: 400;
-  color: color-mix(in srgb, var(--color-content) 55%, transparent);
+  color: var(--color-m-ink-secondary);
 }
 .mobile-progress-tasks {
   list-style: none;
@@ -117,7 +117,7 @@
 .mobile-progress-tasks
   li:is([data-status="completed"], [data-status="cancelled"])
   > span:last-child {
-  color: color-mix(in srgb, var(--color-content) 45%, transparent);
+  color: var(--color-m-ink-tertiary);
   text-decoration: line-through;
 }
 .mobile-progress-row {
@@ -130,7 +130,7 @@
   border: 0;
   border-radius: 10px;
   background: transparent;
-  color: var(--color-content);
+  color: var(--color-m-ink);
   text-align: start;
   font-size: var(--mobile-font-md);
   line-height: 1.5;
@@ -142,12 +142,12 @@
 }
 .mobile-progress-row > svg {
   flex-shrink: 0;
-  color: color-mix(in srgb, var(--color-content) 45%, transparent);
+  color: var(--color-m-ink-tertiary);
 }
 .mobile-progress-row small {
   display: block;
   font-size: var(--mobile-font-sm);
-  color: color-mix(in srgb, var(--color-content) 55%, transparent);
+  color: var(--color-m-ink-secondary);
 }
 /* Background commands can embed whole heredoc prompts; keep each row short. */
 .mobile-progress-command {
@@ -165,7 +165,7 @@
   border: 0;
   border-radius: 10px;
   background: transparent;
-  color: color-mix(in srgb, var(--color-content) 60%, transparent);
+  color: var(--color-m-ink-secondary);
   text-align: start;
   font-size: var(--mobile-font-md);
 }

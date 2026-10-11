@@ -1,9 +1,7 @@
 import "./browserCrypto";
 import { createRoot } from "react-dom/client";
 import { MobileApp } from "./MobileApp";
-import { installLiquidGlass } from "./liquidGlass";
 import { installKeyboardMotion } from "./keyboardMotion";
-import { installGlassMotion } from "./glassMotion";
 import { applyGlassSettings, readGlassSettings } from "./glassSettings";
 import { refreshUiLanguage } from "../shared/i18n/language";
 import { disableStatusToasts } from "../shared/ui/StatusToast";
@@ -31,13 +29,12 @@ import { subscribeSharedPreferences } from "../features/settings/model/sharedPre
 import { parsePreferenceAsset } from "../features/settings/model/preferenceAssets";
 import { applyMobileSkin, loadMobileSkin } from "./theme/skin";
 import "./theme/index.css";
-import "./mobile.css";
+import "./styles/index.css";
 import "./motion.css";
 
 refreshUiLanguage();
 disableStatusToasts();
 installKeyboardMotion();
-installGlassMotion();
 applyGlassSettings(readGlassSettings());
 applyAccentColor(loadAccentColor());
 applyMobileSkin(loadMobileSkin(), loadThemePreference());
@@ -70,5 +67,3 @@ createRoot(document.getElementById("root")!, {
   },
 }).render(<MobileApp />);
 
-// Popovers portal to the body, so watch it rather than the React root.
-installLiquidGlass(document.body);

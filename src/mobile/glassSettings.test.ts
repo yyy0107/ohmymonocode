@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   DEFAULT_GLASS_SETTINGS,
   GLASS_SETTINGS_KEY,
-  glassRefraction,
   glassVariables,
   normalizeGlassSettings,
   readGlassSettings,
@@ -64,37 +63,34 @@ describe("mobile glass settings", () => {
     expect(() => saveGlassSettings(DEFAULT_GLASS_SETTINGS)).not.toThrow();
   });
 
+  it("keeps saved Liquid glass as Frosted", () => {
+    expect(normalizeGlassSettings({ effect: "liquid", intensity: 30, transparency: 60 })).toEqual({
+      effect: "frosted",
+      intensity: 30,
+      transparency: 60,
+    });
+  });
+
   it("maps transparency to a lighter fill for controls than for panels", () => {
-    const vars = glassVariables({ effect: "liquid", intensity: 50, transparency: 78 });
-    expect(vars["--mobile-glass-fill"]).toBe("22%");
-    expect(vars["--mobile-glass-panel-fill"]).toBe("57.1%");
+    const vars = glassVariables({ effect: "frosted", intensity: 50, transparency: 78 });
+    expect(vars["--m-material-fill"]).toBe("22%");
+    expect(vars["--m-material-panel-fill"]).toBe("57.1%");
     expect(
-      glassVariables({ effect: "liquid", intensity: 50, transparency: 100 })[
-        "--mobile-glass-fill"
+      glassVariables({ effect: "frosted", intensity: 50, transparency: 100 })[
+        "--m-material-fill"
       ],
     ).toBe("0%");
   });
 
-  it("scales the material with intensity for each effect", () => {
-    const liquid = glassVariables({ effect: "liquid", intensity: 50, transparency: 78 });
-    expect(liquid["--mobile-glass-blur"]).toBe("3px");
-    expect(liquid["--mobile-glass-panel-blur"]).toBe("15px");
-    expect(liquid["--mobile-glass-shine"]).toBe("1");
-    expect(liquid["--mobile-glass-saturation"]).toBe("200%");
-    const frosted = glassVariables({ effect: "frosted", intensity: 100, transparency: 78 });
-    expect(frosted["--mobile-glass-blur"]).toBe("40px");
-    expect(frosted["--mobile-glass-panel-blur"]).toBe("40px");
+  it("scales blur and saturation with intensity, and drops both when solid", () => {
+    const frosted = glassVariables({ effect: "frosted", intensity: 50, transparency: 22 });
+    expect(frosted["--m-material-blur"]).toBe("20px");
+    expect(frosted["--m-material-saturate"]).toBe("140%");
+    expect(glassVariables({ effect: "frosted", intensity: 100, transparency: 22 })["--m-material-blur"]).toBe("36px");
     const solid = glassVariables({ effect: "solid", intensity: 100, transparency: 100 });
-    expect(solid["--mobile-glass-fill"]).toBe("100%");
-    expect(solid["--mobile-glass-panel-fill"]).toBe("100%");
-    expect(solid["--mobile-glass-blur"]).toBe("0px");
-    expect(solid["--mobile-glass-shine"]).toBe("0");
-  });
-
-  it("refracts only with Liquid glass", () => {
-    expect(glassRefraction({ effect: "liquid", intensity: 50, transparency: 78 })).toBe(1);
-    expect(glassRefraction({ effect: "liquid", intensity: 0, transparency: 78 })).toBe(0);
-    expect(glassRefraction({ effect: "liquid", intensity: 100, transparency: 78 })).toBe(2);
-    expect(glassRefraction({ effect: "frosted", intensity: 100, transparency: 78 })).toBe(0);
+    expect(solid["--m-material-fill"]).toBe("100%");
+    expect(solid["--m-material-panel-fill"]).toBe("100%");
+    expect(solid["--m-material-blur"]).toBe("0px");
+    expect(solid["--m-material-saturate"]).toBe("100%");
   });
 });
