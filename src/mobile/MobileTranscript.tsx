@@ -32,6 +32,7 @@ import { useSurfaceVisibility } from "../shared/ui/SurfaceVisibility";
 import { useStableCallback } from "./useStableCallback";
 import { lazyMobileSheet } from "./mobileLazy";
 import { MobileConversation } from "./MobileConversation";
+import { TypingDots } from "./ui/Bubble";
 
 const MobileAgentSheet = lazyMobileSheet(async () => ({ default: (await import("./MobileAgentSheet")).MobileAgentSheet }));
 const MobileToolSheet = lazyMobileSheet(async () => ({ default: (await import("./MobileToolSheet")).MobileToolSheet }));
@@ -176,6 +177,10 @@ export const MobileTranscript = memo(function MobileTranscript({
     [],
   );
   const { session, runId } = snapshot;
+  // A sent message waits in a typing bubble until the agent's first output.
+  const lastBlock = session.blocks.at(-1);
+  const awaitingReply = lastBlock?.role === "user" && !lastBlock.draft &&
+    (!!lastBlock.sending || snapshot.status === "running");
   const git = useMobileGitIndex(gitSource, visible && gitEnabled, snapshot.status === "running");
   const sessionChanges = useMobileGitIndex(sessionChangesSource, visible && gitEnabled, snapshot.status === "running");
   const sessionChangeActions = useMemo(() => sessionChangesSource ? {
@@ -336,6 +341,11 @@ export const MobileTranscript = memo(function MobileTranscript({
         onApproval={onApproval}
         decidingPlanId={planDecision?.blockId}
         worktreeCreation={worktreeCreation}
+        latestTurnAccessory={awaitingReply ? (
+          <div className="mobile-typing-bubble">
+            <TypingDots label={t("Waiting for a reply")} />
+          </div>
+        ) : undefined}
       />
       {session.pendingQuestion && (
         <div

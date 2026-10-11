@@ -244,6 +244,10 @@
   line-height: 1.45;
   text-align: left;
 }
+/* The shell's `button { font: inherit }` reset outranks the row size. */
+.mobile-app button.mobile-settings-row {
+  font-size: var(--mobile-font-lg);
+}
 button.mobile-settings-row:active {
   --mobile-press-color: var(--color-selection);
 }

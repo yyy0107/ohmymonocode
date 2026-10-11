@@ -2284,6 +2284,7 @@
   "Remote session unavailable": "远程会话不可用",
   "{percent}% left ({used} / {window} used)": "剩余 {percent}%（已用 {used} / {window}）",
   "Skin": "皮肤",
+  "Waiting for a reply": "等待回复",
   "Automatic": "自动",
   "Midnight or Daylight, following Color mode.": "按颜色模式在午夜与日光之间切换。",
   "Midnight": "午夜",
