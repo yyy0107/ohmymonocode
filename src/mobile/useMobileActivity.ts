@@ -21,6 +21,9 @@ import {
   type MobileNotificationTarget,
 } from "./notifications";
 import { translate } from "../shared/i18n/language";
+import { NativeActivitySync } from "./nativeActivitySync";
+import type { HostSessionSummary } from "../features/connections/model/protocol";
+import type { AssistantNotificationActivity } from "../features/assistant/model/assistantNotifications";
 
 const ENABLED_KEY = "monocode.mobileNotifications";
 
@@ -35,6 +38,47 @@ function playActivityCue(notices: readonly ActivityNotice[]) {
     )
       return;
 }
+/** Sends only what changed since the tracker's last snapshot, falling back
+ * to the full list when it has none or rejects the changes. */
+async function observeNative(
+  sync: NativeActivitySync,
+  environmentId: string,
+  sessions: readonly HostSessionSummary[],
+  assistant: AssistantNotificationActivity | null | undefined,
+  enabled: boolean,
+) {
+  const { update, commit } = sync.plan(environmentId, sessions);
+  if (!update.full) {
+    try {
+      const state = await MobileNotifications.observeChanges({
+        environmentId,
+        sessions: update.sessions,
+        removed: update.removed,
+        assistant,
+        enabled,
+      });
+      commit();
+      return state;
+    } catch {
+      sync.reset();
+    }
+  }
+  const full = update.full ? { update, commit } : sync.plan(environmentId, sessions);
+  try {
+    const state = await MobileNotifications.observe({
+      environmentId,
+      sessions: full.update.sessions,
+      assistant,
+      enabled,
+    });
+    full.commit();
+    return state;
+  } catch (problem) {
+    sync.reset();
+    throw problem;
+  }
+}
+
 export function useMobileActivity(
   client: MobileClient,
   options: {
@@ -76,6 +120,7 @@ export function useMobileActivity(
   const [notificationError, setNotificationError] = useState("");
   const hadConnection = useRef(false);
   const activity = useRef<MobileActivity | undefined>(undefined);
+  const nativeSync = useRef(new NativeActivitySync());
   const current = useRef({ ...options, environmentId, enabled, permission });
   current.current = { ...options, environmentId, enabled, permission };
   const readVisibleSession = useCallback(() => {
@@ -283,14 +328,14 @@ export function useMobileActivity(
             ) ?? [],
           );
           if (activity.current) saveMobileActivity(environmentId, activity.current);
-          const state = await MobileNotifications.observe({
+          const state = await observeNative(
+            nativeSync.current,
             environmentId,
-            sessions: result.sessions,
-            assistant: result.assistant,
-            enabled:
-              current.current.enabled &&
+            result.sessions,
+            result.assistant,
+            current.current.enabled &&
               current.current.permission === "granted",
-          });
+          );
           if (live)
             setUnreadIds(
               new Set([

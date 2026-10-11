@@ -105,4 +105,26 @@ public class SessionActivityStateTest {
         assertEquals(1, state.observe(Arrays.asList(activity(3, 3, "first", null)), null).size());
         assertEquals(Arrays.asList("one"), state.unreadIds());
     }
+    @Test public void changesMatchAFullSnapshotAndRequireOneFirst() {
+        SessionActivityState full = new SessionActivityState();
+        SessionActivityState delta = new SessionActivityState();
+        SessionActivityState.Activity two = activity(5, 5, "done", null);
+        two.id = "two";
+        try {
+            delta.observeChanges(Arrays.asList(two), Collections.emptyList(), null);
+            fail("Changes before a full snapshot would drop untracked conversations");
+        } catch (IllegalStateException expected) { }
+        full.observe(Arrays.asList(activity(10, 8, "old", null), two), null);
+        delta.observe(Arrays.asList(activity(10, 8, "old", null), two), null);
+
+        SessionActivityState.Activity reply = activity(12, 12, "new", null);
+        assertEquals(1, full.observe(Arrays.asList(reply, two), null).size());
+        assertEquals(1, delta.observeChanges(Arrays.asList(reply), Collections.emptyList(), null).size());
+        assertEquals(full.unreadIds(), delta.unreadIds());
+
+        full.observe(Arrays.asList(reply), null);
+        delta.observeChanges(Collections.emptyList(), Arrays.asList("two"), null);
+        assertEquals(full.entries.keySet(), delta.entries.keySet());
+        assertEquals(Arrays.asList("one"), delta.unreadIds());
+    }
 }

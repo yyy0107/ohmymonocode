@@ -92,6 +92,22 @@ final class MobileActivityTracker {
         return result(environmentId, state);
     }
     static synchronized JSObject observe(Context context, String environmentId, JSONArray sessions, boolean enabled, JSONObject texts) throws JSONException {
+        SessionActivityState state = read(context, environmentId);
+        List<SessionActivityState.Notice> notices = state.observe(activities(sessions), visibleSessionIn(environmentId));
+        return settle(context, environmentId, state, notices, enabled, texts);
+    }
+    /** Rows that changed since the last full snapshot, and ids that are gone. */
+    static synchronized JSObject observeChanges(Context context, String environmentId, JSONArray changed, JSONArray removed, boolean enabled, JSONObject texts) throws JSONException {
+        SessionActivityState state = read(context, environmentId);
+        List<String> gone = new ArrayList<>();
+        for (int index = 0; index < removed.length(); index++) gone.add(removed.getString(index));
+        List<SessionActivityState.Notice> notices = state.observeChanges(activities(changed), gone, visibleSessionIn(environmentId));
+        return settle(context, environmentId, state, notices, enabled, texts);
+    }
+    private static String visibleSessionIn(String environmentId) {
+        return foreground && environmentId.equals(visibleEnvironment) ? visibleSession : null;
+    }
+    private static List<SessionActivityState.Activity> activities(JSONArray sessions) throws JSONException {
         List<SessionActivityState.Activity> activities = new ArrayList<>();
         for (int index = 0; index < sessions.length(); index++) {
             JSONObject row = sessions.getJSONObject(index);
@@ -108,9 +124,10 @@ final class MobileActivityTracker {
             activity.archived = row.optBoolean("archived");
             activities.add(activity);
         }
-        SessionActivityState state = read(context, environmentId);
-        List<SessionActivityState.Notice> notices = state.observe(activities,
-            foreground && environmentId.equals(visibleEnvironment) ? visibleSession : null);
+        return activities;
+    }
+    private static JSObject settle(Context context, String environmentId, SessionActivityState state,
+                                   List<SessionActivityState.Notice> notices, boolean enabled, JSONObject texts) throws JSONException {
         write(context, environmentId, state);
         if (enabled && NotificationManagerCompat.from(context).areNotificationsEnabled()) {
             channels(context, texts);
