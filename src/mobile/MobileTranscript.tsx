@@ -523,7 +523,6 @@ export const MobileTranscript = memo(function MobileTranscript({
                   : undefined}
                 onBack={() => setDetail((current) => ({ ...current, active: "activity", tool: undefined, agent: undefined }))}
                 onOpenFile={readBinaryFile ? openFile : undefined}
-                onOpenDiff={gitSource ? openDiff : undefined}
                 onClose={closeDetail}
               />
             )}
@@ -539,7 +538,6 @@ export const MobileTranscript = memo(function MobileTranscript({
                 }
                 cwd={session.cwd}
                 onOpenFile={readBinaryFile ? openFile : undefined}
-                onOpenDiff={gitSource ? openDiff : undefined}
                 onClose={closeDetail}
               />
             )}

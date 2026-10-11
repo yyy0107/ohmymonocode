@@ -1,38 +1,25 @@
 import { useMemo } from "react";
-import type { FileDiffOptions } from "@pierre/diffs";
+import { processFile, type FileDiffOptions } from "@pierre/diffs";
 import { FileDiff } from "@pierre/diffs/react";
 import {
   prepareReviewDiff,
   reviewFileMetadata,
 } from "../features/source-control/model/reviewDiff";
+import type { ToolPreviewLine } from "../features/sessions/model/session";
 import type { GitFileDiff } from "../platform/tauri/fs";
 import { useColorScheme } from "../shared/hooks/useColorScheme";
 import { useTranslation } from "../shared/i18n/useTranslation";
 
-/** An inline diff with horizontal code scrolling and a fixed line-number gutter. */
-export function MobileGitDiff({ diff, wrap }: { diff: GitFileDiff; wrap: boolean }) {
+function useMobileDiffOptions(wrap: boolean, partial: boolean) {
   const { t } = useTranslation();
   const themeType = useColorScheme();
-  const prepared = useMemo(
-    () =>
-      prepareReviewDiff({
-        ...diff,
-        tooLarge:
-          diff.tooLarge || diff.original.length + diff.current.length > 256_000,
-      }),
-    [diff],
-  );
-  const fileDiff = useMemo(
-    () => reviewFileMetadata(diff.relative, prepared),
-    [diff.relative, prepared],
-  );
   const options = useMemo<FileDiffOptions<undefined>>(
     () => ({
       diffStyle: "unified",
       diffIndicators: "bars",
       disableFileHeader: true,
       overflow: wrap ? "wrap" : "scroll",
-      hunkSeparators: fileDiff?.isPartial ? "simple" : "line-info",
+      hunkSeparators: partial ? "simple" : "line-info",
       lineDiffType: "word-alt",
       maxLineDiffLength: 1000,
       tokenizeMaxLineLength: 1000,
@@ -79,8 +66,28 @@ export function MobileGitDiff({ diff, wrap }: { diff: GitFileDiff; wrap: boolean
         }
       },
     }),
-    [themeType, fileDiff?.isPartial, t, wrap],
+    [themeType, partial, t, wrap],
   );
+  return { options, themeType };
+}
+
+/** An inline diff with horizontal code scrolling and a fixed line-number gutter. */
+export function MobileGitDiff({ diff, wrap }: { diff: GitFileDiff; wrap: boolean }) {
+  const { t } = useTranslation();
+  const prepared = useMemo(
+    () =>
+      prepareReviewDiff({
+        ...diff,
+        tooLarge:
+          diff.tooLarge || diff.original.length + diff.current.length > 256_000,
+      }),
+    [diff],
+  );
+  const fileDiff = useMemo(
+    () => reviewFileMetadata(diff.relative, prepared),
+    [diff.relative, prepared],
+  );
+  const { options, themeType } = useMobileDiffOptions(wrap, !!fileDiff?.isPartial);
 
   if (prepared.binary)
     return <p className="mobile-git-note">{t("Binary file changed")}</p>;
@@ -97,6 +104,50 @@ export function MobileGitDiff({ diff, wrap }: { diff: GitFileDiff; wrap: boolean
     return (
       <p className="mobile-git-note">{t("Diff is too large to display")}</p>
     );
+  return (
+    <div className="mobile-git-diff" data-theme={themeType}>
+      <FileDiff fileDiff={fileDiff} options={options} />
+    </div>
+  );
+}
+
+/** One hunk from a tool call's own preview lines; the file itself is not read. */
+function toolPatchMetadata(path: string, lines: ToolPreviewLine[], startLine?: number) {
+  const start = lines.find((line) => line.number != null)?.number ?? startLine ?? 1;
+  const oldCount = lines.filter((line) => line.kind !== "add").length;
+  const newCount = lines.filter((line) => line.kind !== "del").length;
+  const patch = [
+    "--- review",
+    "+++ review",
+    `@@ -${oldCount ? start : start - 1},${oldCount} +${newCount ? start : start - 1},${newCount} @@`,
+    ...lines.map((line) =>
+      `${line.kind === "add" ? "+" : line.kind === "del" ? "-" : " "}${line.text}`),
+  ];
+  try {
+    const metadata = processFile(`${patch.join("\n")}\n`, { throwOnError: true });
+    if (metadata) {
+      metadata.name = path;
+      metadata.prevName = path;
+    }
+    return metadata;
+  } catch {
+    return undefined;
+  }
+}
+
+/** A tool call's edit, drawn like a Git review diff. */
+export function MobileToolDiff({ path, lines, startLine, wrap }: {
+  path: string;
+  lines: ToolPreviewLine[];
+  startLine?: number;
+  wrap: boolean;
+}) {
+  const fileDiff = useMemo(
+    () => toolPatchMetadata(path, lines, startLine),
+    [path, lines, startLine],
+  );
+  const { options, themeType } = useMobileDiffOptions(wrap, true);
+  if (!fileDiff) return null;
   return (
     <div className="mobile-git-diff" data-theme={themeType}>
       <FileDiff fileDiff={fileDiff} options={options} />

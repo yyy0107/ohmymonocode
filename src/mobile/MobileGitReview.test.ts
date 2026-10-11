@@ -161,21 +161,24 @@ describe("mobile Git review from the progress capsule", () => {
     expect(activeDialog()).toBeNull();
   });
 
-  it("opens the tool's review entry and returns to the same tool with native Back", async () => {
-    const { onOverlayChange } = await render({
+  it("shows a tool's own edit inline in review style without loading Git", async () => {
+    const source = {
       loadIndex: vi.fn(async () => index()),
       loadDiff: vi.fn(async () => diff()),
-    }, [editBlock()]);
+    };
+    await render(source, [editBlock()]);
     await click(app.querySelector<HTMLElement>("[data-tool-open-row]")!);
     await settle();
+    const sheet = activeDialog();
     expect(page().querySelector(".file-preview-list")).toBeNull();
-    await click(page().querySelector<HTMLButtonElement>('[aria-label="Review changes"]')!);
-    await settle();
-    expect(fileButton().getAttribute("aria-expanded")).toBe("true");
-    await act(async () => onOverlayChange.mock.calls.at(-1)![0]());
-    await settle();
-    expect(page().querySelector(".mobile-tool-sheet")).not.toBeNull();
-    expect(page().querySelector('[aria-label="Review changes"]')).not.toBeNull();
+    expect(page().querySelector('[aria-label="Review changes"]')).toBeNull();
+    const row = page().querySelector<HTMLButtonElement>(".mobile-tool-diff .mobile-git-file-row")!;
+    expect(row.getAttribute("aria-expanded")).toBe("true");
+    expect(diffText()).toContain("after");
+    await click(row);
+    expect(activeDialog()).toBe(sheet);
+    expect(row.getAttribute("aria-expanded")).toBe("false");
+    expect(source.loadDiff).not.toHaveBeenCalled();
   });
 
   it("shows the empty state when a single file no longer has changes", async () => {
@@ -190,8 +193,8 @@ describe("mobile Git review from the progress capsule", () => {
     expect(loadDiff).not.toHaveBeenCalled();
   });
 
-  it("returns through the originating activity after a single-file review", async () => {
-    const { onOverlayChange } = await render({
+  it("keeps an activity step's edit inside the activity sheet", async () => {
+    await render({
       loadIndex: vi.fn(async () => index()),
       loadDiff: vi.fn(async () => diff()),
     }, [editBlock(), {
@@ -200,14 +203,12 @@ describe("mobile Git review from the progress capsule", () => {
     }, { id: "answer", role: "assistant", text: "Done." }]);
     await click(app.querySelector<HTMLButtonElement>("[data-activity-sheet]")!);
     await settle();
+    const sheet = activeDialog();
     await click(page().querySelector<HTMLButtonElement>(".mobile-activity-step button")!);
     await settle();
-    await click(page().querySelector<HTMLButtonElement>('[aria-label="Review changes"]')!);
-    await settle();
-    expect(fileButton().getAttribute("aria-expanded")).toBe("true");
-    await act(async () => onOverlayChange.mock.calls.at(-1)![0]());
-    await settle();
-    expect(page().querySelector(".mobile-tool-sheet")).not.toBeNull();
+    expect(activeDialog()).toBe(sheet);
+    expect(page().querySelector(".mobile-tool-diff .mobile-git-file-row")?.getAttribute("aria-expanded")).toBe("true");
+    expect(diffText()).toContain("after");
     await click(page().querySelector<HTMLButtonElement>('[aria-label="Back"]')!);
     await settle();
     expect(page().querySelectorAll(".mobile-activity-step")).toHaveLength(2);

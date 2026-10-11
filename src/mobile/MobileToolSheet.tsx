@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState, type ReactNode } from "react";
+import { useContext, useId, useMemo, useState, type ReactNode } from "react";
 import { isLongText, ReadonlyTextView } from "../shared/ui/ReadonlyTextView";
 import { isReadTool } from "../integrations/harness/core/preview";
 import { FilePreview } from "../features/files/ui/FilePreview";
@@ -12,9 +12,11 @@ import {
 import type { Block } from "../features/sessions/model/session";
 import { displayPath, resolveWorkspacePath } from "../shared/lib/paths";
 import { useTranslation } from "../shared/i18n/useTranslation";
-import { Check, ChevronRight, Copy, File as FileIcon } from "../shared/ui/icons";
+import { Check, ChevronRight, Copy, File as FileIcon, WrapText } from "../shared/ui/icons";
+import { AnimatedCollapse } from "../shared/ui/AnimatedCollapse";
 import { MobileSheet, MobileSheetHeader } from "./MobileSheet";
 import { MobileDiffCounts } from "./MobileDiffCounts";
+import { MobileToolDiff } from "./MobileGitDiff";
 import "./mobileGitReview.css";
 
 type ReadOutput = { count: number; start?: number; end?: number };
@@ -89,7 +91,6 @@ export function MobileToolSheet({
   block,
   cwd,
   onOpenFile,
-  onOpenDiff,
   onBack,
   onClose,
   embedded = false,
@@ -99,7 +100,6 @@ export function MobileToolSheet({
   block: Block;
   cwd?: string;
   onOpenFile?: (path: string) => void;
-  onOpenDiff?: (path: string) => void;
   /** Returns to the step list this call was opened from. */
   onBack?: () => void;
   onClose: () => void;
@@ -109,6 +109,9 @@ export function MobileToolSheet({
   const { t } = useTranslation();
   const { copyText } = useContext(TranscriptPlatformContext);
   const [copied, setCopied] = useState<string>();
+  const [wrap, setWrap] = useState(false);
+  const [diffExpanded, setDiffExpanded] = useState(true);
+  const diffId = useId();
   const { label, state, input, output, details, readOutput, path, preview } =
     useMemo(() => toolDetails(block, cwd), [block, cwd]);
 
@@ -173,6 +176,7 @@ export function MobileToolSheet({
 
   // The sheet is titled by the tool, like "Bash" or "Read"; the call itself
   // is the first section, so a long command never crowds the title row.
+  const reviewDiff = !!path && !!preview?.lines?.length;
   const verb = toolCategory(block) === "edit" ? editVerb(label) : (label.split(/\s/, 1)[0] ?? "");
   const name = verb ? verb[0].toUpperCase() + verb.slice(1) : t("Tool details");
   const content = (
@@ -183,18 +187,28 @@ export function MobileToolSheet({
           : null}
         {preview ? (
           <div className="mobile-detail-section mobile-tool-diff">
-            {path && onOpenDiff && state === "accepted" ? (
-              <button
-                type="button"
-                className="mobile-git-file-row"
-                aria-label={t("Review changes")}
-                title={path}
-                onClick={() => onOpenDiff(path)}
-              >
-                <ChevronRight size={16} />
-                <span className="mobile-git-file-path"><bdi dir="ltr">{displayPath(path, cwd)}</bdi></span>
-                <MobileDiffCounts additions={preview.additions ?? 0} deletions={preview.deletions ?? 0} />
-              </button>
+            {reviewDiff && path ? (
+              // The call's own diff opens in place, styled like the Git review.
+              <div className="mobile-git-file-entry">
+                <button
+                  type="button"
+                  className="mobile-git-file-row"
+                  aria-expanded={diffExpanded}
+                  aria-controls={diffId}
+                  title={path}
+                  onClick={() => setDiffExpanded((value) => !value)}
+                >
+                  <ChevronRight size={16} aria-hidden="true" className="mobile-git-file-chevron" />
+                  <span className="mobile-git-file-path"><bdi dir="ltr">{displayPath(path, cwd)}</bdi></span>
+                  <MobileDiffCounts additions={preview.additions ?? 0} deletions={preview.deletions ?? 0} />
+                </button>
+                <AnimatedCollapse expanded={diffExpanded} motion="height" animateContentResize>
+                  <div id={diffId} className="mobile-git-file">
+                    <MobileToolDiff path={displayPath(path, cwd)} lines={preview.lines!}
+                      startLine={preview.startLine} wrap={wrap} />
+                  </div>
+                </AnimatedCollapse>
+              </div>
             ) : <FilePreview
               key={path ?? block.id}
               preview={preview}
@@ -224,7 +238,18 @@ export function MobileToolSheet({
         ) : null}
       </div>
   );
-  const header = { title: name, subtitle: t(STATE_LABEL[state]) };
+  const header = { title: name, subtitle: t(STATE_LABEL[state]), action: reviewDiff ? (
+    <button
+      type="button"
+      className="mobile-sheet-header-button mobile-git-wrap"
+      aria-label={t("Wrap lines")}
+      title={t("Wrap lines")}
+      aria-pressed={wrap}
+      onClick={() => setWrap((value) => !value)}
+    >
+      <WrapText size={22} />
+    </button>
+  ) : undefined };
   if (embedded) return (
     <>
       <MobileSheetHeader {...header} onBack={onBack} onClose={onClose} />

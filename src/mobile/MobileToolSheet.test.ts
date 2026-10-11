@@ -312,7 +312,10 @@ describe("MobileToolSheet", () => {
         }),
       ),
     );
-    expect(node.textContent).toContain("after");
+    const row = node.querySelector(".mobile-tool-diff .mobile-git-file-row")!;
+    expect(row.getAttribute("aria-expanded")).toBe("true");
+    expect(row.textContent).toContain("src/app.ts");
+    expect(node.querySelector(".mobile-tool-diff .mobile-git-diff")).not.toBeNull();
     const view = [...node.querySelectorAll("button")].find((button) =>
       button.textContent?.includes("View file"),
     );
@@ -345,32 +348,28 @@ describe("MobileToolSheet", () => {
         ),
       );
       const toggle = node.querySelector<HTMLButtonElement>(
-        ".file-preview-list > button",
+        ".mobile-tool-diff .mobile-git-file-row",
       )!;
       expect(toggle.getAttribute("aria-expanded")).toBe("true");
       act(() => toggle.click());
       const closing = node.querySelector(
-        '.file-preview-list [data-fold-state="closing"]',
+        '.mobile-tool-diff [data-fold-state="closing"]',
       )!;
       expect(closing.hasAttribute("inert")).toBe(true);
-      expect(closing.textContent).toContain("after");
+      expect(closing.querySelector(".mobile-git-diff")).not.toBeNull();
       act(() => toggle.click());
       expect(toggle.getAttribute("aria-expanded")).toBe("true");
       expect(closing.hasAttribute("inert")).toBe(false);
       act(() => vi.advanceTimersByTime(400));
       expect(
-        node.querySelector('.file-preview-list [data-fold-state="open"]'),
+        node.querySelector('.mobile-tool-diff [data-fold-state="open"]'),
       ).not.toBeNull();
       act(() => toggle.click());
       act(() => vi.advanceTimersByTime(400));
-      expect(
-        node.querySelector(".file-preview-list .zen-fold-item"),
-      ).toBeNull();
+      expect(node.querySelector(".mobile-tool-diff .mobile-git-diff")).toBeNull();
       expect(toggle.getAttribute("aria-expanded")).toBe("false");
       act(() => toggle.click());
-      expect(node.querySelector(".file-preview-list")?.textContent).toContain(
-        "after",
-      );
+      expect(node.querySelector(".mobile-tool-diff .mobile-git-diff")).not.toBeNull();
     } finally {
       vi.useRealTimers();
     }
