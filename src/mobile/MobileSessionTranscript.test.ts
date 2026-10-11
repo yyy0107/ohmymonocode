@@ -96,6 +96,17 @@ it("types the first reply and drains the final chunk", () => {
   expect(app.querySelector("[data-word-fade]")).toBeNull();
 });
 
+it.each(["", "已有文字。"])("paces a completed snapshot that grows an existing reply (%s)", initial => {
+  const { update } = mount([user, { ...reply(initial), streaming: false }]);
+  update([user, { ...reply(initial + text), streaming: false }]);
+  expect(replies()).toEqual([initial]);
+  act(() => vi.advanceTimersByTime(100));
+  expect(replies()[0]!.length).toBeGreaterThan(initial.length);
+  expect(replies()[0]!.length).toBeLessThan(initial.length + text.length);
+  act(() => vi.advanceTimersByTime(2000));
+  expect(replies()).toEqual([initial + text]);
+});
+
 it("keeps the live status inside its AI turn as output grows", () => {
   const { update } = mount([user]);
   const footer = app.querySelector(".agent-transcript .transcript-turn [data-live-footer]");

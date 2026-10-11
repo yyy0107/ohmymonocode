@@ -204,6 +204,10 @@ export function usePacedText(
   const lastStep = useRef(0);
   const stepRequested = useRef(0);
   const stepCost = useRef(0);
+  // A Host snapshot can append fresh text after the streaming flag has already
+  // cleared. Re-enter pacing before subscribing to motion; only restored or
+  // previously shown text belongs to the reveal baseline.
+  if (streaming || initialLength < text.length) pacing.current = true;
   const motionAllowed = useTextMotion(
     streaming || (pacing.current && shown.current < text.length),
   );
@@ -217,7 +221,6 @@ export function usePacedText(
     stepRequested.current = 0;
   });
 
-  if (streaming) pacing.current = true;
   shown.current = Math.max(shown.current, options?.settledLength ?? 0);
   if (!motionAllowed) {
     // Hidden/reduced-motion replies catch up even while a previous sequence
