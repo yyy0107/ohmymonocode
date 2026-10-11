@@ -1,6 +1,8 @@
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type ButtonHTMLAttributes,
@@ -15,18 +17,15 @@ import {
   Check,
   CircleAlert,
   ChevronRight,
-  CloudUpload,
   FileScript,
   FoldVertical,
   Gauge,
-  GitBranch,
   GitCompare,
   ListEnd,
   Maximize2,
   Terminal,
 } from "../../../shared/ui/icons";
 import { GlassBackdrop } from "../../../app/shell/GlassBackdrop";
-import { BranchPicker } from "../../source-control/ui/BranchPicker";
 import { useSessionHeaderActions } from "../../workspace/ui/SessionHeaderActions";
 import type { Block } from "../model/session";
 import {
@@ -80,8 +79,6 @@ export function SessionStatusPanel({
   backgroundTasks,
   busy,
   git,
-  cwd,
-  worktree = false,
   scope,
   onNavigate,
   onOpenAgent,
@@ -91,9 +88,6 @@ export function SessionStatusPanel({
   backgroundTasks?: string[];
   busy: boolean;
   git: SessionStatusGit | null;
-  /** Working copy for the branch control. Absent for a host session. */
-  cwd?: string;
-  worktree?: boolean;
   scope: RefObject<HTMLElement | null>;
   onNavigate: (blockId: string) => void;
   onOpenAgent?: (block: Block) => void;
@@ -107,6 +101,21 @@ export function SessionStatusPanel({
   useEffect(() => setOverride(overrides.get(sessionId)), [sessionId]);
   const expanded = override ?? wide;
   const summaryKind = sessionStatusSummary(model)?.kind;
+  const summaryRef = useRef<HTMLButtonElement>(null);
+  const [summaryWidth, setSummaryWidth] = useState<number>();
+  useLayoutEffect(() => {
+    const summary = summaryRef.current;
+    if (!summary || summaryKind !== "git") return;
+    // Measure the summary independently of the details retained during closing.
+    // Both width endpoints must be lengths: max-content cannot transition.
+    const measure = () =>
+      setSummaryWidth(summary.getBoundingClientRect().width);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(summary);
+    return () => observer.disconnect();
+  }, [model.hasContent, summaryKind]);
   const reduced = useReducedMotion();
   const { t: uiT } = useTranslation();
   const toggle = (next: boolean) => {
@@ -120,14 +129,15 @@ export function SessionStatusPanel({
         <aside
           aria-label={uiT("Status")}
           data-state={expanded ? "expanded" : "collapsed"}
-          className={`pointer-events-auto isolate max-w-full overflow-hidden border border-content/10 text-content shadow-xl ${
-            expanded
-              ? "w-80 rounded-2xl"
-              : summaryKind === "git"
-                ? "w-max max-w-full rounded-[17px]"
-                : "w-60 rounded-[17px]"
+          className={`pointer-events-auto relative isolate max-w-full overflow-hidden border border-content/10 text-content shadow-xl ${
+            expanded ? "rounded-2xl" : "rounded-[17px]"
           }`}
           style={{
+            width: expanded
+              ? "20rem"
+              : summaryKind === "git" && summaryWidth !== undefined
+                ? `calc(${summaryWidth}px + 2px)`
+                : "15rem",
             transition: reduced
               ? "none"
               : `width ${MOTION_MS}ms var(--collapse-easing, cubic-bezier(0.22, 1, 0.36, 1)), border-radius ${MOTION_MS}ms ease`,
@@ -138,6 +148,7 @@ export function SessionStatusPanel({
             <PanelHeader
               model={model}
               expanded={expanded}
+              summaryRef={summaryRef}
               onToggle={() => toggle(!expanded)}
             />
             <AnimatedCollapse
@@ -149,8 +160,6 @@ export function SessionStatusPanel({
               <div className="max-h-[calc(min(64dvh,32rem)_-_34px)] overflow-x-hidden overflow-y-auto px-1.5 pb-1.5">
                 <PanelSections
                   model={model}
-                  cwd={cwd}
-                  worktree={worktree}
                   onNavigate={onNavigate}
                   onOpenAgent={
                     onOpenAgent
@@ -175,43 +184,50 @@ export function SessionStatusPanel({
 function PanelHeader({
   model,
   expanded,
+  summaryRef,
   onToggle,
 }: {
   model: SessionStatusPanelModel;
   expanded: boolean;
+  summaryRef: RefObject<HTMLButtonElement | null>;
   onToggle: () => void;
 }) {
   const { t: uiT } = useTranslation();
-  if (expanded) {
-    return (
-      <div className="flex h-8 shrink-0 items-center justify-between gap-2 pr-1 pl-3">
-        <span className="text-[12px] font-semibold text-content/80">
-          {uiT("Status")}
-        </span>
-        <button
-          type="button"
-          title={uiT("Collapse")}
-          aria-label={uiT("Collapse")}
-          aria-expanded
-          onClick={onToggle}
-          className="grid size-6 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content"
-        >
-          <FoldVertical className="size-3.5" />
-        </button>
-      </div>
-    );
-  }
   return (
-    <button
-      type="button"
-      title={uiT("Show status")}
-      aria-label={uiT("Show status")}
-      aria-expanded={false}
-      onClick={onToggle}
-      className="flex h-8 w-full min-w-0 shrink-0 items-center gap-2 px-3 text-left text-[12px] text-content/75 hover:text-content"
-    >
-      <SummaryContent model={model} />
-    </button>
+    <div className="relative h-8 shrink-0">
+      <button
+        ref={summaryRef}
+        type="button"
+        title={uiT("Show status")}
+        aria-label={uiT("Show status")}
+        aria-expanded={false}
+        aria-hidden={expanded || undefined}
+        inert={expanded}
+        onClick={onToggle}
+        className={`group/status-summary flex h-8 min-w-0 items-center gap-2 px-3 text-left text-[12px] text-content/75 hover:text-content ${
+          sessionStatusSummary(model)?.kind === "git" ? "w-max" : "w-full"
+        }${expanded ? " invisible" : ""}`}
+      >
+        <SummaryContent model={model} />
+      </button>
+      {expanded ? (
+        <div className="absolute inset-0 flex items-center justify-between gap-2 pr-1 pl-3">
+          <span className="text-[12px] font-semibold text-content/80">
+            {uiT("Status")}
+          </span>
+          <button
+            type="button"
+            title={uiT("Collapse")}
+            aria-label={uiT("Collapse")}
+            aria-expanded
+            onClick={onToggle}
+            className="grid size-6 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content"
+          >
+            <FoldVertical className="size-3.5" />
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -221,7 +237,10 @@ function SummaryContent({ model }: { model: SessionStatusPanelModel }) {
   if (!summary) return null;
   const icon = (node: ReactNode) => (
     <span className="grid size-4 shrink-0 place-items-center text-content/55">
-      {node}
+      <span className="col-start-1 row-start-1 grid size-4 place-items-center transition-opacity duration-150 group-hover/status-summary:opacity-0 group-focus-visible/status-summary:opacity-0 motion-reduce:transition-none [&>span]:mt-0">
+        {node}
+      </span>
+      <Maximize2 className="col-start-1 row-start-1 size-3.5 opacity-0 transition-opacity duration-150 group-hover/status-summary:opacity-100 group-focus-visible/status-summary:opacity-100 motion-reduce:transition-none" />
     </span>
   );
   switch (summary.kind) {
@@ -335,14 +354,10 @@ function DiffCounts({
 
 function PanelSections({
   model,
-  cwd,
-  worktree,
   onNavigate,
   onOpenAgent,
 }: {
   model: SessionStatusPanelModel;
-  cwd?: string;
-  worktree: boolean;
   onNavigate: (blockId: string) => void;
   onOpenAgent?: (blockId: string) => void;
 }) {
@@ -356,7 +371,6 @@ function PanelSections({
   const openChanges = () => {
     if (actions && !actions.changesOpen) actions.toggleChanges();
   };
-  const files = model.git?.files ?? 0;
   return (
     <div className="flex flex-col gap-1.5">
       {model.git ? (
@@ -370,42 +384,7 @@ function PanelSections({
             />
           }
           onClick={actions ? openChanges : undefined}
-        >
-          {cwd ? (
-            <div className="px-1">
-              <BranchPicker
-                cwd={cwd}
-                branch={model.git.branch}
-                worktree={worktree}
-                popoverSide="bottom"
-              />
-            </div>
-          ) : model.git.branch ? (
-            <div className="flex min-w-0 items-center gap-1 px-2 py-1 text-content/55">
-              <GitBranch className="size-3 shrink-0" />
-              <span className="truncate font-mono text-[11px]">
-                {model.git.branch}
-              </span>
-            </div>
-          ) : null}
-          {files > 0 ? (
-            <p className="px-2 py-1 text-[11px] text-content/45">
-              {uiT(
-                files === 1
-                  ? "Uncommitted changes: {count} file"
-                  : "Uncommitted changes: {count} files",
-                { count: files },
-              )}
-            </p>
-          ) : null}
-          <RowButton disabled={!actions} onClick={openChanges}>
-            <CloudUpload className="size-3.5 shrink-0 text-content/45" />
-            <span className="min-w-0 flex-1 truncate">
-              {uiT("Commit or push")}
-            </span>
-            <ChevronRight className="size-3 shrink-0 text-content/35" />
-          </RowButton>
-        </Section>
+        />
       ) : null}
       {tasks && span ? (
         <Section

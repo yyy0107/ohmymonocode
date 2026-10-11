@@ -10,10 +10,6 @@ import {
 import { SessionStatusPanel } from "./SessionStatusPanel";
 import { setUiLanguage } from "../../../shared/i18n/language";
 
-vi.mock("../../source-control/ui/BranchPicker", () => ({
-  BranchPicker: ({ branch }: { branch?: string }) =>
-    createElement("button", { type: "button" }, branch ?? ""),
-}));
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
   convertFileSrc: (path: string) => path,
@@ -102,7 +98,6 @@ function render(blocks: Block[] = [tasks, agent], busy = true) {
           blocks: nextBlocks,
           busy,
           git: { additions: 3, deletions: 1, files: 2, branch: "master" },
-          cwd: "/repo",
           scope,
           onNavigate: vi.fn(),
           onOpenAgent: openAgent,
@@ -155,13 +150,13 @@ describe("session status capsule", () => {
     expect(summary?.textContent).not.toContain("Verify the capsule");
 
     act(() => summary?.click());
-    expect(host.textContent).toContain("Commit or push");
-    expect(host.textContent).toContain("Uncommitted changes: 2 files");
-    expect(host.textContent).toContain("master");
-    const commit = [
+    expect(host.textContent).not.toContain("Commit or push");
+    expect(host.textContent).not.toContain("Uncommitted changes");
+    expect(host.textContent).not.toContain("master");
+    const changes = [
       ...host.querySelectorAll<HTMLButtonElement>("button"),
-    ].find((button) => button.textContent?.includes("Commit or push"));
-    act(() => commit?.click());
+    ].find((button) => button.querySelector("h3")?.textContent === "Changes");
+    act(() => changes?.click());
     expect(toggleChanges).toHaveBeenCalledOnce();
 
     const agentRow = [
