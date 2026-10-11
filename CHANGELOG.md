@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.3] - 2026-10-11
+
+<!-- release-notes:en -->
+
+### Changed
+
+- Desktop reduces repeated sidebar-mask writes, timestamp formatting, outline measurements and focus calls.
+- Mobile shares conversation-list polling, isolates streamed updates, defers secondary pages and limits cached image previews.
+- Mobile pauses glass refraction during scrolling and keyboard motion, pauses hidden spinners, and glides with incoming rows. Live work folds closed in place.
+- Android sends incremental activity updates and pauses duplicate notification polling while the app is foregrounded.
+
+### Fixed
+
+- Loading earlier messages avoids duplicate scroll compensation. Sidebar preference updates remain consistent under React StrictMode, including rapid toggles and save failures.
+- Mobile drawer gestures survive list refreshes, page headers remain visible during navigation, and read acknowledgements follow visible conversation updates.
+- Pending-input notification cards can be dismissed and close automatically when idle; dismissing a card leaves its request pending.
+
+<!-- /release-notes -->
+
+<!-- release-notes:zh-CN -->
+
+### 改进
+
+- 桌面端减少重复的侧栏遮罩写入、时间格式化、大纲位置测量和焦点调用。
+- 手机端共享会话列表轮询、隔离流式内容更新、延后加载次要页面，并限制图片预览缓存。
+- 手机滚动和键盘动画期间暂停玻璃折射，隐藏时暂停加载动画；新增内容采用平滑跟随，运行记录原位收起。
+- Android 增量同步会话活动，并在应用前台期间暂停重复的通知轮询。
+
+### 修复
+
+- 加载更早消息时避免重复滚动补偿；侧栏偏好更新在 React StrictMode 下保持一致，覆盖快速切换和保存失败。
+- 手机抽屉手势在列表刷新时继续有效，页面切换期间保留标题显示，已读确认跟随实际可见的会话更新。
+- 待输入通知卡片支持关闭，并在无交互时自动收起；关闭卡片不会处理其待办请求。
+
+<!-- /release-notes -->
+
 ## [0.11.2] - 2026-10-10
 
 <!-- release-notes:en -->
