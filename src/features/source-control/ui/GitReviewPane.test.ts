@@ -17,6 +17,7 @@ import {
   type GitChangedFile,
   type GitDiffIndex,
 } from "../../../platform/tauri/fs";
+import { useProjectWorktrees } from "../hooks/useProjectWorktrees";
 import { copyText } from "../../../platform/tauri/clipboard";
 import {
   sessionCheckpointStatus,
@@ -44,7 +45,7 @@ vi.mock("../../../platform/tauri/fs", () => ({
   subscribeGitChanged: () => () => {},
 }));
 vi.mock("../hooks/useProjectWorktrees", () => ({
-  useProjectWorktrees: () => ({}),
+  useProjectWorktrees: vi.fn(),
 }));
 vi.mock("../../../platform/tauri/clipboard", () => ({
   copyText: vi.fn(async () => {}),
@@ -220,6 +221,24 @@ async function render(props: Partial<GitReviewPaneProps> = {}) {
   await measure();
 }
 beforeEach(() => {
+  vi.mocked(useProjectWorktrees).mockReturnValue({
+    data: {
+      defaultRoot: "/repo-worktrees",
+      worktrees: [{
+        path: "/repo",
+        branch: "main",
+        head: "abc",
+        isMain: true,
+        locked: false,
+        prunable: false,
+        missing: false,
+        dirty: false,
+        unpushed: 0,
+        sessionIds: [],
+      }],
+    },
+    refresh: vi.fn(async () => true),
+  });
   vi.useFakeTimers();
   vi.clearAllMocks();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -510,4 +529,26 @@ it("loads only mounted commit diffs while opening a large commit", async () => {
   expect(vi.mocked(gitCommitFileDiff).mock.calls.length).toBeGreaterThan(0);
   expect(vi.mocked(gitCommitFileDiff).mock.calls.length).toBeLessThan(files.length);
   expect(container.querySelectorAll("[data-review-file]").length).toBeLessThan(files.length);
+});
+
+it("keeps checkpoint review available without Git and hides Git-only sources", async () => {
+  vi.mocked(useProjectWorktrees).mockReturnValue({
+    error: "not a git repository",
+    refresh: vi.fn(async () => false),
+  });
+  vi.mocked(sessionCheckpointStatus).mockResolvedValue({
+    files,
+  } as unknown as CheckpointStatus);
+  await render({ sessionId: "s1", initialSource: "staged" });
+  expect(sessionCheckpointStatus).toHaveBeenLastCalledWith("s1", "/repo");
+  expect(gitDiffFiles).not.toHaveBeenCalled();
+  expect(card(0).querySelector('[title="Stage file"]')).toBeNull();
+  await act(async () =>
+    container
+      .querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]')!
+      .click(),
+  );
+  expect(
+    [...document.querySelectorAll('[role="option"]')].map((row) => row.textContent),
+  ).toEqual(["Session changes"]);
 });

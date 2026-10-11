@@ -54,6 +54,10 @@ export function SessionReview({
   }, [sessionId, cwd]);
 
   useEffect(() => {
+    if (busy) {
+      setFiles([]);
+      return;
+    }
     if (!enabled || !cwd || cwd === "~") return;
     let stale = false;
     let loading = false;
@@ -83,8 +87,7 @@ export function SessionReview({
         });
     };
     const schedule = () => {
-      // Bound live refreshes without waiting for a pause in streaming edits or
-      // stacking status reads behind the session's checkpoint writes.
+      // Coalesce notifications without overlapping checkpoint status reads.
       if (loading) {
         pending = true;
         return;
@@ -121,10 +124,8 @@ export function SessionReview({
     if (files.length <= 3) setExpanded(false);
   }, [files.length]);
 
-  if (files.length === 0) return null;
+  if (busy || files.length === 0) return null;
 
-  // Captured diffs are readable during a turn; accepting or undoing them must
-  // wait until the agent has finished writing to the checkout.
   const disabled = busy || acting != null;
   const locked = undoLocked || hostLocked;
   const canUndoAll = !locked && files.every((file) => file.undoable);

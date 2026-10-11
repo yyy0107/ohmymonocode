@@ -43,12 +43,14 @@ export function ReviewSourceSelect({
   cwd,
   value,
   sessionId,
+  gitAvailable,
   onChange,
   trailing,
 }: {
   cwd: string;
   value: ReviewSource;
   sessionId?: string;
+  gitAvailable: boolean;
   onChange: (value: ReviewSource) => void;
   /** Optional content after the chevron. */
   trailing?: ReactNode;
@@ -72,9 +74,9 @@ export function ReviewSourceSelect({
   const commitList = useRef<HTMLDivElement>(null);
   const menuId = useId();
   const submenuId = `${menuId}-commits`;
-  const shown = open && visible;
+  const shown = open && visible && (gitAvailable || !!sessionId);
   const { foldState, finish } = useCollapseMotion(shown, 170);
-  const sub = useCollapseMotion(shown && submenu, 170);
+  const sub = useCollapseMotion(shown && submenu && gitAvailable, 170);
   const groups: Entry[][] = [
     ...(sessionId
       ? [
@@ -87,16 +89,20 @@ export function ReviewSourceSelect({
           ],
         ]
       : []),
-    [
-      { kind: "option", value: "uncommitted", label: t("Uncommitted") },
-      { kind: "option", value: "unstaged", label: t("Unstaged") },
-      { kind: "option", value: "staged", label: t("Staged") },
-    ],
-    [
-      { kind: "commits", label: t("Committed") },
-      { kind: "option", value: "branch", label: t("Branch") },
-    ],
   ];
+  if (gitAvailable) {
+    groups.push(
+      [
+        { kind: "option", value: "uncommitted", label: t("Uncommitted") },
+        { kind: "option", value: "unstaged", label: t("Unstaged") },
+        { kind: "option", value: "staged", label: t("Staged") },
+      ],
+      [
+        { kind: "commits", label: t("Committed") },
+        { kind: "option", value: "branch", label: t("Branch") },
+      ],
+    );
+  }
   const entries = groups.flat();
   const selectedCommit = reviewCommit(value);
   const isSelected = (entry: Entry) =>
@@ -113,17 +119,17 @@ export function ReviewSourceSelect({
   );
 
   useEffect(() => {
-    if (!visible) setOpen(false);
-  }, [visible]);
+    if (!visible || (!gitAvailable && !sessionId)) setOpen(false);
+  }, [visible, gitAvailable, sessionId]);
   useEffect(() => {
-    if (!shown) {
+    if (!shown || !gitAvailable) {
       setSubmenu(false);
       setInSubmenu(false);
     }
-  }, [shown]);
+  }, [shown, gitAvailable]);
   // Load the branch's commits each time the flyout opens; history can move.
   useEffect(() => {
-    if (!shown || !submenu || !cwd) return;
+    if (!shown || !submenu || !gitAvailable || !cwd) return;
     let stale = false;
     // History also walks the upstream and default branch; fetch extra to fill the list.
     void gitHistory(cwd, COMMIT_LIMIT * 3).then(
@@ -148,7 +154,7 @@ export function ReviewSourceSelect({
     return () => {
       stale = true;
     };
-  }, [shown, submenu, cwd, selectedCommit]);
+  }, [shown, submenu, gitAvailable, cwd, selectedCommit]);
   useEffect(() => {
     if (!inSubmenu) return;
     commitList.current
@@ -185,6 +191,7 @@ export function ReviewSourceSelect({
         type="button"
         aria-label={`${label}: ${selectedLabel}`}
         aria-expanded={shown}
+        disabled={entries.length === 0}
         aria-haspopup="listbox"
         aria-controls={shown ? menuId : undefined}
         onClick={() => (open ? close() : openMenu())}
@@ -266,6 +273,7 @@ export function ReviewSourceSelect({
               return;
             }
             const entry = entries[activeIndex];
+            if (!entry) return;
             if (
               entry.kind === "commits" &&
               (event.key === "ArrowRight" ||
@@ -382,7 +390,7 @@ export function ReviewSourceSelect({
           ))}
         </Popover>
       ) : null}
-      {visible && (shown && submenu ? true : sub.foldState !== "closed") ? (
+      {visible && gitAvailable && (shown && submenu ? true : sub.foldState !== "closed") ? (
         <Popover
           anchor={commitsRow}
           side="right"

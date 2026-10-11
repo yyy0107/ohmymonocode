@@ -38,7 +38,11 @@ const activeValue = () =>
   document.getElementById(menu()!.getAttribute("aria-activedescendant")!)!
     .textContent;
 
-function render(value: ReviewSource = "unstaged", visible = true) {
+function render(
+  value: ReviewSource = "unstaged",
+  visible = true,
+  gitAvailable = true,
+) {
   act(() =>
     root.render(
       createElement(
@@ -48,6 +52,7 @@ function render(value: ReviewSource = "unstaged", visible = true) {
           cwd: "/repo",
           value,
           sessionId: "s1",
+          gitAvailable,
           onChange,
         }),
       ),
@@ -204,4 +209,17 @@ it("closes immediately with reduced motion and removes menus when the pane is hi
   expect(menu()).toBeNull();
   render();
   expect(trigger().getAttribute("aria-expanded")).toBe("false");
+});
+
+it("only offers session changes outside a Git repository, including keyboard navigation", () => {
+  render("session", true, false);
+  open();
+  expect(
+    [...menu()!.querySelectorAll('[role="option"]')].map((row) => row.textContent),
+  ).toEqual(["Session changes"]);
+  expect(menu()!.querySelector('[role="separator"]')).toBeNull();
+  key(menu()!, "End");
+  expect(activeValue()).toBe("Session changes");
+  key(menu()!, "Enter");
+  expect(onChange).toHaveBeenCalledExactlyOnceWith("session");
 });

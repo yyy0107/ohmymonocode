@@ -99,20 +99,19 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("opens captured changes during a live turn while blocking keep and undo", async () => {
+it("waits for the turn to finish before loading and showing captured changes", async () => {
   await render({ busy: true });
-  expect(sessionCheckpointStatus).toHaveBeenCalledWith("s1", "/repo");
-  expect(button("Review")).toBeDefined();
-  expect(button("Review")!.disabled).toBe(false);
-  expect(button("Keep")!.disabled).toBe(true);
-  expect(button("Undo")!.disabled).toBe(true);
-  await act(async () => {
-    button("Keep")!.click();
-    button("Undo")!.click();
-    button("Review")!.click();
-  });
-  expect(keepSessionChanges).not.toHaveBeenCalled();
-  expect(undoSessionChanges).not.toHaveBeenCalled();
+  await changed();
+  await advance();
+  expect(sessionCheckpointStatus).not.toHaveBeenCalled();
+  expect(container.querySelector("[data-session-review]")).toBeNull();
+
+  await render();
+  expect(sessionCheckpointStatus).toHaveBeenCalledExactlyOnceWith("s1", "/repo");
+  expect(row("a.ts")).not.toBeNull();
+  expect(button("Keep")!.disabled).toBe(false);
+  expect(button("Undo")!.disabled).toBe(false);
+  await act(async () => button("Review")!.click());
   expect(onOpenDiff).toHaveBeenLastCalledWith(undefined, {
     sessionId: "s1",
     cwd: "/repo",
@@ -124,38 +123,47 @@ it("opens captured changes during a live turn while blocking keep and undo", asy
   });
 });
 
-it("preserves the review entry when another turn starts and restores actions when it finishes", async () => {
+it("hides the previous review during the next turn and waits for fresh results afterward", async () => {
   await render();
-  const pending = deferred<CheckpointStatus>();
-  vi.mocked(sessionCheckpointStatus).mockReturnValueOnce(pending.promise);
-  await render({ busy: true });
   expect(row("a.ts")).not.toBeNull();
-  expect(button("Review")!.disabled).toBe(false);
-  await act(async () => pending.resolve({ files: [...files, file("b.ts")] }));
-  expect(row("b.ts")).not.toBeNull();
+  const stale = deferred<CheckpointStatus>();
+  vi.mocked(sessionCheckpointStatus).mockReturnValueOnce(stale.promise);
+  await changed();
+  await advance();
+  await render({ busy: true });
+  await act(async () => stale.resolve({ files: [file("stale.ts")] }));
+  await changed();
+  await advance();
+  expect(container.querySelector("[data-session-review]")).toBeNull();
+  expect(sessionCheckpointStatus).toHaveBeenCalledTimes(2);
+
+  const fresh = deferred<CheckpointStatus>();
+  vi.mocked(sessionCheckpointStatus).mockReturnValueOnce(fresh.promise);
   await render();
-  expect(button("Keep")!.disabled).toBe(false);
-  expect(button("Undo")!.disabled).toBe(false);
+  expect(container.querySelector("[data-session-review]")).toBeNull();
+  await act(async () => fresh.resolve({ files: [file("b.ts")] }));
+  expect(row("a.ts")).toBeNull();
+  expect(row("stale.ts")).toBeNull();
+  expect(row("b.ts")).not.toBeNull();
   await act(async () => button("Keep")!.click());
   expect(keepSessionChanges).toHaveBeenCalledWith("s1", "/repo");
   expect(container.querySelector("[data-session-review]")).toBeNull();
 });
 
-it("reveals the first captured edit without waiting for a live turn to finish", async () => {
+it("ignores notifications for other sessions after the turn finishes", async () => {
   vi.mocked(sessionCheckpointStatus).mockResolvedValueOnce({ files: [] });
-  await render({ busy: true });
-  expect(button("Review")).toBeUndefined();
+  await render();
   await changed("another-session");
   await advance();
   expect(sessionCheckpointStatus).toHaveBeenCalledTimes(1);
+  expect(button("Review")).toBeUndefined();
   await changed();
   await advance();
   expect(row("a.ts")).not.toBeNull();
-  expect(button("Review")!.disabled).toBe(false);
 });
 
-it("coalesces streaming notifications without postponing refreshes or overlapping reads", async () => {
-  await render({ busy: true });
+it("coalesces checkpoint notifications without postponing refreshes or overlapping reads", async () => {
+  await render();
   const pending = deferred<CheckpointStatus>();
   vi.mocked(sessionCheckpointStatus).mockReturnValueOnce(pending.promise);
   await changed();
@@ -175,7 +183,7 @@ it("coalesces streaming notifications without postponing refreshes or overlappin
 });
 
 it("keeps the last review usable through a transient refresh failure", async () => {
-  await render({ busy: true });
+  await render();
   vi.mocked(sessionCheckpointStatus).mockRejectedValueOnce(new Error("busy"));
   await changed();
   await advance();
@@ -186,11 +194,11 @@ it("keeps the last review usable through a transient refresh failure", async () 
 it("ignores old reads after the checkout changes or the review is hidden", async () => {
   const old = deferred<CheckpointStatus>();
   vi.mocked(sessionCheckpointStatus).mockReturnValueOnce(old.promise);
-  await render({ busy: true });
+  await render();
   vi.mocked(sessionCheckpointStatus).mockResolvedValueOnce({
     files: [file("other.ts")],
   });
-  await render({ cwd: "/other", busy: true });
+  await render({ cwd: "/other" });
   await act(async () => old.resolve({ files }));
   expect(row("a.ts")).toBeNull();
   expect(row("other.ts")).not.toBeNull();
@@ -198,7 +206,7 @@ it("ignores old reads after the checkout changes or the review is hidden", async
   vi.mocked(sessionCheckpointStatus).mockReturnValueOnce(hidden.promise);
   await changed();
   await advance();
-  await render({ cwd: "/other", busy: true, enabled: false });
+  await render({ cwd: "/other", enabled: false });
   await act(async () => hidden.resolve({ files }));
   await changed();
   await advance();
@@ -206,11 +214,11 @@ it("ignores old reads after the checkout changes or the review is hidden", async
   expect(sessionCheckpointStatus).toHaveBeenCalledTimes(3);
 });
 
-it("retains overflow rows through closing and rapid reversal during a live turn", async () => {
+it("retains overflow rows through closing and rapid reversal after a turn", async () => {
   vi.mocked(sessionCheckpointStatus).mockResolvedValue({
     files: ["a.ts", "b.ts", "c.ts", "d.ts", "e.ts"].map(file),
   });
-  await render({ busy: true });
+  await render();
   const toggle = () =>
     container.querySelector<HTMLButtonElement>("button[aria-expanded]")!;
   expect(row("d.ts")).toBeNull();

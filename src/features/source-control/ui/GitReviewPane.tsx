@@ -79,8 +79,13 @@ export function GitReviewPane({
       .sort((a, b) => b.path.length - a.path.length)[0],
     [cwd, worktrees],
   );
+  const gitAvailable = !!worktrees?.worktrees.length;
   const [selectedSource, setSource] = useState<ReviewSource>(initialSource);
-  const source: ReviewSource = commit ? `commit:${commit}` : selectedSource;
+  const source: ReviewSource = commit
+    ? `commit:${commit}`
+    : sessionId && !gitAvailable
+      ? "session"
+      : selectedSource;
   const { scopeKey, files, error, loading, loadDiff, getDiff, refresh } =
     useReviewSource(cwd, source, sessionId);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -322,6 +327,7 @@ export function GitReviewPane({
               cwd={cwd}
               value={source}
               sessionId={sessionId}
+              gitAvailable={gitAvailable}
               onChange={(next) => {
                 setSource(next);
                 setActionError(undefined);
