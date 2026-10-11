@@ -176,6 +176,10 @@ export function AssistantChat({
   threadTitle,
   botSettings,
   botMemory,
+  botRuntime,
+  botActivity,
+  botAutomation,
+  botManagement,
 }: {
   hostKey: string;
   rpc: AssistantRpc;
@@ -194,6 +198,10 @@ export function AssistantChat({
   botSettings?: AssistantView;
   /** File memory is available only in the capable desktop Bot workspace. */
   botMemory?: ReactNode;
+  botRuntime?: ReactNode;
+  botActivity?: ReactNode;
+  botAutomation?: ReactNode;
+  botManagement?: ReactNode;
   /** Opens a sent file in a tab; receives a reader for the file's base64 bytes. */
   onOpenAttachment?: (file: RemoteAttachment, read: () => Promise<string>) => void;
 }) {
@@ -304,6 +312,7 @@ export function AssistantChat({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsBase, setSettingsBase] = useState<AssistantView | null>(null);
   const retainedSettingsDraft = useRef(false);
+  const settingsCommand = useRef<{ signature: string; id: string } | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
@@ -609,10 +618,13 @@ export function AssistantChat({
   const save = async (patch: AssistantPatch) =>
     operation(async () => {
       // Failures stay inline in the settings panel, beside Reload settings.
+      const signature = JSON.stringify([cacheKey, settingsBase?.revision ?? 0, patch]);
+      if (botsLayout && settingsCommand.current?.signature !== signature)
+        settingsCommand.current = { signature, id: crypto.randomUUID() };
       await withStatusToast(
         () =>
           rpc("assistant.configure", {
-            commandId: crypto.randomUUID(),
+            commandId: botsLayout ? settingsCommand.current!.id : crypto.randomUUID(),
             expectedRevision: settingsBase?.revision ?? 0,
             patch,
           }),
@@ -624,6 +636,7 @@ export function AssistantChat({
           error: false,
         },
       );
+      settingsCommand.current = undefined;
       retainedSettingsDraft.current = false;
       setSettingsOpen(false);
     });
@@ -914,9 +927,16 @@ export function AssistantChat({
               onClose={() => (assistant ? setSettingsOpen(false) : onClose?.())}
             >
               {settingsShown && errorNotice}
-              <DesktopBotDetails memory={botsLayout ? botMemory : undefined}>
+              <DesktopBotDetails
+                memory={botsLayout ? botMemory : undefined}
+                runtime={botsLayout ? botRuntime : undefined}
+                activity={botsLayout ? botActivity : undefined}
+                automation={botsLayout ? botAutomation : undefined}
+                management={botsLayout ? botManagement : undefined}
+              >
               <AssistantSettings
                 key={`${cacheKey}:${settingsBase?.revision ?? "new"}`}
+                panel={botsLayout && botAutomation ? "settings" : "all"}
                 value={settingsBase}
                 catalog={catalog}
                 catalogState={catalogState}

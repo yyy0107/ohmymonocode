@@ -45,7 +45,10 @@ export class HostImService {
   private connectionRetryAt?: number;
   private connectionAttempts = 0;
   constructor(readonly host: HostStore, readonly assistant: HostAssistant, private options: HostImOptions = {}) {
-    this.store = new ImStore(host);
+    const scope = assistant.store.scope, defaultScope = assistant.store.bots.defaultScope();
+    if (scope.botId !== defaultScope.botId || scope.threadId !== defaultScope.threadId)
+      throw new Error("IM is bound to the default Bot and thread");
+    this.store = new ImStore(host, scope);
     this.ready = assistant.ready.then(() => {
       this.store.recover();
       if (this.closing) return;
@@ -72,6 +75,7 @@ export class HostImService {
       configured: !!config,
       ...(config ? {
         bindingId: config.bindingId,
+        scope: this.store.scope,
         config: { appId: config.appId, ownerOpenId: config.ownerOpenId, secretConfigured: !!config.appSecret, enabled: config.enabled, language: config.language },
       } : {}),
       status: {

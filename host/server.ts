@@ -387,6 +387,7 @@ export function createHostServer(
                 "botThreads.v1",
                 "botMemory.v1",
                 "bots.runtime.v1",
+                "bots.management.v1",
                 "im.feishu.v1",
                 "resources",
                 "workflows.v1",

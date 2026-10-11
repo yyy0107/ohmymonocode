@@ -437,6 +437,34 @@ it("keeps the edited settings revision until an explicit reload after a competin
   ).toBe(2);
   expect(toasts()).toContain("Assistant settings saved");
 });
+it("retries an uncertain desktop Bot settings save with the same receipt identity", async () => {
+  const base = chatRpc(configuredView());
+  let first = true;
+  const rpc = vi.fn(async (method: string, params?: object) => {
+    if (method === "environment.describe") return { capabilities: ["assistant.v1", "bots.shell.v1"] };
+    if (method === "assistant.configure") {
+      if (first) { first = false; throw new Error("Connection interrupted"); }
+      return { accepted: true };
+    }
+    return base(method, params);
+  });
+  act(() => root.render(createElement(AssistantChat, {
+    hostKey: "host", hostName: "Host", rpc: rpc as any, onOpen: () => {}, desktopBots: true,
+  })));
+  await flush();
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Bot details"]')!.click());
+  await flush();
+  act(() => rename("Edited Bot"));
+  const submit = () => node.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  act(submit);
+  await flush();
+  expect(node.textContent).toContain("Connection interrupted");
+  act(submit);
+  await flush();
+  const attempts = rpc.mock.calls.filter(([method]) => method === "assistant.configure");
+  expect(attempts).toHaveLength(2);
+  expect(attempts[0][1]).toEqual(attempts[1][1]);
+});
 it("sends necessary input with its exact run and generation rather than a chat prompt", async () => {
   const input: AssistantMessage = {
     id: "approval",

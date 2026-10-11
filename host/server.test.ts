@@ -1386,7 +1386,7 @@ it("records desktop hostnames for the authenticated device and persists them acr
 it("exposes scoped Bot runtime records and rejects invalid concurrency configuration", async () => {
   const s = await setup();
   s.engine.bots.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }] }, errors: {} }));
-  expect((await s.call("environment.describe")).value.result.capabilities).toContain("bots.runtime.v1");
+  expect((await s.call("environment.describe")).value.result.capabilities).toEqual(expect.arrayContaining(["bots.runtime.v1", "bots.management.v1"]));
   const create = async (commandId: string) => (await s.call("bots.create", { commandId, patch: {
     name: commandId, harness: "codex", model: "test", triggers: { user: true, event: false, schedule: false },
   } })).value.result;

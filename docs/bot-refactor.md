@@ -205,8 +205,9 @@ commands/results and deferred checks, including manual visual checks.
 | 1 | Desktop shell complete | `df30c960` | Targeted UI/Host tests, TypeScript and local browser checks below |
 | 2 | Isolated Bots/Threads complete | `cf4e906e` | Scoped persistence, RPC, desktop and compatibility checks below |
 | 3 | File-backed memory complete | `5159556a` | File durability, recall, UI and compatibility checks below |
-| 4 | Concurrent runtime complete | `feat(bots): add scoped concurrent runtime` | Runtime, resource, provider and compatibility checks below |
-| 5–8 | Not started | — | None |
+| 4 | Concurrent runtime complete | `bf095e1c` | Runtime, resource, provider and compatibility checks below |
+| 5 | Desktop management complete | `feat(bots): complete desktop bot management` | Management, compatibility and browser checks below |
+| 6–8 | Not started | — | None |
 
 Stage 1 verification (Node 24.16.0, Vitest 3.2.7, Vite 7.3.6):
 
@@ -422,3 +423,33 @@ unverified. No application build, publication, push or merge was run.
   model configuration, not the provider-normalized model name. Genuine model
   changes still rotate the cache on the next turn. Host TypeScript passed again
   after this fix.
+
+Stage 5 checks and management behavior:
+
+- Desktop navigation/Thread settings: 11 passed (archive/restore, protected
+  defaults, retained drafts/scroll, avatars, model override/reset, revision
+  conflicts, capability fallback and Escape/focus restoration).
+- Existing chat/attachments/mobile/scoped-client selection: 72 passed, including
+  retrying an uncertain desktop configuration save with the same command ID.
+  The mobile directories are unchanged from the implementation baseline.
+- Backend management/IM/declared-action selections: 7 passed. Avatar validation
+  counts Unicode code points; configuration normalization now copies its input
+  so idempotent create retries retain their original request signature.
+- Bot and Thread archives retire pending/backoff work without relabeling historic
+  interruptions. Restored Threads become usable under the Bot's existing gates;
+  restored Bots remain paused until Resume. Restoring a currently active,
+  non-archived Thread does not interrupt its run.
+- Existing IM settings gain an explicit default Bot/Thread scope in place;
+  binding IDs, channel thread IDs, cursors and deduplication journals stay intact.
+  Public IM requests cannot redirect the binding to a different Bot.
+- Runtime/management HTTP capability and scoped run selection: 1 passed.
+  New desktop management uses bots.management.v1; activity uses bots.runtime.v1.
+- Browser fixture (no production data): dark 1280px archive list, Thread model
+  override, archive/restore retaining draft, activity expansion; light 680px
+  layout, avatar/concurrency/empty-directory save and schedule configuration
+  save. Identity/model settings remain first, with runtime/Thread details folded.
+- New detail panels: 5 passed, covering uncertain-save retries, empty directory
+  clearing, conflict drafts, updates to older paginated activity, hidden polling,
+  keyboard tabs and automation-only configuration patches. Existing persona and
+  reasoning settings: 6 passed. Final Web/Host TypeScript and diff checks passed.
+  No Rust files changed in this stage; no builds, publication, push or merge.

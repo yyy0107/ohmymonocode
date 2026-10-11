@@ -119,6 +119,8 @@ export type BotToolConfiguration = {
 export type AssistantView = {
   id: string;
   name: string;
+  /** Optional short avatar text, limited to eight Unicode code points. */
+  avatar?: string;
   persona?: AssistantPersona;
   /** IANA time zone used for the assistant's sense of local time. */
   timezone?: string;
@@ -198,6 +200,7 @@ export type AssistantPatch = Partial<
   Pick<
     AssistantView,
     | "name"
+    | "avatar"
     | "persona"
     | "timezone"
     | "harness"

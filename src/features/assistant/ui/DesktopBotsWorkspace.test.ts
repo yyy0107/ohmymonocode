@@ -19,6 +19,8 @@ let snapshot: BotsSnapshot;
 let messages: Record<string, AssistantMessage[]>;
 let rpc: ReturnType<typeof vi.fn>;
 let memorySupported: boolean;
+let runtimeSupported: boolean;
+let managementSupported: boolean;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.useFakeTimers();
@@ -26,16 +28,17 @@ beforeEach(() => {
   setUiLanguage("en");
   snapshot = { revision: 1, bots: [bot("A"), bot("B")], threads: [thread("A", "A-1"), thread("A", "A-2"), thread("B", "B-1")], defaultBotId: "A", defaultThreadId: "A-1" };
   messages = {};
-  memorySupported = false;
+  memorySupported = false; runtimeSupported = false; managementSupported = false;
   const view = (id: string) => {
     const target = snapshot.threads.find((thread) => thread.id === id)!;
     const owner = snapshot.bots.find((bot) => bot.id === target.botId)!;
     return { ...owner, ...target.modelOverride, botId: target.botId, threadId: target.id, title: target.title, chatRevision: target.chatRevision };
   };
   rpc = vi.fn(async (method: string, params: Record<string, any> = {}) => {
-    if (method === "environment.describe") return { capabilities: ["assistant.v1", "assistant.history", "bots.shell.v1", "bots.v1", ...(memorySupported ? ["botMemory.v1"] : [])] };
+    if (method === "environment.describe") return { capabilities: ["assistant.v1", "assistant.history", "bots.shell.v1", "bots.v1", ...(memorySupported ? ["botMemory.v1"] : []), ...(runtimeSupported ? ["bots.runtime.v1"] : []), ...(managementSupported ? ["bots.management.v1"] : [])] };
     if (method === "botMemory.list") return { revision: 1, files: [], topicLimit: 100, topicsTruncated: false };
     if (method === "botMemory.read") return { path: params.path, text: `${params.botId} memory`, kind: "resident", revision: 1, hash: params.botId, bytes: 8, updatedAt: 1 };
+    if (method === "botThreads.runs") return { revision: 1, runs: [], hasMore: false };
     if (method === "bots.list") return { ...snapshot, threads: [...snapshot.threads] };
     if (method === "botThreads.get") return view(params.threadId);
     if (method === "botThreads.messages") {
@@ -54,6 +57,26 @@ beforeEach(() => {
       const created = { ...thread(params.botId, `${params.botId}-new`), title: params.title };
       snapshot = { ...snapshot, threads: [...snapshot.threads, created] };
       return created;
+    }
+    if (method === "botThreads.configure") {
+      const current = snapshot.threads.find((thread) => thread.id === params.threadId)!;
+      if (params.expectedRevision !== current.revision) throw new Error("Thread configuration changed elsewhere");
+      const updated = { ...current, ...params.patch, modelOverride: params.patch.modelOverride ?? undefined, revision: current.revision + 1 };
+      snapshot = { ...snapshot, threads: snapshot.threads.map((thread) => thread.id === current.id ? updated : thread) };
+      return updated;
+    }
+    if (method === "bots.archive" || method === "bots.restore") {
+      const current = snapshot.bots.find((bot) => bot.id === params.botId)!;
+      if (method === "bots.archive" && current.id === snapshot.defaultBotId) throw new Error("Default bot");
+      const updated = { ...current, archivedAt: method === "bots.archive" ? Date.now() : undefined, revision: current.revision + 1 };
+      snapshot = { ...snapshot, bots: snapshot.bots.map((bot) => bot.id === current.id ? updated : bot) };
+      return updated;
+    }
+    if (method === "botThreads.archive" || method === "botThreads.restore") {
+      const current = snapshot.threads.find((thread) => thread.id === params.threadId)!;
+      const updated = { ...current, archivedAt: method === "botThreads.archive" ? Date.now() : undefined, revision: current.revision + 1 };
+      snapshot = { ...snapshot, threads: snapshot.threads.map((thread) => thread.id === current.id ? updated : thread) };
+      return updated;
     }
     if (method === "botThreads.send" || method === "bots.configure") return { accepted: true };
     throw new Error(`Unexpected RPC ${method}`);
@@ -131,7 +154,7 @@ it("edits Bot defaults without copying a Thread model override", async () => {
   const panel = active().querySelector<HTMLElement>(".desktop-bots-inspector")!;
   const name = [...panel.querySelectorAll("label")].find((label) => label.textContent?.startsWith("Assistant name"))!.querySelector("input")!;
   act(() => setValue(name, "Renamed A"));
-  act(() => panel.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+  act(() => name.form!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
   await flush();
   expect(rpc.mock.calls.find(([method]) => method === "bots.configure")?.[1]).toMatchObject({ botId: "A", patch: { model: "default-model" } });
 });
@@ -168,4 +191,110 @@ it("shares file drafts across a Bot's threads, keeps Bots isolated, and retains 
   act(() => active().querySelector<HTMLButtonElement>('[aria-label="Bot details"]')!.click()); await flush();
   expect(contents().value).toBe("Shared A draft");
   expect(rpc.mock.calls.filter(([method]) => method.startsWith("botMemory.")).every(([, params]) => !Object.hasOwn(params, "threadId"))).toBe(true);
+});
+
+async function details() {
+  act(() => active().querySelector<HTMLButtonElement>('[aria-label="Bot details"]')!.click()); await flush();
+  act(() => active().querySelector<HTMLButtonElement>(".desktop-bots-management-toggle")!.click()); await flush();
+}
+function managementButton(text: string) {
+  return [...active().querySelectorAll<HTMLButtonElement>(".desktop-bots-thread-settings button")].find((button) => button.textContent === text)!;
+}
+async function archives() {
+  act(() => active().querySelector<HTMLButtonElement>('[aria-label="Archived bots and threads"]')!.click()); await flush();
+  return node.querySelector<HTMLElement>('.desktop-bots-create:not([aria-hidden])')!;
+}
+it("protects default scopes and restores an archived Thread with its draft and scroll intact", async () => {
+  await render(); await details();
+  expect(managementButton("Archive bot").disabled).toBe(true);
+  expect(managementButton("Archive thread").disabled).toBe(true);
+  await select("A-2");
+  act(() => setValue(composer(), "Pending thread reply"));
+  const field = composer();
+  const log = active().querySelector<HTMLElement>(".assistant-messages")!;
+  act(() => { log.scrollTop = 88; log.dispatchEvent(new Event("scroll")); });
+  await details();
+  act(() => managementButton("Archive thread").click()); await flush();
+  expect(active().querySelector('.desktop-bots-thread[aria-current="page"]')?.textContent).toContain("A-1");
+  expect(active().querySelector('[aria-label="A-2"]')).toBeNull();
+  const archive = await archives();
+  const restore = archive.querySelector<HTMLButtonElement>('[aria-label="Restore thread: A-2"]')!;
+  expect(restore).not.toBeNull();
+  act(() => restore.click()); await flush();
+  expect(composer()).toBe(field);
+  expect(composer().value).toBe("Pending thread reply");
+  expect(log.scrollTop).toBe(88);
+  act(() => active().querySelector<HTMLButtonElement>(".assistant-send")!.click()); await flush();
+  expect(rpc.mock.calls.find(([method]) => method === "botThreads.send")?.[1]).toMatchObject({ botId: "A", threadId: "A-2", text: "Pending thread reply" });
+  expect(rpc.mock.calls.filter(([method]) => method === "bots.list").every(([, params]) => params?.includeArchived === true)).toBe(true);
+});
+
+it("restores an archived Bot and keeps its independent draft and user avatar", async () => {
+  snapshot.bots[1].avatar = "🐱";
+  await render(); await select("B");
+  expect(active().querySelector('[aria-label="B"] .desktop-bots-avatar')?.textContent).toContain("🐱");
+  act(() => setValue(composer(), "Bot B draft"));
+  await details();
+  act(() => managementButton("Archive bot").click()); await flush();
+  expect(active().querySelector('[aria-label="B"]')).toBeNull();
+  const archive = await archives();
+  expect(archive.querySelector(".desktop-bots-archive-thread")?.textContent).toContain("B-1");
+  expect(archive.querySelector(".desktop-bots-archive-thread svg, .desktop-bots-archive-thread img")).not.toBeNull();
+  act(() => archive.querySelector<HTMLButtonElement>('[aria-label="Restore bot: B"]')!.click()); await flush();
+  expect(composer().value).toBe("Bot B draft");
+  expect(active().querySelector('[aria-label="B"]')).not.toBeNull();
+});
+
+it("saves a Thread title and model override, then resets the override to follow its Bot", async () => {
+  await render(); await select("A-2"); await details();
+  const title = active().querySelector<HTMLInputElement>('[aria-label="Thread title"]')!;
+  const follow = active().querySelector<HTMLInputElement>('.desktop-bots-model-follow input')!;
+  act(() => { setValue(title, "Planning title"); follow.click(); }); await flush();
+  const model = active().querySelector<HTMLSelectElement>('[aria-label="Thread model override"]')!;
+  act(() => { model.value = "thread-model"; model.dispatchEvent(new Event("change", { bubbles: true })); });
+  act(() => managementButton("Save thread").click()); await flush();
+  const saved = rpc.mock.calls.find(([method]) => method === "botThreads.configure")?.[1];
+  expect(saved).toMatchObject({ botId: "A", threadId: "A-2", expectedRevision: 1, patch: { title: "Planning title", modelOverride: { harness: "codex", model: "thread-model" } } });
+  expect(active().querySelector('.desktop-bots-thread[aria-current="page"]')?.textContent).toContain("Planning title");
+  expect(snapshot.bots[0].model).toBe("default-model");
+  act(() => follow.click());
+  // Content remains mounted during closing and AnimatedCollapse owns inertness.
+  expect(active().querySelector('[aria-label="Thread model override"]')).not.toBeNull();
+  act(() => managementButton("Save thread").click()); await flush();
+  expect(rpc.mock.calls.filter(([method]) => method === "botThreads.configure").at(-1)?.[1]).toMatchObject({ expectedRevision: 2, patch: { modelOverride: null } });
+  expect(snapshot.threads.find((thread) => thread.id === "A-2")?.modelOverride).toBeUndefined();
+});
+
+it("keeps a conflicting Thread edit until the user explicitly resets it", async () => {
+  await render(); await select("A-2"); await details();
+  const title = active().querySelector<HTMLInputElement>('[aria-label="Thread title"]')!;
+  act(() => setValue(title, "My unsaved title"));
+  snapshot = { ...snapshot, threads: snapshot.threads.map((thread) => thread.id === "A-2" ? { ...thread, title: "External title", revision: 9 } : thread) };
+  await act(async () => { await vi.advanceTimersByTimeAsync(2100); }); await flush();
+  act(() => managementButton("Save thread").click()); await flush();
+  expect(title.value).toBe("My unsaved title");
+  expect(active().querySelector('.desktop-bots-thread-settings [role="alert"]')?.textContent).toContain("changed elsewhere");
+  act(() => managementButton("Reset thread draft").click());
+  expect(title.value).toBe("External title");
+});
+
+it("gates new management fields while exposing scoped activity on a Stage 4 Host", async () => {
+  runtimeSupported = true;
+  await render(); await details();
+  expect(active().querySelector(".desktop-bot-runtime")).toBeNull();
+  expect([...active().querySelectorAll('[role="tab"]')].some(tab => tab.textContent === "Automation")).toBe(false);
+  const activity = [...active().querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(tab => tab.textContent === "Activity")!;
+  act(() => activity.click()); await flush();
+  expect(rpc.mock.calls.find(([method]) => method === "botThreads.runs")?.[1]).toMatchObject({ botId: "A", threadId: "A-1" });
+});
+it("offers automation on a management-capable Host and returns archive keyboard focus", async () => {
+  runtimeSupported = true; managementSupported = true;
+  await render(); await details();
+  expect(active().querySelector(".desktop-bot-runtime")).not.toBeNull();
+  expect([...active().querySelectorAll('[role="tab"]')].some(tab => tab.textContent === "Automation")).toBe(true);
+  const archive = await archives();
+  expect(document.activeElement).toBe(archive.querySelector(".desktop-bots-archive h2"));
+  act(() => archive.querySelector(".desktop-bots-archive h2")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  await act(async () => { await vi.advanceTimersByTimeAsync(30); }); await flush();
+  expect(document.activeElement).toBe(active().querySelector(".desktop-bots-archive-entry"));
 });

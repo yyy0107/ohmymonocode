@@ -656,9 +656,10 @@ export class HostAssistant {
     return result;
   }
   async validatePatch(rawPatch: unknown, current: AssistantRecord | null = this.store.get()): Promise<AssistantPatch> {
-    const patch = object(rawPatch);
+    const patch = { ...object(rawPatch) };
     fields(patch, [
       "name",
+      "avatar",
       "persona",
       "timezone",
       "harness",
@@ -677,6 +678,11 @@ export class HostAssistant {
       "chainWindowMinutes",
     ]);
     if (patch.name !== undefined) id(patch.name, "name", 100);
+    if (patch.avatar !== undefined) {
+      if (typeof patch.avatar !== "string" || /[\u0000-\u001f\u007f-\u009f]/u.test(patch.avatar) || [...patch.avatar.trim()].length > 8)
+        throw new Error("Avatar must be at most 8 characters without control characters");
+      patch.avatar = patch.avatar.trim() || undefined;
+    }
     if (patch.maxConcurrentRuns !== undefined && (!Number.isSafeInteger(patch.maxConcurrentRuns) || Number(patch.maxConcurrentRuns) < 1 || Number(patch.maxConcurrentRuns) > 10))
       throw new Error("Concurrent run limit must be between 1 and 10");
     if (patch.workingDirectory !== undefined && patch.workingDirectory !== null) {
@@ -953,6 +959,16 @@ export class HostAssistant {
       );
       this.store.update({ brainSessionId: receipt.sessionId });
       return receipt.sessionId;
+    });
+  }
+  /** Archival ends old queued work; restoration only permits new work. */
+  discardArchivedWork(): void {
+    this.store.host.transaction(() => {
+      this.store.discardPendingUserInput();
+      for (const wakeup of this.store.wakeups())
+        if (["pending", "backoff"].includes(wakeup.state))
+          this.store.saveWakeup({ ...wakeup, state: "completed" });
+      this.syncQueuedRuns();
     });
   }
   private syncQueuedRuns(): void {

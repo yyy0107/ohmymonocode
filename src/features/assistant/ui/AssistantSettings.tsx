@@ -336,6 +336,8 @@ export function AssistantSettings({
   im,
   personaSupported = true,
   mobile = false,
+  panel = "all",
+  submitLabel,
   Select,
   MemoryDetail = AssistantMemoryDialog,
   Actions = Fragment,
@@ -372,8 +374,12 @@ export function AssistantSettings({
   onSave: (patch: AssistantPatch) => Promise<void>;
   onCancel?: () => void;
   mobile?: boolean;
+  /** Desktop detail tabs may split configuration; mobile retains the full form. */
+  panel?: "all" | "settings" | "automation";
+  submitLabel?: string;
 }) {
   const { t } = useTranslation();
+  const section = mobile ? "all" : panel;
   const [initialDraft] = useState<AssistantPatch>(
     () =>
       value ?? {
@@ -477,7 +483,7 @@ export function AssistantSettings({
     const sourceSchedules = schedules ?? [
       value?.schedules[0] ?? defaults.schedule,
     ];
-    return {
+    const result: AssistantPatch = {
       name: name?.trim(),
       ...(personaSupported
         ? {
@@ -500,6 +506,16 @@ export function AssistantSettings({
       ...(maxAutoTurns ? { maxAutoTurns } : {}),
       ...(chainWindowMinutes ? { chainWindowMinutes } : {}),
     };
+    if (section === "automation") return {
+      triggers: result.triggers, schedules: result.schedules, watches: result.watches,
+      timezone: result.timezone, maxAutoTurns: result.maxAutoTurns, chainWindowMinutes: result.chainWindowMinutes,
+      ...(JSON.stringify(policy) !== JSON.stringify(value?.policy) ? { policy } : {}),
+    };
+    if (section === "settings") {
+      const { triggers: _triggers, schedules: _schedules, watches: _watches, timezone: _timezone, maxAutoTurns: _max, chainWindowMinutes: _window, ...settings } = result;
+      return settings;
+    }
+    return result;
   };
   const [initial] = useState(() => JSON.stringify(toPatch(draft)));
   const dirty = !value || JSON.stringify(toPatch(draft)) !== initial;
@@ -510,24 +526,24 @@ export function AssistantSettings({
   );
   const intervalAmount = schedule.intervalMinutes / intervalUnit;
   const errors = {
-    name: !draft.name?.trim() ? "Enter a name" : undefined,
+    name: section !== "automation" && !draft.name?.trim() ? "Enter a name" : undefined,
     persona:
-      personaSupported && persona.preset === "custom" && !persona.style.trim()
+      section !== "automation" && personaSupported && persona.preset === "custom" && !persona.style.trim()
         ? "Describe the personality"
         : undefined,
-    interval: !inRange(schedule.intervalMinutes, 1, MAX_INTERVAL)
+    interval: section !== "settings" && !inRange(schedule.intervalMinutes, 1, MAX_INTERVAL)
       ? "Choose between 1 minute and 7 days"
       : undefined,
-    timezone: !validTimeZone(schedule.timezone)
+    timezone: section !== "settings" && !validTimeZone(schedule.timezone)
       ? "Unknown time zone"
       : undefined,
-    maxAutoTurns: !inRange(maxAutoTurns, 1, 100) ? "Enter 1–100" : undefined,
-    chainWindow: !inRange(chainWindow, 1, 1440)
+    maxAutoTurns: section !== "settings" && !inRange(maxAutoTurns, 1, 100) ? "Enter 1–100" : undefined,
+    chainWindow: section !== "settings" && !inRange(chainWindow, 1, 1440)
       ? "Enter 1–1440 minutes"
       : undefined,
   };
   const invalid = Object.values(errors).some(Boolean);
-  const canSave = !busy && !!draft.harness && !!draft.model && dirty;
+  const canSave = !busy && (section === "automation" || (!!draft.harness && !!draft.model)) && dirty;
   const allowed = ASSISTANT_PERMISSIONS.filter(
     (key) => policy.permissions[key],
   ).length;
@@ -1059,7 +1075,7 @@ export function AssistantSettings({
         }}
       >
         <div className="assistant-settings-body">
-          <Section title={t("Assistant")}>
+          {section !== "automation" && <><Section title={t("Assistant")}>
             <label>
               {t("Assistant name")}
               <input
@@ -1211,9 +1227,9 @@ export function AssistantSettings({
               <small className="assistant-field-error">{harnessError}</small>
             ) : null}
           </Section>
-          {permissionsSection}
-          {wakeupsSection}
-          {memory && (
+          {permissionsSection}</>}
+          {section !== "settings" && wakeupsSection}
+          {section !== "automation" && memory && (
             <CollapsibleSection
               title={t("Memory")}
               summary={t("{count} remembered facts", {
@@ -1232,7 +1248,7 @@ export function AssistantSettings({
               )}
             </CollapsibleSection>
           )}
-          {habits && (
+          {section !== "settings" && habits && (
             <CollapsibleSection
               title={t("Habits")}
               summary={t("{count} habits", { count: habits.items.length })}
@@ -1249,7 +1265,7 @@ export function AssistantSettings({
               )}
             </CollapsibleSection>
           )}
-          {im && !mobile && <AssistantImSettings {...im} disabled={busy} />}
+          {section !== "automation" && im && !mobile && <AssistantImSettings {...im} disabled={busy} />}
         </div>
         <Actions>
           <footer className="assistant-settings-footer">
@@ -1291,7 +1307,7 @@ export function AssistantSettings({
               className="assistant-primary"
               disabled={!canSave}
             >
-              {t(value ? "Save settings" : "Enable assistant")}
+              {t(submitLabel ?? (value ? section === "automation" ? "Save automation" : "Save settings" : "Enable assistant"))}
             </button>
           </footer>
         </Actions>

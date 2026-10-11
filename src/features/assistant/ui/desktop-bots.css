@@ -692,3 +692,146 @@ html.is-resizing .assistant-chat.desktop-bots-workspace .assistant-body {
   flex-direction: column;
   gap: 3px;
 }
+
+/* Desktop management stays inside the Bot shell, including narrow Hosts. */
+.desktop-bots-workspace .desktop-bots-archive-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: auto 8px 8px;
+  padding: 10px;
+  border-radius: 7px;
+  text-align: start;
+  color: var(--color-foreground-subtle);
+  cursor: pointer;
+}
+.desktop-bots-workspace .desktop-bots-archive-entry svg { flex-shrink: 0; }
+.desktop-bots-workspace .desktop-bots-archive-entry:is(:hover, [aria-current="page"]) {
+  background: var(--color-surface-hover);
+  color: var(--color-content);
+}
+.desktop-bots-workspace .desktop-bots-avatar-text {
+  max-width: 32px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-ui-base);
+}
+.desktop-bots-workspace .desktop-bots-archive {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+.desktop-bots-workspace .desktop-bots-archive > header,
+.desktop-bots-workspace .desktop-bots-archive-group > header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.desktop-bots-workspace .desktop-bots-archive > header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-stroke);
+}
+.desktop-bots-workspace .desktop-bots-archive > header h2 { flex: 1; font-weight: 600; }
+.desktop-bots-workspace .desktop-bots-archive-list { overflow: auto; padding: 16px 20px; }
+.desktop-bots-workspace .desktop-bots-archive-list > p { color: var(--color-foreground-subtle); }
+.desktop-bots-workspace .desktop-bots-archive-group { padding: 12px 0; border-bottom: 1px solid var(--color-stroke); }
+.desktop-bots-workspace .desktop-bots-archive-group > header strong {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.desktop-bots-workspace .desktop-bots-archive-thread {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 7px 0 7px 12px;
+}
+.desktop-bots-workspace .desktop-bots-archive-thread > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.desktop-bots-workspace .desktop-bots-archive button,
+.desktop-bots-workspace .desktop-bots-thread-settings button {
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: var(--color-surface-hover);
+  cursor: pointer;
+}
+.desktop-bots-workspace .desktop-bots-thread-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--color-stroke);
+}
+.desktop-bots-workspace .desktop-bots-thread-settings form,
+.desktop-bots-workspace .desktop-bots-model-override,
+.desktop-bots-workspace .desktop-bots-thread-settings label,
+.desktop-bots-workspace .desktop-bots-archive-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.desktop-bots-workspace .desktop-bots-thread-settings h3 { font-weight: 600; }
+.desktop-bots-workspace .desktop-bots-thread-settings :is(p, small) {
+  color: var(--color-foreground-subtle);
+  font-size: var(--text-ui-sm);
+  overflow-wrap: anywhere;
+}
+.desktop-bots-workspace .desktop-bots-thread-settings input:not([type="checkbox"]),
+.desktop-bots-workspace .desktop-bots-thread-settings select {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--color-stroke);
+  border-radius: 6px;
+  padding: 7px;
+  background: var(--color-background-base);
+  color: var(--color-content);
+}
+.desktop-bots-workspace .desktop-bots-thread-settings .desktop-bots-model-follow,
+.desktop-bots-workspace .desktop-bots-model-picker,
+.desktop-bots-workspace .desktop-bots-management-actions {
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  gap: 8px;
+}
+.desktop-bots-workspace .desktop-bots-management-actions { flex-wrap: wrap; }
+.desktop-bots-workspace :is(.desktop-bots-thread-settings, .desktop-bots-archive) button:disabled {
+  opacity: .45;
+  cursor: default;
+}
+@container (max-width: 600px) {
+  .desktop-bots-workspace .desktop-bots-archive-entry > span,
+  .desktop-bots-workspace .desktop-bots-new > span { display: none; }
+  .desktop-bots-workspace .desktop-bots-archive-entry { justify-content: center; }
+  .desktop-bots-workspace .desktop-bots-archive-list { padding-inline: 12px; }
+}
+@container (max-width: 760px) {
+  .desktop-bots-workspace[data-bot-details="true"] .desktop-bots-archive-entry > span,
+  .desktop-bots-workspace[data-bot-details="true"] .desktop-bots-new > span { display: none; }
+  .desktop-bots-workspace[data-bot-details="true"] .desktop-bots-archive-entry { justify-content: center; }
+}
+.desktop-bots-workspace .desktop-bots-management-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: start;
+}
+.desktop-bots-workspace .desktop-bots-management-toggle svg {
+  transition: transform var(--collapse-duration, 340ms) var(--collapse-easing, ease);
+}
+.desktop-bots-workspace .desktop-bots-management-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+.desktop-bots-workspace .desktop-bots-archive-actions { margin-top: 16px; }
+@media (prefers-reduced-motion: reduce) {
+  .desktop-bots-workspace .desktop-bots-management-toggle svg { transition: none; }
+}

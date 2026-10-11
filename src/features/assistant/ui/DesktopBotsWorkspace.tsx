@@ -9,6 +9,10 @@ import { BOT_SELECTION_EVENT, readBotSelection, selectBotThread } from "../model
 import { useBotUnread } from "../model/useBotUnread";
 import { BotMemoryDrafts } from "../model/botMemoryDrafts";
 import { DesktopBotMemory } from "./DesktopBotMemory";
+import { DesktopBotThreadSettings } from "./DesktopBotThreadSettings";
+import { DesktopBotRuntimeSettings } from "./DesktopBotRuntimeSettings";
+import { DesktopBotActivity } from "./DesktopBotActivity";
+import { DesktopBotAutomation } from "./DesktopBotAutomation";
 import { assistantErrorMessage } from "../model/assistantErrors";
 import { REMOTE_PROVIDERS, type HostDescriptor, type HostModelCatalog, type HostProject } from "../../connections/model/protocol";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
@@ -16,7 +20,7 @@ import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../shared/
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import { HarnessIcon } from "../../sessions/ui/HarnessIcon";
 import { sessionDisplayTitle } from "../../sessions/model/session";
-import { Bot, ChevronRight, Loader2, Plus, Search, X } from "../../../shared/ui/icons";
+import { Archive, Bot, ChevronRight, Loader2, Plus, Search, X } from "../../../shared/ui/icons";
 
 type Props = ComponentProps<typeof AssistantChat>;
 const EMPTY_THREADS: BotThread[] = [];
@@ -45,10 +49,10 @@ export function DesktopBotsWorkspace(props: Props) {
     <Loader2 size={20} className="animate-spin motion-reduce:animate-none" /><span>{t("Connecting…")}</span>
   </div>;
   if (!descriptor.capabilities?.includes("bots.v1")) return <AssistantChat {...props} rpc={rpc} />;
-  return <MultiBotWorkspace {...props} rpc={rpc} memorySupported={descriptor.capabilities.includes("botMemory.v1")} />;
+  return <MultiBotWorkspace {...props} rpc={rpc} memorySupported={descriptor.capabilities.includes("botMemory.v1")} runtimeSupported={descriptor.capabilities.includes("bots.runtime.v1")} managementSupported={descriptor.capabilities.includes("bots.management.v1")} />;
 }
 
-function MultiBotWorkspace(props: Props & { memorySupported: boolean }) {
+function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSupported: boolean; managementSupported: boolean }) {
   const { t } = useTranslation();
   const visible = useSurfaceVisibility();
   const [snapshot, setSnapshot] = useState<BotsSnapshot>();
@@ -57,6 +61,7 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean }) {
   const [selection, setSelection] = useState(() => readBotSelection(props.hostKey));
   const [visited, setVisited] = useState<BotScope[]>([]);
   const [creatingBot, setCreatingBot] = useState(false);
+  const [showArchive, setShowArchive] = useState(false);
   const [creatingThread, setCreatingThread] = useState<string>();
   const [threadName, setThreadName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -65,6 +70,7 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean }) {
   const [catalogState, setCatalogState] = useState<"loading" | "ready" | "failed">("loading");
   const [draftVersion, setDraftVersion] = useState(0);
   const [memoryDrafts] = useState(() => new BotMemoryDrafts());
+  const workspace = useRef<HTMLDivElement>(null);
   const createCommand = useRef<{ text: string; id: string } | undefined>(undefined);
   const lastThread = useRef(new Map<string, string>());
   const choose = useCallback((scope: BotScope) => {
@@ -72,6 +78,7 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean }) {
     lastThread.current.set(scope.botId, scope.threadId);
     setVisited((current) => current.some((item) => item.botId === scope.botId && item.threadId === scope.threadId) ? current : [...current, scope]);
     setCreatingBot(false);
+    setShowArchive(false);
     setCreatingThread(undefined);
   }, []);
   useEffect(() => {
@@ -84,7 +91,7 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean }) {
   }, [props.hostKey, choose]);
   const select = useCallback((scope: BotScope) => selectBotThread(props.hostKey, scope), [props.hostKey]);
   const refresh = useCallback(async () => {
-    const next = await props.rpc<BotsSnapshot>("bots.list");
+    const next = await props.rpc<BotsSnapshot>("bots.list", { includeArchived: true });
     setSnapshot(next);
     setError(undefined);
     return next;
@@ -95,7 +102,7 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean }) {
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
       try {
-        const next = await props.rpc<BotsSnapshot>("bots.list");
+        const next = await props.rpc<BotsSnapshot>("bots.list", { includeArchived: true });
         if (!disposed) { setSnapshot(next); setConnectionError(undefined); }
       } catch (error) { if (!disposed) setConnectionError(assistantErrorMessage(error)); }
       finally { if (!disposed) timer = setTimeout(poll, 2000); }
@@ -116,7 +123,8 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean }) {
     if (selection?.threadId !== selected.id || selection.botId !== selected.botId) select(scope);
     else setVisited((current) => current.some((item) => item.botId === scope.botId && item.threadId === scope.threadId) ? current : [...current, scope]);
   }, [snapshot, selection, props.hostKey, select]);
-  const activity = useBotUnread(props.hostKey, snapshot?.threads ?? EMPTY_THREADS, props.rpc, visible);
+  const activeThreads = useMemo(() => snapshot?.threads.filter((thread) => !thread.archivedAt && snapshot.bots.some((bot) => bot.id === thread.botId && !bot.archivedAt)) ?? EMPTY_THREADS, [snapshot]);
+  const activity = useBotUnread(props.hostKey, activeThreads, props.rpc, visible);
   const loadCatalog = useCallback(async () => {
     setCatalogState("loading");
     try {
@@ -162,27 +170,59 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean }) {
     } catch (cause) { setError(assistantErrorMessage(cause)); }
     finally { setBusy(false); }
   };
+  const archiveCommands = useRef(new Map<string, string>());
+  const changeArchive = async (method: "bots.archive" | "bots.restore" | "botThreads.archive" | "botThreads.restore", bot: BotView, thread?: BotThread) => {
+    const expectedRevision = thread?.revision ?? bot.revision;
+    const signature = JSON.stringify([method, bot.id, thread?.id, expectedRevision]);
+    const commandId = archiveCommands.current.get(signature) ?? crypto.randomUUID();
+    archiveCommands.current.set(signature, commandId);
+    await props.rpc(method, { commandId, botId: bot.id, ...(thread ? { threadId: thread.id } : {}), expectedRevision });
+    const next = await refresh();
+    archiveCommands.current.delete(signature);
+    if (method.endsWith(".restore")) {
+      const target = thread ?? next.threads.find((item) => item.botId === bot.id && item.id === bot.defaultThreadId && !item.archivedAt);
+      if (target) select({ botId: bot.id, threadId: target.id });
+    }
+  };
+  const restore = async (bot: BotView, thread?: BotThread) => {
+    if (busy) return;
+    setBusy(true); setError(undefined);
+    try { await changeArchive(thread ? "botThreads.restore" : "bots.restore", bot, thread); }
+    catch (cause) { setError(assistantErrorMessage(cause)); }
+    finally { setBusy(false); }
+  };
   const navigation = <BotNavigation hostName={props.hostName} hostPicker={props.hostPicker}
-    snapshot={snapshot} selection={selection} activity={activity} environmentId={props.hostKey}
-    onNewBot={() => { setCreatingBot(true); setCreatingThread(undefined); setError(undefined); }}
-    onNewThread={(botId) => { setCreatingThread(botId); setThreadName(""); setError(undefined); }}
+    snapshot={snapshot} selection={showArchive ? undefined : selection} activity={activity} environmentId={props.hostKey}
+    archiveOpen={showArchive} onArchive={() => { setShowArchive(true); setCreatingBot(false); setCreatingThread(undefined); }}
+    onNewBot={() => { setShowArchive(false); setCreatingBot(true); setCreatingThread(undefined); setError(undefined); }}
+    onNewThread={(botId) => { setShowArchive(false); setCreatingThread(botId); setThreadName(""); setError(undefined); }}
     onSelectBot={(bot) => {
       const thread = snapshot?.threads.find((thread) => thread.botId === bot.id && thread.id === lastThread.current.get(bot.id) && !thread.archivedAt)
         ?? snapshot?.threads.find((thread) => thread.botId === bot.id && thread.id === bot.defaultThreadId && !thread.archivedAt)
         ?? snapshot?.threads.find((thread) => thread.botId === bot.id && !thread.archivedAt);
       if (thread) select({ botId: bot.id, threadId: thread.id });
     }} onSelectThread={(thread) => select({ botId: thread.botId, threadId: thread.id })} />;
-  const draftShown = creatingBot || !selection;
-  return <div className="desktop-bots-host">
+  const draftShown = creatingBot || !selection || showArchive;
+  const closeArchive = () => {
+    setShowArchive(false);
+    requestAnimationFrame(() => workspace.current?.querySelector<HTMLButtonElement>('.desktop-bots-thread-surface:not([aria-hidden]) .desktop-bots-archive-entry')?.focus());
+  };
+  return <div ref={workspace} className="desktop-bots-host">
     {(error || connectionError) && <div className="desktop-bots-error" role="alert">{t(error ?? connectionError!)}<button type="button" onClick={() => { setError(undefined); setConnectionError(undefined); }} aria-label={t("Dismiss")}><X size={14} /></button></div>}
     {visited.map((scope) => {
       const thread = snapshot?.threads.find((thread) => thread.id === scope.threadId && thread.botId === scope.botId);
+      const bot = snapshot?.bots.find((bot) => bot.id === scope.botId);
       const selected = !draftShown && selection?.botId === scope.botId && selection.threadId === scope.threadId;
       return <div key={botCacheKey(props.hostKey, scope)} className="desktop-bots-thread-surface" style={{ display: selected ? "flex" : "none" }} inert={!selected} aria-hidden={!selected || undefined}>
         <SurfaceVisibilityContext.Provider value={visible && selected}>
           <ScopedBotChat {...props} scope={scope} threadTitle={thread?.title} botNavigation={navigation}
             botMemory={props.memorySupported ? <DesktopBotMemory botId={scope.botId} rpc={props.rpc} drafts={memoryDrafts} /> : undefined}
-            botSettings={snapshot?.bots.find((bot) => bot.id === scope.botId)}
+            botSettings={bot}
+            botRuntime={bot && props.managementSupported ? <DesktopBotRuntimeSettings bot={bot} rpc={props.rpc} onSaved={() => void refresh().catch((cause) => setError(assistantErrorMessage(cause)))} /> : undefined}
+            botActivity={props.runtimeSupported ? <DesktopBotActivity scope={scope} rpc={props.rpc} /> : undefined}
+            botAutomation={bot && props.managementSupported ? <DesktopBotAutomation bot={bot} rpc={props.rpc} onSaved={() => void refresh().catch((cause) => setError(assistantErrorMessage(cause)))} /> : undefined}
+            botManagement={bot && thread ? <DesktopBotThreadSettings bot={bot} thread={thread} defaultBotId={snapshot?.defaultBotId} rpc={props.rpc} onSaved={refresh}
+              onArchiveBot={() => changeArchive("bots.archive", bot)} onArchiveThread={() => changeArchive("botThreads.archive", bot, thread)} /> : undefined}
             defaultScope={scope.botId === snapshot?.defaultBotId && scope.threadId === snapshot.defaultThreadId} />
         </SurfaceVisibilityContext.Provider>
       </div>;
@@ -191,9 +231,9 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean }) {
       <SurfaceVisibilityContext.Provider value={visible && draftShown}>
         {navigation}
         <section className="desktop-bots-create-content">
-          {creatingBot ? <>
+          {showArchive ? <BotArchive snapshot={snapshot} busy={busy} onRestore={restore} onClose={closeArchive} /> : creatingBot ? <>
             <header><strong>{t("New bot")}</strong><button type="button" disabled={busy} onClick={() => { setCreatingBot(false); setDraftVersion((value) => value + 1); createCommand.current = undefined; }}>{t("Cancel")}</button></header>
-            <AssistantSettings key={draftVersion} value={null} catalog={catalog} catalogState={catalogState}
+            <AssistantSettings key={draftVersion} value={null} submitLabel="Create bot" catalog={catalog} catalogState={catalogState}
               projects={projects} busy={busy} onSave={createBot} onRetryCatalog={() => void loadCatalog()} />
           </> : <div className="desktop-bots-empty">
             <Bot size={30} aria-hidden="true" />
@@ -220,15 +260,16 @@ function ScopedBotChat({ scope, defaultScope, ...props }: Props & { scope: BotSc
 }
 
 type Activity = ReturnType<typeof useBotUnread>;
-function BotNavigation({ hostName, hostPicker, snapshot, selection, activity, environmentId, onNewBot, onNewThread, onSelectBot, onSelectThread }: {
+function BotNavigation({ hostName, hostPicker, snapshot, selection, activity, environmentId, archiveOpen, onArchive, onNewBot, onNewThread, onSelectBot, onSelectThread }: {
   hostName: string; hostPicker?: Props["hostPicker"]; snapshot?: BotsSnapshot; selection?: BotScope;
+  archiveOpen: boolean; onArchive: () => void;
   activity: Activity; environmentId: string; onNewBot: () => void; onNewThread: (botId: string) => void;
   onSelectBot: (bot: BotView) => void; onSelectThread: (thread: BotThread) => void;
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [folded, setFolded] = useState(new Set<string>());
-  const bots = snapshot?.bots.filter((bot) => !bot.archivedAt && `${bot.name} ${snapshot.threads.filter((thread) => thread.botId === bot.id).map((thread) => thread.title).join(" ")}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())) ?? [];
+  const bots = snapshot?.bots.filter((bot) => !bot.archivedAt && `${bot.name} ${snapshot.threads.filter((thread) => thread.botId === bot.id && !thread.archivedAt).map((thread) => thread.title).join(" ")}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())) ?? [];
   return <nav className="desktop-bots-navigation" aria-label={t("Bots")}>
     <header className="desktop-bots-navigation-header"><strong>{t("Bots")}</strong>{hostPicker ?? <span className="desktop-bots-host-name">{hostName}</span>}</header>
     <label className="desktop-bots-search"><Search size={15} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("Search bots")} aria-label={t("Search bots")} /></label>
@@ -241,7 +282,7 @@ function BotNavigation({ hostName, hostPicker, snapshot, selection, activity, en
         return <div key={bot.id} className="desktop-bots-bot-group">
           <div className="desktop-bots-contact" data-selected={selection?.botId === bot.id}>
             <button type="button" className="desktop-bots-contact-main" onClick={() => onSelectBot(bot)} aria-label={bot.name} title={bot.name} aria-current={selection?.botId === bot.id || undefined}>
-              <span className="desktop-bots-avatar" aria-hidden="true"><Bot size={20} /><span className="desktop-bots-presence" data-lifecycle={bot.lifecycle} /></span>
+              <span className="desktop-bots-avatar" aria-hidden="true">{bot.avatar ? <span className="desktop-bots-avatar-text">{bot.avatar}</span> : <Bot size={20} />}<span className="desktop-bots-presence" data-lifecycle={bot.lifecycle} /></span>
               <span className="desktop-bots-contact-copy"><span className="desktop-bots-contact-title"><strong>{bot.name}</strong>{unread > 0 && <span className="desktop-bots-unread">{unread > 99 ? "99+" : unread}</span>}</span><span className="desktop-bots-preview">{newest && "text" in newest ? newest.text : threads[0]?.title || t("Main thread")}</span></span>
             </button>
             <button type="button" className="desktop-bots-thread-toggle" aria-label={t(folded.has(bot.id) ? "Show threads" : "Hide threads")} aria-expanded={!folded.has(bot.id)} onClick={() => setFolded((current) => { const next = new Set(current); if (next.has(bot.id)) next.delete(bot.id); else next.add(bot.id); return next; })}><ChevronRight size={14} /></button>
@@ -262,5 +303,33 @@ function BotNavigation({ hostName, hostPicker, snapshot, selection, activity, en
       })}
       {query && !bots.length && <div className="desktop-bots-no-results"><p>{t("No matching bots")}</p><button type="button" onClick={() => setQuery("")}>{t("Clear")}</button></div>}
     </div>
+    <button type="button" className="desktop-bots-archive-entry" onClick={onArchive} aria-label={t("Archived bots and threads")} title={t("Archived bots and threads")} aria-current={archiveOpen ? "page" : undefined}><Archive size={16} /><span>{t("Archived bots and threads")}</span></button>
   </nav>;
+}
+
+function BotArchive({ snapshot, busy, onRestore, onClose }: {
+  snapshot?: BotsSnapshot; busy: boolean; onRestore: (bot: BotView, thread?: BotThread) => Promise<void>; onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { heading.current?.focus(); }, []);
+  const groups = snapshot?.bots.filter((bot) => bot.archivedAt || snapshot.threads.some((thread) => thread.botId === bot.id && thread.archivedAt)) ?? [];
+  return <section className="desktop-bots-archive" aria-label={t("Archived bots and threads")} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); onClose(); } }}>
+    <header><h2 ref={heading} tabIndex={-1}>{t("Archived bots and threads")}</h2><button type="button" onClick={onClose} aria-label={t("Close")}><X size={16} /></button></header>
+    <div className="desktop-bots-archive-list">
+      {!groups.length && <p>{t("No archived bots or threads")}</p>}
+      {groups.map((bot) => <section key={bot.id} className="desktop-bots-archive-group">
+        <header><span className="desktop-bots-avatar" aria-hidden="true">{bot.avatar ? <span className="desktop-bots-avatar-text">{bot.avatar}</span> : <Bot size={20} />}</span><strong>{bot.name}</strong>
+          {bot.archivedAt && <button type="button" disabled={busy} onClick={() => void onRestore(bot)} aria-label={`${t("Restore bot")}: ${bot.name}`}>{t("Restore bot")}</button>}
+        </header>
+        {snapshot!.threads.filter((thread) => thread.botId === bot.id && (bot.archivedAt || thread.archivedAt)).map((thread) => {
+          const harness = thread.modelOverride?.harness ?? bot.harness;
+          const title = sessionDisplayTitle(thread.title, harness).trim() || t("Main thread");
+          return <div key={thread.id} className="desktop-bots-archive-thread"><HarnessIcon harness={harness} className="size-4 shrink-0" /><span title={title}>{title}</span>
+            {thread.archivedAt && <button type="button" disabled={busy || !!bot.archivedAt} title={bot.archivedAt ? t("Restore the bot before restoring its threads") : undefined} aria-label={`${t("Restore thread")}: ${title}`} onClick={() => void onRestore(bot, thread)}>{t("Restore thread")}</button>}
+          </div>;
+        })}
+      </section>)}
+    </div>
+  </section>;
 }

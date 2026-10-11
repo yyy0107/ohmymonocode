@@ -345,9 +345,17 @@ export class BotManager {
       if (previous !== undefined) return previous;
       if (archive && scope.botId === this.store.defaultScope().botId) throw new Error("The default Bot cannot be archived");
       this.prepareArchive(scope.botId, method, raw, this.store.getBot(scope.botId)!.revision);
-      if (archive) await this.controlBot(scope, { commandId: `archive:${signature(raw.commandId)}`, action: "pause" });
-      return this.command(scope.botId, method, raw, () => this.store.updateBot(scope.botId,
-        { archivedAt: archive ? Date.now() : undefined }));
+      if (archive) {
+        await this.controlBot(scope, { commandId: `archive:${signature(raw.commandId)}`, action: "pause" });
+        for (const thread of this.store.listThreads(scope.botId, true))
+          this.assistant({ botId: scope.botId, threadId: thread.id }).discardArchivedWork();
+      }
+      return this.command(scope.botId, method, raw, () => {
+        if (!archive && this.store.getBot(scope.botId)!.archivedAt !== undefined)
+          for (const thread of this.store.listThreads(scope.botId, true))
+            this.assistant({ botId: scope.botId, threadId: thread.id }).discardArchivedWork();
+        return this.store.updateBot(scope.botId, { archivedAt: archive ? Date.now() : undefined });
+      });
     }
     const scope = this.scope(raw), { botId: _bot, threadId: _thread, ...params } = raw;
     const runtime = this.assistant(scope);
@@ -364,10 +372,19 @@ export class BotManager {
         if (archive) {
           await runtime.rpc("assistant.control", { commandId: `archive:${signature(raw.commandId)}`, action: "cancelTurn" });
           // A failed metadata write must leave automatic work stopped as well.
+          runtime.discardArchivedWork();
           runtime.store.update({ lifecycle: "paused" });
         }
-        return this.command(this.key(scope), method, raw, () => this.store.updateThread(scope.botId, scope.threadId,
-          { archivedAt: archive ? Date.now() : undefined }));
+        return this.command(this.key(scope), method, raw, () => {
+          if (!archive && this.store.getThread(scope.botId, scope.threadId)!.archivedAt !== undefined) {
+            // Also retire queued work left by older Hosts before making the
+            // thread usable. Bot-level pause and disable gates remain intact.
+            runtime.discardArchivedWork();
+            runtime.store.update({ lifecycle: "idle", error: undefined, nextRetryAt: undefined });
+          }
+          return this.store.updateThread(scope.botId, scope.threadId,
+            { archivedAt: archive ? Date.now() : undefined });
+        });
       } finally {
         this.blockedThreads.delete(this.key(scope));
         this.tick();

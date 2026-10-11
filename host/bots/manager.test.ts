@@ -348,3 +348,109 @@ it("archives a running sibling after checking its revision and retries without a
   expect(turns).toHaveLength(1);
   await expect(send(scope, "Archived")).rejects.toThrow(/Restore/);
 });
+
+it("normalizes optional Unicode avatars without losing them on legacy configuration updates", async () => {
+  const { engine, createBot } = await setup();
+  const scope = await createBot("Avatar");
+  const create = { commandId: "created-avatar", patch: { name: "Created", avatar: " 🤖 ", harness: "codex", model: "test" } };
+  const created = await engine.bots.rpc("bots.create", structuredClone(create)) as { bot: BotView };
+  expect(created.bot.avatar).toBe("🤖");
+  expect(await engine.bots.rpc("bots.create", structuredClone(create))).toEqual(created);
+  const configure = (patch: Record<string, unknown>, commandId: string) => engine.bots.rpc("bots.configure", {
+    botId: scope.botId, commandId, expectedRevision: engine.bots.store.getBot(scope.botId)!.revision, patch,
+  });
+  await configure({ avatar: "  🤖🌱工作伙伴🧪🦉  " }, "avatar");
+  expect(engine.bots.store.getBot(scope.botId)?.avatar).toBe("🤖🌱工作伙伴🧪🦉");
+  await engine.bots.rpc("assistant.configure", {
+    commandId: "legacy-update", expectedRevision: engine.bots.store.getBot(scope.botId)!.revision, patch: { name: "Renamed" },
+  });
+  expect(await engine.bots.rpc("assistant.get", {})).toMatchObject({ avatar: "🤖🌱工作伙伴🧪🦉", name: "Renamed" });
+  for (const [index, avatar] of ["123456789", "\n🤖", "abc\u0085", 1].entries())
+    await expect(configure({ avatar }, `invalid-${index}`)).rejects.toThrow(/Avatar must be/);
+  await configure({ avatar: "   " }, "clear");
+  expect(engine.bots.store.getBot(scope.botId)?.avatar).toBeUndefined();
+});
+
+it("restores archived threads for new work without replaying old queues or removing Bot gates", async () => {
+  const { engine, turns, createBot, createThread, send } = await setup();
+  const bot = await createBot("Restore"), scope = await createThread(bot.botId, "Old work");
+  const runtime = engine.bots.assistant(scope);
+  const change = (method: "archive" | "restore", commandId: string) => engine.bots.rpc(`botThreads.${method}`, {
+    ...scope, commandId, expectedRevision: engine.bots.store.getThread(scope.botId, scope.threadId)!.revision,
+  });
+  await expect(engine.bots.rpc("botThreads.archive", { ...bot, commandId: "default-thread" })).rejects.toThrow(/default thread/);
+  await expect(engine.bots.rpc("bots.archive", { botId: bot.botId, commandId: "default-bot" })).rejects.toThrow(/default Bot/);
+  await change("archive", "archive");
+  // Simulate pending/backoff records written by an older Host before archival.
+  for (const [id, state] of [["old-queued", "pending"], ["old-backoff", "backoff"], ["old-interrupted", "interrupted"]] as const)
+    runtime.store.enqueue({ id, state, kind: "schedule", text: "Do not replay", rootCauseId: id, attempts: 1, createdAt: Date.now() }, id);
+  await engine.bots.rpc("assistant.control", { commandId: "pause", action: "pause" });
+  await change("restore", "restore");
+  expect(runtime.store.get()?.lifecycle).toBe("idle");
+  expect((await engine.bots.rpc("botThreads.get", scope)) as BotView).toMatchObject({ lifecycle: "paused" });
+  expect(runtime.store.wakeup("old-queued")?.state).toBe("completed");
+  expect(runtime.store.wakeup("old-backoff")?.state).toBe("completed");
+  expect(runtime.store.wakeup("old-interrupted")?.state).toBe("interrupted");
+  await runtime.managedTick();
+  expect(turns).toHaveLength(0);
+  // Turning the Bot on is a separate user action. Remove only the fixture's
+  // interrupted record so this test can isolate new messages after restoration.
+  runtime.store.saveWakeup({ ...runtime.store.wakeup("old-interrupted")!, state: "completed" });
+  await engine.bots.rpc("assistant.control", { commandId: "resume", action: "resume" });
+  await send(scope, "New work after restoration", "fresh");
+  await vi.waitFor(() => expect(turns).toHaveLength(1));
+  const run = runtime.currentRun!.id;
+  await change("restore", "already-restored");
+  expect(runtime.currentRun?.id).toBe(run);
+  expect(runtime.store.get()?.lifecycle).toBe("running");
+});
+
+it("keeps legacy stop thread-scoped and legacy disable Bot-scoped for existing and new threads", async () => {
+  const { engine, turns, createBot, createThread, send } = await setup({ serial: false });
+  const bot = await createBot("Legacy default"), sibling = await createThread(bot.botId, "Parallel"), other = await createBot("Other Bot");
+  await send(bot, "Default work");
+  await send(sibling, "Sibling work");
+  await send(other, "Other Bot work");
+  await vi.waitFor(() => expect(turns).toHaveLength(3));
+  await engine.bots.rpc("assistant.control", { commandId: "legacy-stop", action: "cancelTurn" });
+  expect(engine.assistant.currentRun).toBeUndefined();
+  expect(engine.bots.assistant(sibling).currentRun?.status).toBe("running");
+  expect(engine.bots.assistant(other).currentRun?.status).toBe("running");
+  await engine.bots.rpc("assistant.control", { commandId: "legacy-disable", action: "disable" });
+  expect(engine.bots.assistant(sibling).currentRun).toBeUndefined();
+  await engine.bots.rpc("botThreads.archive", { ...sibling, commandId: "archive-disabled" });
+  await engine.bots.rpc("botThreads.restore", { ...sibling, commandId: "restore-disabled" });
+  expect(await engine.bots.rpc("botThreads.get", sibling)).toMatchObject({ lifecycle: "disabled", enabled: false });
+  const after = await createThread(bot.botId, "Created after disable");
+  expect(await engine.bots.rpc("botThreads.get", after)).toMatchObject({ lifecycle: "disabled", enabled: false });
+  await expect(send(after, "Should not run")).rejects.toThrow(/messaging is disabled/);
+  expect(engine.bots.assistant(other).currentRun?.status).toBe("running");
+});
+
+it("retires all archived Bot queues across threads while preserving interrupted history", async () => {
+  const { engine, createBot, createThread } = await setup();
+  await createBot("Default");
+  const bot = await createBot("Archive Bot"), sibling = await createThread(bot.botId, "Queued automatic work");
+  await engine.bots.rpc("bots.control", { botId: bot.botId, commandId: "pause", action: "pause" });
+  for (const scope of [bot, sibling]) {
+    const runtime = engine.bots.assistant(scope);
+    for (const [id, state] of [["before-archive", "pending"], ["unknown-effects", "interrupted"]] as const)
+      runtime.store.enqueue({ id, state, kind: "schedule", text: "Old automatic work", rootCauseId: id, attempts: 1, createdAt: Date.now() }, id);
+  }
+  await engine.bots.rpc("bots.archive", { botId: bot.botId, commandId: "archive", expectedRevision: engine.bots.store.getBot(bot.botId)!.revision });
+  for (const scope of [bot, sibling]) {
+    const runtime = engine.bots.assistant(scope);
+    expect(runtime.store.wakeup("before-archive")?.state).toBe("completed");
+    expect(runtime.store.wakeup("unknown-effects")?.state).toBe("interrupted");
+    runtime.store.enqueue({ id: "legacy-backoff", state: "backoff", retryAt: Date.now() + 60_000, kind: "schedule",
+      text: "Older Host archived work", rootCauseId: "legacy-backoff", attempts: 1, createdAt: Date.now() }, "legacy-backoff");
+  }
+  await engine.bots.rpc("bots.restore", { botId: bot.botId, commandId: "restore", expectedRevision: engine.bots.store.getBot(bot.botId)!.revision });
+  expect(engine.bots.store.getBot(bot.botId)).toMatchObject({ paused: true, lifecycle: "paused" });
+  for (const scope of [bot, sibling]) {
+    const runtime = engine.bots.assistant(scope);
+    expect(runtime.store.wakeup("legacy-backoff")?.state).toBe("completed");
+    expect(runtime.store.wakeup("unknown-effects")?.state).toBe("interrupted");
+    expect(runtime.currentRun).toBeUndefined();
+  }
+});
