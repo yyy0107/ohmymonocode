@@ -59,6 +59,20 @@ export function hiddenApprovalNotices(
   tabs: WorkspaceTab[],
   composerFocused: boolean,
 ): Array<PendingApprovalNotice & { session: Session }> {
+  return pendingApprovalNotices(sessions).filter(
+    ({ sessionId }) =>
+      !isSessionConversationFocused(
+        sessionId,
+        activeTabId,
+        tabs,
+        composerFocused,
+      ),
+  );
+}
+
+export function pendingApprovalNotices(
+  sessions: Session[],
+): Array<PendingApprovalNotice & { session: Session }> {
   const notices: Array<PendingApprovalNotice & { session: Session }> = [];
   for (const session of sessions) {
     if (session.inboxAsk) continue;
@@ -66,16 +80,6 @@ export function hiddenApprovalNotices(
     if (session.orchestrationLeadId) continue;
     const pending = pendingApprovalForSession(session);
     if (!pending) continue;
-    if (
-      isSessionConversationFocused(
-        session.id,
-        activeTabId,
-        tabs,
-        composerFocused,
-      )
-    ) {
-      continue;
-    }
     notices.push({ ...pending, session });
   }
   return notices;

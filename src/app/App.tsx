@@ -551,7 +551,7 @@ import {
 } from "../features/sessions/ui/TranscriptPool";
 import { syncDockBadge } from "../features/notifications/model/dockBadge";
 import { liveAgentsFromSessions } from "../features/sessions/model/liveAgents";
-import { hiddenApprovalNotices } from "../features/notifications/model/approvalToast";
+import { pendingApprovalNotices } from "../features/notifications/model/approvalToast";
 import { useSessionReminders } from "../features/notifications/hooks/useSessionReminders";
 import { ReminderNotices } from "../features/sessions/ui/ReminderNotices";
 import { useUnseenFinishedSessions } from "../features/sessions/hooks/useUnseenFinishedSessions";
@@ -1997,15 +1997,9 @@ function Workspace({
     [liveAgentsEnabled, sessions, unseenFinishedIds],
   );
 
-  const hiddenApprovalToasts = useMemo(
-    () =>
-      hiddenApprovalNotices(
-        sessions,
-        workspaceVisible ? activeTabId : "",
-        tabs,
-        workspaceVisible && composerFocused,
-      ),
-    [sessions, activeTabId, tabs, composerFocused, workspaceVisible],
+  const approvalToasts = useMemo(
+    () => pendingApprovalNotices(sessions),
+    [sessions],
   );
   const [reminderNoticesHeight, setReminderNoticesHeight] = useState(0);
   const [harnessUpdateHeight, setHarnessUpdateHeight] = useState(0);
@@ -11870,7 +11864,10 @@ function Workspace({
                 onHeightChange={setHarnessUpdateHeight}
               />
               <ApprovalToasts
-                notices={hiddenApprovalToasts}
+                notices={approvalToasts}
+                focusedSessionId={
+                  workspaceVisible ? activeTab?.focusedId : undefined
+                }
                 topOffset={
                   12 +
                   (reminderNoticesHeight ? reminderNoticesHeight + 8 : 0) +

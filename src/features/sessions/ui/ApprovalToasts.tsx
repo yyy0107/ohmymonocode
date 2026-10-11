@@ -1,6 +1,7 @@
 import { useTranslation } from "../../../shared/i18n/useTranslation";
-import { CircleAlert } from "../../../shared/ui/icons";
-import { useState } from "react";
+import { CircleAlert, X } from "../../../shared/ui/icons";
+import { useEffect, useState } from "react";
+import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import { createPortal } from "react-dom";
 import { allowsProjectNotification } from "../../notifications/model/notificationPreferences";
 import { knownNotificationProject } from "../../notifications/model/notificationProjects";
@@ -19,6 +20,7 @@ type Notice = PendingApprovalNotice & { session: Session };
 
 type Props = {
   notices: Notice[];
+  focusedSessionId?: string;
   topOffset?: number;
   onFocusSession: (sessionId: string) => void;
   onApproval: (
@@ -30,6 +32,7 @@ type Props = {
 
 export function ApprovalToasts({
   notices,
+  focusedSessionId,
   onFocusSession,
   onApproval,
   topOffset = 12,
@@ -47,6 +50,7 @@ export function ApprovalToasts({
         <ProjectApprovalToast
           key={`${notice.sessionId}:${notice.kind}:${notice.requestId}`}
           notice={notice}
+          focused={notice.sessionId === focusedSessionId}
           onFocusSession={onFocusSession}
           onApproval={onApproval}
         />
@@ -58,6 +62,7 @@ export function ApprovalToasts({
 
 function ProjectApprovalToast(props: {
   notice: Notice;
+  focused: boolean;
   onFocusSession: Props["onFocusSession"];
   onApproval: Props["onApproval"];
 }) {
@@ -65,28 +70,62 @@ function ProjectApprovalToast(props: {
   // The keyed gate stays mounted even while hidden. Resuming notifications
   // must not turn a pending request into a new popup.
   const [occurredAt] = useState(Date.now);
+  const [dismissed, setDismissed] = useState(props.focused);
+  const [hovered, setHovered] = useState(false);
+  const [focusWithin, setFocusWithin] = useState(false);
   const project = knownNotificationProject(path);
-
-  if (
-    !project ||
-    !allowsProjectNotification({
+  const allowed = Boolean(
+    project &&
+    allowsProjectNotification({
       projectId: project.id,
       category: "agentInput",
       occurredAt,
-    })
-  )
-    return null;
-  return <ApprovalToastCard {...props} />;
+    }),
+  );
+  const expanded = allowed && !props.focused && !dismissed;
+  useEffect(() => {
+    if (props.focused) setDismissed(true);
+  }, [props.focused]);
+  useEffect(() => {
+    if (!expanded || hovered || focusWithin) return;
+    const timer = window.setTimeout(() => setDismissed(true), 8000);
+    return () => window.clearTimeout(timer);
+  }, [expanded, hovered, focusWithin]);
+
+  return (
+    <AnimatedCollapse expanded={expanded}>
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onFocus={() => setFocusWithin(true)}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget))
+            setFocusWithin(false);
+        }}
+      >
+        <ApprovalToastCard
+          {...props}
+          onDismiss={() => setDismissed(true)}
+          onFocusSession={(id) => {
+            setDismissed(true);
+            props.onFocusSession(id);
+          }}
+        />
+      </div>
+    </AnimatedCollapse>
+  );
 }
 
 function ApprovalToastCard({
   notice,
   onFocusSession,
   onApproval,
+  onDismiss,
 }: {
   notice: Notice;
   onFocusSession: (sessionId: string) => void;
   onApproval: Props["onApproval"];
+  onDismiss: () => void;
 }) {
   const { t: uiT } = useTranslation();
   const { session, label, requestId } = notice;
@@ -97,13 +136,13 @@ function ApprovalToastCard({
 
   return (
     <article
-      className="approval-toast pointer-events-auto overflow-hidden rounded-xl border border-content/20 border-dashed bg-content/10 shadow-xl backdrop-blur-xl"
+      className="approval-toast pointer-events-auto relative overflow-hidden rounded-xl border border-content/20 border-dashed bg-content/10 shadow-xl backdrop-blur-xl"
       role="status"
     >
       <button
         type="button"
         onClick={openSession}
-        className="flex w-full flex-col gap-2 px-3.5 py-3 text-left hover:bg-content/5"
+        className="flex w-full flex-col gap-2 py-3 pl-3.5 pr-9 text-left hover:bg-content/5"
       >
         <span className="flex items-center gap-2">
           <HarnessIcon harness={session.harness} className="size-4 shrink-0" />
@@ -121,6 +160,15 @@ function ApprovalToastCard({
           {label}
         </span>
         <span className="text-[11px] text-content/40">{harness}</span>
+      </button>
+      <button
+        type="button"
+        aria-label={uiT("Close")}
+        title={uiT("Close")}
+        onClick={onDismiss}
+        className="absolute right-1.5 top-2 rounded p-1 text-content/50 hover:bg-content/10 hover:text-content"
+      >
+        <X className="size-3.5" />
       </button>
       {notice.kind === "question" ? null : (
         <div className="flex gap-2 border-t border-stroke px-3.5 py-2.5">
