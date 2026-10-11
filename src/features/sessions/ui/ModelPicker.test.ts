@@ -134,14 +134,6 @@ function press(element: HTMLElement) {
   act(() => element.click());
 }
 
-/** Sub-views replace the picker menu in place; step back to the root rows. */
-function backToMenu() {
-  const back = document.querySelector<HTMLButtonElement>(
-    '[data-model-picker] button[aria-label="Back"]',
-  );
-  if (back) press(back);
-}
-
 function contextMenu(element: Element) {
   act(() => {
     element.dispatchEvent(
@@ -209,7 +201,7 @@ describe("model picker", () => {
     act(() => trigger.click());
     const menu = container.querySelector<HTMLElement>('[role="menu"][aria-label="Model and settings"]')!;
     const row = (label: string) => {
-      backToMenu();
+      expect(menu.getAttribute("aria-label")).toBe("Model and settings");
       return [...menu.querySelectorAll<HTMLButtonElement>("button")]
         .find((button) => button.textContent?.startsWith(label))!;
     };
@@ -226,9 +218,11 @@ describe("model picker", () => {
         for (let i = 0; i < Math.abs(to - from); i++) keyDown(menu, to > from ? "ArrowDown" : "ArrowUp");
         keyDown(menu, "Enter");
       }
+      // Choosing an option returns to the settings menu without closing it.
       expect(trigger.getAttribute("aria-expanded")).toBe("true");
-      expect(selected.getAttribute("aria-checked")).toBe("true");
       expect(menu.isConnected).toBe(true);
+      expect(menu.getAttribute("aria-label")).toBe("Model and settings");
+      expect(row(label).textContent).toContain(option);
       expect(onClose).not.toHaveBeenCalled();
     };
     choose("Reasoning", "Low");
@@ -236,6 +230,11 @@ describe("model picker", () => {
     expect(onSettingsChange).toHaveBeenLastCalledWith({ reasoningEffort: "low", serviceTier: "fast" });
 
     press(row("Model"));
+    expect(container.querySelector('[data-model-picker] button[aria-label="Back"]')).toBeNull();
+    // Switching provider tabs stays in the model list.
+    const tab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-selected="true"]')!;
+    press(tab);
+    expect(menu.getAttribute("aria-label")).toBe("Models");
     const second = [...container.querySelectorAll<HTMLButtonElement>('[role="option"]')]
       .find((button) => button.textContent === "Second")!;
     if (input === "pointer") act(() => second.click());
@@ -245,10 +244,11 @@ describe("model picker", () => {
     }
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
     expect(trigger.textContent).toContain("Second");
-    expect(second.getAttribute("aria-selected")).toBe("true");
+    expect(row("Model").textContent).toContain("Second");
     choose("Reasoning", "High");
     expect(onSettingsChange).toHaveBeenLastCalledWith({ reasoningEffort: "high", serviceTier: "fast" });
-    // Escape first steps back to the root menu, then closes the picker.
+    // Escape first steps back out of a sub-view, then closes the picker.
+    press(row("Model"));
     keyDown(window, "Escape");
     expect(menu.getAttribute("aria-label")).toBe("Model and settings");
     expect(onClose).not.toHaveBeenCalled();
@@ -407,7 +407,7 @@ describe("model picker", () => {
       container.querySelector('input[aria-label="Search models"]'),
     ).not.toBeNull();
 
-    backToMenu();
+    keyDown(window, "Escape");
     const effortRow = [
       ...container.querySelectorAll<HTMLButtonElement>("button"),
     ].find((button) => button.textContent?.startsWith("Effort"))!;
