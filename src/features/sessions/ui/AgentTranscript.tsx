@@ -351,6 +351,13 @@ function AgentTranscriptComponent({
   const scroller = useRef<HTMLDivElement>(null);
   const transcriptEnd = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
+  // Following glides only for a stream the reader is already watching; the
+  // layout settling right after a chat appears still pins before paint.
+  const glideFollow = useRef({ busy: !!busy, since: Infinity });
+  glideFollow.current.busy = !!busy;
+  useEffect(() => {
+    glideFollow.current.since = visible ? performance.now() : Infinity;
+  }, [visible]);
   const showJumpRef = useRef(false);
   const distanceFromBottom = useRef(0);
   const scrollGeometry = useRef({ top: 0, height: 0, viewport: 0 });
@@ -527,10 +534,26 @@ function AgentTranscriptComponent({
       syncPinned(el);
       // Directionless trackpad events can precede off-thread scrolling.
       // Wait for the gesture to reveal its direction before pinning again.
-      if (stickToBottom.current && performance.now() >= wheelHold.current)
-        pinTranscript(el);
+      if (!stickToBottom.current || performance.now() < wheelHold.current) return;
+      // On the phone, a row arriving glides the view down instead of snapping
+      // it up a row at a time. Larger changes, like opening or restoring a
+      // chat, still pin at once; any touch stops the glide where it is.
+      const gap = el.scrollHeight - el.clientHeight - el.scrollTop;
+      const glide = glideFollow.current;
+      if (
+        promptMotion === "mobile" &&
+        glide.busy &&
+        performance.now() - glide.since >= FOLLOW_GLIDE_SETTLE_MS &&
+        gap > 2 &&
+        gap <= el.clientHeight
+      )
+        animateToBottom(el, () => {
+          rememberScroll(el);
+          syncPinned(el);
+        }, FOLLOW_GLIDE);
+      else pinTranscript(el);
     },
-    [pinTranscript, syncPinned],
+    [pinTranscript, promptMotion, rememberScroll, syncPinned],
   );
 
   const jumpToBottom = useCallback(() => {
@@ -4271,7 +4294,17 @@ const JUMP_INTERRUPTS = ["wheel", "touchstart", "pointerdown", "keydown"];
  * Glide to the bottom, following content that keeps streaming in. Any reader
  * input stops the glide where it is.
  */
-function animateToBottom(el: HTMLElement | null, done: () => void) {
+type GlideTiming = { base: number; perPx: number; max: number };
+const JUMP_GLIDE: GlideTiming = { base: 260, perPx: 1 / 12, max: 560 };
+const FOLLOW_GLIDE_SETTLE_MS = 600;
+/** Following new rows: short enough to keep up with a stream. */
+const FOLLOW_GLIDE: GlideTiming = { base: 120, perPx: 1 / 4, max: 220 };
+
+function animateToBottom(
+  el: HTMLElement | null,
+  done: () => void,
+  timing: GlideTiming = JUMP_GLIDE,
+) {
   if (!el || jumpingScrollers.has(el)) return;
   const bottom = () => Math.max(0, el.scrollHeight - el.clientHeight);
   const from = el.scrollTop;
@@ -4284,7 +4317,7 @@ function animateToBottom(el: HTMLElement | null, done: () => void) {
     done();
     return;
   }
-  const duration = Math.min(560, 260 + distance / 12);
+  const duration = Math.min(timing.max, timing.base + distance * timing.perPx);
   const start = performance.now();
   let frame = 0;
   const finish = (snap: boolean) => {
