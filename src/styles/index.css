@@ -1723,13 +1723,18 @@ html.has-user-accent .user-message-bubble[data-draft="true"] {
   pointer-events: none;
 }
 
-/* While a sent prompt rises into place, the rest of its turn waits for it. */
-.transcript-turn[data-prompt-rise="rising"] > :not(:has([data-prompt-anchor])) {
+/* While a sent prompt rises into place, the rest of its turn waits for it.
+   Disclosures reveal their inner content: animating the collapse itself would
+   override its opening animation, then restart it when the reveal clears. */
+.transcript-turn[data-prompt-rise="rising"] > :not(.zen-fold-item):not(:has([data-prompt-anchor])),
+.transcript-turn[data-prompt-rise="rising"] > .zen-fold-item:not(:has([data-prompt-anchor])) > div {
   opacity: 0;
 }
 
 .transcript-turn[data-prompt-rise="revealing"]
-  > :not(:has([data-prompt-anchor])) {
+  > :not(.zen-fold-item):not(:has([data-prompt-anchor])),
+.transcript-turn[data-prompt-rise="revealing"]
+  > .zen-fold-item:not(:has([data-prompt-anchor])) > div {
   animation: prompt-turn-reveal 180ms var(--motion-ease-out) both;
 }
 
