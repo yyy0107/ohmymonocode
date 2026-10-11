@@ -60,6 +60,14 @@ export function useIdleSessionDetach({
     const visibleIds = new Set(
       tabsRef.current.flatMap((tab) => leafIds(tab.layout)),
     );
+    // A provider subagent tab reads its parent's blocks, even if that chat closes.
+    for (const tab of tabsRef.current) {
+      for (const pane of tab.editorPanes) {
+        for (const file of pane.files) {
+          if (file.subagent) visibleIds.add(file.subagent.parentSessionId);
+        }
+      }
+    }
     // Inbox owns these panes independently of project tabs. Keep their drafts
     // and attachments mounted when the panel closes or switches items.
     for (const session of sessions) {

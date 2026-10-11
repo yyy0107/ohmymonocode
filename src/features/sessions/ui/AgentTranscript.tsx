@@ -1,5 +1,5 @@
 import { timestampTitle } from "./timestampTitle";
-import { agentTranscript } from "../model/agentTranscript";
+import { agentStepCount, agentTranscript } from "../model/agentTranscript";
 import { AttachmentList } from "./AttachmentList";
 import "./AgentTranscript.css";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
@@ -224,6 +224,7 @@ type Props = {
   onOpenFile?: (path: string) => void;
   onOpenDiff?: (path: string) => void;
   onOpenPlan?: (blockId: string) => void;
+  onOpenAgent?: (block: Block) => void;
   onBuildPlan?: (blockId: string, target?: PlanBuildTarget) => void;
   /** The plan whose decision panel is open; its card omits Build. */
   decidingPlanId?: string;
@@ -283,6 +284,7 @@ function AgentTranscriptComponent({
   onOpenFile,
   onOpenDiff,
   onOpenPlan,
+  onOpenAgent,
   onBuildPlan,
   decidingPlanId,
   planBuildTargets = true,
@@ -304,9 +306,13 @@ function AgentTranscriptComponent({
   animateFrom,
   promptMotion,
 }: Props) {
-  const renderingPlatform = useTranscriptRenderingPlatform(sourceBlocks, {
+  const basePlatform = useTranscriptRenderingPlatform(sourceBlocks, {
     animateFrom,
   });
+  const renderingPlatform = useMemo(
+    () => onOpenAgent ? { ...basePlatform, openAgent: onOpenAgent } : basePlatform,
+    [basePlatform, onOpenAgent],
+  );
   const { t: uiT } = useTranslation();
   const { liveClockInFooter, openActivity } = useContext(TranscriptPlatformContext);
   const clockInFooter = !!liveClockInFooter && !!cwd;
@@ -3196,6 +3202,8 @@ function SubagentPanel({
 }) {
   const { t: uiT } = useTranslation();
   const { openAgent } = useContext(TranscriptPlatformContext);
+  // Desktop opens a conversation tab; never expose its prose in the parent.
+  open = !openAgent && open;
   const name = subagentName(block);
   const brief = subagentBrief(block);
   const model = subagentModelName(block);
@@ -3373,7 +3381,7 @@ function SubagentMascot({
 function subagentStatusLine(block: Block, steps: AgentStep[]): string {
   if (toolCallState(block) === "rejected") return "failed";
   const fullTools = block.agentRun?.transcript?.filter((row) => row.role === "tool");
-  const tools = fullTools?.length ?? steps.filter((step) => step.kind === "tool").length;
+  const tools = agentStepCount(block);
   if (tools === 0) return "";
   const count = tools === 1 ? "1 step" : `${tools} steps`;
   // A step that failed inside a run that went on to finish still has to say so

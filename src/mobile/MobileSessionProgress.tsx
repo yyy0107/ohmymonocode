@@ -11,6 +11,7 @@ import { useTranslation } from "../shared/i18n/useTranslation";
 import { AnimatedCollapse } from "../shared/ui/AnimatedCollapse";
 import {
   Bot,
+  CircleAlert,
   ChevronRight,
   FileDiff,
   FileScript,
@@ -165,6 +166,10 @@ function ProgressSummary({
       text = t("{count} running", { count: String(summary.count) });
       break;
     }
+    case "agents":
+      icon = <Bot size={16} />;
+      text = t(summary.count === 1 ? "{count} subagent" : "{count} subagents", { count: summary.count });
+      break;
     case "progress":
       icon = <ListEnd size={16} />;
       text = `${summary.completed}/${summary.total}`;
@@ -221,6 +226,7 @@ function ProgressSections({
 }) {
   const { t } = useTranslation();
   const [moreTasks, setMoreTasks] = useState(false);
+  const [agentsExpanded, setAgentsExpanded] = useState(true);
   const tasks = model.tasks;
   const span = tasks ? focusedTaskWindow(tasks) : null;
   const folded = tasks && span ? tasks.length - (span.end - span.start) : 0;
@@ -325,7 +331,12 @@ function ProgressSections({
         </Section>
       )}
       {model.subagents.length > 0 && (
-        <Section icon={<Bot size={18} />} title={t("Agents")}>
+        <Section
+          icon={<Bot size={18} />}
+          title={t(model.subagents.length === 1 ? "{count} subagent" : "{count} subagents", { count: model.subagents.length })}
+          expanded={agentsExpanded}
+          onToggle={() => setAgentsExpanded((value) => !value)}
+        >
           {model.subagents.map((agent) => (
             <button
               key={agent.blockId}
@@ -333,11 +344,17 @@ function ProgressSections({
               className="mobile-progress-row"
               onClick={() => onNavigate("agent", agent.blockId)}
             >
-              <TaskState status="in_progress" />
+              <span title={t(agent.state === "pending" ? "Running" : agent.state === "rejected" ? "Failed" : "Completed")}>
+                {agent.state === "rejected" ? <CircleAlert size={16} className="text-red-400" />
+                  : <TaskState status={agent.state === "pending" ? "in_progress" : "completed"} />}
+              </span>
               <span>
                 {agent.name}
                 {agent.model && <small>{agent.model}</small>}
               </span>
+              <small className="shrink-0 whitespace-nowrap font-mono tabular-nums">
+                {t(agent.steps === 1 ? "{count} step" : "{count} steps", { count: agent.steps })}
+              </small>
               <ChevronRight size={18} aria-hidden="true" />
             </button>
           ))}
@@ -381,21 +398,44 @@ function Section({
   icon,
   title,
   meta,
+  expanded,
+  onToggle,
   children,
 }: {
   icon: ReactNode;
   title: string;
   meta?: string;
+  expanded?: boolean;
+  onToggle?: () => void;
   children: ReactNode;
 }) {
+  const heading = (
+    <>
+      <span aria-hidden="true">{icon}</span>
+      <span>{title}</span>
+      {meta && <small>{meta}</small>}
+    </>
+  );
   return (
     <section className="mobile-progress-section">
       <h3>
-        <span aria-hidden="true">{icon}</span>
-        <span>{title}</span>
-        {meta && <small>{meta}</small>}
+        {onToggle ? (
+          <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={onToggle}
+            className="flex min-h-11 w-full items-center gap-2 text-left"
+          >
+            {heading}
+            <ChevronRight size={16} aria-hidden="true" className={`zen-disclosure-chevron ml-auto shrink-0${expanded ? " rotate-90" : ""}`} />
+          </button>
+        ) : heading}
       </h3>
-      {children}
+      {expanded === undefined ? children : (
+        <AnimatedCollapse expanded={expanded} motion="height">
+          {children}
+        </AnimatedCollapse>
+      )}
     </section>
   );
 }

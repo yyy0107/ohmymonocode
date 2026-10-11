@@ -1,7 +1,6 @@
 import {
   useEffect,
   useMemo,
-  useRef,
   useState,
   useSyncExternalStore,
   type ButtonHTMLAttributes,
@@ -13,6 +12,8 @@ import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import {
   Bot,
+  Check,
+  CircleAlert,
   ChevronRight,
   CloudUpload,
   FileScript,
@@ -21,12 +22,12 @@ import {
   GitBranch,
   GitCompare,
   ListEnd,
+  Maximize2,
   Terminal,
 } from "../../../shared/ui/icons";
 import { GlassBackdrop } from "../../../app/shell/GlassBackdrop";
 import { BranchPicker } from "../../source-control/ui/BranchPicker";
 import { useSessionHeaderActions } from "../../workspace/ui/SessionHeaderActions";
-import { SubagentConversationCard } from "./SubagentConversationCard";
 import type { Block } from "../model/session";
 import {
   buildSessionStatusPanelModel,
@@ -68,8 +69,7 @@ function useReducedMotion(): boolean {
       query?.addEventListener("change", listener);
       return () => query?.removeEventListener("change", listener);
     },
-    () =>
-      reducedMotionQuery().matches,
+    () => reducedMotionQuery().matches,
     () => false,
   );
 }
@@ -84,8 +84,7 @@ export function SessionStatusPanel({
   worktree = false,
   scope,
   onNavigate,
-  onOpenFile,
-  onOpenDiff,
+  onOpenAgent,
 }: {
   sessionId: string;
   blocks: Block[];
@@ -97,8 +96,7 @@ export function SessionStatusPanel({
   worktree?: boolean;
   scope: RefObject<HTMLElement | null>;
   onNavigate: (blockId: string) => void;
-  onOpenFile?: (path: string) => void;
-  onOpenDiff?: (path: string) => void;
+  onOpenAgent?: (block: Block) => void;
 }) {
   const model = useMemo(
     () => buildSessionStatusPanelModel({ blocks, backgroundTasks, busy, git }),
@@ -115,16 +113,7 @@ export function SessionStatusPanel({
     overrides.set(sessionId, next);
     setOverride(next);
   };
-  const [agentPath, setAgentPath] = useState<string[] | null>(null);
-  const [agentSession, setAgentSession] = useState(sessionId);
-  if (agentSession !== sessionId) {
-    setAgentSession(sessionId);
-    setAgentPath(null);
-  }
-  const shownAgentPath = useRef<string[] | null>(null);
-  if (agentPath) shownAgentPath.current = agentPath;
-
-  if (!model.hasContent && !agentPath) return null;
+  if (!model.hasContent) return null;
   return (
     <div className="pointer-events-none absolute top-2 right-3 z-30 flex w-[min(32rem,calc(100%_-_24px))] flex-col items-end gap-2">
       {model.hasContent ? (
@@ -162,14 +151,16 @@ export function SessionStatusPanel({
                   model={model}
                   cwd={cwd}
                   worktree={worktree}
-                  agentPath={agentPath}
                   onNavigate={onNavigate}
-                  onOpenAgent={(blockId) =>
-                    setAgentPath((current) =>
-                      current?.length === 1 && current[0] === blockId
-                        ? null
-                        : [blockId],
-                    )
+                  onOpenAgent={
+                    onOpenAgent
+                      ? (blockId) => {
+                          const block = blocks.find(
+                            (entry) => entry.id === blockId,
+                          );
+                          if (block) onOpenAgent(block);
+                        }
+                      : undefined
                   }
                 />
               </div>
@@ -177,37 +168,6 @@ export function SessionStatusPanel({
           </div>
         </aside>
       ) : null}
-      <AnimatedCollapse
-        expanded={!!agentPath}
-        motion="height"
-        durationMs={MOTION_MS}
-        className="pointer-events-auto w-full"
-      >
-        {() =>
-          shownAgentPath.current ? (
-            <SubagentConversationCard
-              blocks={blocks}
-              path={shownAgentPath.current}
-              cwd={cwd}
-              onOpenFile={onOpenFile}
-              onOpenDiff={onOpenDiff}
-              onOpenAgent={(block) =>
-                setAgentPath((current) =>
-                  current ? [...current, block.id] : [block.id],
-                )
-              }
-              onBack={() =>
-                setAgentPath((current) =>
-                  current && current.length > 1
-                    ? current.slice(0, -1)
-                    : null,
-                )
-              }
-              onClose={() => setAgentPath(null)}
-            />
-          ) : null
-        }
-      </AnimatedCollapse>
     </div>
   );
 }
@@ -270,14 +230,16 @@ function SummaryContent({ model }: { model: SessionStatusPanelModel }) {
         <>
           {icon(
             <TaskState
-              status={summary.status === "current" ? "in_progress" : "completed"}
+              status={
+                summary.status === "current" ? "in_progress" : "completed"
+              }
             />,
           )}
           <span className="min-w-0 flex-1 truncate">{summary.text}</span>
         </>
       );
     case "git": {
-      const running = model.subagents.length;
+      const agents = model.subagents.length;
       return (
         <>
           {icon(<GitCompare className="size-3.5" />)}
@@ -296,11 +258,11 @@ function SummaryContent({ model }: { model: SessionStatusPanelModel }) {
               )}
             </span>
           ) : null}
-          {running > 0 ? (
+          {agents > 0 ? (
             <span className="ml-auto flex shrink-0 items-center gap-1 text-content/45">
               <Bot className="size-3" />
               <span className="font-mono text-[10px] tabular-nums">
-                {running}
+                {agents}
               </span>
             </span>
           ) : null}
@@ -321,6 +283,15 @@ function SummaryContent({ model }: { model: SessionStatusPanelModel }) {
         <>
           {icon(<FileScript className="size-3.5" />)}
           <span className="min-w-0 flex-1 truncate">{summary.text}</span>
+        </>
+      );
+    case "agents":
+      return (
+        <>
+          {icon(<Bot className="size-3.5" />)}
+          <span className="min-w-0 flex-1 truncate">
+            {uiT(summary.count === 1 ? "{count} subagent" : "{count} subagents", { count: summary.count })}
+          </span>
         </>
       );
     case "running": {
@@ -351,7 +322,7 @@ function DiffCounts({
 }) {
   if (!additions && !deletions) return null;
   return (
-    <span className="inline-flex shrink-0 items-baseline gap-1.5 font-mono text-[11px] font-medium tabular-nums">
+    <span className="inline-flex shrink-0 items-baseline gap-1.5 font-mono text-[11px] leading-4 font-medium tabular-nums">
       {additions > 0 ? (
         <span className="text-emerald-400">+{additions}</span>
       ) : null}
@@ -366,20 +337,19 @@ function PanelSections({
   model,
   cwd,
   worktree,
-  agentPath,
   onNavigate,
   onOpenAgent,
 }: {
   model: SessionStatusPanelModel;
   cwd?: string;
   worktree: boolean;
-  agentPath: string[] | null;
   onNavigate: (blockId: string) => void;
-  onOpenAgent: (blockId: string) => void;
+  onOpenAgent?: (blockId: string) => void;
 }) {
   const { t: uiT } = useTranslation();
   const actions = useSessionHeaderActions();
   const [moreTasks, setMoreTasks] = useState(false);
+  const [agentsExpanded, setAgentsExpanded] = useState(true);
   const tasks = model.tasks;
   const span = tasks ? focusedTaskWindow(tasks) : null;
   const folded = tasks && span ? tasks.length - (span.end - span.start) : 0;
@@ -457,7 +427,7 @@ function PanelSections({
                   <button
                     type="button"
                     onClick={() => setMoreTasks((value) => !value)}
-                    className="w-full rounded-md px-2 py-1 text-left font-mono text-[11px] text-content/45 hover:bg-content/7 hover:text-content/70"
+                    className="w-full rounded-md py-1 pr-2 pl-8 text-left font-mono text-[11px] text-content/45 hover:bg-content/7 hover:text-content/70"
                   >
                     {moreTasks
                       ? uiT("Show fewer")
@@ -474,28 +444,56 @@ function PanelSections({
       {model.plans.length ? (
         <Section icon={FileScript} title={uiT("Plans")}>
           {model.plans.map((plan) => (
-            <RowButton key={plan.blockId} onClick={() => onNavigate(plan.blockId)}>
-              <span className="min-w-0 flex-1 truncate">{plan.title}</span>
+            <RowButton
+              key={plan.blockId}
+              onClick={() => onNavigate(plan.blockId)}
+            >
+              <span className="min-w-0 flex-1 truncate pl-6">{plan.title}</span>
             </RowButton>
           ))}
         </Section>
       ) : null}
       {model.subagents.length ? (
-        <Section icon={Bot} title={uiT("Agents")}>
+        <Section
+          icon={Bot}
+          title={uiT(model.subagents.length === 1 ? "{count} subagent" : "{count} subagents", { count: model.subagents.length })}
+          expanded={agentsExpanded}
+          onClick={() => setAgentsExpanded((value) => !value)}
+        >
           {model.subagents.map((agent) => (
             <RowButton
               key={agent.blockId}
-              aria-haspopup="dialog"
-              aria-expanded={agentPath?.[0] === agent.blockId}
-              onClick={() => onOpenAgent(agent.blockId)}
+              disabled={!onOpenAgent}
+              title={uiT("Open subagent conversation")}
+              onClick={() => onOpenAgent?.(agent.blockId)}
             >
-              <TerminalSpinner />
+              <span
+                className="grid size-4 shrink-0 place-items-center"
+                title={uiT(
+                  agent.state === "pending"
+                    ? "Running"
+                    : agent.state === "rejected"
+                      ? "Failed"
+                      : "Completed",
+                )}
+              >
+                {agent.state === "pending" ? (
+                  <TerminalSpinner className="grid size-4 shrink-0 place-items-center text-[11px] leading-none select-none" />
+                ) : agent.state === "rejected" ? (
+                  <CircleAlert className="size-4 text-red-400" />
+                ) : (
+                  <Check className="size-4 text-content/45" />
+                )}
+              </span>
               <span className="min-w-0 flex-1 truncate">{agent.name}</span>
               {agent.model ? (
-                <span className="shrink-0 font-mono text-[10px] text-content/40">
+                <span className="min-w-0 max-w-[35%] truncate font-mono text-[10px] text-content/40" title={agent.model}>
                   {agent.model}
                 </span>
               ) : null}
+              <span className="shrink-0 whitespace-nowrap font-mono text-[10px] tabular-nums text-content/40">
+                {uiT(agent.steps === 1 ? "{count} step" : "{count} steps", { count: agent.steps })}
+              </span>
             </RowButton>
           ))}
         </Section>
@@ -505,9 +503,9 @@ function PanelSections({
           {model.background.map((description, index) => (
             <div
               key={`${index}:${description}`}
-              className="flex min-w-0 items-center gap-2 px-2 py-1 text-[12px] text-content/70"
+              className="flex min-w-0 items-center gap-2 px-2 py-1 text-[12px] leading-4 text-content/70"
             >
-              <TerminalSpinner />
+              <TerminalSpinner className="grid size-4 shrink-0 place-items-center text-[11px] leading-none select-none" />
               <span className="min-w-0 flex-1 truncate font-mono text-[11px]">
                 {description}
               </span>
@@ -527,7 +525,9 @@ function TaskRows({ items }: { items: SessionStatusPanelModel["tasks"] }) {
           key={item.id ?? `${index}:${item.text}`}
           className="flex min-w-0 items-start gap-2 px-2 py-1"
         >
-          <TaskState status={item.status} />
+          <span className="grid size-4 shrink-0 place-items-center [&>span]:mt-0">
+            <TaskState status={item.status} />
+          </span>
           <span
             className={`min-w-0 flex-1 text-[12px] leading-4 ${
               item.status === "completed" || item.status === "cancelled"
@@ -550,18 +550,33 @@ function Section({
   title,
   meta,
   onClick,
+  expanded,
   children,
 }: {
   icon: typeof GitCompare;
   title: string;
   meta?: ReactNode;
   onClick?: () => void;
-  children: ReactNode;
+  expanded?: boolean;
+  children?: ReactNode;
 }) {
+  const hasBody = children != null;
+  const headingClassName = `flex items-center gap-2 px-2 ${
+    hasBody && !onClick ? "py-1" : "py-2"
+  }`;
+  const body = hasBody && onClick ? <div className="pb-1">{children}</div> : children;
+  const HoverIcon = onClick && expanded !== undefined
+    ? expanded ? FoldVertical : Maximize2
+    : null;
   const heading = (
     <>
-      <Icon className="size-3.5 shrink-0 text-content/45" />
-      <h3 className="min-w-0 flex-1 truncate text-left text-[11.5px] font-medium text-content/70">
+      <span aria-hidden="true" className="grid size-4 shrink-0 place-items-center text-content/45">
+        <Icon className={`col-start-1 row-start-1 size-4${HoverIcon ? " transition-opacity duration-150 group-hover/status-section:opacity-0 group-focus-visible/status-section:opacity-0 motion-reduce:transition-none" : ""}`} />
+        {HoverIcon ? (
+          <HoverIcon className="col-start-1 row-start-1 size-3.5 text-content/75 opacity-0 transition-opacity duration-150 group-hover/status-section:opacity-100 group-focus-visible/status-section:opacity-100 motion-reduce:transition-none" />
+        ) : null}
+      </span>
+      <h3 className="min-w-0 flex-1 truncate text-left text-[11.5px] leading-4 font-medium text-content/70">
         {title}
       </h3>
       {meta ? (
@@ -574,26 +589,31 @@ function Section({
         )
       ) : null}
       {onClick ? (
-        <ChevronRight className="size-3 shrink-0 text-content/35" />
+        <ChevronRight className={`zen-disclosure-chevron size-3 shrink-0 text-content/35${expanded ? " rotate-90" : ""}`} />
       ) : null}
     </>
   );
   return (
-    <section className="rounded-[10px] border border-content/8 bg-content/[0.035] py-1">
+    <section
+      className={`overflow-hidden rounded-[10px] border border-content/8 bg-content/[0.035]${hasBody && !onClick ? " py-1" : ""}`}
+    >
       {onClick ? (
         <button
           type="button"
           onClick={onClick}
-          className="flex w-full items-center gap-1.5 px-2 pt-0.5 pb-1 hover:bg-content/7"
+          aria-expanded={expanded}
+          className={`group/status-section ${headingClassName} w-full rounded-[9px] hover:bg-content/7`}
         >
           {heading}
         </button>
       ) : (
-        <div className="flex items-center gap-1.5 px-2 pt-0.5 pb-1">
-          {heading}
-        </div>
+        <div className={headingClassName}>{heading}</div>
       )}
-      {children}
+      {expanded === undefined ? body : (
+        <AnimatedCollapse expanded={expanded} motion="height">
+          {body}
+        </AnimatedCollapse>
+      )}
     </section>
   );
 }
@@ -607,16 +627,13 @@ function RowButton({
   onClick: () => void;
   disabled?: boolean;
   children: ReactNode;
-} & Pick<
-  ButtonHTMLAttributes<HTMLButtonElement>,
-  "aria-expanded" | "aria-haspopup"
->) {
+} & Pick<ButtonHTMLAttributes<HTMLButtonElement>, "title">) {
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] text-content/70 enabled:hover:bg-content/7 enabled:hover:text-content disabled:opacity-40"
+      className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] leading-4 text-content/70 enabled:hover:bg-content/7 enabled:hover:text-content disabled:opacity-40"
       {...rest}
     >
       {children}

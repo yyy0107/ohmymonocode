@@ -35,6 +35,13 @@ export function agentTranscript(block: Block): Block[] {
   );
 }
 
+/** Count the child's own tool calls; prose and mirrored previews are not extra steps. */
+export function agentStepCount(block: Block): number {
+  return block.agentRun?.transcript?.filter((row) => row.role === "tool").length
+    ?? block.agentRun?.steps.filter((step) => step.kind === "tool").length
+    ?? 0;
+}
+
 /** Paths are block identities, not snapshots; an open panel always reads live data. */
 export function resolveAgentBlock(
   blocks: Block[],

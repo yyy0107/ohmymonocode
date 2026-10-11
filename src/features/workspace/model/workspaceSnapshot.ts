@@ -6,6 +6,7 @@ import {
   closeLeaf,
   APP_VIEW_KINDS,
   isAgentTab as isWorkerTab,
+  isSubagentTab,
   isAppPageKind,
   isWorkflowAgentTab,
   isWorkflowRunTab,
@@ -174,7 +175,7 @@ function parseProjectReturnTargets(raw: unknown): ProjectReturnMemory {
  */
 /** Orchestration workers and workflow views watch live Host state; they are not restored. */
 function isAgentTab(file: Parameters<typeof isWorkerTab>[0]) {
-  return isWorkerTab(file) || isWorkflowRunTab(file) || isWorkflowAgentTab(file);
+  return isWorkerTab(file) || isSubagentTab(file) || isWorkflowRunTab(file) || isWorkflowAgentTab(file);
 }
 
 function withoutAgentTabs(tabs: WorkspaceTab[]): WorkspaceTab[] {

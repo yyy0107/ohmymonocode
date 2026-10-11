@@ -51,6 +51,13 @@ export type AgentTabSource = {
   harness: HarnessId;
 };
 
+/** A provider subagent stored inside its parent conversation. */
+export type SubagentTabSource = {
+  parentSessionId: string;
+  path: string[];
+  harness: HarnessId;
+};
+
 /** A dynamic workflow run's detail view, opened beside its conversation. */
 export type WorkflowRunTabSource = {
   runId: string;
@@ -124,6 +131,7 @@ export type FilePaneTab = {
   commit?: CommitTabSource;
   /** Read-only transcript of an orchestration worker. Live only — not persisted. */
   agent?: AgentTabSource;
+  subagent?: SubagentTabSource;
   workflowRun?: WorkflowRunTabSource;
   workflowAgent?: WorkflowAgentTabSource;
   terminal?: boolean;
@@ -444,6 +452,10 @@ export function newWorkflowRunTab(title: string, cwd: string, workflowRun: Workf
   return { id: crypto.randomUUID(), path: title, cwd, workflowRun };
 }
 
+export function newSubagentTab(title: string, cwd: string, subagent: SubagentTabSource): FilePaneTab {
+  return { id: crypto.randomUUID(), path: title, cwd, subagent };
+}
+
 export function newWorkflowAgentTab(title: string, cwd: string, workflowAgent: WorkflowAgentTabSource): FilePaneTab {
   return { id: crypto.randomUUID(), path: title, cwd, workflowAgent };
 }
@@ -581,6 +593,10 @@ export function isWorkflowRunTab(file: FilePaneTab): file is FilePaneTab & { wor
   return !!file.workflowRun;
 }
 
+export function isSubagentTab(file: FilePaneTab): file is FilePaneTab & { subagent: SubagentTabSource } {
+  return !!file.subagent;
+}
+
 export function isWorkflowAgentTab(file: FilePaneTab): file is FilePaneTab & { workflowAgent: WorkflowAgentTabSource } {
   return !!file.workflowAgent;
 }
@@ -588,6 +604,7 @@ export function isWorkflowAgentTab(file: FilePaneTab): file is FilePaneTab & { w
 export function isVirtualDocumentTab(file: FilePaneTab): boolean {
   return (
     isWorkflowRunTab(file) ||
+    isSubagentTab(file) ||
     isWorkflowAgentTab(file) ||
     isAppViewTab(file) ||
     isPlanTab(file) ||
@@ -673,6 +690,7 @@ export function editorTabKey(file: FilePaneTab): string {
   if (file.appView) return `app:${file.appView.kind}`;
   if (file.terminal) return `terminal:${file.id}`;
   if (file.agent) return `agent:${file.agent.sessionId}`;
+  if (file.subagent) return `subagent:${JSON.stringify([file.subagent.parentSessionId, file.subagent.path])}`;
   if (file.workflowRun) return `workflow-run:${file.workflowRun.runId}`;
   if (file.workflowAgent) return `workflow-agent:${file.workflowAgent.sessionId}`;
   if (file.plan) return `plan:${file.plan.blockId}`;
@@ -707,6 +725,7 @@ export function isPreviewableTab(file: FilePaneTab): boolean {
     !file.appView &&
     !file.terminal &&
     !file.agent &&
+    !file.subagent &&
     !file.workflowRun &&
     !file.workflowAgent &&
     !file.plan &&

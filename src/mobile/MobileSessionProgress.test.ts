@@ -107,6 +107,30 @@ const row = (text: string) =>
   ].find((button) => button.textContent?.includes(text))!;
 
 describe("mobile session progress", () => {
+  it("keeps completed agents accessible without showing them as running", async () => {
+    const completed = { ...agent, tool: { ...agent.tool, status: "completed" } };
+    const { update } = render([completed]);
+    update({ status: "idle" });
+    expect(capsule()?.textContent).toContain("1 subagent");
+    expect(capsule()?.textContent).not.toContain("running");
+    click(capsule()!);
+    const toggle = dialog()!.querySelector<HTMLButtonElement>("h3 button")!;
+    expect(toggle.textContent).toContain("1 subagent");
+    const section = toggle.closest("section")!;
+    click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(section.querySelector('[data-fold-state="closing"][inert]')).not.toBeNull();
+    finish();
+    expect(section.textContent).not.toContain("Review changes");
+    click(toggle);
+    finish();
+    expect(row("Review changes").querySelector('[title="Completed"]')).not.toBeNull();
+    expect(row("Review changes").textContent).toContain("0 steps");
+    click(row("Review changes"));
+    await act(async () => vi.dynamicImportSettled());
+    expect(dialog()?.textContent).toContain("Checking compatibility.");
+  });
+
   it("hides ordinary chats and follows live task snapshots, including idle completion", () => {
     const { snapshot, update } = render([
       { id: "user", role: "user", text: "Hello" },
@@ -248,6 +272,8 @@ describe("mobile session progress", () => {
     expect(capsule()?.getAttribute("aria-label")).toBe("会话进度");
     click(capsule()!);
     expect(dialog()?.textContent).toContain("后台");
+    expect(dialog()?.querySelector("h3 button")?.textContent).toContain("1 个子智能体");
+    expect(row("Review changes").textContent).toContain("0 步");
     expect(dialog()?.textContent).toContain("Review changes");
     expect(dialog()?.textContent).toContain("review-model");
     expect(dialog()?.textContent).toContain("npm run dev");

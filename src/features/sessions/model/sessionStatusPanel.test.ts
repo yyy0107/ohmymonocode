@@ -40,12 +40,30 @@ describe("session status panel", () => {
     );
   });
 
-  it("lists only subagents that are still running", () => {
+  it("keeps completed, running and failed subagents available", () => {
     const model = buildSessionStatusPanelModel({
-      blocks: [agent("a", "completed"), agent("b", "in_progress")],
+      blocks: [
+        agent("a", "completed"),
+        agent("b", "in_progress"),
+        agent("c", "failed"),
+      ],
       busy: true,
     });
-    expect(model.subagents.map((run) => run.blockId)).toEqual(["b"]);
+    expect(model.subagents.map((run) => [run.blockId, run.state])).toEqual([
+      ["b", "pending"],
+      ["c", "rejected"],
+      ["a", "accepted"],
+    ]);
+    expect(sessionStatusSummary(model)).toMatchObject({
+      kind: "running",
+      count: 1,
+    });
+    const idle = buildSessionStatusPanelModel({
+      blocks: [agent("a", "completed"), agent("c", "failed")],
+      busy: false,
+    });
+    expect(idle.hasContent).toBe(true);
+    expect(sessionStatusSummary(idle)).toEqual({ kind: "agents", count: 2 });
   });
 
   it("ignores a zero diff and prefers uncommitted changes over the current task", () => {
@@ -79,6 +97,32 @@ describe("session status panel", () => {
     });
   });
 
+  it("counts only child tool steps and prefers the transcript over legacy previews", () => {
+    const block = agent("worker", "in_progress");
+    block.agentRun!.steps = [
+      { id: "message", kind: "message", text: "Working" },
+      { id: "reasoning", kind: "reasoning", text: "Thinking" },
+      { id: "tool", kind: "tool", text: "Read file" },
+    ];
+    const count = () => buildSessionStatusPanelModel({ blocks: [block], busy: true }).subagents[0].steps;
+    expect(count()).toBe(1);
+    block.agentRun!.transcript = [];
+    expect(count()).toBe(0);
+    block.agentRun!.transcript = [
+      { id: "prompt", role: "user", text: "Review" },
+      { id: "reply", role: "assistant", text: "Working" },
+      { id: "thought", role: "reasoning", text: "Thinking" },
+      { id: "read", role: "tool", text: "Read file" },
+      { ...agent("nested", "completed"), agentRun: { name: "Nested", steps: [
+        { id: "nested-tool", kind: "tool", text: "Do not count twice" },
+      ] } },
+    ];
+    expect(count()).toBe(2);
+    block.agentRun!.transcript.push({ id: "test", role: "tool", text: "Run tests" });
+    block.tool!.status = "completed";
+    expect(count()).toBe(3);
+  });
+
   it("focuses long task lists around the active item", () => {
     const items: TaskListItem[] = Array.from({ length: 8 }, (_, i) => ({
       text: String(i),
@@ -89,8 +133,11 @@ describe("session status panel", () => {
   });
 
   it("keeps binary and mode-only file changes visible when no lines changed", () => {
-    const model = buildSessionStatusPanelModel({ blocks: [], busy: false,
-      git: { additions: 0, deletions: 0, files: 1 } });
+    const model = buildSessionStatusPanelModel({
+      blocks: [],
+      busy: false,
+      git: { additions: 0, deletions: 0, files: 1 },
+    });
     expect(model.hasContent).toBe(true);
     expect(sessionStatusSummary(model)).toMatchObject({ kind: "git" });
   });

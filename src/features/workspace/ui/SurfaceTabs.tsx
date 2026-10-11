@@ -17,6 +17,7 @@ import {
 import {
   appViewTitle,
   isAgentTab,
+  isSubagentTab,
   isWorkflowAgentTab,
   isWorkflowRunTab,
   isAppViewTab,
@@ -173,6 +174,11 @@ export function surfaceTabPresentation(
   if (isWorkflowAgentTab(file)) {
     const name = file.path.trim() || "Agent";
     return { name, label: name, iconName: "AGENT", tooltip: translateUi("{name} — workflow subagent", { name }) };
+  }
+
+  if (isSubagentTab(file)) {
+    const name = file.path.trim() || translateUi("Subagent");
+    return { name, label: name, iconName: "AGENT", tooltip: translateUi("{name} — subagent", { name }) };
   }
 
   if (isAgentTab(file)) {
@@ -336,7 +342,7 @@ export function SurfaceTabs({
           const commit = isCommitTab(file);
           const review = isReviewTab(file) && !changes;
           const terminal = isTerminalTab(file);
-          const agent = isAgentTab(file) ? file.agent : null;
+          const agent = isAgentTab(file) ? file.agent : isSubagentTab(file) ? file.subagent : null;
           const { label, iconName, tooltip } = surfaceTabPresentation(file);
           const tab = (
             <div

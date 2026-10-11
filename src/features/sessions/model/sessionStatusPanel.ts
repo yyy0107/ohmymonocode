@@ -1,11 +1,13 @@
 import type { Block, TaskListItem } from "./session";
 import { legacyTaskListFromText } from "./taskList";
 import { planTitle } from "./plan";
+import { agentStepCount } from "./agentTranscript";
 import {
   isSubagentBlock,
   subagentModelName,
   subagentName,
   toolCallState,
+  type ToolCallState,
 } from "./transcriptActivity";
 
 export type SessionStatusGit = {
@@ -21,7 +23,14 @@ export type SessionStatusPanelModel = {
   tasks: TaskListItem[] | null;
   /** Newest first. */
   plans: { blockId: string; title: string; streaming: boolean }[];
-  subagents: { blockId: string; name: string; model?: string }[];
+  /** Running first, newest first within each group. */
+  subagents: {
+    blockId: string;
+    name: string;
+    model?: string;
+    state: ToolCallState;
+    steps: number;
+  }[];
   background: string[];
   hasContent: boolean;
 };
@@ -31,6 +40,7 @@ export type SessionStatusSummary =
   | { kind: "git"; additions: number; deletions: number; files: number }
   | { kind: "progress"; completed: number; total: number }
   | { kind: "plan"; text: string }
+  | { kind: "agents"; count: number }
   | { kind: "running"; count: number; agents: boolean; background: boolean };
 
 export function buildSessionStatusPanelModel(input: {
@@ -54,23 +64,24 @@ export function buildSessionStatusPanelModel(input: {
         title: planTitle(block.text),
         streaming: !!block.streaming,
       });
-    } else if (
-      input.busy &&
-      isSubagentBlock(block) &&
-      toolCallState(block) === "pending"
-    ) {
-      subagents.unshift({
+    } else if (isSubagentBlock(block)) {
+      subagents.push({
         blockId: block.id,
         name: subagentName(block),
         model: subagentModelName(block),
+        state: toolCallState(block),
+        steps: agentStepCount(block),
       });
     }
   }
+  subagents.sort((a, b) => Number(b.state === "pending") - Number(a.state === "pending"));
   // A finished list stays useful while the turn wraps up, then gets out of the way.
   if (tasks && !input.busy && !tasks.some(isOpenTask)) tasks = null;
   const background = [...(input.backgroundTasks ?? [])];
   const git =
-    input.git && (input.git.additions + input.git.deletions > 0 || (input.git.files ?? 0) > 0)
+    input.git &&
+    (input.git.additions + input.git.deletions > 0 ||
+      (input.git.files ?? 0) > 0)
       ? input.git
       : null;
   return {
@@ -80,11 +91,7 @@ export function buildSessionStatusPanelModel(input: {
     subagents,
     background,
     hasContent: Boolean(
-      git ||
-        tasks ||
-        plans.length ||
-        subagents.length ||
-        background.length,
+      git || tasks || plans.length || subagents.length || background.length,
     ),
   };
 }
@@ -119,20 +126,26 @@ export function sessionStatusSummary(
     const actionable = tasks.filter((item) => item.status !== "cancelled");
     return {
       kind: "progress",
-      completed: actionable.filter((item) => item.status === "completed").length,
+      completed: actionable.filter((item) => item.status === "completed")
+        .length,
       total: actionable.length,
     };
   }
   if (model.plans.length) return { kind: "plan", text: model.plans[0].title };
-  const count = model.subagents.length + model.background.length;
+  const runningAgents = model.subagents.filter(
+    (agent) => agent.state === "pending",
+  ).length;
+  const count = runningAgents + model.background.length;
   if (count) {
     return {
       kind: "running",
       count,
-      agents: model.subagents.length > 0,
+      agents: runningAgents > 0,
       background: model.background.length > 0,
     };
   }
+  if (model.subagents.length)
+    return { kind: "agents", count: model.subagents.length };
   return null;
 }
 

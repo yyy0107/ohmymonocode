@@ -58,6 +58,7 @@ import { PooledTranscript, type TranscriptPool } from "./TranscriptPool";
 import { agentWaitingForWorktree } from "../../source-control/model/worktreeCreation";
 import { TranscriptFind } from "./TranscriptFind";
 import { SessionStatusPanel } from "./SessionStatusPanel";
+import { useOpenSubagent } from "./SubagentTabsContext";
 import { useProjectDiffStats } from "../../source-control/hooks/useProjectDiffStats";
 import { useProjectBranches } from "../../source-control/hooks/useProjectBranches";
 import {
@@ -339,6 +340,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
   transcriptPool,
 }: Props) {
   const { t: uiT } = useTranslation();
+  const openSubagent = useOpenSubagent(session);
   const closePaneLabel = useShortcutLabel("Close Pane", "Pane: Close");
   const { readOnly: nativeReadOnly, hint: nativeAccessHint } =
     useNativeSessionAccess(session);
@@ -897,8 +899,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
               worktree={!!session.worktreeCwd}
               scope={transcriptScope}
               onNavigate={navigateBlock}
-              onOpenFile={onOpenFile}
-              onOpenDiff={(path) => onOpenDiff(path)}
+              onOpenAgent={openSubagent}
             />
           ) : null}
           {remoteSessionLoading ? null : isEmpty ? (
@@ -937,6 +938,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
                 <AgentTranscript
                   clockOffsetMs={clockOffsetMs}
                   blocks={session.blocks}
+                  onOpenAgent={openSubagent}
                   // No working clock until the worktree exists and the agent has the message.
                   busy={
                     !!session.busy &&

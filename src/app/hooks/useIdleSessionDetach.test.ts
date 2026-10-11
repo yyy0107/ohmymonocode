@@ -24,6 +24,9 @@ import {
 } from "../../features/sessions/model/session";
 import {
   newTab,
+  newSubagentTab,
+  openEditorTab,
+  closeLeaf,
   type WorkspaceTab,
 } from "../../features/workspace/model/layout";
 import { useIdleSessionDetach } from "./useIdleSessionDetach";
@@ -209,6 +212,26 @@ async function advance(milliseconds = 250) {
 }
 
 describe("orchestration worker detachment", () => {
+  it("retains a closed parent's records until its last subagent tab closes", async () => {
+    const tab = openEditorTab(newTab("parent"), newSubagentTab("Reviewer", "/repo", {
+      parentSessionId: "parent", path: ["child"], harness: "claude",
+    }));
+    const workspace = mountWorkspace({
+      sessions: [chat("parent")],
+      tabs: [closeLeaf(tab, "parent")!],
+      orchestrationRuns: [],
+      busySessionIds: new Set(),
+      liveAgentsEnabled: false,
+    });
+    await advance();
+    expect(workspace.snapshot().sessions.map((session) => session.id)).toEqual(["parent"]);
+    expect(mocks.forgetHarnessSession).not.toHaveBeenCalled();
+    workspace.update({ tabs: [] });
+    await advance();
+    expect(workspace.snapshot().sessions).toEqual([]);
+    expect(mocks.forgetHarnessSession).toHaveBeenCalledWith("claude", "parent");
+  });
+
   it("retains finished workers until their lead closes, then persists and forgets them", async () => {
     const workspace = mountWorkspace();
     await advance();

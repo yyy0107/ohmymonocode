@@ -9,6 +9,7 @@ import {
 import { SurfaceTabs } from "../../workspace/ui/SurfaceTabs";
 import {
   isAgentTab,
+  isSubagentTab,
   isWorkflowAgentTab,
   isWorkflowRunTab,
   isAppViewTab,
@@ -35,6 +36,7 @@ import {
 } from "../../settings/model/settings";
 import { WorkflowAgentTabView, WorkflowRunTabView } from "../../workflows/ui/WorkflowTabs";
 import { AgentTabView } from "../../sessions/ui/AgentTabView";
+import { SubagentTabView } from "../../sessions/ui/SubagentTabView";
 import { MarkdownPreview } from "../../sessions/ui/AgentMarkdown";
 import { BinaryFileView } from "./BinaryFileView";
 import { ReleaseNotesSurface } from "../../../app/ui/ReleaseNotesSurface";
@@ -213,6 +215,13 @@ function FilePaneComponent({
               ) : isWorkflowAgentTab(file) ? (
                 <WorkflowAgentTabView
                   file={file}
+                  visible={visible && file.id === pane.activeFileId}
+                  onOpenFile={onOpenFile}
+                />
+              ) : isSubagentTab(file) ? (
+                <SubagentTabView
+                  file={file}
+                  session={sessions.find((entry) => entry.id === file.subagent.parentSessionId)}
                   visible={visible && file.id === pane.activeFileId}
                   onOpenFile={onOpenFile}
                 />

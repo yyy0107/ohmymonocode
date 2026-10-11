@@ -256,6 +256,7 @@ import {
   openCommitTab,
   newAgentTab,
   newWorkflowAgentTab,
+  newSubagentTab,
   newWorkflowRunTab,
   openEditorTab,
   openSessionChangesTab,
@@ -624,6 +625,7 @@ import {
 import { PaneTree } from "../features/workspace/ui/PaneTree";
 import { SessionSurfaceActions } from "../features/workspace/ui/SessionSurfaceToolbar";
 import { SessionPane } from "../features/sessions/ui/SessionPane";
+import { SubagentTabsContext, type OpenSubagentRequest } from "../features/sessions/ui/SubagentTabsContext";
 import { SessionSurface } from "../features/sessions/ui/SessionSurface";
 import { TerminalDockLayout } from "./shell/TerminalDockLayout";
 import { AnimatedCollapse } from "../shared/ui/AnimatedCollapse";
@@ -1596,7 +1598,8 @@ function Workspace({
                   pane.files.some(
                     (file) =>
                       file.id === pane.activeFileId &&
-                      file.agent?.sessionId === sessionId,
+                      (file.agent?.sessionId === sessionId ||
+                        file.subagent?.parentSessionId === sessionId),
                   ),
                 )))
           );
@@ -10124,13 +10127,21 @@ function Workspace({
     setActiveTabId(tab.id);
     setComposerFocused(false);
   }, [tabs, workerDetailRequest]);
-  // Workflow tabs open beside their source detail tab when available,
+  // Workflow and provider subagent tabs open beside their source tab when available,
   // otherwise beside the launching conversation like orchestration workers.
   const [workflowTabRequest, setWorkflowTabRequest] = useState<{
     parentSessionId: string;
     file: FilePaneTab;
     sourceFileId?: string;
   } | null>(null);
+  const openSubagentTab = useCallback((request: OpenSubagentRequest) => {
+    const { parentSessionId, path, harness, title, cwd, sourceFileId } = request;
+    setWorkflowTabRequest({
+      parentSessionId,
+      file: newSubagentTab(title, cwd, { parentSessionId, path, harness }),
+      sourceFileId,
+    });
+  }, []);
   useEffect(() => {
     if (!workflowTabRequest) return;
     const { parentSessionId, file, sourceFileId } = workflowTabRequest;
@@ -11512,6 +11523,7 @@ function Workspace({
 
   return (
     <WorkflowAppContext.Provider value={workflowApp}>
+    <SubagentTabsContext.Provider value={openSubagentTab}>
     <WorkflowProjectsContext.Provider value={workflowProjects}>
     <WorkflowActivityContext.Provider value={workflowActivity}>
     <OrchestrationActions.Provider value={orchestrationActions}>
@@ -12013,6 +12025,7 @@ function Workspace({
     </OrchestrationActions.Provider>
     </WorkflowActivityContext.Provider>
     </WorkflowProjectsContext.Provider>
+    </SubagentTabsContext.Provider>
     </WorkflowAppContext.Provider>
   );
 }
