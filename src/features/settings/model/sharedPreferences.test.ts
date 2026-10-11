@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { HostStore } from "../../../../host/store";
 import { HostClientState } from "../../../../host/client-state";
-import { SharedPreferenceStore, type PreferenceRequest } from "./sharedPreferences";
+import { activatePreferenceStore, adoptDeviceLocalPreferences, preferenceStorage, SharedPreferenceStore, type PreferenceRequest } from "./sharedPreferences";
 
 class MemoryStorage {
   private data = new Map<string, string>();
@@ -192,4 +192,29 @@ it("does not acknowledge an edit that could not be persisted", async () => {
   expect(client.getItem("monocode.colorScheme")).toBeNull();
   expect(client.pendingCount).toBe(0);
   expect(client.error).toBe("Could not save pending settings.");
+});
+
+it("keeps view state on each device while still accepting it from older clients", async () => {
+  const s = fixture();
+  const local = new MemoryStorage();
+  vi.stubGlobal("localStorage", local);
+  cleanups.push(() => { activatePreferenceStore(undefined); vi.unstubAllGlobals(); });
+  // An older client still journals the formerly shared key; the Host must not reject it.
+  s.host.preferencesPatch({ operationId: "older-client", changes: { "monocode.sidebarWidth": "320", "monocode.themeHue": "40" } });
+  const store = s.client();
+  await store.sync();
+  activatePreferenceStore(store);
+  adoptDeviceLocalPreferences(store, false);
+  expect(local.getItem("monocode.sidebarWidth")).toBe("320");
+
+  preferenceStorage.setItem("monocode.sidebarWidth", "280");
+  preferenceStorage.setItem("monocode.themeHue", "90");
+  await store.sync();
+  expect(s.host.preferencesRead()!.values).toMatchObject({ "monocode.sidebarWidth": "320", "monocode.themeHue": "90" });
+  expect(preferenceStorage.getItem("monocode.sidebarWidth")).toBe("280");
+
+  // Adoption runs once; later Host copies never overwrite this device again.
+  local.removeItem("monocode.sidebarWidth");
+  adoptDeviceLocalPreferences(store, false);
+  expect(local.getItem("monocode.sidebarWidth")).toBeNull();
 });

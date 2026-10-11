@@ -13,16 +13,11 @@ import { PROJECT_LIST_PREFERENCES, preferenceField } from "./sharedPreferenceSch
  */
 const NON_PRESENTATION_PREFERENCES = new Set([
   ...PROJECT_LIST_PREFERENCES,
-  "monocode.sidebarSectionsCollapsed.v1",
   "monocode.sidebarTabOrder",
-  "monocode.projectSidebarTabs.v1",
   "monocode.projectGroups",
   "monocode.projectGroupAssignments",
   "monocode.sessionFolders",
   "monocode.sessionSidebarOrder.v1",
-  "monocode.sessionSidebarFilters",
-  "monocode.pinnedSessionsCollapsed",
-  "monocode.reminderSessionsCollapsed",
   "monocode.lastModel",
   "monocode.lastModelSettings",
   "monocode.recentModels",

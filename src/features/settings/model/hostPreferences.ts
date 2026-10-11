@@ -1,5 +1,5 @@
 import { flushPreferenceAssets, migrateLegacyPreferenceBackgrounds, registerPreferenceAssetHost } from "./preferenceAssets";
-import { activatePreferenceStore, activePreferenceStore, SharedPreferenceStore, type PreferenceCodec, type PreferenceRequest } from "./sharedPreferences";
+import { activatePreferenceStore, activePreferenceStore, adoptDeviceLocalPreferences, SharedPreferenceStore, type PreferenceCodec, type PreferenceRequest } from "./sharedPreferences";
 import { hostStateTransportUnavailable } from "../../connections/model/hostStateOffline";
 
 export type HostPreferenceConnection = {
@@ -25,6 +25,7 @@ export async function connectHostPreferences(options: HostPreferenceConnection):
   if (options.importRelease) await store.importRelease(key => localStorage.getItem(key));
   else await store.sync();
   if (epoch !== generation) return () => {};
+  adoptDeviceLocalPreferences(store, !!options.codec);
   const timer = window.setInterval(() => { if (document.visibilityState !== "hidden") sync(); }, 2000);
   const onStorage = (event: StorageEvent) => { if (event.key?.startsWith(store.journalPrefix)) sync(); };
   window.addEventListener("focus", sync);

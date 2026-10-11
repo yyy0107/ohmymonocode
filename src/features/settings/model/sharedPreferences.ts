@@ -1,4 +1,7 @@
-import { preferenceField, SHARED_PREFERENCE_KINDS, validateSharedPreferenceValue } from "./sharedPreferenceSchema";
+import {
+  DEVICE_LOCAL_PREFERENCE_KINDS, DEVICE_LOCAL_PROJECT_LIST_PREFERENCES, DEVICE_LOCAL_PROJECT_MAP_PREFERENCES,
+  preferenceField, preferenceKind, SHARED_PREFERENCE_KINDS, validateSharedPreferenceValue,
+} from "./sharedPreferenceSchema";
 
 export type PreferenceValues = Record<string, string>;
 export type PreferenceSnapshot = { revision: number; imported: boolean; values: PreferenceValues };
@@ -67,10 +70,11 @@ export class SharedPreferenceStore {
   }
   getItem(key: string): string | null {
     const values = this.values();
-    if (SHARED_PREFERENCE_KINDS[key] !== "object") {
+    const kind = preferenceKind(key);
+    if (kind !== "object") {
       const raw = values[key];
       if (raw === undefined) return null;
-      if (SHARED_PREFERENCE_KINDS[key] === "array") return JSON.stringify(this.codec.decode(key, JSON.parse(raw)));
+      if (kind === "array") return JSON.stringify(this.codec.decode(key, JSON.parse(raw)));
       return raw;
     }
     const fields = Object.entries(values).filter(([field]) => field === key || field.startsWith(`${key}::`));
@@ -90,7 +94,7 @@ export class SharedPreferenceStore {
   }
   private fields(key: string, raw: string | null): PreferenceValues {
     if (raw === null) return {};
-    const kind = SHARED_PREFERENCE_KINDS[key];
+    const kind = preferenceKind(key);
     if (!validateSharedPreferenceValue(key, raw)) throw new Error("Invalid shared preference.");
     if (kind !== "object") return { [key]: kind === "array" ? JSON.stringify(this.codec.encode(key, JSON.parse(raw))) : raw };
     const result: PreferenceValues = {};
@@ -177,6 +181,27 @@ export function activatePreferenceStore(store: SharedPreferenceStore | undefined
   stopActive?.(); active = store;
   stopActive = store?.subscribe(announcePreferenceChange);
   announcePreferenceChange(Object.keys(SHARED_PREFERENCE_KINDS));
+}
+const DEVICE_LOCAL_ADOPTED = "monocode.deviceLocalPreferencesAdopted.v1";
+/**
+ * One-time copy of the last Host-shared view state into this device, so moving
+ * those keys out of the Host does not reset them. Project-keyed values need the
+ * project codec to resolve identities into local paths.
+ */
+export function adoptDeviceLocalPreferences(store: SharedPreferenceStore, resolvesProjects: boolean) {
+  if (store.revision < 0 || localStorage.getItem(DEVICE_LOCAL_ADOPTED) !== null) return;
+  const adopted: string[] = [];
+  for (const key of Object.keys(DEVICE_LOCAL_PREFERENCE_KINDS)) {
+    if (!resolvesProjects && (DEVICE_LOCAL_PROJECT_MAP_PREFERENCES.has(key) || DEVICE_LOCAL_PROJECT_LIST_PREFERENCES.has(key))) continue;
+    try {
+      const value = store.getItem(key);
+      if (value === null || !validateSharedPreferenceValue(key, value)) continue;
+      localStorage.setItem(key, value);
+      adopted.push(key);
+    } catch { /* Keep this device's own value. */ }
+  }
+  try { localStorage.setItem(DEVICE_LOCAL_ADOPTED, "1"); } catch { /* Retried on the next connection. */ }
+  if (adopted.length) announcePreferenceChange(adopted);
 }
 function announcePreferenceChange(keys: string[]) {
   if (typeof window === "undefined") return;

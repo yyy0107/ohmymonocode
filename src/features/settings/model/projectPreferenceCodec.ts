@@ -1,4 +1,4 @@
-import { PROJECT_LIST_PREFERENCES, PROJECT_MAP_PREFERENCES } from "./sharedPreferenceSchema";
+import { DEVICE_LOCAL_PROJECT_LIST_PREFERENCES, DEVICE_LOCAL_PROJECT_MAP_PREFERENCES, PROJECT_LIST_PREFERENCES, PROJECT_MAP_PREFERENCES } from "./sharedPreferenceSchema";
 import type { PreferenceCodec } from "./sharedPreferences";
 import {
   parseRemotePath, remoteProjectFor, remoteProjectKey, remoteProjectsOn,
@@ -104,7 +104,7 @@ export function createProjectPreferenceCodec(): PreferenceCodec {
       return value;
     },
     decode(key, value) {
-      if (PROJECT_MAP_PREFERENCES.has(key) && value && typeof value === "object" && !Array.isArray(value)) {
+      if ((PROJECT_MAP_PREFERENCES.has(key) || DEVICE_LOCAL_PROJECT_MAP_PREFERENCES.has(key)) && value && typeof value === "object" && !Array.isArray(value)) {
         const hidden: Record<string, unknown> = {};
         const result: Record<string, unknown> = {};
         for (const [identity, entry] of Object.entries(value)) {
@@ -117,7 +117,7 @@ export function createProjectPreferenceCodec(): PreferenceCodec {
         hiddenMaps.set(key, hidden);
         return result;
       }
-      if (PROJECT_LIST_PREFERENCES.has(key) && Array.isArray(value)) {
+      if ((PROJECT_LIST_PREFERENCES.has(key) || DEVICE_LOCAL_PROJECT_LIST_PREFERENCES.has(key)) && Array.isArray(value)) {
         const hidden: { index: number; value: unknown }[] = [];
         const result: unknown[] = [];
         value.forEach((entry, index) => {

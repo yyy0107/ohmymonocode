@@ -866,6 +866,8 @@ async function sidebarPreferences() {
       data.set(field, value);
     },
   };
+  // The open state is per device; the Host copy only shows it is never uploaded.
+  localStorage.setItem(key, "0");
   const store = new SharedPreferenceStore("synthetic-sidebar", disk, request);
   await store.sync();
   activatePreferenceStore(store);
@@ -887,10 +889,11 @@ describe("sidebar preference actions in StrictMode", () => {
     ["rapid reversal before the animation finishes", [1, 1]],
     ["two toggles in one batch", [2]],
     ["three toggles in one batch", [3]],
-  ] as const)("persists one action per click for %s", async (_name, batches) => {
+  ] as const)("persists one local action per click for %s", async (_name, batches) => {
     const preferences = await sidebarPreferences();
     await mount(false, "bottom", undefined, true);
     expect(isOpen()).toBe(false);
+    const saved = vi.spyOn(localStorage, "setItem");
     let clicks = 0;
     for (const count of batches) {
       await act(async () => {
@@ -901,82 +904,24 @@ describe("sidebar preference actions in StrictMode", () => {
       expect(isOpen()).toBe(clicks % 2 === 1);
       expect(loadSessionSidebarOpen()).toBe(isOpen());
     }
-    expect(preferences.writes()).toEqual(Array.from({ length: clicks }, (_, index) => index % 2 === 0 ? "1" : "0"));
+    expect(saved.mock.calls.filter(([key]) => key === "monocode.sessionSidebarOpen").map(([, value]) => value))
+      .toEqual(Array.from({ length: clicks }, (_, index) => index % 2 === 0 ? "1" : "0"));
+    expect(preferences.writes()).toEqual([]);
   });
 
-  it("adopts external Host updates without upload echo and toggles from the latest preference", async () => {
+  it("keeps the sidebar per device while a Host is connected", async () => {
     const preferences = await sidebarPreferences();
     await mount(false, "bottom", undefined, true);
     preferences.remote(true);
     await act(async () => preferences.store.sync());
-    expect(isOpen()).toBe(true);
-    expect(preferences.writes()).toEqual([]);
-    await act(async () => {
-      preferences.remote(false);
-      await preferences.store.sync();
-      // The external state update and click may share a React batch.
-      toggle().click();
-      await preferences.store.sync();
-    });
-    expect(isOpen()).toBe(true);
-    expect(preferences.writes()).toEqual(["1"]);
-  });
-
-  it("keeps offline toggles optimistic and retries their durable journal in order", async () => {
-    const preferences = await sidebarPreferences();
-    await mount(false, "bottom", undefined, true);
+    expect(isOpen()).toBe(false);
     preferences.state.online = false;
-    for (const open of [true, false]) {
-      await act(async () => { toggle().click(); await preferences.store.sync(); });
-      expect(isOpen()).toBe(open);
-      expect(loadSessionSidebarOpen()).toBe(open);
-    }
-    expect(preferences.store.error).toBe("offline");
-    expect(preferences.store.pendingCount).toBe(2);
-    preferences.state.online = true;
-    await act(async () => preferences.store.sync());
-    expect(preferences.writes()).toEqual(["1", "0"]);
-    expect(preferences.store.pendingCount).toBe(0);
-    expect(preferences.store.error).toBeUndefined();
-    expect(isOpen()).toBe(false);
-  });
-
-  it("does not acknowledge a toggle whose journal could not be saved, and allows retry", async () => {
-    const preferences = await sidebarPreferences();
-    await mount(false, "bottom", undefined, true);
-    preferences.state.failWrites = true;
-    await act(async () => toggle().click());
-    expect(isOpen()).toBe(false);
-    expect(loadSessionSidebarOpen()).toBe(false);
-    expect(preferences.store.error).toBe("Could not save pending settings.");
-    expect(preferences.store.pendingCount).toBe(0);
-    expect(preferences.writes()).toEqual([]);
-    preferences.state.failWrites = false;
     await act(async () => { toggle().click(); await preferences.store.sync(); });
     expect(isOpen()).toBe(true);
-    expect(preferences.writes()).toEqual(["1"]);
+    expect(loadSessionSidebarOpen()).toBe(true);
+    expect(preferences.store.pendingCount).toBe(0);
+    expect(preferences.writes()).toEqual([]);
   });
-
-  it.each(["View: Toggle Changes", "App: Find in Files"])(
-    "keeps %s consistent with a failed journal write before a recovered toggle",
-    async (command) => {
-      const preferences = await sidebarPreferences();
-      await mount(false, "bottom", undefined, true);
-      preferences.state.failWrites = true;
-      await click(`[data-command="${command}"]`);
-      expect(isOpen()).toBe(false);
-      expect(loadSessionSidebarOpen()).toBe(false);
-      expect(preferences.store.error).toBe("Could not save pending settings.");
-      expect(preferences.store.pendingCount).toBe(0);
-      preferences.state.failWrites = false;
-      for (const open of [true, false]) {
-        await act(async () => { toggle().click(); await preferences.store.sync(); });
-        expect(isOpen()).toBe(open);
-        expect(loadSessionSidebarOpen()).toBe(open);
-      }
-      expect(preferences.writes()).toEqual(["1", "0"]);
-    },
-  );
 });
 
 const workspace = (id?: string) =>

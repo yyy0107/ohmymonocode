@@ -22,9 +22,9 @@ afterEach(() => uninstall());
 
 describe("shared preference effects", () => {
   it("does not replay appearance for sidebar navigation state", () => {
-    announce(["monocode.projectTreeExpanded.v1"]);
+    announce(["monocode.projectRailOrder"]);
     announce(["monocode.recentProjects", "monocode.sessionSidebarOrder.v1"]);
-    announce(['monocode.pinnedSessionsCollapsed::["/repo"]']);
+    announce(['monocode.sessionFolders::["/repo"]']);
     expect(initAppearance).not.toHaveBeenCalled();
   });
 
