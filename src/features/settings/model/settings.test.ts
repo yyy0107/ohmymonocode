@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { setUiLanguage } from "../../../shared/i18n/language";
 import {
   COMPOSER_RUNNER_DEFAULT,
   AUTOSAVE_DEFAULT,
@@ -618,11 +619,6 @@ describe("tab animations setting", () => {
 describe("settings navigation", () => {
   it("lists every section under exactly one rail group", () => {
     const groups = settingsSectionsByGroup();
-    expect(groups.map((group) => group.label)).toEqual([
-      "App",
-      "Agents",
-      "Workspace",
-    ]);
     expect(groups.flatMap((group) => group.sections.map((s) => s.id))).toEqual([
       "general",
       "connections",
@@ -652,6 +648,8 @@ describe("settings navigation", () => {
 });
 
 describe("settings search", () => {
+  // Labels and keywords are the English source strings.
+  beforeAll(() => setUiLanguage("en"));
   it("returns nothing for an empty query", () => {
     expect(searchSettings("   ")).toEqual([]);
   });

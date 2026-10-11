@@ -1,9 +1,12 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import { setUiLanguage } from "../../shared/i18n/language";
 import { WhatsNewBody } from "./WhatsNewDialog";
 
 describe("WhatsNewBody", () => {
+  beforeAll(() => setUiLanguage("en"));
+
   it("renders the version notes without the changelog heading", () => {
     const markup = renderToStaticMarkup(
       createElement(WhatsNewBody, { version: "0.1.25" }),
