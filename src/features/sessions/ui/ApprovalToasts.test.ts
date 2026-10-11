@@ -43,22 +43,103 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
 const onApproval = vi.fn();
 const onFocusSession = vi.fn();
-function render(notices: Notice[]) {
+function render(notices: Notice[], focusedSessionId?: string) {
   root.render(
-    createElement(ApprovalToasts, { notices, onApproval, onFocusSession }),
+    createElement(ApprovalToasts, {
+      notices,
+      focusedSessionId,
+      onApproval,
+      onFocusSession,
+    }),
   );
 }
 function visibleRequests() {
-  return [...document.querySelectorAll(".approval-toast")].map(
-    (item) => item.textContent,
-  );
+  return [...document.querySelectorAll(".approval-toast")]
+    .filter((item) => !item.closest('[aria-hidden="true"]'))
+    .map((item) => item.textContent);
 }
+
+it.each(["question", "approval"] as const)(
+  "automatically dismisses a %s without replaying it on updates or session switches",
+  (kind) => {
+    vi.useFakeTimers();
+    act(() => render([notice("work", kind)]));
+    act(() => vi.advanceTimersByTime(7999));
+    expect(visibleRequests()).toHaveLength(1);
+    act(() => vi.advanceTimersByTime(1));
+    expect(visibleRequests()).toHaveLength(0);
+    expect(
+      document.querySelector('[data-fold-state="closing"][inert]'),
+    ).not.toBeNull();
+    act(() => vi.advanceTimersByTime(350));
+    expect(document.querySelector(".approval-toast")).toBeNull();
+    act(() => render([notice("work", kind)], "work"));
+    act(() => render([notice("work", kind)]));
+    expect(visibleRequests()).toHaveLength(0);
+    expect(onApproval).not.toHaveBeenCalled();
+    expect(onFocusSession).not.toHaveBeenCalled();
+    act(() => render([notice("work", kind, 2)]));
+    expect(visibleRequests()).toHaveLength(1);
+  },
+);
+
+it("closes only the selected popup without answering or opening its session", () => {
+  act(() => render([notice("work", "question"), notice("other")]));
+  const close = document.querySelector<HTMLButtonElement>(
+    'button[aria-label="Close"]',
+  )!;
+  act(() => close.click());
+  expect(visibleRequests()).toHaveLength(1);
+  expect(visibleRequests()[0]).toContain("Request other");
+  act(() => render([notice("work", "question"), notice("other")]));
+  expect(visibleRequests()).toHaveLength(1);
+  expect(onApproval).not.toHaveBeenCalled();
+  expect(onFocusSession).not.toHaveBeenCalled();
+});
+
+it("consumes the reminder when its conversation is visited", () => {
+  act(() => render([notice("work", "question")]));
+  expect(visibleRequests()).toHaveLength(1);
+  act(() => render([notice("work", "question")], "work"));
+  expect(visibleRequests()).toHaveLength(0);
+  act(() => render([notice("work", "question")]));
+  expect(visibleRequests()).toHaveLength(0);
+  act(() => render([]));
+  act(() => render([notice("work", "question")]));
+  expect(visibleRequests()).toHaveLength(1);
+});
+
+it("dismisses a clicked reminder even before navigation completes", () => {
+  act(() => render([notice("work", "question")]));
+  act(() =>
+    document
+      .querySelector<HTMLButtonElement>(".approval-toast button")!
+      .click(),
+  );
+  expect(onFocusSession).toHaveBeenCalledWith("work");
+  expect(visibleRequests()).toHaveLength(0);
+});
+
+it("keeps the popup available while its controls have keyboard focus", () => {
+  vi.useFakeTimers();
+  act(() => render([notice("work")]));
+  const allow = [...document.querySelectorAll("button")].find(
+    (item) => item.textContent === "Allow",
+  )!;
+  act(() => allow.focus());
+  act(() => vi.advanceTimersByTime(10_000));
+  expect(visibleRequests()).toHaveLength(1);
+  act(() => allow.blur());
+  act(() => vi.advanceTimersByTime(8000));
+  expect(visibleRequests()).toHaveLength(0);
+});
 
 it("hides muted project approval popups while another project's controls remain usable", async () => {
   updateNotificationPreferences(["local:/projects/private"], {
