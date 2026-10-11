@@ -1,4 +1,4 @@
-import { dampedMotion, smoothFollowMotion } from "../../../shared/lib/dampedMotion";
+import { advanceFollowMotion, dampedMotion, FOLLOW_MOTION_FREQUENCY } from "../../../shared/lib/dampedMotion";
 import { syncLiveFooterClip } from "./liveFooterClip";
 import { timestampTitle } from "./timestampTitle";
 import { agentStepCount, agentTranscript } from "../model/agentTranscript";
@@ -4296,6 +4296,7 @@ function riseIntoAnchor(
   };
   // Let the sibling dock publish its cleared draft height before measuring.
   row.style.visibility = "hidden";
+  row.dataset.promptMotion = "smooth";
   turn?.setAttribute("data-prompt-rise", "rising");
   frame = requestAnimationFrame(start);
   return {
@@ -4315,6 +4316,7 @@ function riseIntoAnchor(
       ))
         return false;
       row = next;
+      row.dataset.promptMotion = "smooth";
       turn = next.closest<HTMLElement>(".transcript-turn");
       if (!started) row.style.visibility = "hidden";
       turn?.setAttribute("data-prompt-rise", "rising");
@@ -4398,7 +4400,7 @@ type GlideTiming = { frequency: number; smoothAcceleration?: boolean };
 const JUMP_GLIDE: GlideTiming = { frequency: 14 };
 /** Same tracking lag (3/27s versus 2/18s), with continuous acceleration. */
 const FOLLOW_GLIDE: GlideTiming = {
-  frequency: 27,
+  frequency: FOLLOW_MOTION_FREQUENCY,
   smoothAcceleration: true,
 };
 
@@ -4442,19 +4444,12 @@ function animateToBottom(
     const seconds = Math.max(0, Math.min(0.064, (now - last) / 1000));
     last = now;
     const next = timing.smoothAcceleration
-      ? smoothFollowMotion(position, velocity, acceleration, target, seconds, frequency)
-      : { ...dampedMotion(position, velocity, target, seconds, timing.frequency), acceleration: 0 };
+      ? advanceFollowMotion({ position, velocity, acceleration, frequency }, target, seconds)
+      : { ...dampedMotion(position, velocity, target, seconds, timing.frequency), acceleration: 0, frequency };
     position = Math.min(target, next.position);
     velocity = next.velocity;
     acceleration = next.acceleration;
-    if (timing.smoothAcceleration) {
-      // A growing backlog asks for faster tracking, without resetting the
-      // curve or imposing a pixels-per-frame limit. Ease the response itself
-      // so a large chunk never switches abruptly to a faster curve.
-      const backlog = Math.max(0, target - position);
-      const requested = timing.frequency * (2 - Math.exp(-((backlog / 320) ** 2)));
-      frequency += (requested - frequency) * (1 - Math.exp(-seconds * 8));
-    }
+    frequency = next.frequency;
     el.scrollTop = position;
     syncLiveFooterClip(el);
     if (Math.abs(target - position) < 0.5 && Math.abs(velocity) < 5) finish(true);

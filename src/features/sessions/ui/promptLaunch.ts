@@ -1,15 +1,28 @@
-// A send reads as one short scroll: the new message enters from below
+import { advanceFollowMotion, FOLLOW_MOTION_FREQUENCY } from "../../../shared/lib/dampedMotion";
+
+// A send reads as one smooth scroll: the new message enters from below
 // together with everything above it, then settles from a pending tint to full
 // strength. Nothing flies out of the composer or changes shape.
 
-const SLIDE_EASING = "cubic-bezier(.16,1,.3,1)";
+const SLIDE_EASING = "linear";
 const PENDING_OPACITY = 0.5;
 const SETTLE_MS = 420;
 const CONFIRM_MS = 140;
 
-/** Short sends snap, long ones still land quickly. */
-function slideDuration(distance: number): number {
-  return Math.round(Math.min(480, 200 + distance / 3));
+/** Sample the scroll curve for compositor playback, also smooth at 120Hz. */
+function slideMotion(distance: number): { frames: Keyframe[]; duration: number } {
+  const positions = [distance];
+  const seconds = 1 / 120;
+  let state = { position: distance, velocity: 0, acceleration: 0, frequency: FOLLOW_MOTION_FREQUENCY };
+  do {
+    state = advanceFollowMotion(state, 0, seconds);
+    positions.push(Math.max(0, state.position));
+  } while (Math.abs(state.position) >= 0.5 || Math.abs(state.velocity) >= 5);
+  positions[positions.length - 1] = 0;
+  return {
+    frames: positions.map(position => ({ transform: `translateY(${position.toFixed(2)}px)` })),
+    duration: (positions.length - 1) * seconds * 1000,
+  };
 }
 
 export type PromptSlide = {
@@ -54,7 +67,7 @@ export function slidePromptIn(
   const parts = message.filter((part): part is HTMLElement => !!part);
   if (!parts.length) return undefined;
   const dy = distance > 1 ? distance : 0;
-  const duration = slideDuration(dy);
+  const { frames: slide, duration } = slideMotion(dy);
   const startTime = document.timeline?.currentTime;
   const animations: Animation[] = [];
   const animate = (element: HTMLElement, frames: Keyframe[], ms: number, easing: string) => {
@@ -63,10 +76,6 @@ export function slidePromptIn(
     animations.push(animation);
     return animation;
   };
-  const slide: Keyframe[] = [
-    { transform: `translateY(${dy.toFixed(2)}px)` },
-    { transform: "translateY(0px)" },
-  ];
   const moved = dy ? [...parts, ...earlier] : [];
   for (const element of moved) animate(element, slide, duration, SLIDE_EASING);
   if (settle) for (const part of parts) {

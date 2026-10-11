@@ -36,3 +36,24 @@ export function smoothFollowMotion(
     acceleration: (2 * quadratic - 2 * frequency * derivative + frequency ** 2 * displacement) * decay,
   };
 }
+
+export const FOLLOW_MOTION_FREQUENCY = 27;
+export type FollowMotionState = {
+  position: number;
+  velocity: number;
+  acceleration: number;
+  frequency: number;
+};
+
+/** Shared by streamed scrolling and sent bubbles, including gradual catch-up. */
+export function advanceFollowMotion(state: FollowMotionState, target: number, seconds: number): FollowMotionState {
+  const next = smoothFollowMotion(
+    state.position, state.velocity, state.acceleration, target, seconds, state.frequency,
+  );
+  const backlog = Math.abs(target - next.position);
+  const requested = FOLLOW_MOTION_FREQUENCY * (2 - Math.exp(-((backlog / 320) ** 2)));
+  return {
+    ...next,
+    frequency: state.frequency + (requested - state.frequency) * (1 - Math.exp(-seconds * 8)),
+  };
+}

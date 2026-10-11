@@ -105,10 +105,17 @@ describe("prompt rise in the chat layout", () => {
     expect(risenPrompts()).toEqual(["u1"]);
     const [slide] = animate.mock.calls[0];
     const [settle] = animate.mock.calls[1];
-    expect(slide).toEqual([
-      { transform: "translateY(732.00px)" },
-      { transform: "translateY(0px)" },
-    ]);
+    expect(slide[0]).toEqual({ transform: "translateY(732.00px)" });
+    expect(slide.at(-1)).toEqual({ transform: "translateY(0.00px)" });
+    const positions = slide.map((frame: Keyframe) => Number(String(frame.transform).match(/translateY\((.*)px\)/)![1]));
+    const steps = positions.slice(1).map((position: number, index: number) => positions[index] - position);
+    // Start gently, accelerate, and settle without reversing or jumping.
+    expect(steps[0]).toBeLessThan(2);
+    expect(steps[0]).toBeLessThan(Math.max(...steps) / 10);
+    expect(Math.min(...steps)).toBeGreaterThanOrEqual(0);
+    expect(steps.at(-1)).toBeLessThan(0.5);
+    expect(animate.mock.calls[0][1].duration).toBeLessThan(650);
+    expect(container.querySelector('[data-prompt-anchor="u1"]')?.getAttribute("data-prompt-motion")).toBe("smooth");
     expect(settle[0]).toEqual({ opacity: 0.5 });
     expect(settle.at(-1)).toEqual({ opacity: 1 });
     // The message keeps its landed shape: nothing resizes or scales.
