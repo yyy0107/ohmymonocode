@@ -112,6 +112,11 @@ export function MobileGitReviewSheet({
             {t("Reconnect to refresh changes.")}
           </p>
         )}
+        {session && (state.index as SessionChangesIndex | null)?.workspaceShared && (
+          <p className="mobile-git-note">
+            {t("Other sessions were active in this workspace. These changes may include their edits; undo is disabled.")}
+          </p>
+        )}
         {state.error && (
           <div className="mobile-git-error" role="alert">
             <strong>{t("Could not load changes.")}</strong>
@@ -173,11 +178,13 @@ function SessionChangeButtons({
   };
   const undoTitle = actions.busy
     ? t("Keep and undo are unavailable while the session is running")
-    : undoBlocked === "locked"
-      ? t("Undo is unavailable while another session is running in this project")
-      : undoBlocked === "outside"
-        ? t("Undo is unavailable because a file changed outside this session")
-        : t("Undo all session changes");
+    : undoBlocked === "shared"
+      ? t("Other sessions were active in this workspace. These changes may include their edits; undo is disabled.")
+      : undoBlocked === "locked"
+        ? t("Undo is unavailable while another session is running in this project")
+        : undoBlocked === "outside"
+          ? t("Undo is unavailable because a file changed outside this session")
+          : t("Undo all session changes");
   return (
     <>
       <span className="mobile-git-actions">

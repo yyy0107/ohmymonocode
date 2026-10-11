@@ -191,6 +191,15 @@ it("keeps the last review usable through a transient refresh failure", async () 
   expect(row("a.ts")).not.toBeNull();
 });
 
+it("labels the complete shared workspace recording and disables undo", async () => {
+  vi.mocked(sessionCheckpointStatus).mockResolvedValue({ files, workspaceShared: true });
+  await render();
+  expect(container.textContent).toContain("Workspace changes this turn (1)");
+  expect(container.textContent).toContain("These changes may include their edits; undo is disabled.");
+  expect(button("Undo")!.disabled).toBe(true);
+  expect(button("Review")!.disabled).toBe(false);
+});
+
 it("ignores old reads after the checkout changes or the review is hidden", async () => {
   const old = deferred<CheckpointStatus>();
   vi.mocked(sessionCheckpointStatus).mockReturnValueOnce(old.promise);

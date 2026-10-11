@@ -85,7 +85,7 @@ it("gives each turn a fresh baseline and clears the old card after a no-op turn"
   expect(existsSync(join(f.data, "session/turns/first.json"))).toBe(true);
 });
 
-it("continues an unfinished turn from its baseline and edit evidence", async () => {
+it("continues an unfinished turn from its baseline including shared workspace changes", async () => {
   const f = fixture();
   await f.store.beginTurn("session", f.repo, "first");
   await f.store.beginTurn("other", f.repo, "other");
@@ -98,30 +98,34 @@ it("continues an unfinished turn from its baseline and edit evidence", async () 
   const status = await reopened.status("session", f.repo);
   expect(status.files.map(({ relative, undoable }) => ({ relative, undoable }))).toEqual([
     { relative: "a.txt", undoable: false },
+    { relative: "foreign.txt", undoable: false },
   ]);
+  expect(status.workspaceShared).toBe(true);
   expect(await reopened.fileDiff("session", f.repo, "a.txt")).toMatchObject({
     original: "original\n",
     current: "session edit\n",
   });
 });
 
-it("shared turns only review files with their own successful edit events and cannot undo", async () => {
+it("shared turns review the whole workspace without edit events and cannot undo", async () => {
   const f = fixture();
   await f.store.beginTurn("reader", f.repo, "first");
   await f.store.beginTurn("writer", f.repo, "second");
   f.write("a.txt", "edited by the writer\n");
-  await f.store.capture("writer", f.repo, ["a.txt"]);
+  // Shell/Python writes need not report a structured edit event.
   // A prepared edit is not evidence that the reader changed a file.
   await f.store.prepare("reader", f.repo, [join(f.repo, "a.txt")]);
   await f.store.finishTurn("reader", f.repo, "first");
   await f.store.finishTurn("writer", f.repo, "second");
 
-  expect((await f.store.status("reader", f.repo)).files).toEqual([]);
-  const status = await f.store.status("writer", f.repo);
-  expect(status.files.map(({ relative, undoable }) => ({ relative, undoable }))).toEqual([
-    { relative: "a.txt", undoable: false },
-  ]);
-  await expect(f.store.undo("writer", f.repo)).rejects.toThrow(/shared/);
+  for (const session of ["reader", "writer"]) {
+    const status = await f.store.status(session, f.repo);
+    expect(status.workspaceShared).toBe(true);
+    expect(status.files.map(({ relative, undoable }) => ({ relative, undoable }))).toEqual([
+      { relative: "a.txt", undoable: false },
+    ]);
+    await expect(f.store.undo(session, f.repo)).rejects.toThrow(/shared/);
+  }
 });
 
 it("treats dot-prefixed subfolders as overlapping and accepts their absolute edit paths", async () => {

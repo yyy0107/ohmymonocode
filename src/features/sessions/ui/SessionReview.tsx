@@ -42,6 +42,7 @@ export function SessionReview({
   const { t: uiT } = useTranslation();
   const [files, setFiles] = useState<CheckpointFile[]>([]);
   const [hostLocked, setHostLocked] = useState(false);
+  const [workspaceShared, setWorkspaceShared] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [acting, setActing] = useState<"keep" | "undo" | null>(null);
   const [revision, refresh] = useReducer((value: number) => value + 1, 0);
@@ -74,6 +75,7 @@ export function SessionReview({
           if (stale) return;
           setFiles(status.files);
           setHostLocked(!!status.undoLocked);
+          setWorkspaceShared(!!status.workspaceShared);
         })
         .catch(() => {
           // A transient read failure must not remove a usable review entry.
@@ -127,7 +129,7 @@ export function SessionReview({
   if (busy || files.length === 0) return null;
 
   const disabled = busy || acting != null;
-  const locked = undoLocked || hostLocked;
+  const locked = undoLocked || hostLocked || workspaceShared;
   const canUndoAll = !locked && files.every((file) => file.undoable);
   const hiddenFileCount = files.length - 3;
   const totals = files.reduce(
@@ -150,6 +152,7 @@ export function SessionReview({
       .then((status) => {
         setFiles(status.files);
         setHostLocked(!!status.undoLocked);
+        setWorkspaceShared(!!status.workspaceShared);
         notifyGitChanged();
         invalidateWatchedFiles(previous);
         invalidateProjectFiles(cwd);
@@ -180,9 +183,12 @@ export function SessionReview({
           </span>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[12px] font-medium text-content/80">
-              {uiT(files.length === 1 ? "Changed {count} file" : "Changed {count} files", {
-                count: String(files.length),
-              })}
+              {uiT(
+                workspaceShared
+                  ? "Workspace changes this turn ({count})"
+                  : files.length === 1 ? "Changed {count} file" : "Changed {count} files",
+                { count: String(files.length) },
+              )}
             </div>
             <div className="flex items-center gap-1.5 font-sans text-[11px] font-semibold tabular-nums -mt-0.5">
               <span className="text-emerald-400">
@@ -203,13 +209,17 @@ export function SessionReview({
                     )
                   : canUndoAll
                     ? uiT("Undo all session changes")
-                    : locked
+                    : workspaceShared
                       ? uiT(
-                          "Undo is unavailable while another session is running in this project",
+                          "Other sessions were active in this workspace. These changes may include their edits; undo is disabled.",
                         )
-                      : uiT(
-                          "Undo is unavailable because a file changed outside this session",
-                        )
+                      : locked
+                        ? uiT(
+                            "Undo is unavailable while another session is running in this project",
+                          )
+                        : uiT(
+                            "Undo is unavailable because a file changed outside this session",
+                          )
               }
               disabled={disabled || !canUndoAll}
               onClick={() => run("undo")}
@@ -242,6 +252,11 @@ export function SessionReview({
             </button>
           </div>
         </div>
+        {workspaceShared ? (
+          <p className="px-3 pb-2 text-[11px] text-content/60">
+            {uiT("Other sessions were active in this workspace. These changes may include their edits; undo is disabled.")}
+          </p>
+        ) : null}
         <div className="scrollbar-none max-h-64 overflow-y-auto border-t border-stroke py-1">
           <ul>{files.slice(0, 3).map(fileRow)}</ul>
           <AnimatedCollapse expanded={expanded}>

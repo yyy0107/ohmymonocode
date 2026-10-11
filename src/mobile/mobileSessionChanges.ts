@@ -5,10 +5,10 @@ import type { MobileClient } from "./client";
 import type { MobileGitSource } from "./mobileGit";
 
 /** Why Undo All is unavailable, if it is. */
-export type SessionUndoBlock = "outside" | "locked";
+export type SessionUndoBlock = "outside" | "locked" | "shared";
 
 /** The edits one conversation made, in the review sheet's index shape. */
-export type SessionChangesIndex = GitDiffIndex & { undoBlocked?: SessionUndoBlock };
+export type SessionChangesIndex = GitDiffIndex & { undoBlocked?: SessionUndoBlock; workspaceShared?: boolean };
 
 export type MobileSessionChangesSource = MobileGitSource & {
   keep: () => Promise<void>;
@@ -38,9 +38,12 @@ export function sessionChangesIndex(status: CheckpointStatus): SessionChangesInd
     behind: 0,
     aheadOfDefault: 0,
     headPushed: false,
-    undoBlocked: status.undoLocked
-      ? "locked"
-      : status.files.some((file) => !file.undoable) ? "outside" : undefined,
+    workspaceShared: status.workspaceShared,
+    undoBlocked: status.workspaceShared
+      ? "shared"
+      : status.undoLocked
+        ? "locked"
+        : status.files.some((file) => !file.undoable) ? "outside" : undefined,
   };
 }
 

@@ -1006,6 +1006,8 @@
   "Loading branch": "正在加载分支",
   "Loading branches…": "正在加载分支…",
   "Loading changes…": "正在加载改动…",
+  "Workspace changes this turn ({count})": "本轮工作区改动（{count} 个文件）",
+  "Other sessions were active in this workspace. These changes may include their edits; undo is disabled.": "本轮有其他会话同时使用此工作区，改动可能包含它们的编辑；已禁用撤销。",
   "Loading checks": "正在加载检查",
   "Loading comments": "正在加载评论",
   "Loading earlier messages…": "正在加载更早的消息…",

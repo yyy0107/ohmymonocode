@@ -1,6 +1,6 @@
 //! Git-backed recordings of workspace changes during a turn. These snapshots
-//! record what changed. Shared reviews require successful edit evidence for
-//! each displayed file, without inferring which process owns individual lines.
+//! record the whole workspace, including shell writes. Shared turns expose the
+//! complete recording with Undo disabled, without claiming per-session ownership.
 use super::*;
 use std::io::Write;
 
@@ -19,7 +19,7 @@ struct RecordedTurn {
     #[serde(default)]
     dismissed: BTreeSet<String>,
     /// Files reported by this session's successful structured edit tools.
-    /// Older shared snapshots have no attribution evidence and stay out of the card.
+    /// Retained for recovery of older, incomplete recordings.
     #[serde(default)]
     edited: BTreeSet<String>,
 }
@@ -362,7 +362,6 @@ impl CheckpointStore {
         let files = recorded
             .into_iter()
             .filter(|change| !turn.dismissed.contains(&change.relative))
-            .filter(|change| !turn.shared || turn.edited.contains(&change.relative))
             .map(|change| {
                 let undoable = can_restore && restorable(&root, &change);
                 CheckpointFile {
@@ -376,7 +375,10 @@ impl CheckpointStore {
                 }
             })
             .collect();
-        Ok(Some(CheckpointStatus { files }))
+        Ok(Some(CheckpointStatus {
+            files,
+            workspace_shared: turn.shared.then_some(true),
+        }))
     }
 
     pub(super) fn turn_file_diff(

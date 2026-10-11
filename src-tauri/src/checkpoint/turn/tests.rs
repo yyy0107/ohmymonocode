@@ -133,7 +133,8 @@ fn continuing_an_unfinished_turn_preserves_its_baseline_and_edit_evidence() {
         .finish_turn("session", f.cwd(), "continue")
         .unwrap();
     let status = reopened.status("session", f.cwd()).unwrap();
-    assert_eq!(status.files.len(), 1);
+    assert_eq!(status.files.len(), 2);
+    assert_eq!(status.workspace_shared, Some(true));
     assert_eq!(status.files[0].relative, "a.txt");
     assert!(!status.files[0].undoable);
     let diff = reopened.file_diff("session", f.cwd(), "a.txt").unwrap();
@@ -172,9 +173,10 @@ fn recovers_edits_when_an_older_version_replaced_an_unfinished_baseline() {
         let reopened = CheckpointStore::new(f.dir.join("checkpoints"));
         let status = reopened.status("session", f.cwd()).unwrap();
         if committed {
-            assert!(status.files.is_empty());
-        } else {
             assert_eq!(status.files.len(), 1);
+            assert_eq!(status.files[0].relative, "foreign.txt");
+        } else {
+            assert_eq!(status.files.len(), 2);
             assert_eq!(status.files[0].relative, "a.txt");
             assert!(!status.files[0].undoable);
             let diff = reopened.file_diff("session", f.cwd(), "a.txt").unwrap();
@@ -213,7 +215,7 @@ fn overlapping_turns_keep_exact_diffs_but_cannot_restore_shared_work() {
 }
 
 #[test]
-fn shared_turns_only_review_files_with_their_own_successful_edit_events() {
+fn shared_turns_review_workspace_changes_without_edit_events() {
     let f = Fixture::new();
     f.store.begin_turn("reader", f.cwd(), "first").unwrap();
     f.store.begin_turn("writer", f.cwd(), "second").unwrap();
@@ -235,12 +237,16 @@ fn shared_turns_only_review_files_with_their_own_successful_edit_events() {
     f.store.finish_turn("writer", f.cwd(), "second").unwrap();
 
     let reopened = CheckpointStore::new(f.dir.join("checkpoints"));
-    assert!(reopened.status("reader", f.cwd()).unwrap().files.is_empty());
+    let reader = reopened.status("reader", f.cwd()).unwrap();
+    assert_eq!(reader.workspace_shared, Some(true));
+    assert_eq!(reader.files.len(), 1);
+    assert_eq!(reader.files[0].relative, "a.txt");
+    assert!(!reader.files[0].undoable);
     let status = reopened.status("writer", f.cwd()).unwrap();
     assert_eq!(status.files.len(), 1);
     assert_eq!(status.files[0].relative, "a.txt");
     assert!(!status.files[0].undoable);
-    // The complete workspace recording is retained separately from attribution.
+    // Review keeps the complete recording even without per-file edit events.
     assert_eq!(
         reopened
             .file_diff("reader", f.cwd(), "a.txt")
@@ -251,7 +257,7 @@ fn shared_turns_only_review_files_with_their_own_successful_edit_events() {
 }
 
 #[test]
-fn shared_turns_with_different_edits_do_not_claim_each_others_files() {
+fn shared_turns_include_all_workspace_files_with_undo_disabled() {
     let f = Fixture::new();
     f.store.begin_turn("a", f.cwd(), "first").unwrap();
     f.store.begin_turn("b", f.cwd(), "second").unwrap();
@@ -274,15 +280,18 @@ fn shared_turns_with_different_edits_do_not_claim_each_others_files() {
         .unwrap();
     f.store.finish_turn("a", f.cwd(), "first").unwrap();
     f.store.finish_turn("b", f.cwd(), "second").unwrap();
-    for (id, relative) in [("a", "a.txt"), ("b", literal)] {
+    for id in ["a", "b"] {
         let status = f.store.status(id, f.cwd()).unwrap();
-        assert_eq!(status.files.len(), 1);
-        assert_eq!(status.files[0].relative, relative);
+        assert_eq!(status.workspace_shared, Some(true));
+        assert_eq!(status.files.len(), 2);
+        assert!(status.files.iter().all(|file| !file.undoable));
+        assert!(status.files.iter().any(|file| file.relative == "a.txt"));
+        assert!(status.files.iter().any(|file| file.relative == literal));
     }
 }
 
 #[test]
-fn old_shared_recordings_without_edit_evidence_do_not_claim_workspace_changes() {
+fn old_shared_recordings_without_edit_evidence_remain_reviewable() {
     let f = Fixture::new();
     f.store.begin_turn("reader", f.cwd(), "first").unwrap();
     f.store.begin_turn("writer", f.cwd(), "second").unwrap();
@@ -294,7 +303,11 @@ fn old_shared_recordings_without_edit_evidence_do_not_claim_workspace_changes() 
     review["latest"].as_object_mut().unwrap().remove("edited");
     std::fs::write(path, serde_json::to_vec(&review).unwrap()).unwrap();
     let reopened = CheckpointStore::new(f.dir.join("checkpoints"));
-    assert!(reopened.status("reader", f.cwd()).unwrap().files.is_empty());
+    let reader = reopened.status("reader", f.cwd()).unwrap();
+    assert_eq!(reader.workspace_shared, Some(true));
+    assert_eq!(reader.files.len(), 1);
+    assert_eq!(reader.files[0].relative, "a.txt");
+    assert!(!reader.files[0].undoable);
 }
 
 #[test]

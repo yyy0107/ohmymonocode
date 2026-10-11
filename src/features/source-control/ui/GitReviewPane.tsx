@@ -86,7 +86,7 @@ export function GitReviewPane({
     : sessionId && !gitAvailable
       ? "session"
       : selectedSource;
-  const { scopeKey, files, error, loading, loadDiff, getDiff, refresh } =
+  const { scopeKey, files, error, loading, workspaceShared, loadDiff, getDiff, refresh } =
     useReviewSource(cwd, source, sessionId);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<Set<string>>(new Set());
@@ -410,6 +410,11 @@ export function GitReviewPane({
               <X className="size-3" />
             </ReviewIconButton>
           </div>
+        ) : null}
+        {workspaceShared ? (
+          <p className="px-3 py-2 text-[11px] text-content/60">
+            {t("Other sessions were active in this workspace. These changes may include their edits; undo is disabled.")}
+          </p>
         ) : null}
         <div
           ref={scrollerRef}

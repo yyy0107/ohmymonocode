@@ -198,7 +198,7 @@ impl CheckpointStore {
             return Ok(status);
         }
         let Some(manifest) = self.load_matching(session_id, cwd)? else {
-            return Ok(CheckpointStatus { files: Vec::new() });
+            return Ok(CheckpointStatus::default());
         };
         let root = project_root(cwd)?;
         let foreign_touched = self.foreign_touched_paths(cwd, session_id);
@@ -402,7 +402,7 @@ impl CheckpointStore {
             return Ok(status);
         }
         let Some(mut manifest) = self.load_matching(session_id, cwd)? else {
-            return Ok(CheckpointStatus { files: Vec::new() });
+            return Ok(CheckpointStatus::default());
         };
         let root = project_root(cwd)?;
         let dir = self.session_dir(session_id);
@@ -432,7 +432,7 @@ impl CheckpointStore {
             restore_one(&dir, &root, &manifest, &file.relative)?;
         }
         let _ = std::fs::remove_dir_all(&dir);
-        Ok(CheckpointStatus { files: Vec::new() })
+        Ok(CheckpointStatus::default())
     }
 
     fn keep(
@@ -445,13 +445,13 @@ impl CheckpointStore {
             return Ok(status);
         }
         let Some(mut manifest) = self.load_matching(session_id, cwd)? else {
-            return Ok(CheckpointStatus { files: Vec::new() });
+            return Ok(CheckpointStatus::default());
         };
         let root = project_root(cwd)?;
         let dir = self.session_dir(session_id);
         let Some(relative) = relative else {
             let _ = std::fs::remove_dir_all(&dir);
-            return Ok(CheckpointStatus { files: Vec::new() });
+            return Ok(CheckpointStatus::default());
         };
         let relative = resolve_repo_path(&root, relative)?;
         release_path(&mut manifest, &relative);
@@ -556,10 +556,12 @@ pub struct CheckpointFile {
     pub undoable: bool,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct CheckpointStatus {
     pub files: Vec<CheckpointFile>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workspace_shared: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -1022,7 +1024,10 @@ fn diff_from_manifest_with(
     }
 
     files.sort_by(|a, b| a.relative.cmp(&b.relative));
-    CheckpointStatus { files }
+    CheckpointStatus {
+        files,
+        ..Default::default()
+    }
 }
 
 fn session_snapshot_differs(dir: &Path, manifest: &Manifest, relative: &str) -> Option<bool> {

@@ -133,6 +133,14 @@ it("loads only requested files, isolates sources, and keeps per-source cache acr
   expect(result.getDiff("a.ts")?.state).toBe("loaded");
 });
 
+it("keeps shared workspace disclosure scoped to the session recording", async () => {
+  vi.mocked(sessionCheckpointStatus).mockResolvedValue({ ...checkpoint(), workspaceShared: true });
+  await render("session");
+  expect(result.workspaceShared).toBe(true);
+  await render("unstaged");
+  expect(result.workspaceShared).toBe(false);
+});
+
 it("filters each working-tree source, including a file with changes on both sides", async () => {
   const mixed = [
     file,

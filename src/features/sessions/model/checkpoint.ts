@@ -14,6 +14,8 @@ export type CheckpointFile = {
 
 export type CheckpointStatus = {
   files: CheckpointFile[];
+  /** This turn's workspace snapshot may include other concurrent sessions. */
+  workspaceShared?: boolean;
   /** Host only: another running conversation shares this checkout. */
   undoLocked?: boolean;
 };

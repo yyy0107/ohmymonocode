@@ -542,4 +542,17 @@ describe("mobile session changes", () => {
     expect(action("Undo")!.title).toBe("Undo is unavailable because a file changed outside this session");
     expect(action("Keep")!.disabled).toBe(false);
   });
+
+  it("discloses concurrent workspace edits and disables undo", async () => {
+    const source = sessionSource();
+    source.loadIndex.mockResolvedValue(sessionChangesIndex({
+      workspaceShared: true,
+      files: [{ path: "/repo/src/app.ts", relative: "src/app.ts", status: "modified",
+        additions: 2, deletions: 1, exact: true, undoable: false }],
+    }));
+    await openSessionReview(source);
+    expect(activeDialog().textContent).toContain("These changes may include their edits; undo is disabled.");
+    expect(action("Undo")!.disabled).toBe(true);
+    expect(action("Keep")!.disabled).toBe(false);
+  });
 });

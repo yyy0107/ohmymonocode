@@ -41,6 +41,7 @@ export function useReviewSource(
     revision: number;
     files: ReviewFile[] | null;
     loading: boolean;
+    workspaceShared?: boolean;
     error?: string;
   }>({ key: "", revision: -1, files: null, loading: true });
   const [cache, setCache] = useState<ReviewDiffCache>();
@@ -93,6 +94,7 @@ export function useReviewSource(
       key,
       revision,
       files: previous.key === key ? previous.files : null,
+      workspaceShared: previous.key === key ? previous.workspaceShared : undefined,
       loading: true,
     }));
     if (!cwd || cwd === "~" || (source === "session" && !sessionId)) {
@@ -100,6 +102,7 @@ export function useReviewSource(
       return;
     }
     const commit = reviewCommit(source);
+    let workspaceShared = false;
     const request = commit
       ? gitCommitFiles(cwd, commit)
       : source === "uncommitted" || source === "branch"
@@ -108,7 +111,10 @@ export function useReviewSource(
           )
         : source === "session"
           ? sessionCheckpointStatus(sessionId!, cwd).then(
-              (status) => status.files,
+              (status) => {
+                workspaceShared = !!status.workspaceShared;
+                return status.files;
+              },
             )
           : gitDiffFiles(cwd).then((status) =>
               status.files
@@ -124,7 +130,7 @@ export function useReviewSource(
             );
     void request
       .then((files) => {
-        if (!stale) setIndex({ key, revision, files, loading: false });
+        if (!stale) setIndex({ key, revision, files, loading: false, workspaceShared });
       })
       .catch((error: unknown) => {
         if (!stale)
@@ -178,6 +184,7 @@ export function useReviewSource(
     scopeKey,
     files: current ? index.files : null,
     error: current ? index.error : undefined,
+    workspaceShared: current && !!index.workspaceShared,
     loading: !current || index.revision !== revision || index.loading,
     loadDiff,
     getDiff,

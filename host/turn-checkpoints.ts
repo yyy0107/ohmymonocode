@@ -26,8 +26,8 @@ const MAX_FILE_BYTES = 8 * 1024 * 1024;
 /**
  * Git-backed recordings of workspace changes during a turn, following the
  * desktop store (src-tauri/src/checkpoint/turn.rs). Snapshots record what
- * changed; shared reviews require successful edit evidence for each displayed
- * file, without inferring which process owns individual lines.
+ * changed in the workspace, including shell writes. Shared turns expose the
+ * complete recording with Undo disabled, without claiming per-session ownership.
  */
 type RecordedTurn = {
   id: string;
@@ -204,11 +204,9 @@ export class TurnCheckpoints {
     const canRestore = !turn.shared && head === turn.head &&
       (await this.activeTurns(root, sessionId)).length === 0;
     const dismissed = new Set(turn.dismissed);
-    const edited = new Set(turn.edited);
     const files: CheckpointFile[] = [];
     for (const change of recorded) {
       if (dismissed.has(change.relative)) continue;
-      if (turn.shared && !edited.has(change.relative)) continue;
       files.push({
         path: joinClient(root, change.relative),
         relative: change.relative,
@@ -219,7 +217,7 @@ export class TurnCheckpoints {
         undoable: canRestore && (await restorable(root, change)),
       });
     }
-    return { files };
+    return { files, ...(turn.shared ? { workspaceShared: true } : {}) };
   }
 
   async fileDiff(sessionId: string, cwd: string, input: string): Promise<CheckpointFileDiff | undefined> {
