@@ -289,11 +289,12 @@ it("opens the selected device's error state on an offline launch and can switch 
 });
 
 it("keeps refreshing the original device when an unresolved command prevents switching", async () => {
-  await mount();
+  // Left by an earlier run: only the client writes the journal while it runs.
   fixture.values.set("pending", JSON.stringify({
     endpoint: a.endpoint, environmentId: a.environmentId,
     command: { type: "send", commandId: "pending", sessionId: "shared-session", text: "Hello" },
   }));
+  await mount();
   await switchTo("Device B");
   expect(fixture.client!.connection?.environmentId).toBe("a");
   fixture.request.mockImplementation((endpoint, input) => input.method === "sessions.list"

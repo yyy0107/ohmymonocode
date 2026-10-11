@@ -417,6 +417,8 @@ export class MobileClient {
   }
 
   async restore(): Promise<boolean> {
+    // Starting over reads the journal from storage again.
+    this.pendingValue = undefined;
     const saved = await this.storage.get("connection");
     if (!saved) return false;
     const connection = JSON.parse(saved) as Connection;
@@ -539,6 +541,7 @@ export class MobileClient {
     await this.storage.set("connections", JSON.stringify(remaining));
   }
   async disconnect(): Promise<void> {
+    this.pendingValue = undefined;
     const endpoint = this.connection?.endpoint;
     const remaining = (await this.savedConnections())
       .filter((item) => item.endpoint !== endpoint);
@@ -979,9 +982,28 @@ export class MobileClient {
     this.previewLoads.set(sessionId, pending);
     return pending;
   }
+  /**
+   * The journal only changes through this client, so one Keystore read serves
+   * every later poll instead of a native decrypt on each 250ms session sync.
+   */
+  private pendingValue: Promise<string | null> | undefined;
   async pending(): Promise<PendingCommand | undefined> {
-    const value = await this.storage.get("pending");
+    const read = (this.pendingValue ??= this.storage.get("pending"));
+    let value: string | null;
+    try {
+      value = await read;
+    } catch (error) {
+      if (this.pendingValue === read) this.pendingValue = undefined;
+      throw error;
+    }
     return value ? (JSON.parse(value) as PendingCommand) : undefined;
+  }
+  private async writePending(value: string | null) {
+    this.pendingValue = undefined;
+    if (value === null) await this.storage.remove("pending");
+    else await this.storage.set("pending", value);
+    // A failed write leaves the cache empty, so the next read asks storage.
+    this.pendingValue = Promise.resolve(value);
   }
   async uploadAttachments(
     files: Attachment[],
@@ -1069,8 +1091,7 @@ export class MobileClient {
           "Resolve the pending request before sending another message.",
         );
       const { endpoint, environmentId } = this.connection;
-      await this.storage.set(
-        "pending",
+      await this.writePending(
         JSON.stringify({
           endpoint,
           environmentId,
@@ -1120,19 +1141,19 @@ export class MobileClient {
             sessionId: receipt.sessionId,
           },
         };
-        await this.storage.set("pending", JSON.stringify(pending));
+        await this.writePending(JSON.stringify(pending));
         receipt = await this.rpc<CommandReceipt>(
           "commands.dispatch",
           pending.command,
         );
       }
-      await this.storage.remove("pending");
+      await this.writePending(null);
       return receipt;
     } catch (error) {
       // A Host 400 is a definitive command rejection. Transport failures remain
       // journaled so a retry can ask for the same receipt instead of resending.
       if (error instanceof HostRequestError && error.status === 400)
-        await this.storage.remove("pending");
+        await this.writePending(null);
       throw error;
     }
   }

@@ -744,6 +744,25 @@ describe("mobile client synchronization", () => {
 });
 
 describe("mobile command journal", () => {
+  it("reads the journal from secure storage once and follows its own writes", async () => {
+    const store = memory();
+    const get = vi.spyOn(store, "get");
+    let fail = true;
+    const client = new MobileClient(store, transport((_method, params) => {
+      if (fail) throw new Error("Connection lost");
+      return { ...receipt, commandId: params.commandId };
+    }));
+    await client.connect(endpoint, token);
+    for (let poll = 0; poll < 5; poll += 1) expect(await client.pending()).toBeUndefined();
+    expect(get.mock.calls.filter(([key]) => key === "pending")).toHaveLength(1);
+
+    await expect(client.dispatch(send)).rejects.toThrow("Connection lost");
+    expect((await client.pending())?.command.commandId).toBe("send-original");
+    fail = false;
+    await client.retryPending();
+    expect(await client.pending()).toBeUndefined();
+    expect(get.mock.calls.filter(([key]) => key === "pending")).toHaveLength(1);
+  });
   it("retains the same command id after a lost response and restores it after app restart", async () => {
     const store = memory();
     const commands: string[] = [];
