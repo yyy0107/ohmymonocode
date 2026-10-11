@@ -26,8 +26,12 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "sidebarImage": "icons/installer-sidebar.bmp",
-        "installerIcon": "icons/icon.ico"
+        "template": "installer/installer.nsi",
+        "installerHooks": "installer/pixel-ui.nsh",
+        "headerImage": "installer/pixel-header.bmp",
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "languages": ["English", "SimpChinese"]
       }
     },
     "resources": {
