@@ -1,0 +1,6 @@
+/* The mobile stylesheet entry: the shared desktop styles (Tailwind, Markdown,
+   transcript), then the mobile tokens and skins compiled into the same
+   Tailwind build so `bg-m-*`, `rounded-m-*` utilities exist. */
+@import "../../styles/index.css";
+@import "./tokens.css";
+@import "./skins.css";

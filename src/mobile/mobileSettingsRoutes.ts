@@ -1,6 +1,6 @@
 export type MobileSettingsPage =
   "root" | "agents" | "notifications" | "chat" |
-  "connections" | "updates" | "glass" | "archive" | "accounts";
+  "connections" | "updates" | "glass" | "skin" | "archive" | "accounts";
 export type MobilePreferencePanel =
   "theme" | "accent" | "language" | "glass" | "follow-up" | "transcript-layout" |
   "agent-defaults" | "default-permissions" | "account-claude" | "account-codex" |
@@ -15,6 +15,7 @@ const SETTINGS_TITLES: Record<MobileSettingsPage, string> = {
   connections: "Connections",
   updates: "App updates",
   glass: "Glass",
+  skin: "Skin",
   archive: "Archived conversations",
 };
 

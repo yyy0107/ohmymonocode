@@ -46,6 +46,7 @@ import { SurfaceVisibilityContext } from "../../shared/ui/SurfaceVisibility";
 import { GradientBlurBackground } from "../../features/settings/ui/GradientBlurBackground";
 
 import { lazyMobilePage, lazyMobileSheet } from "../mobileLazy";
+import { saveMobileSkin } from "../theme/skin";
 import { browseHostDirectories, client, readHostImage, type MobileAppViewModel } from "./useMobileAppController";
 
 const MobileSettings = lazyMobilePage(async () => ({ default: (await import("../MobileSettings")).MobileSettings }));
@@ -316,6 +317,7 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
     setProgressDock,
     setSearchOpen,
     setSearchQuery,
+    setSkin,
     setSessionActionsOpen,
     setSessionActionsPoint,
     setSessionActionsTarget,
@@ -331,6 +333,7 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
     sharedStateError,
     skillContextKey,
     snapshot,
+    skin,
     snapshotStore,
     soundsEnabled,
     switchHost,
@@ -605,6 +608,11 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
             const next = value === "light" || value === "system" ? value : "dark";
             saveThemePreference(next);
             setTheme(next);
+          }}
+          skin={skin}
+          onSkinChange={(value) => {
+            saveMobileSkin(value);
+            setSkin(value);
           }}
           glass={glass}
           onGlassChange={(value) => { saveGlassSettings(value); setGlass(value); }}

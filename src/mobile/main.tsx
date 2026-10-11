@@ -10,7 +10,6 @@ import { disableStatusToasts } from "../shared/ui/StatusToast";
 import {
   applyAccentColor,
   loadAccentColor,
-  applyThemePreference,
   loadThemePreference,
   applyThemeTint,
   loadThemeHue,
@@ -30,7 +29,8 @@ import { initSounds } from "../features/settings/model/sounds";
 import { initTypography } from "../features/settings/model/typography";
 import { subscribeSharedPreferences } from "../features/settings/model/sharedPreferences";
 import { parsePreferenceAsset } from "../features/settings/model/preferenceAssets";
-import "../styles/index.css";
+import { applyMobileSkin, loadMobileSkin } from "./theme/skin";
+import "./theme/index.css";
 import "./mobile.css";
 import "./motion.css";
 
@@ -40,7 +40,7 @@ installKeyboardMotion();
 installGlassMotion();
 applyGlassSettings(readGlassSettings());
 applyAccentColor(loadAccentColor());
-applyThemePreference(loadThemePreference());
+applyMobileSkin(loadMobileSkin(), loadThemePreference());
 initSounds();
 initTypography();
 const applyBackground = () => {

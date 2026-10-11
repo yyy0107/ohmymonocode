@@ -1,0 +1,324 @@
+/* Nine mobile skins. Palettes, radii and the token model come from
+   OpenMausBot (https://github.com/milind-soni/OpenMausBot, Apache-2.0,
+   src/styles.css); the contrast gate lives in skins.test.ts.
+
+   A skin is only a block of custom properties. `html[data-mobile-skin]` is set
+   by applyMobileSkin (skin.ts); `.mobile-skin-scope[data-mobile-skin]` lets any
+   subtree — the Settings picker's live previews — open another skin. The
+   selectors outrank the desktop `html.theme-light` token block. */
+
+/* Midnight: Near-black and cool, sampled from the upstream dark theme. */
+:is(html, .mobile-skin-scope)[data-mobile-skin="midnight"] {
+  color-scheme: dark;
+  --color-m-app: #070707;
+  --color-m-panel: #111111;
+  --color-m-raised: #2f2f2f;
+  --color-m-raised-hover: #3d3d3d;
+  --color-m-card: #262626;
+  --color-m-menu: #262626;
+  --color-m-composer: #2f2f2f;
+  --color-m-composer-ring: transparent;
+  --color-m-inset: #191919;
+  --color-m-control: #2f2f2f;
+  --color-m-hairline: #333333;
+  --color-m-ink: #fcfcfc;
+  --color-m-ink-secondary: #fcfcfc99;
+  --color-m-ink-tertiary: #fcfcfc90;
+  --color-m-accent: #1084fe;
+  --color-m-accent-border: #459ffe;
+  --color-m-accent-text: #7fc0ff;
+  --color-m-accent-ink: #ffffff;
+  --color-m-focus: #459ffe;
+  --color-m-bubble-user: #5a5a5a;
+  --color-m-bubble-user-ink: #fcfcfc;
+  --color-m-success: #38d591;
+  --color-m-success-ink: #072114;
+  --color-m-danger: #ff5667;
+  --color-m-danger-ink: #ffffff;
+  --color-m-warning: #ff9800;
+  --radius-m-lg: 0.5rem;
+  --radius-m-xl: 0.75rem;
+}
+/* Atelier: Warm paper: surfaces brighten as they rise. */
+:is(html, .mobile-skin-scope)[data-mobile-skin="atelier"] {
+  color-scheme: light;
+  --color-m-app: #f5f1eb;
+  --color-m-panel: #fbf8f2;
+  --color-m-raised: #ffffff;
+  --color-m-raised-hover: #f2e9dc;
+  --color-m-card: #ffffff;
+  --color-m-menu: #ffffff;
+  --color-m-composer: #ffffff;
+  --color-m-composer-ring: transparent;
+  --color-m-inset: #f5f1eb;
+  --color-m-control: #ece4d6;
+  --color-m-hairline: #c8bda8;
+  --color-m-ink: #1a1a18;
+  --color-m-ink-secondary: #6b6559;
+  --color-m-ink-tertiary: #6d685c;
+  --color-m-accent: #a05f25;
+  --color-m-accent-border: #b06a2c;
+  --color-m-accent-text: #96551f;
+  --color-m-accent-ink: #ffffff;
+  --color-m-focus: #96551f;
+  --color-m-bubble-user: #f2e9dc;
+  --color-m-bubble-user-ink: #1a1a18;
+  --color-m-success: #3f6b47;
+  --color-m-success-ink: #ffffff;
+  --color-m-danger: #a33a32;
+  --color-m-danger-ink: #ffffff;
+  --color-m-warning: #7a5f31;
+  --radius-m-lg: 6px;
+  --radius-m-xl: 10px;
+}
+/* Foundry: Warm black with a brass accent that carries dark lettering. */
+:is(html, .mobile-skin-scope)[data-mobile-skin="foundry"] {
+  color-scheme: dark;
+  --color-m-app: #100e0b;
+  --color-m-panel: #171410;
+  --color-m-raised: #262019;
+  --color-m-raised-hover: #322b21;
+  --color-m-card: #1e1a14;
+  --color-m-menu: #1e1a14;
+  --color-m-composer: #262019;
+  --color-m-composer-ring: transparent;
+  --color-m-inset: #0b0a08;
+  --color-m-control: #262019;
+  --color-m-hairline: #3d3529;
+  --color-m-ink: #f4efe4;
+  --color-m-ink-secondary: #b0a696;
+  --color-m-ink-tertiary: #9c9384;
+  --color-m-accent: #d99a3e;
+  --color-m-accent-border: #e8b25e;
+  --color-m-accent-text: #e0a44c;
+  --color-m-accent-ink: #1c150c;
+  --color-m-focus: #e0a44c;
+  --color-m-bubble-user: #2a2318;
+  --color-m-bubble-user-ink: #f4efe4;
+  --color-m-success: #57b078;
+  --color-m-success-ink: #1c150c;
+  --color-m-danger: #e0685e;
+  --color-m-danger-ink: #1c0d0b;
+  --color-m-warning: #dfa441;
+  --radius-m-lg: 4px;
+  --radius-m-xl: 8px;
+}
+/* Lagoon: Cool ceramic with a deep teal accent. */
+:is(html, .mobile-skin-scope)[data-mobile-skin="lagoon"] {
+  color-scheme: light;
+  --color-m-app: #dfeceb;
+  --color-m-panel: #ecf4f3;
+  --color-m-raised: #ffffff;
+  --color-m-raised-hover: #cfe4e1;
+  --color-m-card: #ffffff;
+  --color-m-menu: #ffffff;
+  --color-m-composer: #ffffff;
+  --color-m-composer-ring: transparent;
+  --color-m-inset: #d5e8e5;
+  --color-m-control: #c3dcd9;
+  --color-m-hairline: #aebfbd;
+  --color-m-ink: #14201f;
+  --color-m-ink-secondary: #4d5c5b;
+  --color-m-ink-tertiary: #566564;
+  --color-m-accent: #11736d;
+  --color-m-accent-border: #14807a;
+  --color-m-accent-text: #0d5f5a;
+  --color-m-accent-ink: #ffffff;
+  --color-m-focus: #0d5f5a;
+  --color-m-bubble-user: #cfe4e1;
+  --color-m-bubble-user-ink: #14201f;
+  --color-m-success: #2f6b4f;
+  --color-m-success-ink: #ffffff;
+  --color-m-danger: #a8382f;
+  --color-m-danger-ink: #ffffff;
+  --color-m-warning: #7a5a2a;
+  --radius-m-lg: 8px;
+  --radius-m-xl: 14px;
+}
+/* Graphite: Neutral charcoal with a desaturated steel accent. */
+:is(html, .mobile-skin-scope)[data-mobile-skin="graphite"] {
+  color-scheme: dark;
+  --color-m-app: #111214;
+  --color-m-panel: #181a1d;
+  --color-m-raised: #2a2d32;
+  --color-m-raised-hover: #353941;
+  --color-m-card: #22252a;
+  --color-m-menu: #22252a;
+  --color-m-composer: #2a2d32;
+  --color-m-composer-ring: transparent;
+  --color-m-inset: #0d0e10;
+  --color-m-control: #2a2d32;
+  --color-m-hairline: #3b4048;
+  --color-m-ink: #f2f4f7;
+  --color-m-ink-secondary: #b3b8c2;
+  --color-m-ink-tertiary: #9fa4ad;
+  --color-m-accent: #4f75a2;
+  --color-m-accent-border: #698fbb;
+  --color-m-accent-text: #8fb4df;
+  --color-m-accent-ink: #ffffff;
+  --color-m-focus: #8fb4df;
+  --color-m-bubble-user: #30343a;
+  --color-m-bubble-user-ink: #f2f4f7;
+  --color-m-success: #63b58a;
+  --color-m-success-ink: #101a14;
+  --color-m-danger: #dd6b73;
+  --color-m-danger-ink: #1e0b0e;
+  --color-m-warning: #d3a150;
+  --radius-m-lg: 6px;
+  --radius-m-xl: 10px;
+}
+/* Linen: Neutral daylight with navy as ink. */
+:is(html, .mobile-skin-scope)[data-mobile-skin="linen"] {
+  color-scheme: light;
+  --color-m-app: #eceff3;
+  --color-m-panel: #f5f6f8;
+  --color-m-raised: #ffffff;
+  --color-m-raised-hover: #e1e6ed;
+  --color-m-card: #ffffff;
+  --color-m-menu: #ffffff;
+  --color-m-composer: #ffffff;
+  --color-m-composer-ring: transparent;
+  --color-m-inset: #e6e9ee;
+  --color-m-control: #d3d9e1;
+  --color-m-hairline: #b4bbc5;
+  --color-m-ink: #1d2229;
+  --color-m-ink-secondary: #59616c;
+  --color-m-ink-tertiary: #5f6671;
+  --color-m-accent: #355f8a;
+  --color-m-accent-border: #4978a6;
+  --color-m-accent-text: #2c5680;
+  --color-m-accent-ink: #ffffff;
+  --color-m-focus: #2c5680;
+  --color-m-bubble-user: #e1e6ed;
+  --color-m-bubble-user-ink: #1d2229;
+  --color-m-success: #2f704f;
+  --color-m-success-ink: #ffffff;
+  --color-m-danger: #a83d48;
+  --color-m-danger-ink: #ffffff;
+  --color-m-warning: #765b2b;
+  --radius-m-lg: 8px;
+  --radius-m-xl: 12px;
+}
+/* Dusk: Restrained plum-dark. */
+:is(html, .mobile-skin-scope)[data-mobile-skin="dusk"] {
+  color-scheme: dark;
+  --color-m-app: #121014;
+  --color-m-panel: #19161c;
+  --color-m-raised: #2b2630;
+  --color-m-raised-hover: #37303d;
+  --color-m-card: #231f27;
+  --color-m-menu: #231f27;
+  --color-m-composer: #2b2630;
+  --color-m-composer-ring: transparent;
+  --color-m-inset: #0d0b0f;
+  --color-m-control: #2b2630;
+  --color-m-hairline: #403847;
+  --color-m-ink: #f4eff6;
+  --color-m-ink-secondary: #b9afbd;
+  --color-m-ink-tertiary: #a199a5;
+  --color-m-accent: #765683;
+  --color-m-accent-border: #9670a3;
+  --color-m-accent-text: #c49bd2;
+  --color-m-accent-ink: #ffffff;
+  --color-m-focus: #c49bd2;
+  --color-m-bubble-user: #332b38;
+  --color-m-bubble-user-ink: #f4eff6;
+  --color-m-success: #6fad83;
+  --color-m-success-ink: #101812;
+  --color-m-danger: #db727a;
+  --color-m-danger-ink: #210c10;
+  --color-m-warning: #d0a35d;
+  --radius-m-lg: 8px;
+  --radius-m-xl: 12px;
+}
+/* Daylight: Midnight's light twin; your own bubble is inverted. */
+:is(html, .mobile-skin-scope)[data-mobile-skin="daylight"] {
+  color-scheme: light;
+  --color-m-app: #fcfcfc;
+  --color-m-panel: #f7f7f7;
+  --color-m-raised: #e1e1e1;
+  --color-m-raised-hover: #d7d7d7;
+  --color-m-card: #eeeeee;
+  --color-m-menu: #fcfcfc;
+  --color-m-composer: #fcfcfc;
+  --color-m-composer-ring: #e4e4e4;
+  --color-m-inset: #e6e6e6;
+  --color-m-control: #dedede;
+  --color-m-hairline: #d0d0d0;
+  --color-m-ink: #0d0d0d;
+  --color-m-ink-secondary: #575757;
+  --color-m-ink-tertiary: #5c5c5c;
+  --color-m-accent: #0b62c4;
+  --color-m-accent-border: #1084fe;
+  --color-m-accent-text: #0b5cb8;
+  --color-m-accent-ink: #ffffff;
+  --color-m-focus: #0b62c4;
+  --color-m-bubble-user: #070707;
+  --color-m-bubble-user-ink: #fcfcfc;
+  --color-m-success: #1f7a4d;
+  --color-m-success-ink: #ffffff;
+  --color-m-danger: #c02b3a;
+  --color-m-danger-ink: #ffffff;
+  --color-m-warning: #8a5a00;
+  --radius-m-lg: 8px;
+  --radius-m-xl: 14px;
+}
+/* Meadow: White page, mint selection and a calm green accent. */
+:is(html, .mobile-skin-scope)[data-mobile-skin="meadow"] {
+  color-scheme: light;
+  --color-m-app: #ffffff;
+  --color-m-panel: #f6f8f6;
+  --color-m-raised: #e9eeea;
+  --color-m-raised-hover: #d6efdf;
+  --color-m-card: #f1f5f2;
+  --color-m-menu: #ffffff;
+  --color-m-composer: #ffffff;
+  --color-m-composer-ring: #e3e9e4;
+  --color-m-inset: #e7ece8;
+  --color-m-control: #dce3de;
+  --color-m-hairline: #c9d3cc;
+  --color-m-ink: #0f1a13;
+  --color-m-ink-secondary: #4d5a52;
+  --color-m-ink-tertiary: #4f5c54;
+  --color-m-accent: #1a7a48;
+  --color-m-accent-border: #1f8a52;
+  --color-m-accent-text: #176b3f;
+  --color-m-accent-ink: #ffffff;
+  --color-m-focus: #1a7a48;
+  --color-m-bubble-user: #0f1a13;
+  --color-m-bubble-user-ink: #ffffff;
+  --color-m-success: #1a7a48;
+  --color-m-success-ink: #ffffff;
+  --color-m-danger: #c02b3a;
+  --color-m-danger-ink: #ffffff;
+  --color-m-warning: #8a5a00;
+  --radius-m-lg: 10px;
+  --radius-m-xl: 16px;
+}
+
+/* Bridge: shared desktop renderers (AgentTranscript, AgentMarkdown, popovers,
+   QuestionForm) read the desktop palette. Pointing it at the skin makes them
+   follow every skin without touching the shared components. */
+:is(html, .mobile-skin-scope)[data-mobile-skin] {
+  --color-background-base: var(--color-m-app);
+  --color-content: var(--color-m-ink);
+  --window-color: var(--color-m-app);
+  --panel-color: var(--color-m-panel);
+  --card-color: var(--color-m-card);
+  --menu-hover-color: var(--color-m-raised-hover);
+  --accent-color: var(--color-m-accent);
+  --link-color: var(--color-m-accent-text);
+  --color-markdown-heading: var(--color-m-ink);
+}
+/* Settings → Accent color still overrides the skin's accent. */
+html.has-user-accent[data-mobile-skin] {
+  --color-m-accent: var(--user-accent-color);
+  --color-m-accent-border: var(--user-accent-color);
+  --color-m-accent-text: var(--user-accent-color);
+  --color-m-accent-ink: var(--user-accent-foreground);
+  --color-m-focus: var(--user-accent-color);
+}
+.mobile-skin-scope[data-mobile-skin] {
+  background: var(--color-m-app);
+  color: var(--color-m-ink);
+}

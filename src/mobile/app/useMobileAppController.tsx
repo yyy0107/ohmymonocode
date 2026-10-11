@@ -26,7 +26,6 @@ import { MobileMessageQueue } from "../MobileMessageQueue";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from "react";
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
-import { StatusBar, Style } from "@capacitor/status-bar";
 import {
   DEFAULT_RUNTIME_MODE,
   sessionDisplayTitle,
@@ -114,7 +113,8 @@ import { loadSoundsEnabled } from "../../features/settings/model/sounds";
 import { mobileStorage } from "../storage";
 import { useStableCallback } from "../useStableCallback";
 import { applyGlassSettings, readGlassSettings, type GlassSettings } from "../glassSettings";
-import { applyThemePreference, loadThemePreference } from "../../features/settings/model/appearance";
+import { loadThemePreference } from "../../features/settings/model/appearance";
+import { applyMobileSkin, loadMobileSkin, type MobileSkinPreference } from "../theme/skin";
 import { useNow } from "../../shared/hooks/useNow";
 import { useMobileHeaderMotion, type MobileRoute } from "../MobilePageTransition";
 import { migrateConnectionSettings } from "../connectionScope";
@@ -459,6 +459,7 @@ export function useMobileAppController() {
   }, [checkNativeAccess, nativeAccessKey]);
   const now = useNow(30_000, foreground && (drawerOpen || view === "home"));
   const [theme, setTheme] = usePreferenceState(loadThemePreference);
+  const [skin, setSkin] = usePreferenceState<MobileSkinPreference>(loadMobileSkin);
   const [glass, setGlass] = usePreferenceState<GlassSettings>(readGlassSettings);
   const [backgroundPath] = usePreferenceState(loadChatBackgroundPath);
   const [backgroundEffect] = usePreferenceState(loadNewThreadBackgroundEffect);
@@ -559,28 +560,14 @@ export function useMobileAppController() {
   }, [searchOpen, view]);
 
   useEffect(() => {
-    const light =
-      theme === "light" ||
-      (theme === "system" &&
-        window.matchMedia("(prefers-color-scheme: light)").matches);
-    const apply = (isLight: boolean) => {
-      applyThemePreference(isLight ? "light" : "dark");
-      document
-        .querySelector('meta[name="theme-color"]')
-        ?.setAttribute("content", isLight ? "#f7f7f7" : "#171717");
-      if (Capacitor.isNativePlatform())
-        void StatusBar.setStyle({
-          style: isLight ? Style.Light : Style.Dark,
-        }).catch(() => {});
-    };
-    apply(light);
+    applyMobileSkin(skin, theme);
+    // Only the automatic skin follows the device appearance.
+    if (skin !== "auto" || theme !== "system") return;
     const media = window.matchMedia("(prefers-color-scheme: light)");
-    const onChange = () => {
-      if (theme === "system") apply(media.matches);
-    };
+    const onChange = () => applyMobileSkin(skin, theme);
     media.addEventListener("change", onChange);
     return () => media.removeEventListener("change", onChange);
-  }, [theme]);
+  }, [skin, theme]);
 
   useEffect(() => {
     applyGlassSettings(glass);
@@ -2111,6 +2098,7 @@ export function useMobileAppController() {
     setSessionActionsTarget,
     setSessionStatusOpen,
     setSoundsEnabled,
+    setSkin,
     setTheme,
     setToken,
     setTranscriptAnchor,
@@ -2125,6 +2113,7 @@ export function useMobileAppController() {
     soundsEnabled,
     switchHost,
     t,
+    skin,
     theme,
     title,
     toggleHomeSearch,

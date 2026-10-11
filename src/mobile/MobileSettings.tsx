@@ -21,6 +21,8 @@ import {
 } from "../features/settings/model/appearance";
 
 import type { MobilePreferencePanel, MobileSettingsPage } from "./mobileSettingsRoutes";
+import { MobileSkinPicker } from "./MobileSkinPicker";
+import { MOBILE_SKIN_INFO, type MobileSkinPreference } from "./theme/skin";
 export { mobileSettingsTitle, mobileSettingsParent } from "./mobileSettingsRoutes";
 export type { MobilePreferencePanel, MobileSettingsPage } from "./mobileSettingsRoutes";
 
@@ -166,6 +168,8 @@ function useMobileSettingsController({
   onSaveConnectionAppearance,
   theme,
   onThemeChange,
+  skin,
+  onSkinChange,
   language,
   onLanguageChange,
   followUpBehavior,
@@ -210,6 +214,8 @@ function useMobileSettingsController({
   onSaveConnectionAppearance: (endpoint: string, value: ConnectionAppearance) => void;
   theme: string;
   onThemeChange: (theme: string) => void;
+  skin: MobileSkinPreference;
+  onSkinChange: (skin: MobileSkinPreference) => void;
   language: string;
   onLanguageChange: (language: "en" | "zh-CN") => void;
   followUpBehavior: FollowUpBehavior;
@@ -296,6 +302,7 @@ function useMobileSettingsController({
     onPageChange,
     onPreferencePanelChange,
     onSoundsEnabledChange,
+    onSkinChange,
     onThemeChange,
     onTranscriptAnchorChange,
     onTranscriptLayoutChange,
@@ -303,6 +310,7 @@ function useMobileSettingsController({
     preferencePanel,
     providerAccounts,
     sharedConnections,
+    skin,
     soundsEnabled,
     t,
     theme,
@@ -335,6 +343,7 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
     onPageChange,
     onPreferencePanelChange,
     onSoundsEnabledChange,
+    onSkinChange,
     onThemeChange,
     onTranscriptAnchorChange,
     onTranscriptLayoutChange,
@@ -342,6 +351,7 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
     preferencePanel,
     providerAccounts,
     sharedConnections,
+    skin,
     soundsEnabled,
     t,
     theme,
@@ -438,6 +448,13 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
             onChange={(transparency) => onGlassChange({ ...glass, transparency })}
           />
         </Group>
+      </main>
+    );
+
+  if (page === "skin")
+    return (
+      <main key="skin" className="mobile-content mobile-settings">
+        <MobileSkinPicker value={skin} onChange={onSkinChange} />
       </main>
     );
 
@@ -697,6 +714,23 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
         </div>
       </section>
       <Group title="Appearance">
+        <button
+          type="button"
+          className="mobile-settings-row"
+          aria-label={t("Skin")}
+          onClick={() => onPageChange("skin")}
+        >
+          <SettingsIcon name="appearance" />
+          <span className="mobile-settings-label">
+            <span>{t("Skin")}</span>
+            <small className="mobile-settings-value">
+              {skin === "auto" ? t("Automatic") : t(MOBILE_SKIN_INFO[skin].label)}
+            </small>
+          </span>
+          <ChevronRight size={18} />
+        </button>
+        {/* Color mode chooses between Midnight and Daylight for the automatic skin. */}
+        {skin === "auto" ? (
         <div className="mobile-settings-row">
           <SettingsIcon name="appearance" />
           <label className="mobile-settings-label" htmlFor="mobile-theme">
@@ -719,6 +753,7 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
             ]}
           />
         </div>
+        ) : null}
         <div className="mobile-settings-row">
           <SettingsIcon name="accent" />
           <label className="mobile-settings-label" htmlFor="mobile-accent">
@@ -835,6 +870,8 @@ export function MobileSettings(props: {
   onSaveConnectionAppearance: (endpoint: string, value: ConnectionAppearance) => void;
   theme: string;
   onThemeChange: (theme: string) => void;
+  skin: MobileSkinPreference;
+  onSkinChange: (skin: MobileSkinPreference) => void;
   language: string;
   onLanguageChange: (language: "en" | "zh-CN") => void;
   followUpBehavior: FollowUpBehavior;
