@@ -328,7 +328,7 @@ it("temporarily folds only the dragged project's children and animates them back
   expect(props.onToggleProject).not.toHaveBeenCalled();
 });
 
-it("persists each project subset without moving pins, other groups or recent sessions", async () => {
+it("persists each project subset without moving pins, other groups or chats", async () => {
   const paths = [
     "/work/alpha",
     "/work/beta",
@@ -343,7 +343,7 @@ it("persists each project subset without moving pins, other groups or recent ses
   setProjectGroupAssignment(paths[3], "team");
   await renderTree({
     recents: paths.map((path, index) => ({ path, openedAt: 5 - index })),
-    recentEntries: [{ id: "session", content: "Recent conversation" }],
+    chatEntries: [{ id: "session", content: "Chat conversation" }],
   });
   const reorder = (subset: string[]) => {
     const call = vi.mocked(useAnimatedReorder).mock.calls.find(([ids]) =>
@@ -1025,26 +1025,26 @@ it("only prepares visible shortcuts from a large history and animates the next p
     id: `entry-${index}`,
     content: () => prepare(index),
   }));
-  const props = await renderTree({ recentEntries: entries });
+  const props = await renderTree({ chatEntries: entries });
   const prepared = () => [...new Set(prepare.mock.calls.map(([index]) => index))];
   expect(prepared()).toEqual([0, 1, 2, 3, 4]);
   await renderTree({ ...props, expandedPaths: new Set() });
   expect(prepared()).toEqual([0, 1, 2, 3, 4]);
-  const recent = container.querySelector('[data-project-section="recent"]')!;
+  const chats = container.querySelector("[data-chat-project]")!;
   await act(async () =>
-    recent
+    chats
       .querySelector<HTMLButtonElement>("[data-sidebar-list-toggle]")!
       .click(),
   );
   expect(prepared()).toEqual(Array.from({ length: 10 }, (_, index) => index));
   expect(
-    recent
+    chats
       .querySelector('[data-history-entry="9"]')
       ?.closest<HTMLElement>(".zen-fold-item")?.dataset.foldState,
   ).toBe("opening");
   await renderTree({
     ...props,
-    recentEntries: [entries[1999]],
+    chatEntries: [entries[1999]],
     searchActive: true,
   });
   expect(container.querySelector('[data-history-entry="1999"]')).not.toBeNull();

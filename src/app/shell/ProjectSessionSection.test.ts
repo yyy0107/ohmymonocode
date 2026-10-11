@@ -2472,12 +2472,6 @@ describe("unified pinned sidebar group", () => {
     expect(props.onSelectRemoteSession).toHaveBeenCalledWith(B, "same");
     act(() => row(B, "native").click());
     expect(props.onSelectSession).toHaveBeenCalledWith("native", B);
-    vi.mocked(props.onSelectSession).mockClear();
-    const nativeRecent = container.querySelector<HTMLElement>(
-      `[data-project-section="recent"] [data-project-session-section="${B}"] [data-session-card="native"]`,
-    )!;
-    act(() => nativeRecent.click());
-    expect(props.onSelectSession).toHaveBeenCalledWith("native", B);
     expect(
       remoteState.subscriptions.mock.calls.every(([, enabled]) => !enabled),
     ).toBe(true);
@@ -2501,7 +2495,7 @@ describe("unified pinned sidebar group", () => {
     const toggle = () =>
       pinned.querySelector<HTMLButtonElement>("[data-sidebar-list-toggle]")!;
     expect(pinned.textContent).toContain("Pinned items");
-    expect(projects.textContent).toContain("Recent projects");
+    expect(projects.textContent).toContain("Projects");
     expect(
       pinned.querySelectorAll("[data-pinned-session-shortcut]"),
     ).toHaveLength(5);
@@ -2542,24 +2536,33 @@ describe("unified pinned sidebar group", () => {
   });
 });
 
-describe("recent sidebar conversations", () => {
-  const recent = () =>
-    container.querySelector('[data-project-section="recent"]')!;
-  const recentIds = () =>
-    [...recent().querySelectorAll<HTMLElement>("[data-session-card]")].map(
+describe("sidebar chat conversations", () => {
+  const C1 = "/home/me/Documents/ohmymonocode/2026-10-11/chat-101010-aaaaaa";
+  const C2 = "/home/me/Documents/ohmymonocode/2026-10-11/chat-202020-bbbbbb";
+  beforeEach(() => {
+    localStorage.setItem("monocode.chatFolders.v1", JSON.stringify([C1, C2]));
+    props.cwd = C1;
+    props.recents = [];
+    props.sessions = [summary("a", C1, "Alpha conversation")];
+    props.projectHistory = [...props.sessions, summary("b", C2, "Hidden conversation")];
+    props.loadedProjectPaths = new Set([C1, C2]);
+  });
+  const chats = () => container.querySelector("[data-chat-project]")!;
+  const chatIds = () =>
+    [...chats().querySelectorAll<HTMLElement>("[data-session-card]")].map(
       (row) => row.dataset.sessionCard,
     );
 
-  it("shows one recent shortcut per session after repeated canonical history loads through a project alias", () => {
+  it("shows one chat shortcut per session after repeated canonical history loads through a project alias", () => {
     const alias = "/home/me/alpha";
-    const conversation = summary("same-session", A, "问题咨询");
+    const conversation = summary("same-session", C1, "问题咨询");
     props.projectHistory = [conversation];
     props.sessions = [conversation];
     props.activeSessionId = conversation.id;
-    props.recents = [{ path: A, openedAt: 1 }];
+    props.recents = [{ path: C1, openedAt: 1 }];
     saveProjectTreeExpanded([]);
     act(() => render());
-    expect(recentIds()).toEqual([conversation.id]);
+    expect(chatIds()).toEqual([conversation.id]);
 
     for (let refresh = 0; refresh < 3; refresh++) {
       props.projectHistory = replaceProjectHistory(
@@ -2568,26 +2571,26 @@ describe("recent sidebar conversations", () => {
         [{ ...conversation, updatedAt: conversation.updatedAt + refresh + 1 }],
       );
       act(() => render());
-      expect(recentIds()).toEqual([conversation.id]);
+      expect(chatIds()).toEqual([conversation.id]);
     }
 
-    const otherConversation = summary("another-session", A, "问题咨询");
+    const otherConversation = summary("another-session", C1, "问题咨询");
     props.projectHistory = replaceProjectHistory(
       props.projectHistory,
       alias,
       [conversation, otherConversation],
     );
     act(() => render());
-    expect(recentIds().sort()).toEqual([otherConversation.id, conversation.id]);
+    expect(chatIds().sort()).toEqual([otherConversation.id, conversation.id]);
   });
 
-  const recentCard = (path: string, id: string) =>
-    recent().querySelector<HTMLElement>(
+  const chatCard = (path: string, id: string) =>
+    chats().querySelector<HTMLElement>(
       `[data-project-session-section="${path}"] [data-session-card="${id}"]`,
     )!;
-  const pickRecentAction = async (path: string, id: string, label: string) => {
+  const pickChatAction = async (path: string, id: string, label: string) => {
     await act(async () =>
-      recentCard(path, id).dispatchEvent(
+      chatCard(path, id).dispatchEvent(
         new MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
       ),
     );
@@ -2597,9 +2600,9 @@ describe("recent sidebar conversations", () => {
     expect(item, label).toBeDefined();
     await act(async () => item.click());
   };
-  const renameRecent = async (path: string, id: string, title: string) => {
-    await pickRecentAction(path, id, "Rename");
-    const renameInput = recent().querySelector<HTMLInputElement>(
+  const renameChat = async (path: string, id: string, title: string) => {
+    await pickChatAction(path, id, "Rename");
+    const renameInput = chats().querySelector<HTMLInputElement>(
       `[data-project-session-section="${path}"] [data-session-rename-row="${id}"] input`,
     )!;
     const setter = Object.getOwnPropertyDescriptor(
@@ -2621,7 +2624,7 @@ describe("recent sidebar conversations", () => {
     );
   };
 
-  it("keeps rename, pin, unpin, archive and delete actions on an inactive local project's recent shortcut", async () => {
+  it("keeps rename, pin, unpin, archive and delete actions on an inactive local chat shortcut", async () => {
     props.onRenameSession = vi.fn();
     props.onPinSession = vi.fn();
     props.onArchiveSession = vi.fn();
@@ -2629,29 +2632,29 @@ describe("recent sidebar conversations", () => {
     saveProjectTreeExpanded([]);
     act(() => render());
 
-    await renameRecent(B, "b", "Renamed from recents");
+    await renameChat(C2, "b", "Renamed chat");
     expect(props.onRenameSession).toHaveBeenCalledExactlyOnceWith(
       "b",
-      "Renamed from recents",
+      "Renamed chat",
     );
-    await pickRecentAction(B, "b", "Pin");
+    await pickChatAction(C2, "b", "Pin");
     expect(props.onPinSession).toHaveBeenLastCalledWith("b", true);
     props.projectHistory = props.projectHistory!.map((row) =>
       row.id === "b" ? { ...row, pinned: true } : row,
     );
     act(() => render());
-    await pickRecentAction(B, "b", "Unpin");
+    await pickChatAction(C2, "b", "Unpin");
     expect(props.onPinSession).toHaveBeenLastCalledWith("b", false);
-    await pickRecentAction(B, "b", "Archive");
+    await pickChatAction(C2, "b", "Archive");
     expect(props.onArchiveSession).toHaveBeenCalledExactlyOnceWith("b", true);
-    await pickRecentAction(B, "b", "Delete");
+    await pickChatAction(C2, "b", "Delete");
     expect(props.onDeleteSession).toHaveBeenCalledExactlyOnceWith("b");
     expect(props.onSelectSession).not.toHaveBeenCalled();
     expect(props.onSelectProject).not.toHaveBeenCalled();
     expect(container.querySelector("[data-project-children]")).toBeNull();
   });
 
-  it("scopes recent Host mutations to the correct project when another project has the same session ID", async () => {
+  it("scopes chat Host mutations to the correct project when another project has the same session ID", async () => {
     const machine = {
       id: "machine",
       name: "Host",
@@ -2661,14 +2664,14 @@ describe("recent sidebar conversations", () => {
     configureSharedHost(
       machine.environmentId,
       [
-        { id: "alpha-host", cwd: A, name: "alpha" },
-        { id: "beta-host", cwd: B, name: "beta" },
+        { id: "alpha-host", cwd: C1, name: "alpha" },
+        { id: "beta-host", cwd: C2, name: "beta" },
       ],
       machine.id,
     );
-    for (const path of [A, B]) {
+    for (const path of [C1, C2]) {
       remoteState.rows.set(path, [
-        hostRow("same", path === A ? "Alpha" : "Beta"),
+        hostRow("same", path === C1 ? "Alpha" : "Beta"),
       ]);
       remoteState.states.set(path, { machine });
     }
@@ -2681,15 +2684,15 @@ describe("recent sidebar conversations", () => {
     saveProjectTreeExpanded([]);
     act(() => render());
 
-    await renameRecent(B, "same", "Beta renamed");
-    await pickRecentAction(B, "same", "Pin");
-    remoteState.rows.set(B, [
+    await renameChat(C2, "same", "Beta renamed");
+    await pickChatAction(C2, "same", "Pin");
+    remoteState.rows.set(C2, [
       { ...hostRow("same", "Beta renamed"), pinned: true },
     ]);
     act(() => render());
-    await pickRecentAction(B, "same", "Unpin");
-    await pickRecentAction(B, "same", "Archive");
-    await pickRecentAction(B, "same", "Delete");
+    await pickChatAction(C2, "same", "Unpin");
+    await pickChatAction(C2, "same", "Archive");
+    await pickChatAction(C2, "same", "Delete");
 
     expect(remoteState.request.mock.calls).toEqual([
       [
@@ -2721,7 +2724,7 @@ describe("recent sidebar conversations", () => {
     expect(remoteState.refresh).toHaveBeenCalledTimes(5);
     expect(props.onRemoteSessionDeleted).toHaveBeenCalledExactlyOnceWith(
       "same",
-      B,
+      C2,
     );
     for (const callback of [
       props.onRenameSession,
@@ -2730,14 +2733,14 @@ describe("recent sidebar conversations", () => {
       props.onDeleteSession,
     ])
       expect(callback).not.toHaveBeenCalled();
-    expect(recentCard(A, "same").textContent).toContain("Alpha");
+    expect(chatCard(C1, "same").textContent).toContain("Alpha");
     expect(props.onSelectProject).not.toHaveBeenCalled();
     expect(
       remoteState.subscriptions.mock.calls.every(([, enabled]) => !enabled),
     ).toBe(true);
   });
 
-  it("applies provider, time, archive and running-status filters to recent rows", () => {
+  it("applies provider, time, archive and running-status filters to chat rows", () => {
     localStorage.setItem(
       "monocode.sessionSidebarFilters",
       JSON.stringify({
@@ -2747,12 +2750,12 @@ describe("recent sidebar conversations", () => {
       }),
     );
     props.projectHistory = [
-      { ...summary("running", B), harness: "pi", updatedAt: Date.now() },
-      { ...summary("hidden", A), updatedAt: Date.now() },
-      { ...summary("old", A), harness: "pi", updatedAt: 0 },
-      { ...summary("waiting", B), harness: "pi", updatedAt: Date.now() },
+      { ...summary("running", C2), harness: "pi", updatedAt: Date.now() },
+      { ...summary("hidden", C1), updatedAt: Date.now() },
+      { ...summary("old", C1), harness: "pi", updatedAt: 0 },
+      { ...summary("waiting", C2), harness: "pi", updatedAt: Date.now() },
       {
-        ...summary("archived", B),
+        ...summary("archived", C2),
         harness: "pi",
         updatedAt: Date.now(),
         archived: true,
@@ -2762,43 +2765,112 @@ describe("recent sidebar conversations", () => {
     props.approvalSessionIds = new Set(["waiting"]);
     saveProjectTreeExpanded([]);
     act(() => render());
-    expect(recentIds()).toEqual(["running"]);
+    expect(chatIds()).toEqual(["running"]);
   });
 
-  it("sorts across collapsed projects by update time regardless of pins and refreshes after activity", () => {
+  it("sorts chats by update time regardless of pins and refreshes after activity", () => {
     props.projectHistory = [
-      { ...summary("old-pin", A), updatedAt: 1, pinned: true },
-      { ...summary("latest", B), updatedAt: 30 },
-      { ...summary("middle", A), updatedAt: 20 },
-      { ...summary("archived", B), updatedAt: 40, archived: true },
-      { ...summary("worker", B), updatedAt: 50, orchestrationLeadId: "lead" },
+      { ...summary("old-pin", C1), updatedAt: 1, pinned: true },
+      { ...summary("latest", C2), updatedAt: 30 },
+      { ...summary("middle", C1), updatedAt: 20 },
+      { ...summary("archived", C2), updatedAt: 40, archived: true },
+      { ...summary("worker", C2), updatedAt: 50, orchestrationLeadId: "lead" },
     ];
     saveProjectTreeExpanded([]);
     props.onSessionNavigationOrder = vi.fn();
     act(() => render());
-    expect(recentIds()).toEqual(["latest", "middle", "old-pin"]);
-    expect(recent().textContent).toContain("Recent sessions");
+    expect(chatIds()).toEqual(["latest", "middle", "old-pin"]);
+    expect(chats().textContent).toContain("Chats");
     expect(card("latest")).toBeNull();
     act(() =>
-      recent()
+      chats()
         .querySelector<HTMLElement>('[data-session-card="latest"]')!
         .click(),
     );
-    expect(props.onSelectSession).toHaveBeenCalledWith("latest", B);
+    expect(props.onSelectSession).toHaveBeenCalledWith("latest", C2);
     expect(props.onSessionNavigationOrder).toHaveBeenCalledWith([]);
     props.projectHistory = props.projectHistory.map((row) =>
       row.id === "middle" ? { ...row, updatedAt: 60 } : row,
     );
     act(() => render());
-    expect(recentIds()).toEqual(["middle", "latest", "old-pin"]);
-    pickScope(B);
-    settleFolds();
-    expect(recentIds()).toEqual(["latest"]);
+    expect(chatIds()).toEqual(["middle", "latest", "old-pin"]);
     query("no matching conversation");
     settleFolds();
-    expect(recentIds()).toEqual([]);
+    expect(chats()).toBeNull();
   });
 
+  it("keeps an independent five-row preview with animated closing and rapid reversal", () => {
+    props.projectHistory = Array.from({ length: 12 }, (_, index) => ({
+      ...summary(`chat-${index}`, index % 2 ? C1 : C2),
+      updatedAt: 100 - index,
+    }));
+    saveProjectTreeExpanded([]);
+    act(() => render());
+    const toggle = () =>
+      chats().querySelector<HTMLButtonElement>("[data-sidebar-list-toggle]")!;
+    expect(chatIds()).toHaveLength(5);
+    act(() => toggle().click());
+    expect(chatIds()).toHaveLength(10);
+    act(() => toggle().click());
+    expect(chatIds()).toHaveLength(12);
+    act(() => toggle().click());
+    const closing = chats().querySelector<HTMLElement>(
+      '[data-fold-state="closing"]',
+    )!;
+    expect(closing.inert).toBe(true);
+    act(() => toggle().click());
+    settleFolds();
+    expect(chatIds()).toHaveLength(10);
+    act(() => toggle().click());
+    act(() => toggle().click());
+    settleFolds();
+    expect(chatIds()).toHaveLength(5);
+    expect(project(C1)).toBeNull();
+    query("chat-11");
+    settleFolds();
+    expect(chatIds()).toEqual(["chat-11"]);
+  });
+
+  it("deduplicates blank Host shells while preserving project-scoped IDs and routes", () => {
+    configureSharedHost("machine", [
+      { id: "alpha-host", cwd: C1, name: "alpha" },
+      { id: "beta-host", cwd: C2, name: "beta" },
+    ]);
+    remoteState.rows.set(C1, [{ ...hostRow("same", "Alpha"), updatedAt: 10 }]);
+    remoteState.rows.set(C2, [{ ...hostRow("same", "Beta"), updatedAt: 20 }]);
+    remoteState.bindings.set("blank-shell", "blank");
+    props.openSessions = [
+      { ...summary("shell:same", C1), updatedAt: 10 },
+      {
+        ...summary("blank-shell", C2),
+        title: "",
+        updatedAt: 30,
+      },
+    ];
+    props.onSelectRemoteSession = vi.fn();
+    props.cwd = C2;
+    props.activeSessionId = "blank-shell";
+    saveProjectTreeExpanded([]);
+    act(() => render());
+    expect(chatIds()).toEqual(["blank", "same", "same"]);
+    const row = (path: string, id: string) =>
+      chats().querySelector<HTMLElement>(
+        `[data-project-session-section="${path}"] [data-session-card="${id}"]`,
+      )!;
+    expect(
+      row(C2, "blank").querySelector('[aria-current="true"]'),
+    ).not.toBeNull();
+    act(() => row(C2, "same").click());
+    expect(props.onSelectRemoteSession).toHaveBeenCalledWith(C2, "same");
+    act(() => row(C1, "same").click());
+    expect(props.onSelectRemoteSession).toHaveBeenCalledWith(C1, "same");
+    expect(
+      remoteState.subscriptions.mock.calls.every(([, enabled]) => !enabled),
+    ).toBe(true);
+  });
+});
+
+describe("project conversation summaries", () => {
   it("keeps a new live conversation first through project switches, collapse and stale history", () => {
     props.projectHistory = [summary("older", A), { ...summary("middle", A), updatedAt: 2_000 }];
     props.openSessions = [{ ...summary("new", A), updatedAt: 3_000 }];
@@ -2815,95 +2887,6 @@ describe("recent sidebar conversations", () => {
     act(() => render());
     expand(A);
     expect(projectIds()).toEqual(["new", "middle", "older"]);
-    expect(recentIds()).toEqual(["new", "middle", "older"]);
-  });
-
-  it("keeps paging recent conversations for a chosen project and restarts it per project", () => {
-    props.projectHistory = Array.from({ length: 12 }, (_, index) => ({
-      ...summary(`recent-${index}`, index % 2 ? A : B),
-      updatedAt: 100 - index,
-    }));
-    saveProjectTreeExpanded([]);
-    act(() => render());
-    const toggle = () =>
-      recent().querySelector<HTMLButtonElement>("[data-sidebar-list-toggle]")!;
-    pickScope(B);
-    expect(recentIds()).toEqual([0, 2, 4, 6, 8].map((n) => `recent-${n}`));
-    act(() => toggle().click());
-    expect(recentIds()).toHaveLength(6);
-    pickScope(A);
-    expect(recentIds()).toHaveLength(5);
-    expect(toggle()).not.toBeNull();
-  });
-
-  it("keeps an independent five-row preview with animated closing and rapid reversal", () => {
-    props.projectHistory = Array.from({ length: 12 }, (_, index) => ({
-      ...summary(`recent-${index}`, index % 2 ? A : B),
-      updatedAt: 100 - index,
-    }));
-    saveProjectTreeExpanded([]);
-    act(() => render());
-    const toggle = () =>
-      recent().querySelector<HTMLButtonElement>("[data-sidebar-list-toggle]")!;
-    expect(recentIds()).toHaveLength(5);
-    act(() => toggle().click());
-    expect(recentIds()).toHaveLength(10);
-    act(() => toggle().click());
-    expect(recentIds()).toHaveLength(12);
-    act(() => toggle().click());
-    const closing = recent().querySelector<HTMLElement>(
-      '[data-fold-state="closing"]',
-    )!;
-    expect(closing.inert).toBe(true);
-    act(() => toggle().click());
-    settleFolds();
-    expect(recentIds()).toHaveLength(10);
-    act(() => toggle().click());
-    act(() => toggle().click());
-    settleFolds();
-    expect(recentIds()).toHaveLength(5);
-    expect(project(A).querySelector("[data-project-children]")).toBeNull();
-    query("recent-11");
-    settleFolds();
-    expect(recentIds()).toEqual(["recent-11"]);
-  });
-
-  it("deduplicates blank Host shells while preserving project-scoped IDs and routes", () => {
-    configureSharedHost("machine", [
-      { id: "alpha-host", cwd: A, name: "alpha" },
-      { id: "beta-host", cwd: B, name: "beta" },
-    ]);
-    remoteState.rows.set(A, [{ ...hostRow("same", "Alpha"), updatedAt: 10 }]);
-    remoteState.rows.set(B, [{ ...hostRow("same", "Beta"), updatedAt: 20 }]);
-    remoteState.bindings.set("blank-shell", "blank");
-    props.openSessions = [
-      { ...summary("shell:same", A), updatedAt: 10 },
-      {
-        ...summary("blank-shell", B),
-        title: "",
-        updatedAt: 30,
-      },
-    ];
-    props.onSelectRemoteSession = vi.fn();
-    props.cwd = B;
-    props.activeSessionId = "blank-shell";
-    saveProjectTreeExpanded([]);
-    act(() => render());
-    expect(recentIds()).toEqual(["blank", "same", "same"]);
-    const row = (path: string, id: string) =>
-      recent().querySelector<HTMLElement>(
-        `[data-project-session-section="${path}"] [data-session-card="${id}"]`,
-      )!;
-    expect(
-      row(B, "blank").querySelector('[aria-current="true"]'),
-    ).not.toBeNull();
-    act(() => row(B, "same").click());
-    expect(props.onSelectRemoteSession).toHaveBeenCalledWith(B, "same");
-    act(() => row(A, "same").click());
-    expect(props.onSelectRemoteSession).toHaveBeenCalledWith(A, "same");
-    expect(
-      remoteState.subscriptions.mock.calls.every(([, enabled]) => !enabled),
-    ).toBe(true);
   });
 
   it("loads collapsed local and Host summaries before searching and localizes the headings", async () => {
@@ -2935,16 +2918,15 @@ describe("recent sidebar conversations", () => {
     expect(props.onPrefetchRemoteProject).toHaveBeenCalledExactlyOnceWith(
       remote.key,
     );
-    expect(recentIds()).toEqual(["host-recent", "loaded"]);
     expect(container.querySelector("[data-project-children]")).toBeNull();
     expect(
       remoteState.subscriptions.mock.calls.every(([, enabled]) => !enabled),
     ).toBe(true);
     act(() => setUiLanguage("zh-CN"));
-    expect(recent().textContent).toContain("最近会话");
+    expect(container.querySelector('[data-project-section="recent"]')).toBeNull();
     expect(
       container.querySelector('[data-project-section="projects"]')!.textContent,
-    ).toContain("最近项目");
+    ).toContain("项目");
   });
 });
 
@@ -3007,11 +2989,8 @@ describe("unified project search loading", () => {
     await act(async () => query(""));
     settleFolds();
     expect(card("host-match")).toBeNull();
-    expect(
-      container.querySelector(
-        '[data-project-section="recent"] [data-session-card="host-match"]',
-      ),
-    ).not.toBeNull();
+    expand(B);
+    expect(card("host-match")).not.toBeNull();
   });
 
   it("retains a failed nonmatching remote project and its error when a search retry also fails", async () => {
@@ -3218,7 +3197,7 @@ describe("chat project row", () => {
       (row) => row.dataset.sessionCard,
     );
 
-  it("lists chat-folder conversations first among projects, keeps them in recents and starts new chats", () => {
+  it("places chats before workflows and projects without recent-session duplicates and starts new chats", () => {
     localStorage.setItem("monocode.chatFolders.v1", JSON.stringify([C1, C2]));
     props.projectHistory = [
       { ...summary("older-chat", C1), updatedAt: 10 },
@@ -3230,18 +3209,18 @@ describe("chat project row", () => {
       { path: C1, openedAt: 2 },
     ];
     props.onNewChat = vi.fn();
+    props.workflowsSection = createElement("button", null, "Saved workflows");
     saveProjectTreeExpanded([]);
     act(() => render());
     const projects = container.querySelector('[data-project-section="projects"]')!;
-    expect(projects.firstElementChild?.nextElementSibling?.querySelector("[data-chat-project]")).not.toBeNull();
+    expect(projects.querySelector("[data-chat-project]")).toBeNull();
+    expect([...container.querySelectorAll<HTMLElement>("[data-project-section]")]
+      .map((section) => section.dataset.projectSection)).toEqual(["chats", "workflows", "projects"]);
+    expect(projects.textContent).toContain("Projects");
     expect(chatIds()).toEqual(["newer-chat", "older-chat"]);
     expect(project(C1)).toBeNull();
-    const recentIds = [
-      ...container.querySelectorAll<HTMLElement>(
-        '[data-project-section="recent"] [data-session-card]',
-      ),
-    ].map((row) => row.dataset.sessionCard);
-    expect(recentIds).toEqual(["newer-chat", "project", "older-chat"]);
+    expect(container.querySelector('[data-project-section="recent"]')).toBeNull();
+    expect(container.querySelectorAll('[data-session-card="newer-chat"]')).toHaveLength(1);
     act(() =>
       chatRow()
         .querySelector<HTMLElement>('[data-session-card="newer-chat"]')!
@@ -3260,5 +3239,8 @@ describe("chat project row", () => {
     ).toBe("false");
     act(() => setUiLanguage("zh-CN"));
     expect(chatRow().textContent).toContain("聊天");
+    expect(projects.textContent).toContain("项目");
+    expect(container.textContent).not.toContain("最近项目");
+    expect(container.textContent).not.toContain("最近会话");
   });
 });

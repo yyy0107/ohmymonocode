@@ -137,9 +137,7 @@ export type ProjectListProps = {
   /** Full project counts, independent of the current sidebar filter/preview. */
   projectSummaries?: ReadonlyMap<string, ProjectHoverSummary>;
   pinnedEntries?: ProjectListEntry[];
-  recentEntries?: ProjectListEntry[];
-  recentPending?: boolean;
-  /** Projectless chats, listed under a "Chats" row atop the projects. */
+  /** Projectless chats, listed under a "Chats" row above workflows and projects. */
   chatEntries?: ProjectListEntry[];
   /** Starts a projectless chat from the Chats row. */
   onNewChat?: () => void;
@@ -206,8 +204,6 @@ export function ProjectList({
   previewKey = "",
   projectSummaries,
   pinnedEntries = [],
-  recentEntries,
-  recentPending = false,
   chatEntries,
   onNewChat,
   workflowsSection,
@@ -535,24 +531,6 @@ export function ProjectList({
     onReorderProjects(ids.filter((id) => allProjects.has(pathKey(id))));
   };
 
-  const chatProjectEntries = useMemo(
-    () =>
-      chatEntries === undefined || compact
-        ? []
-        : [
-            {
-              id: "chat-project",
-              content: () => (
-                <ChatProjectCard
-                  entries={chatEntries}
-                  searchActive={searchActive}
-                  onNewChat={onNewChat}
-                />
-              ),
-            },
-          ],
-    [chatEntries, compact, searchActive, onNewChat],
-  );
   return (
     <ProjectSummaryContext.Provider
       value={{
@@ -611,44 +589,17 @@ export function ProjectList({
             />
           ) : null}
 
-          {recentEntries !== undefined ? (
-            <ProjectSection
-              compact={compact}
-              label={uiT("Recent sessions")}
-              section="recent"
-              expanded={sectionExpanded("recent")}
-              onToggleExpanded={() => toggleSection("recent")}
-              leadingEntries={recentEntries}
-              items={[]}
-              emptyLabel={
-                recentPending
-                  ? undefined
-                  : uiT(
-                      searchActive
-                        ? "No matching sessions"
-                        : "Sessions you start will show up here",
-                    )
-              }
-              muteStatuses={muteStatuses}
-              cwd={cwd}
-              busy={busy}
-              statsEnabled={false}
-              tree={tree}
-              onReorder={onReorderProjects}
-              pinned={false}
-              searchActive={searchActive}
-              previewAll={previewAll}
-              previewKey={previewKey}
-              onSelect={onSelectProject}
-              onTogglePin={toggleProjectPin}
-              onContextMenu={onProjectContextMenu}
-              onOpenMenu={projectMenu.open}
-              groupLabels={groupLabels}
-              groupColors={groupColors}
-              groupCustomColors={groupCustomColors}
-              groupLogos={groupLogos}
-              groupMascots={groupMascots}
-            />
+          {chatEntries !== undefined && !compact ? (
+            <div
+              data-project-section="chats"
+              className={`shrink-0 px-2 ${tree ? "mb-1" : "mb-2"}`}
+            >
+              <ChatProjectCard
+                entries={chatEntries}
+                searchActive={searchActive}
+                onNewChat={onNewChat}
+              />
+            </div>
           ) : null}
 
           {workflowsSection && !compact ? (
@@ -740,10 +691,9 @@ export function ProjectList({
 
           <ProjectSection
             compact={compact}
-            label={uiT("Recent projects")}
+            label={uiT("Projects")}
             expanded={sectionExpanded("projects")}
             onToggleExpanded={() => toggleSection("projects")}
-            leadingEntries={chatProjectEntries}
             items={groupedProjectSections.ungrouped}
             muteStatuses={muteStatuses}
             emptyLabel={
@@ -803,7 +753,6 @@ function ProjectSection({
   items,
   leadingEntries = [],
   itemOrder,
-  section,
   muteStatuses,
   emptyLabel,
   onAdd,
@@ -834,7 +783,6 @@ function ProjectSection({
   items: RecentProject[];
   leadingEntries?: ProjectListEntry[];
   itemOrder?: string[];
-  section?: "recent";
   muteStatuses: ReadonlyMap<string, string | null>;
   emptyLabel?: string;
   onAdd?: () => void;
@@ -906,7 +854,7 @@ function ProjectSection({
   return (
     <div
       className={compact ? "shrink-0" : `shrink-0 ${tree ? "mb-1" : "mb-2"}`}
-      data-project-section={section ?? (pinned ? "pinned" : "projects")}
+      data-project-section={pinned ? "pinned" : "projects"}
     >
       {compact || hideHeader ? null : (
         <ProjectSectionHeader
@@ -1093,7 +1041,7 @@ function ProjectSectionHeader({
 
 const CHAT_PROJECT_EXPANDED_KEY = "monocode.chatProjectExpanded.v1";
 
-/** Projectless chats grouped like one project at the top of the project list. */
+/** Projectless chats grouped above workflows and projects. */
 function ChatProjectCard({
   entries,
   searchActive,

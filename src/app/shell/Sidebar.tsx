@@ -321,7 +321,7 @@ function SidebarComponent(props: SidebarProps) {
   useEffect(() => {
     searchContext.current.active =
       (searchActive && open) || loadAllProjectSummaries;
-    // Recent shortcuts need summaries even for projects that remain collapsed.
+    // Pinned shortcuts need summaries even for projects that remain collapsed.
     // Share the bounded search loader rather than opening/polling every section.
     if ((!searchActive || !open) && !loadAllProjectSummaries) {
       searchQueue.current = [];
@@ -421,7 +421,7 @@ function SidebarComponent(props: SidebarProps) {
   }, [props.openSessions]);
   const projectOpenSessions = (path: string): readonly SessionSummary[] =>
     openSessionsByProject.get(pathKey(path)) ?? NO_SESSIONS;
-  // Track every cached project here so filtering, folding and recent-row
+  // Track every cached project here so filtering, folding and shortcut-row
   // remounts cannot lose replies received by an unopened Host conversation.
   const remoteUnreadTrackers = useRef(new Map<string, RemoteSessionUnread>());
   const remoteUnreadByProject = new Map<string, Set<string>>();
@@ -480,7 +480,7 @@ function SidebarComponent(props: SidebarProps) {
     (path: string) => {
       const key = pathKey(path);
       if (hoverRequests.current.has(key)) return;
-      // Recent shortcuts and expanded sections may already be loading this
+      // Pinned shortcuts and expanded sections may already be loading this
       // history. Opening their summary should reuse that request.
       if (
         searchInFlight.current.has(key) ||
@@ -1067,12 +1067,14 @@ function SidebarComponent(props: SidebarProps) {
           })
           .sort(compareSessionSummaries);
   const pinnedSessions = shortcutSessions.filter((session) => session.pinned);
-  const recentSessions = [...shortcutSessions].sort(
-    (a, b) =>
-      sessionRecencyAt(b) - sessionRecencyAt(a) ||
-      pathKey(a.cwd).localeCompare(pathKey(b.cwd)) ||
-      a.id.localeCompare(b.id),
-  );
+  const chatSessions = shortcutSessions
+    .filter((session) => isChatFolder(session.cwd))
+    .sort(
+      (a, b) =>
+        sessionRecencyAt(b) - sessionRecencyAt(a) ||
+        pathKey(a.cwd).localeCompare(pathKey(b.cwd)) ||
+        a.id.localeCompare(b.id),
+    );
 
   const filterSummaries: SessionSummary[] = [...projectHistory];
   for (const { path } of projects) {
@@ -1303,23 +1305,12 @@ function SidebarComponent(props: SidebarProps) {
                 id: JSON.stringify([pathKey(session.cwd), session.id]),
                 content: () => renderChildren(session.cwd, session.id),
               })) : undefined}
-              recentEntries={
+              chatEntries={
                 props.recents !== undefined && tab === "sessions"
-                  ? recentSessions.map((session) => ({
+                  ? chatSessions.map((session) => ({
                       id: `${pathKey(session.cwd)}:${session.id}`,
                       content: () => renderChildren(session.cwd, session.id),
                     }))
-                  : undefined
-              }
-              recentPending={summariesPending}
-              chatEntries={
-                props.recents !== undefined && tab === "sessions"
-                  ? recentSessions
-                      .filter((session) => isChatFolder(session.cwd))
-                      .map((session) => ({
-                        id: `${pathKey(session.cwd)}:${session.id}`,
-                        content: () => renderChildren(session.cwd, session.id),
-                      }))
                   : undefined
               }
               onNewChat={props.onNewChat}

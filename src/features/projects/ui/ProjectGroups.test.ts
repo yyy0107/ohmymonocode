@@ -81,12 +81,12 @@ function button(label: string): HTMLButtonElement {
 function sectionLabels(): string[] {
   return [...container.querySelectorAll("span")]
     .map((element) => element.textContent ?? "")
-    .filter((text) => ["Pinned", "Groups", "Recent projects"].includes(text));
+    .filter((text) => ["Pinned", "Groups", "Projects"].includes(text));
 }
 
 it("creates, styles, assigns, and deletes a group from the project list", async () => {
   await renderRail();
-  expect(sectionLabels()).toEqual(["Recent projects"]);
+  expect(sectionLabels()).toEqual(["Projects"]);
   expect(
     document.querySelector('button[aria-label="New project group"]'),
   ).toBeNull();
@@ -140,7 +140,7 @@ it("creates, styles, assigns, and deletes a group from the project list", async 
   expect(loadProjectGroups()).toEqual([]);
   expect(loadProjectGroupAssignments()).toEqual({});
   expect(button("personal")).toBeDefined();
-  expect(sectionLabels()).toEqual(["Recent projects"]);
+  expect(sectionLabels()).toEqual(["Projects"]);
   expect(
     document.querySelector('button[aria-label="New project group"]'),
   ).toBeNull();
