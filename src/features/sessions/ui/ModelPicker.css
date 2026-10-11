@@ -16,6 +16,11 @@
   border-radius: 8px;
 }
 
+/* Rows own hover/highlight; the check mark marks the current model. */
+.composer-popover[data-model-picker] [role="listbox"] button[role="option"] {
+  background: transparent;
+}
+
 .codex-effort-option {
   position: relative;
   isolation: isolate;
