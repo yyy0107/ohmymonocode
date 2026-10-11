@@ -5,6 +5,7 @@ import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import {
   Check,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Gauge,
   Loader,
@@ -863,6 +864,7 @@ export function ModelPicker({
             {submenu?.kind === "models" ? (
               <ModelBrowser
                 autoFocusSearch
+                onBack={goBack}
                 harnesses={pickerHarnesses}
                 tab={visibleTab}
                 models={visibleModels}
@@ -880,6 +882,10 @@ export function ModelPicker({
               />
             ) : submenu?.kind === "setting" ? (
               <>
+                <BackHeader
+                  label={settingLabel(submenu.setting)}
+                  onBack={goBack}
+                />
                 {submenu.setting.options.map((option, index) => {
                   const selected =
                     option.value === settingValue(submenu.setting, values);
@@ -1374,6 +1380,8 @@ function SelectPill({
 
 type ModelBrowserProps = {
   autoFocusSearch?: boolean;
+  /** Shows a back button that returns to the settings menu. */
+  onBack?: () => void;
   harnesses: HarnessId[];
   tab: ModelPickerTab;
   models: AgentModel[];
@@ -1433,8 +1441,33 @@ function ModelFlyout({
   );
 }
 
+function BackHeader({
+  label,
+  onBack,
+}: {
+  label: string;
+  onBack: () => void;
+}) {
+  const { t: uiT } = useTranslation();
+  // The whole row is the back target, not just the chevron.
+  return (
+    <button
+      type="button"
+      title={uiT("Back")}
+      aria-label={uiT("Back")}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={onBack}
+      className="mb-1 flex h-8 w-full shrink-0 items-center gap-1.5 rounded-lg px-2 text-left text-[12px] text-content/55 hover:bg-content/5 hover:text-content"
+    >
+      <ChevronLeft className="size-3.5 shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+    </button>
+  );
+}
+
 function ModelBrowser({
   autoFocusSearch = false,
+  onBack,
   harnesses,
   tab,
   models,
@@ -1541,6 +1574,11 @@ function ModelBrowser({
         if (item) onPick(item);
       }}
     >
+      {onBack ? (
+        <div className="shrink-0 p-1 pb-0">
+          <BackHeader label={uiT("Model")} onBack={onBack} />
+        </div>
+      ) : null}
       <label className="flex shrink-0 items-center gap-2 border-b border-stroke px-3 py-2 text-content/50">
         <Search className="size-3.5 shrink-0" />
         <input

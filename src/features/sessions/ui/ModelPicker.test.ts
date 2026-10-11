@@ -229,8 +229,24 @@ describe("model picker", () => {
     choose("Service Tier", "Fast");
     expect(onSettingsChange).toHaveBeenLastCalledWith({ reasoningEffort: "low", serviceTier: "fast" });
 
+    // Both sub-views can return without choosing or changing an option.
+    onSettingsChange.mockClear();
+    for (const label of ["Model", "Reasoning"]) {
+      press(row(label));
+      const back = container.querySelector<HTMLButtonElement>(
+        '[data-model-picker] button[aria-label="Back"]',
+      )!;
+      expect(back).not.toBeNull();
+      press(back);
+      expect(menu.getAttribute("aria-label")).toBe("Model and settings");
+      expect(trigger.getAttribute("aria-expanded")).toBe("true");
+      expect(trigger.textContent).toContain("First");
+      expect(row("Reasoning").textContent).toContain("Low");
+      expect(onSettingsChange).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
+    }
+
     press(row("Model"));
-    expect(container.querySelector('[data-model-picker] button[aria-label="Back"]')).toBeNull();
     // Switching provider tabs stays in the model list.
     const tab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-selected="true"]')!;
     press(tab);
