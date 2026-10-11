@@ -67,6 +67,10 @@ import { NoteMiniCard } from "../../notes/ui/NoteMiniCard";
 
 import { TerminalSpinner } from "./TerminalSpinner";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
+import {
+  SurfaceVisibilityContext,
+  useSurfaceVisibility,
+} from "../../../shared/ui/SurfaceVisibility";
 import { Popover } from "../../../shared/ui/Popover";
 import { ProjectMascot } from "../../projects/ui/ProjectMascot";
 import { useProjectMascotAppearance } from "../../projects/ui/useProjectMascotAppearance";
@@ -205,6 +209,8 @@ const TranscriptClockOffset = createContext(0);
 type Props = {
   clockOffsetMs?: number;
   blocks: Block[];
+  /** Restored history may arrive after the cached transcript is already visible. */
+  historyEntries?: readonly { id: string; text: string }[];
   busy?: boolean;
   cwd?: string;
   harness?: HarnessId;
@@ -264,6 +270,7 @@ type Props = {
 
 function AgentTranscriptComponent({
   blocks: sourceBlocks,
+  historyEntries,
   busy,
   cwd,
   harness,
@@ -308,6 +315,7 @@ function AgentTranscriptComponent({
 }: Props) {
   const basePlatform = useTranscriptRenderingPlatform(sourceBlocks, {
     animateFrom,
+    historyEntries,
   });
   const renderingPlatform = useMemo(
     () => onOpenAgent ? { ...basePlatform, openAgent: onOpenAgent } : basePlatform,
@@ -705,8 +713,8 @@ function AgentTranscriptComponent({
 
   // In the chat layout a sent prompt scrolls into its laid-out row with the
   // turns above it, whether or not prompts are pinned
-  // to the top. On mount this only plays for a
-  // session's first send, or an explicitly marked mobile submission.
+  // to the top. A mount may be an existing running session, so only an
+  // explicitly marked mobile submission introduces its prompt on mount.
   const introducePrompt = useRef({ chat: false, visible });
   introducePrompt.current = {
     chat: transcriptLayout === "chat",
@@ -725,7 +733,12 @@ function AgentTranscriptComponent({
       rise?.stop();
       if (promptRise.current === rise) promptRise.current = undefined;
     };
-    if (change === "withdrawn") return;
+    if (
+      change === "withdrawn" ||
+      !introducePrompt.current.visible ||
+      (!mounting && !wasVisible.current)
+    )
+      return;
     if (change === "recorded") {
       const rise = promptRise.current;
       if (lastUserId && rise?.follow(lastUserId)) return own(rise);
@@ -738,8 +751,7 @@ function AgentTranscriptComponent({
     if (!lastUserId || !chat || !visible) return;
     if (
       mounting &&
-      !(promptMotion === "mobile" && animateFrom === lastUserId) &&
-      !(busy && userTurnCount(blocks, managed) === 1)
+      !(promptMotion === "mobile" && animateFrom === lastUserId)
     )
       return;
     const prior = priorTurn.current;
@@ -757,11 +769,18 @@ function AgentTranscriptComponent({
   useLayoutEffect(() => {
     const previous = shownSending.current;
     shownSending.current = { id: lastUserId, sending: lastUserSending };
-    if (!lastUserId || previous.id !== lastUserId || !previous.sending || lastUserSending)
+    if (
+      !visible ||
+      !wasVisible.current ||
+      !lastUserId ||
+      previous.id !== lastUserId ||
+      !previous.sending ||
+      lastUserSending
+    )
       return;
     if (!reducedMotionQuery().matches)
       confirmPrompt(promptParts(promptRow(scroller.current, lastUserId)));
-  }, [lastUserId, lastUserSending]);
+  }, [lastUserId, lastUserSending, visible]);
 
   useLayoutEffect(() => {
     if (!visible) promptRise.current?.stop();
@@ -1179,8 +1198,7 @@ function AgentTranscriptComponent({
                   cwd={cwd}
                   done={
                     !closing &&
-                    (!visible ||
-                      settled ||
+                    (settled ||
                       itemIndex < foldedAt ||
                       (answering && !workStillRunning))
                   }
@@ -1499,9 +1517,13 @@ function AgentTranscriptComponent({
 export const AgentTranscript = memo(
   function ClockedTranscript(props: Props) {
     const inheritedOffset = useContext(TranscriptClockOffset);
+    const parentVisible = useSurfaceVisibility();
+    const visible = parentVisible && props.visible !== false && !props.parked;
     return (
       <TranscriptClockOffset.Provider value={props.clockOffsetMs ?? inheritedOffset}>
-        <AgentTranscriptComponent {...props} />
+        <SurfaceVisibilityContext.Provider value={visible}>
+          <AgentTranscriptComponent {...props} visible={visible} />
+        </SurfaceVisibilityContext.Provider>
       </TranscriptClockOffset.Provider>
     );
   },
@@ -2844,6 +2866,7 @@ function ActivityPhaseGroup({
 }) {
   const { t: uiT } = useTranslation();
   const { openActivity } = useContext(TranscriptPlatformContext);
+  const visible = useSurfaceVisibility();
   const [override, setOverride] = useState<boolean | null>(null);
   const waiting = phase.steps.some(needsApproval);
   // Clients with a step sheet keep the live window inline but never unfold a
@@ -2851,15 +2874,21 @@ function ActivityPhaseGroup({
   const sheet = !!openActivity && !waiting;
   const open = waiting || (sheet ? active : (override ?? active));
   const [liveScroller, setLiveScroller] = useState<HTMLDivElement | null>(null);
-  useLivePhaseScroll(liveScroller, active && open, phase.steps);
+  useLivePhaseScroll(liveScroller, visible && active && open, phase.steps);
   // Steps already here when the group mounted, or that landed while it was
   // folded, are history: only a step you watch arrive gets the entrance.
   const settled = useRef<Set<Block["id"]> | null>(null);
   settled.current ??= new Set(phase.steps.map((step) => step.id));
+  const wasVisible = useRef(visible);
+  if (!visible || !wasVisible.current)
+    for (const step of phase.steps) settled.current.add(step.id);
+  useLayoutEffect(() => {
+    wasVisible.current = visible;
+  }, [visible]);
   useEffect(() => {
     for (const step of phase.steps) settled.current?.add(step.id);
   }, [phase.steps]);
-  const turnFor = useStepQueue();
+  const turnFor = useStepQueue(visible);
   const title = activityPhaseTitle(phase, active);
   const monoCodePhase = !!monoCodeWorkSummary(phase.steps, active);
   // Opening a group on purpose is also how you read the line that titled it,
@@ -2990,7 +3019,7 @@ function ActivityPhaseGroup({
                   </div>
                 ) : null}
                 {phase.steps.map((block) => {
-                  const arriving = active && !settled.current?.has(block.id);
+                  const arriving = visible && active && !settled.current?.has(block.id);
                   return (
                     <PhaseStep
                       key={block.id}
@@ -3024,8 +3053,12 @@ type StepTurn = { wait: number; pace: number };
  * before it to finish, and how long its own entrance then takes. A step keeps
  * the turn it was first given however often the group renders.
  */
-function useStepQueue() {
+function useStepQueue(visible: boolean) {
   const queue = useRef({ next: 0, turns: new Map<Block["id"], StepTurn>() });
+  if (!visible) {
+    queue.current.next = 0;
+    queue.current.turns.clear();
+  }
 
   return (id: Block["id"]) => {
     const { turns } = queue.current;
@@ -3065,16 +3098,18 @@ function PhaseStep({
   turn?: StepTurn;
   children: ReactNode;
 }) {
+  const visible = useSurfaceVisibility();
   const [turn] = useState(arrival);
   const [stage, setStage] = useState<"waiting" | "entering" | "settled">(() =>
     !turn ? "settled" : turn.wait > 0 ? "waiting" : "entering",
   );
+  if (!visible && stage !== "settled") setStage("settled");
 
   useEffect(() => {
-    if (stage !== "waiting" || !turn) return;
+    if (!visible || stage !== "waiting" || !turn) return;
     const timer = window.setTimeout(() => setStage("entering"), turn.wait);
     return () => window.clearTimeout(timer);
-  }, [stage, turn]);
+  }, [stage, turn, visible]);
 
   return (
     <div
@@ -4179,12 +4214,6 @@ function turnUserBlock(blocks: Block[], managed = false): Block | undefined {
     if (block.role === "user" && (managed || !block.internal)) return block;
   }
   return undefined;
-}
-
-function userTurnCount(blocks: Block[], managed = false): number {
-  return blocks.filter(
-    (block) => block.role === "user" && (managed || !block.internal),
-  ).length;
 }
 
 // Keep in sync with the prompt-turn-reveal animation in index.css.

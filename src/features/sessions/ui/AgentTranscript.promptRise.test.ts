@@ -98,6 +98,7 @@ function risenPrompts() {
 
 describe("prompt rise in the chat layout", () => {
   it("slides the first prompt up from the dock and settles it from a pending tint", () => {
+    render([], false);
     render(first);
     act(() => vi.advanceTimersByTime(20));
 
@@ -120,6 +121,7 @@ describe("prompt rise in the chat layout", () => {
   });
 
   it("holds the rest of the turn until the animation actually finishes", async () => {
+    render([], false);
     render(first);
     const turn = container.querySelector<HTMLElement>(".transcript-turn")!;
     expect(turn.dataset.promptRise).toBe("rising");
@@ -267,11 +269,24 @@ describe("prompt rise in the chat layout", () => {
     expect(media.querySelectorAll("img")).toHaveLength(2);
   });
 
-  it("does not replay an existing conversation on mount", () => {
-    render(second);
+  it.each([{ blocks: first }, { blocks: second }])("does not replay an existing running conversation on mount ($blocks.length blocks)", ({ blocks }) => {
+    render(blocks);
     act(() => vi.advanceTimersByTime(20));
 
     expect(animate).not.toHaveBeenCalled();
+  });
+
+  it("does not introduce prompts received while another session was visible", () => {
+    render(first, false);
+    act(() => root.render(createElement(AgentTranscript, { blocks: first, visible: false })));
+    act(() => root.render(createElement(AgentTranscript, { blocks: second, busy: true, visible: false })));
+    render(second);
+    act(() => vi.advanceTimersByTime(20));
+    expect(animate).not.toHaveBeenCalled();
+    expect(container.querySelector("[data-prompt-rise]")).toBeNull();
+    render([...second, { id: "u3", role: "user", text: "New send" }]);
+    act(() => vi.advanceTimersByTime(20));
+    expect(risenPrompts()).toEqual(["u3"]);
   });
 
   it("preserves the default mount behavior when an explicit submission marker is supplied", () => {
@@ -326,6 +341,7 @@ describe("prompt rise in the chat layout", () => {
   });
 
   it("cancels a slide when hidden and does not replay it when shown", async () => {
+    render([], false);
     render(first);
     act(() => vi.advanceTimersByTime(20));
     const slide = animate.mock.results[0].value;
@@ -340,6 +356,7 @@ describe("prompt rise in the chat layout", () => {
   it.each([undefined, "mobile"] as const)("cancels a pending entrance when the transcript unmounts (motion=%s)", (promptMotion) => {
     vi.useFakeTimers();
     try {
+      render([], false, { promptMotion });
       render(first, true, { promptMotion });
       const row = container.querySelector<HTMLElement>('[data-prompt-anchor="u1"]')!;
       act(() => root.unmount());

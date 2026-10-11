@@ -47,11 +47,57 @@ function tool(id: string): Block {
   };
 }
 
-function render(blocks: Block[], busy = true) {
+function render(blocks: Block[], busy = true, visible = true) {
   act(() =>
-    root.render(createElement(AgentTranscript, { blocks, busy })),
+    root.render(createElement(AgentTranscript, { blocks, busy, visible })),
   );
 }
+
+it("shows background replies immediately on returning, then paces fresh output", () => {
+  const user: Block = { id: "user", role: "user", text: "Review" };
+  const reply = (text: string): Block => ({ id: "reply", role: "assistant", text, streaming: true });
+  const text = "后台已经收到的回复应该直接显示。".repeat(8);
+  render([user, reply("")]);
+  render([user, reply(text)]);
+  act(() => vi.advanceTimersByTime(100));
+  expect(container.querySelector(".agent-markdown")!.textContent!.length).toBeLessThan(text.length);
+
+  render([user, reply(text)], true, false);
+  expect(container.querySelector(".agent-markdown")!.textContent).toBe(text);
+  const background = text + text;
+  render([user, reply(background)], true, false);
+  const next: Block = { id: "next", role: "assistant", text: "后台新回复。" };
+  render([user, reply(background), next]);
+  expect([...container.querySelectorAll(".agent-markdown")].map(node => node.textContent))
+    .toEqual([background, next.text]);
+
+  render([user, reply(background + text), next]);
+  expect(container.querySelector(".agent-markdown")!.textContent).toBe(background);
+  act(() => vi.advanceTimersByTime(100));
+  const fresh = container.querySelector(".agent-markdown")!.textContent!;
+  expect(fresh.length).toBeGreaterThan(background.length);
+  expect(fresh.length).toBeLessThan((background + text).length);
+});
+
+it("keeps live work open across a switch and skips background tool entrances", () => {
+  const head: Block[] = [
+    { id: "user", role: "user", text: "Review" },
+    { id: "intro", role: "assistant", text: "Checking." },
+    tool("first"),
+  ];
+  render(head);
+  render([...head, tool("second"), tool("third")]);
+  expect(stages()).toEqual(["settled", "entering", "waiting"]);
+  render([...head, tool("second"), tool("third")], true, false);
+  expect(container.querySelector(".zen-phase-body")!.getAttribute("data-open")).toBe("true");
+  expect(stages()).toEqual(["settled", "settled", "settled"]);
+  act(() => vi.advanceTimersByTime(1000));
+  render([...head, tool("second"), tool("third"), tool("fourth")]);
+  expect(stages()).toEqual(["settled", "settled", "settled", "settled"]);
+  expect(container.querySelector(".zen-phase-body .zen-fold-item")!.getAttribute("data-fold-state")).toBe("open");
+  render([...head, tool("second"), tool("third"), tool("fourth"), tool("fifth")]);
+  expect(stages()).toEqual(["settled", "settled", "settled", "settled", "entering"]);
+});
 
 function stages() {
   return [...container.querySelectorAll(".zen-phase-step")].map((step) =>

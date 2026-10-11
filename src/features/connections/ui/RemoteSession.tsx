@@ -328,6 +328,13 @@ function ConnectedRemoteSession({
   const [online, setOnline] = useState(false);
   const [error, setError] = useState("");
   const [sessionId, setSessionId] = useState(() => remoteSessionFor(shell.id));
+  // A revisit first paints the cached snapshot, then catches up asynchronously.
+  // That first successful sync is history even though the pane is visible now.
+  const historySyncPending = useRef(!!sessionId);
+  const [transcriptHistory, setTranscriptHistory] = useState<HostSession>();
+  useEffect(() => {
+    if (!visible && sessionId) historySyncPending.current = true;
+  }, [visible, sessionId]);
   const boundSession = useRef(sessionId);
   const bindingVersion = useRef(0);
   const deletingSession = useRef<string | undefined>(undefined);
@@ -335,6 +342,8 @@ function ConnectedRemoteSession({
     const changed = () => {
       const next = remoteSessionFor(shell.id);
       if (next !== boundSession.current) {
+        if (boundSession.current) historySyncPending.current = !!next;
+        setTranscriptHistory(undefined);
         bindingVersion.current++;
         boundSession.current = next;
         setStarting(undefined);
@@ -597,6 +606,10 @@ function ConnectedRemoteSession({
         failed = 0;
         if (next && sessionId)
           rememberSessionSnapshot(snapshotKey(machine.id, sessionId), next);
+        if (next && historySyncPending.current) {
+          setTranscriptHistory(next);
+          if (visible) historySyncPending.current = false;
+        }
         setSnapshot(next);
         if (next && sessionId && needsRemoteAttachmentPreviews(next)) {
           const key = snapshotKey(machine.id, sessionId);
@@ -1761,6 +1774,9 @@ function ConnectedRemoteSession({
   // forwarders keep the pane and every transcript block memoized.
   const overrides = useStableHandlers<RemoteSessionOverrides>({
     session,
+    transcriptHistory: transcriptHistory?.session.id === hostSession?.id
+      ? transcriptHistory?.session.blocks
+      : undefined,
     clockOffsetMs: hostSession ? snapshot?.clockOffsetMs : undefined,
     messageQueue: <MessageQueue key={snapshot?.session.id} {...queue} disabled={!online || sending || !!pending} />,
     remoteSession: true,

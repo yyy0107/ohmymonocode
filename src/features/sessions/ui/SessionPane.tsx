@@ -235,6 +235,8 @@ export type SessionPaneProps = {
   onPaneDragStart?: (event: ReactPointerEvent<HTMLElement>) => void;
   /** Keeps this transcript mounted after the pane closes. */
   transcriptPool?: TranscriptPool;
+  /** History received by the first Host sync after opening or returning to a tab. */
+  transcriptHistory?: readonly Block[];
 };
 
 type Props = SessionPaneProps & {
@@ -338,6 +340,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
   onNewTerminal,
   onPaneDragStart,
   transcriptPool,
+  transcriptHistory,
 }: Props) {
   const { t: uiT } = useTranslation();
   const openSubagent = useOpenSubagent(session);
@@ -938,6 +941,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
                 <AgentTranscript
                   clockOffsetMs={clockOffsetMs}
                   blocks={session.blocks}
+                  historyEntries={transcriptHistory}
                   onOpenAgent={openSubagent}
                   // No working clock until the worktree exists and the agent has the message.
                   busy={

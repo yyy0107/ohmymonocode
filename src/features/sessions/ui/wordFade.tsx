@@ -53,6 +53,8 @@ export type TextRevealOptions = {
   unit: "word" | "character";
   /** Text already visible when this conversation was opened. */
   initialLength?: number;
+  /** Received history to show immediately after a retained conversation resumes. */
+  settledLength?: number;
   /** Wait until earlier mounted replies have caught up with their received text. */
   sequence?: TextRevealSequence;
 };
@@ -213,6 +215,7 @@ export function usePacedText(
   });
 
   if (streaming) pacing.current = true;
+  shown.current = Math.max(shown.current, options?.settledLength ?? 0);
   if (!motionAllowed) {
     // Hidden/reduced-motion replies catch up even while a previous sequence
     // entry is pending. Otherwise an invisible reply can hold the queue open.

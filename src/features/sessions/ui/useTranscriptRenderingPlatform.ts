@@ -9,6 +9,7 @@ import {
 } from "react";
 import { TextRevealQueue } from "./textRevealQueue";
 import { TranscriptPlatformContext } from "./TranscriptPlatform";
+import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 
 /** Shared character reveal: seed loaded history, pace new replies and chunks. */
 export function useTranscriptRenderingPlatform(
@@ -16,19 +17,35 @@ export function useTranscriptRenderingPlatform(
   {
     historyReady = entries.length > 0,
     historyIds,
+    historyEntries,
     animateFrom,
-  }: { historyReady?: boolean; historyIds?: ReadonlySet<string>; animateFrom?: string } = {},
+  }: {
+    historyReady?: boolean;
+    historyIds?: ReadonlySet<string>;
+    historyEntries?: readonly { id: string; text: string }[];
+    animateFrom?: string;
+  } = {},
 ) {
   const platform = useContext(TranscriptPlatformContext);
+  const visible = useSurfaceVisibility();
+  const wasVisible = useRef(visible);
+  useLayoutEffect(() => {
+    wasVisible.current = visible;
+  }, [visible]);
   const lengths = useMemo(
     () => new Map(entries.map((entry) => [entry.id, entry.text.length])),
     [entries],
+  );
+  const historyLengths = useMemo(
+    () => new Map(historyEntries?.map((entry) => [entry.id, entry.text.length])),
+    [historyEntries],
   );
   const queue = useMemo(() => new TextRevealQueue(), []);
   useLayoutEffect(() => queue.setOrder([...lengths.keys()]), [queue, lengths]);
   const currentLengths = useRef(lengths);
   currentLengths.current = lengths;
   const seenLengths = useRef(new Map<string, number>());
+  const settledLengths = useRef(new Map<string, number>());
   const seededReveal = useRef(false);
   if (!seededReveal.current && historyReady) {
     const start = animateFrom
@@ -47,19 +64,30 @@ export function useTranscriptRenderingPlatform(
     for (const entry of entries)
       if (historyIds.has(entry.id) && !seenLengths.current.has(entry.id))
         seenLengths.current.set(entry.id, entry.text.length);
+  // Hidden panes pause their prop updates. On return, both mounted replies
+  // and newly received blocks must catch up before any fresh output is paced.
+  if (!visible || !wasVisible.current) {
+    settledLengths.current = lengths;
+    for (const [id, length] of lengths) seenLengths.current.set(id, length);
+  }
   const revealText = useCallback(
     (id?: string) => {
       if (!id) return { unit: "character" as const };
-      const initialLength = seenLengths.current.get(id) ?? 0;
+      const settledLength = Math.max(
+        settledLengths.current.get(id) ?? 0,
+        historyLengths.get(id) ?? 0,
+      );
+      const initialLength = Math.max(seenLengths.current.get(id) ?? 0, settledLength);
       // Reopening a previously presented reply must not replay it.
       seenLengths.current.set(id, currentLengths.current.get(id) ?? 0);
       return {
         unit: "character" as const,
         initialLength,
+        settledLength,
         sequence: queue.forEntry(id),
       };
     },
-    [queue],
+    [queue, visible, historyLengths],
   );
   return useMemo(
     () => ({ ...platform, textReveal: revealText, textRevealQueue: queue }),
