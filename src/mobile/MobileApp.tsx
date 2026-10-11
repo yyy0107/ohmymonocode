@@ -2278,9 +2278,10 @@ export function MobileApp() {
           </button>
         </div>
       )}
+      {/* Floats with the other notices: every navigation saves the location,
+          so an in-flow banner shifted the whole page while that write settled. */}
+      <SharedStateStatus pending={mobileWorkspacePending} pendingDelayMs={1500} />
       </div>
-
-      <SharedStateStatus pending={mobileWorkspacePending} />
 
       <MobilePageTransition key={`pages:${client.connection?.endpoint}`} route={route}
         animate={navigationReady.current} visible={!pageOverlayOpen}>
