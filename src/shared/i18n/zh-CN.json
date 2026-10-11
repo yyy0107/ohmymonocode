@@ -716,6 +716,7 @@
   "Device token": "设备令牌",
   "Diff context": "差异上下文",
   "Diff is too large to display": "差异过大，无法显示",
+  "Unmodified content is too large to expand. Changes are still shown.": "未改动内容过大，无法展开。变更内容仍正常显示。",
   "Diff is too large to display in full. File list is shown without patches.": "差异过大，无法完整显示。仅显示文件列表，不显示补丁。",
   "Diff view": "差异视图",
   "Discard": "丢弃",

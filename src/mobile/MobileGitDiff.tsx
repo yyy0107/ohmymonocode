@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { processFile, type FileDiffOptions } from "@pierre/diffs";
 import { FileDiff } from "@pierre/diffs/react";
 import {
@@ -9,6 +9,8 @@ import type { ToolPreviewLine } from "../features/sessions/model/session";
 import type { GitFileDiff } from "../platform/tauri/fs";
 import { useColorScheme } from "../shared/hooks/useColorScheme";
 import { useTranslation } from "../shared/i18n/useTranslation";
+import { AnimatedCollapse } from "../shared/ui/AnimatedCollapse";
+import type { UnifiedLine } from "../features/source-control/model/unifiedDiff";
 
 function useMobileDiffOptions(wrap: boolean, partial: boolean) {
   const { t } = useTranslation();
@@ -74,15 +76,9 @@ function useMobileDiffOptions(wrap: boolean, partial: boolean) {
 /** An inline diff with horizontal code scrolling and a fixed line-number gutter. */
 export function MobileGitDiff({ diff, wrap }: { diff: GitFileDiff; wrap: boolean }) {
   const { t } = useTranslation();
-  const prepared = useMemo(
-    () =>
-      prepareReviewDiff({
-        ...diff,
-        tooLarge:
-          diff.tooLarge || diff.original.length + diff.current.length > 256_000,
-      }),
-    [diff],
-  );
+  // Shared preparation bounds comparison work; large files with small changes
+  // use patch-only metadata below instead of highlighting the whole file.
+  const prepared = useMemo(() => prepareReviewDiff(diff), [diff]);
   const fileDiff = useMemo(
     () => reviewFileMetadata(diff.relative, prepared),
     [diff.relative, prepared],
@@ -104,9 +100,67 @@ export function MobileGitDiff({ diff, wrap }: { diff: GitFileDiff; wrap: boolean
     return (
       <p className="mobile-git-note">{t("Diff is too large to display")}</p>
     );
+  if (fileDiff.isPartial)
+    return (
+      <div className="mobile-git-diff" data-theme={themeType}>
+        {prepared.unified.blocks.map((block, index) =>
+          block.kind === "fold" ? (
+            <MobileDiffContext key={index} lines={block.lines} path={diff.relative} wrap={wrap} />
+          ) : (
+            <MobileDiffLines key={index} lines={block.lines} path={diff.relative} wrap={wrap} />
+          ),
+        )}
+      </div>
+    );
   return (
     <div className="mobile-git-diff" data-theme={themeType}>
       <FileDiff fileDiff={fileDiff} options={options} />
+    </div>
+  );
+}
+
+function MobileDiffLines({ lines, path, wrap }: {
+  lines: UnifiedLine[];
+  path: string;
+  wrap: boolean;
+}) {
+  const metadata = useMemo(() => {
+    const oldLines = lines.filter((line) => line.oldNumber != null);
+    const newLines = lines.filter((line) => line.newNumber != null);
+    const patch = [
+      "--- review", "+++ review",
+      `@@ -${oldLines[0]?.oldNumber ?? 0},${oldLines.length} +${newLines[0]?.newNumber ?? 0},${newLines.length} @@`,
+      ...lines.map((line) => `${line.kind === "add" ? "+" : line.kind === "del" ? "-" : " "}${line.text}`),
+    ];
+    const result = processFile(`${patch.join("\n")}\n`, { throwOnError: true });
+    if (result) { result.name = path; result.prevName = path; }
+    return result;
+  }, [lines, path]);
+  const { options } = useMobileDiffOptions(wrap, true);
+  return metadata ? <FileDiff fileDiff={metadata} options={options} /> : null;
+}
+
+function MobileDiffContext({ lines, path, wrap }: {
+  lines: UnifiedLine[];
+  path: string;
+  wrap: boolean;
+}) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const tooLarge = lines.length > 1_200 ||
+    lines.reduce((total, line) => total + line.text.length + 1, 0) > 180_000;
+  return (
+    <div className="mobile-diff-context">
+      <button type="button" className="mobile-diff-context-toggle"
+        aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+        {t("{count} unmodified lines", { count: lines.length })}
+        {" · "}{t(expanded ? "Collapse" : "Expand all")}
+      </button>
+      <AnimatedCollapse expanded={expanded}>
+        {() => tooLarge ? (
+          <p className="mobile-git-note" role="status">{t("Unmodified content is too large to expand. Changes are still shown.")}</p>
+        ) : <MobileDiffLines lines={lines} path={path} wrap={wrap} />}
+      </AnimatedCollapse>
     </div>
   );
 }

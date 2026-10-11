@@ -167,3 +167,15 @@ html.theme-light .mobile-git-action[data-confirming] {
   --diffs-addition-color-override: #199f73;
   --diffs-deletion-color-override: #d84444;
 }
+.mobile-diff-context-toggle {
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  min-height: 44px;
+  background: color-mix(in srgb, var(--color-content) 3%, transparent);
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  font-size: var(--mobile-font-md);
+  cursor: pointer;
+}

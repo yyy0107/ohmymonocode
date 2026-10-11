@@ -417,6 +417,55 @@ describe("mobile Git review from the progress capsule", () => {
     expect(shadow.querySelector("[data-unmodified-lines]")?.textContent).toContain("行未改动");
   });
 
+  it("expands a large file with only two added lines using bounded patch context", async () => {
+    const original = Array.from({ length: 8_000 }, (_, index) => `const value${index} = ${index};`);
+    const current = [...original];
+    current.splice(4_000, 0, 'const addedFirst = "first addition";', 'const addedSecond = "second addition";');
+    await render({
+      loadIndex: vi.fn(async () => ({ ...index(), deletions: 0,
+        files: [{ ...index().files[0], deletions: 0 }],
+      })),
+      loadDiff: vi.fn(async () => diff(original.join("\n"), current.join("\n"))),
+    });
+    await openReview();
+    await click(fileButton());
+    expect(page().textContent).not.toContain("Diff is too large to display");
+    expect(diffText()).toContain("first addition");
+    expect(diffText()).toContain("second addition");
+    const shadow = page().querySelector("diffs-container")!.shadowRoot!;
+    expect(shadow.querySelectorAll("[data-line]").length).toBeLessThan(30);
+    expect(shadow.querySelector("[data-expand-button]")).toBeNull();
+    expect(page().textContent).not.toContain("Unmodified content is too large");
+    await click(page().querySelector<HTMLButtonElement>(".mobile-diff-context-toggle")!);
+    expect(page().textContent).toContain("Unmodified content is too large to expand");
+    expect(diffText()).toContain("first addition");
+    expect(diffText()).toContain("second addition");
+    await act(async () => setUiLanguage("zh-CN"));
+    expect(page().textContent).toContain("未改动内容过大，无法展开");
+  });
+
+  it("expands and collapses a bounded unchanged section in a large file", async () => {
+    const original = Array.from({ length: 2_000 }, (_, index) => `const value${index} = ${index};`);
+    const current = [...original];
+    current[100] = "const changed = true;";
+    await render({
+      loadIndex: vi.fn(async () => index()),
+      loadDiff: vi.fn(async () => diff(original.join("\n"), current.join("\n"))),
+    });
+    await openReview();
+    await click(fileButton());
+    expect(diffText()).not.toContain("const value0 = 0;");
+    const toggle = page().querySelector<HTMLButtonElement>(".mobile-diff-context-toggle")!;
+    await click(toggle);
+    await settle();
+    expect(diffText()).toContain("const value0 = 0;");
+    expect(diffText()).toContain("const changed = true;");
+    await click(toggle);
+    await settle();
+    expect(diffText()).not.toContain("const value0 = 0;");
+    expect(diffText()).toContain("const changed = true;");
+  });
+
   it("switches all file diffs between horizontal scrolling and wrapping without reloading them", async () => {
     const files = index().files;
     const loadDiff = vi.fn(async () => diff("old\n", "const current = 'a long line to review';\n"));
