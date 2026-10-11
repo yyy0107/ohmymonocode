@@ -106,7 +106,7 @@ export function appViewTitle(kind: AppViewKind): string {
     notes: "Notes",
     automations: "Automations",
     workflows: "Workflows",
-    assistant: "Assistant",
+    assistant: "Bots",
   }[kind];
 }
 

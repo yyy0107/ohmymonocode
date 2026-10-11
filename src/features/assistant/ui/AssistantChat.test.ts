@@ -1161,3 +1161,78 @@ it("offers a retry when the first history read fails and keeps legacy Hosts on i
     ["assistant.messages", { afterRevision: 0, limit: 100 }],
   ]);
 });
+
+it.each([false, true])("enables the desktop Bots shell only with its Host capability (%s)", async (supported) => {
+  const base = chatRpc(configuredView());
+  const rpc = vi.fn(async (method: string, params?: object) => method === "environment.describe"
+    ? { capabilities: ["assistant.v1", ...(supported ? ["bots.shell.v1"] : [])] }
+    : base(method, params));
+  act(() => root.render(createElement(AssistantChat, {
+    hostKey: "host", hostName: "Host", rpc: rpc as any, onOpen: () => {}, desktopBots: true,
+  })));
+  await flush();
+  expect(!!node.querySelector(".desktop-bots-workspace")).toBe(supported);
+  expect(node.querySelector(".assistant-chat")?.getAttribute("data-layout")).toBe("desktop");
+  expect(!!node.querySelector('[aria-label="Bot details"]')).toBe(supported);
+  expect(base.mock.calls.some(([method]) => method === "assistant.get")).toBe(true);
+  expect(rpc.mock.calls.some(([method]) => method.startsWith("bots."))).toBe(false);
+});
+
+it("keeps Bots chat interactive and retains detail drafts through closing, reversal and Host updates", async () => {
+  const motion = vi.spyOn(window, "matchMedia").mockReturnValue({ matches: false } as MediaQueryList);
+  let view = configuredView();
+  const base = chatRpc(view);
+  const rpc = vi.fn(async (method: string, params?: object) => {
+    if (method === "environment.describe") return { capabilities: ["assistant.v1", "bots.shell.v1"] };
+    if (method === "assistant.get") return view;
+    return base(method, params);
+  });
+  act(() => root.render(createElement(AssistantChat, {
+    hostKey: "host", hostName: "Host", rpc: rpc as any, onOpen: () => {}, desktopBots: true,
+  })));
+  await flush();
+  const details = node.querySelector<HTMLButtonElement>('button[aria-label="Bot details"]')!;
+  const panel = node.querySelector<HTMLElement>(".desktop-bots-inspector")!;
+  const composer = node.querySelector<HTMLTextAreaElement>('.assistant-conversation textarea')!;
+  expect(panel.inert).toBe(true);
+  expect(panel.getAttribute("data-fold-state")).toBe("closed");
+  expect(panel.querySelector("form")).toBeNull();
+  act(() => details.click());
+  await flush();
+  expect(panel.inert).toBe(false);
+  expect(node.querySelector<HTMLElement>(".assistant-conversation")!.inert).toBe(false);
+  expect(node.querySelector<HTMLElement>(".assistant-heading")!.inert).toBe(false);
+  act(() => vi.advanceTimersByTime(17));
+  expect(document.activeElement).toBe(panel);
+  act(() => {
+    rename("Unsaved bot name");
+    composer.focus();
+    setValue(composer, "Keep this chat draft");
+  });
+  const nameInput = [...panel.querySelectorAll("label")]
+    .find((label) => label.textContent?.startsWith("Assistant name"))!.querySelector("input")!;
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Hide bot details"]')!.click());
+  expect(panel.getAttribute("data-fold-state")).toBe("closing");
+  expect(panel.inert).toBe(true);
+  expect(nameInput.isConnected).toBe(true);
+  expect(document.activeElement).toBe(composer);
+  act(() => details.click());
+  expect(panel.getAttribute("data-fold-state")).toBe("opening");
+  expect(nameInput.value).toBe("Unsaved bot name");
+  act(() => details.click());
+  act(() => vi.advanceTimersByTime(351));
+  expect(panel.getAttribute("data-fold-state")).toBe("closed");
+  view = { ...view, revision: 2, name: "Changed on the Host" };
+  await act(async () => vi.advanceTimersByTime(2000));
+  await flush();
+  act(() => details.click());
+  expect(nameInput.value).toBe("Unsaved bot name");
+  expect(composer.value).toBe("Keep this chat draft");
+  act(() => node.querySelector<HTMLButtonElement>(".assistant-send")!.click());
+  await flush();
+  expect(rpc.mock.calls.find(([method]) => method === "assistant.send")?.[1]).toMatchObject({ text: "Keep this chat draft" });
+  expect(composer.value).toBe("");
+  expect(panel.inert).toBe(false);
+  expect(nameInput.value).toBe("Unsaved bot name");
+  motion.mockRestore();
+});

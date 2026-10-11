@@ -97,9 +97,9 @@ it("shows unseen replies and opens the latest message's Host without polling uns
   messages.remote = [reply("remote-reply", 3, "Remote task finished")];
   await render();
   expect(button().getAttribute("aria-label")).toBe(
-    "Remote helper, 2 unread messages",
+    "Bots, 2 unread messages",
   );
-  expect(button().textContent).toBe("Remote task finished2");
+  expect(button().textContent).toBe("BotsRemote task finished2");
   expect(
     mocks.rpc.mock.calls
       .filter(([id]) => id === "old")
@@ -110,11 +110,11 @@ it("shows unseen replies and opens the latest message's Host without polling uns
   // Opening is not itself a read acknowledgement: the chat must load and show it.
   expect(button().getAttribute("aria-label")).toContain("2 unread");
   act(() => markAssistantRead("env-remote", messages.remote));
-  expect(button().getAttribute("aria-label")).toBe("Personal assistant, 1 unread messages");
+  expect(button().getAttribute("aria-label")).toBe("Bots, 1 unread messages");
   expect(button().textContent).toContain("local-reply");
   act(() => markAssistantRead("env-local", messages.local));
-  expect(button().getAttribute("aria-label")).toBe("Personal assistant");
-  expect(button().textContent).toBe("Personal assistant");
+  expect(button().getAttribute("aria-label")).toBe("Bots");
+  expect(button().textContent).toBe("Bots");
   expect(localStorage.getItem("monocode.assistant-read:env-local")).toBe("2");
 });
 
@@ -144,7 +144,7 @@ it("restores read state and synchronizes acknowledgements from another window", 
       new StorageEvent("storage", { key: "monocode.assistant-read:env-local" }),
     );
   });
-  expect(button().getAttribute("aria-label")).toBe("Personal assistant");
+  expect(button().getAttribute("aria-label")).toBe("Bots");
   act(() => button().click());
   expect(onOpen).toHaveBeenCalledWith(undefined);
 });
@@ -167,7 +167,7 @@ it("shows pending questions and removes the notification when they resolve", asy
   expect(button().textContent).toContain("Choose a project");
   messages.local = [{ ...question, revision: 2, resolved: true }];
   await act(async () => vi.advanceTimersByTimeAsync(2000));
-  expect(button().getAttribute("aria-label")).toBe("Personal assistant");
+  expect(button().getAttribute("aria-label")).toBe("Bots");
 });
 
 it("notifies completed replies once and opens the matching Host from a system notification", async () => {
@@ -195,7 +195,7 @@ it("passes visibility only for the selected assistant Host", async () => {
   await act(async () => root.render(createElement(DesktopAssistantButton, {
     active: true, selectedMachineId: "remote", onOpen,
   })));
-  expect(button().textContent).toBe("Remote helper");
+  expect(button().textContent).toBe("Bots");
   messages.local = [reply("local", 1)];
   messages.remote = [reply("remote", 1)];
   await act(async () => vi.advanceTimersByTimeAsync(2000));
@@ -204,17 +204,17 @@ it("passes visibility only for the selected assistant Host", async () => {
   ]);
 });
 
-it("refreshes the configured name and falls back when the assistant is removed", async () => {
+it("keeps the Bots entry stable when a bot is renamed or removed", async () => {
   await render();
-  expect(button().textContent).toBe("Personal assistant");
+  expect(button().textContent).toBe("Bots");
   names.local = "我的助理";
   await act(async () => vi.advanceTimersByTimeAsync(2000));
-  expect(button().textContent).toBe("我的助理");
-  expect(button().title).toBe("我的助理");
-  expect(button().getAttribute("aria-label")).toBe("我的助理");
+  expect(button().textContent).toBe("Bots");
+  expect(button().title).toBe("Bots");
+  expect(button().getAttribute("aria-label")).toBe("Bots");
   names.local = null;
   act(() => setUiLanguage("zh-CN"));
   await act(async () => vi.advanceTimersByTimeAsync(2000));
-  expect(button().textContent).toBe("助理");
-  expect(button().title).toBe("助理");
+  expect(button().textContent).toBe("Bots");
+  expect(button().title).toBe("Bots");
 });

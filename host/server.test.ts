@@ -1238,7 +1238,7 @@ it("advertises assistant RPC, enforces device auth and hides the private brain",
   await engine.ready;
   engine.assistant.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }] }, errors: {} }));
   expect((await call("environment.describe")).value.result.capabilities)
-    .toEqual(expect.arrayContaining(["assistant.v1", "assistant.history"]));
+    .toEqual(expect.arrayContaining(["assistant.v1", "assistant.history", "bots.shell.v1"]));
   expect((await call("assistant.get")).value.result).toBeNull();
   expect((await call("assistant.messages", { latest: true })).value.result)
     .toMatchObject({ assistant: null, entries: [], hasMore: false });

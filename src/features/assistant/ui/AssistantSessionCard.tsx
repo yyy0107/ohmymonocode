@@ -29,7 +29,7 @@ export function AssistantSessionCard({
       setOpening(false);
     }
   };
-  const title = mobile ? sessionDisplayTitle(message.title, message.harness) : message.title;
+  const title = sessionDisplayTitle(message.title, message.harness);
   const modelName = message.model.startsWith(`${message.harness}:`)
     ? message.model.slice(message.harness.length + 1) : message.model;
   const labels = {

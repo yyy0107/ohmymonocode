@@ -201,8 +201,27 @@ commands/results and deferred checks, including manual visual checks.
 
 | Stage | Status | Commit | Checks actually run |
 | --- | --- | --- | --- |
-| 0 | Roadmap recorded | This document's creation commit (see git log) | Baseline, branch and unrelated-file inspection; documentation requires no tests |
-| 1–8 | Not started | — | None |
+| 0 | Roadmap recorded | `6f1e17c0` | Baseline, branch and unrelated-file inspection; documentation requires no tests |
+| 1 | Desktop shell complete | This stage's named commit (see git log) | Targeted UI/Host tests, TypeScript and local browser checks below |
+| 2–8 | Not started | — | None |
+
+Stage 1 verification (Node 24.16.0, Vitest 3.2.7, Vite 7.3.6):
+
+- Direct Vitest: `DesktopAssistantButton.test.ts` + `App.appViews.test.ts`
+  focused selection: 8 passed; remaining read-state test: 1 passed.
+- Direct Host Vitest: `host/server.test.ts -t 'advertises assistant RPC'`:
+  1 passed. Initial collection required the ignored workflow library snapshot;
+  generated it with `node src/integrations/workflow/generate-libs.mjs`, then passed.
+- Direct UI Vitest: `DesktopAssistant.test.ts`, `AssistantChat.test.ts`,
+  `AssistantChat.attachments.test.ts`, `MobileAssistant.test.ts`: 74 passed.
+  Subsequent animation refinement: AssistantChat + MobileAssistant 63 passed;
+  final focus refinement: three targeted Bots cases passed.
+- `tsc --noEmit`: passed; `git diff --check`: passed.
+- Browser against a local isolated RPC fixture: dark 1280px and light 680px,
+  details opening/closing/reversal, retained draft, Escape/focus restoration,
+  delayed panel focus, and narrowed contact rail inspected. No production data.
+- No mobile component/CSS edits; no build, publication or real CLI run.
+
 
 Each subsequent stage records the preceding commit SHA here and its own checks
 before committing. Its own SHA is resolved by the named commit in git log, then

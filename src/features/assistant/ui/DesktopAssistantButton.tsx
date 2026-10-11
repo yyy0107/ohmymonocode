@@ -58,7 +58,6 @@ export function DesktopAssistantButton({
   const [messages, setMessages] = useState<Record<string, AssistantMessage[]>>(
     {},
   );
-  const [names, setNames] = useState<Record<string, string | undefined>>({});
   const [, refreshRead] = useReducer((value: number) => value + 1, 0);
   useEffect(() => subscribeAssistantRead(refreshRead), []);
   useEffect(() => {
@@ -89,10 +88,6 @@ export function DesktopAssistantButton({
           if (disposed || !supported) return;
           const next = await client.sync();
           if (!disposed) {
-            setNames((current) => ({
-              ...current,
-              [machine.environmentId]: next.assistant?.name,
-            }));
             const activity = assistantNotificationActivity(next.assistant, next.messages);
             const notice = takeAssistantNotification(machine.environmentId, activity);
             if (notice && activity)
@@ -144,10 +139,7 @@ export function DesktopAssistantButton({
     latest && "text" in latest.message
       ? latest.message.text.replace(/\s+/g, " ").trim().slice(0, 120)
       : "";
-  const targetHost = latest
-    ? hosts.find((host) => host.id === latest.machineId)
-    : selectedHost;
-  const name = (targetHost && names[targetHost.environmentId]) || t("Assistant");
+  const name = t("Bots");
   const label = unread.length
     ? t("{name}, {count} unread messages", { name, count: unread.length })
     : name;
@@ -163,7 +155,8 @@ export function DesktopAssistantButton({
       className={`mx-1 flex h-7 min-w-0 max-w-sm items-center gap-1.5 rounded-lg px-2 text-ui-sm transition-colors ${active ? "bg-selection text-content" : "text-foreground-subtle hover:bg-surface-hover hover:text-content"}`}
     >
       <Bot className="size-4 shrink-0" />
-      <span className="min-w-0 truncate">{preview || name}</span>
+      <span className="shrink-0">{name}</span>
+      {preview && <span className="min-w-0 truncate text-foreground-subtle">{preview}</span>}
       {latest ? (
         <span
           aria-hidden

@@ -382,6 +382,7 @@ export function createHostServer(
                 "assistant.v1",
                 "assistant.history",
                 "assistant.persona",
+                "bots.shell.v1",
                 "im.feishu.v1",
                 "resources",
                 "workflows.v1",

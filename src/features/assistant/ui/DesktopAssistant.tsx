@@ -108,6 +108,7 @@ export function DesktopAssistant({
       <GradientBlurBackground />
       {machine ? (
         <AssistantChat
+          desktopBots
           key={machine.environmentId}
           hostKey={machine.environmentId}
           hostName={machine.name}

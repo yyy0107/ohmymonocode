@@ -36,7 +36,7 @@ import { quoteAssistantReply } from "../model/assistantReply";
 import { REMOTE_PROVIDERS } from "../../connections/model/protocol";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { AssistantSettings } from "./AssistantSettings";
-import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
+import { AnimatedCollapse, useCollapseMotion } from "../../../shared/ui/AnimatedCollapse";
 import { AssistantWorkerDetails } from "./AssistantWorkerDetails";
 import { resolveAssistantTarget, type AssistantTarget } from "../model/assistantNavigation";
 import { assistantActivityLabel } from "../model/assistantActivity";
@@ -64,6 +64,7 @@ import { usePauseOffscreenAnimation } from "../../../shared/hooks/usePauseOffscr
 import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
 import { slidePromptIn } from "../../sessions/ui/promptLaunch";
 import { Loader2, Sparkles } from "../../../shared/ui/icons";
+import { DesktopBotsNavigation, desktopBotsChrome } from "./DesktopBotsChrome";
 
 /** History renders newest-first in slices so opening never blocks the app. */
 const INITIAL_HISTORY_ROWS = 30;
@@ -73,6 +74,7 @@ const HISTORY_LOAD_DISTANCE = 800;
 // A message that takes longer than this to appear no longer animates its send.
 const LAUNCH_TTL_MS = 15_000;
 import "./assistant.css";
+import "./desktop-bots.css";
 
 type ReadingAnchor = { node: Element; offset: number; scrollTop: number };
 const ANCHOR_ROWS = ".assistant-message-row, .assistant-card, .assistant-input";
@@ -167,6 +169,7 @@ export function AssistantChat({
   hostPicker,
   chrome,
   onOpenAttachment,
+  desktopBots = false,
 }: {
   hostKey: string;
   rpc: AssistantRpc;
@@ -175,6 +178,8 @@ export function AssistantChat({
   hostName: string;
   hostPicker?: ReactNode;
   chrome?: AssistantChatChrome;
+  /** Opt into the desktop shell only when the Host advertises its capability. */
+  desktopBots?: boolean;
   /** Opens a sent file in a tab; receives a reader for the file's base64 bytes. */
   onOpenAttachment?: (file: RemoteAttachment, read: () => Promise<string>) => void;
 }) {
@@ -278,11 +283,13 @@ export function AssistantChat({
   });
   const [projects, setProjects] = useState<HostProject[]>([]);
   const [supported, setSupported] = useState<boolean>();
+  const [botsShellSupported, setBotsShellSupported] = useState(false);
   // Personality, local time and promised follow-ups need a newer Host.
   const [personaSupported, setPersonaSupported] = useState(false);
   const [imSupported, setImSupported] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsBase, setSettingsBase] = useState<AssistantView | null>(null);
+  const retainedSettingsDraft = useRef(false);
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
@@ -371,6 +378,7 @@ export function AssistantChat({
         const available =
           descriptor.capabilities?.includes("assistant.v1") ?? false;
         setSupported(available);
+        setBotsShellSupported(descriptor.capabilities?.includes("bots.shell.v1") ?? false);
         setPersonaSupported(
           descriptor.capabilities?.includes("assistant.persona") ?? false,
         );
@@ -602,6 +610,7 @@ export function AssistantChat({
           error: false,
         },
       );
+      retainedSettingsDraft.current = false;
       setSettingsOpen(false);
     });
   const open = useCallback(async (ref: SessionReference) => {
@@ -662,7 +671,10 @@ export function AssistantChat({
       }
     : undefined;
   const openSettings = () => {
-    setSettingsBase(assistant ?? null);
+    if (!botsLayout || !retainedSettingsDraft.current) {
+      setSettingsBase(assistant ?? null);
+      retainedSettingsDraft.current = true;
+    }
     setSettingsOpen((v) => !v);
   };
   const attachDisabled = busy || !!retry || !assistant?.enabled || !assistant.triggers.user;
@@ -704,12 +716,14 @@ export function AssistantChat({
   };
   const activity = assistantActivityLabel(assistant?.activity);
   const workingLabel = t(activity.key, activity.params);
-  const ui = chrome ?? desktopAssistantChrome;
   const mobile = !!chrome;
+  const botsLayout = desktopBots && !mobile && botsShellSupported;
+  const ui = chrome ?? (botsLayout ? desktopBotsChrome : desktopAssistantChrome);
   const replying = mobile && replyText !== undefined;
   const { Header, SettingsPanel, Controls, Composer } = ui;
-  const settingsCovering =
-    supported === true && (settingsOpen || assistant === null);
+  const settingsShown = supported === true && (settingsOpen || assistant === null);
+  const settingsCovering = settingsShown && (!botsLayout || assistant === null);
+  const detailsMotion = useCollapseMotion(botsLayout && settingsShown);
   const replyMenu = useAssistantReplyMenu(
     mobile,
     visible && !!assistant && !settingsCovering && !replying,
@@ -785,10 +799,24 @@ export function AssistantChat({
     <TranscriptPlatformContext.Provider value={renderingPlatform}>
       <section
         ref={chat}
-        className="assistant-chat bg-background-base text-content"
-        aria-label={t("Assistant")}
+        className={`assistant-chat bg-background-base text-content${botsLayout ? " desktop-bots-workspace animated-collapse-size" : ""}`}
+        aria-label={t(botsLayout ? "Bots" : "Assistant")}
         data-layout={mobile ? "mobile" : "desktop"}
+        data-bot-details={botsLayout ? settingsShown : undefined}
+        data-fold-state={botsLayout ? detailsMotion.foldState : undefined}
+        onTransitionEnd={botsLayout ? (event) => {
+          if (event.target === event.currentTarget && event.propertyName === "grid-template-columns") detailsMotion.finish();
+        } : undefined}
       >
+        {botsLayout && (
+          <DesktopBotsNavigation
+            hostName={hostName}
+            hostPicker={hostPicker}
+            assistant={assistant}
+            messages={messages}
+            onSelect={() => chat.current?.querySelector<HTMLTextAreaElement>(".assistant-conversation textarea")?.focus()}
+          />
+        )}
         <div
           className="assistant-heading"
           inert={settingsCovering}
@@ -860,13 +888,17 @@ export function AssistantChat({
             <span>{t(supported ? "Loading messages…" : "Connecting…")}</span>
           </div>
         ) : (
-          <div className="assistant-body">
+          <div
+            className={`assistant-body${botsLayout ? " animated-collapse-size" : ""}`}
+            data-bot-details={botsLayout ? settingsShown : undefined}
+            data-bot-setup={botsLayout && !assistant || undefined}
+          >
             <SettingsPanel
-              open={settingsCovering}
+              open={settingsShown}
               initialSetup={!assistant}
               onClose={() => (assistant ? setSettingsOpen(false) : onClose?.())}
             >
-              {settingsCovering && errorNotice}
+              {settingsShown && errorNotice}
               <AssistantSettings
                 key={`${hostKey}:${settingsBase?.revision ?? "new"}`}
                 value={settingsBase}
@@ -879,7 +911,7 @@ export function AssistantChat({
                 busy={busy}
                 onSave={save}
                 onCancel={
-                  mobile || !assistant
+                  mobile || !assistant || botsLayout
                     ? undefined
                     : () => setSettingsOpen(false)
                 }
@@ -891,7 +923,7 @@ export function AssistantChat({
                 im={{
                   rpc,
                   supported: imSupported,
-                  active: settingsCovering && visible,
+                  active: settingsShown && visible,
                   assistantEnabled: assistant?.enabled ?? false,
                 }}
                 reminders={assistant?.reminders}
@@ -1031,7 +1063,7 @@ export function AssistantChat({
                 )}
                 <Composer
                   draft={draft}
-                  errorNotice={!settingsCovering ? errorNotice : undefined}
+                  errorNotice={!settingsShown ? errorNotice : undefined}
                   replyText={mobile ? replyText : undefined}
                   onCancelReply={cancelReply}
                   onDraftChange={setDraft}
