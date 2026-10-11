@@ -28,6 +28,7 @@ import type {
   ReviewFile,
   ReviewSource,
 } from "../model/reviewDiff";
+import { MIXED_CHANGES_NOTE } from "../../sessions/model/mixedChanges";
 import { ReviewDiffViewer } from "./ReviewDiffViewer";
 
 /**
@@ -73,9 +74,11 @@ export const GitReviewChangeCard = memo(function GitReviewChangeCard({
   useEffect(() => {
     if (!visible) setMenu(null);
   }, [visible]);
+  // The Host refuses diffs it cannot attribute exactly; explain instead.
+  const mixed = file.exact === false;
   useEffect(() => {
-    if (expanded && !diffState) loadDiff(file.relative);
-  }, [diffState, expanded, file.relative, loadDiff]);
+    if (expanded && !diffState && !mixed) loadDiff(file.relative);
+  }, [diffState, expanded, file.relative, loadDiff, mixed]);
   // Mount the diff two frames into the open animation: the motion starts
   // without waiting on diff layout, and content still arrives while opening.
   // Cards mounted already expanded (e.g. scrolled back into view) render at once.
@@ -91,7 +94,7 @@ export const GitReviewChangeCard = memo(function GitReviewChangeCard({
   const toggle = () => onToggle(file);
   // Start fetching on press so the diff is often ready when the card opens.
   const prefetch = () => {
-    if (!diffState) loadDiff(file.relative);
+    if (!diffState && !mixed) loadDiff(file.relative);
   };
   const stageHunk = useCallback(
     (pos: number) => onStageHunk(file, diffState, pos),
@@ -152,12 +155,18 @@ export const GitReviewChangeCard = memo(function GitReviewChangeCard({
             ) : null}
           </span>
           <span className="flex shrink-0 items-center justify-end gap-3 pl-3">
-            <span className="whitespace-nowrap text-ui-base tabular-nums">
-              <span className="text-[var(--review-added)]">+{additions}</span>
-              <span className="ml-2 text-[var(--review-removed)]">
-                -{deletions}
+            {mixed ? (
+              <span className="whitespace-nowrap text-ui-base text-amber-300/80">
+                {t("Mixed changes")}
               </span>
-            </span>
+            ) : (
+              <span className="whitespace-nowrap text-ui-base tabular-nums">
+                <span className="text-[var(--review-added)]">+{additions}</span>
+                <span className="ml-2 text-[var(--review-removed)]">
+                  -{deletions}
+                </span>
+              </span>
+            )}
             <ChevronDown
               className={`size-4 shrink-0 text-foreground-subtle transition-transform duration-300 motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`}
             />
@@ -237,43 +246,51 @@ export const GitReviewChangeCard = memo(function GitReviewChangeCard({
         motion="height"
         animateContentResize
       >
-        {() => (
-          <DeferredMount
-            ready={entered}
-            fallback={
-              <p
-                className="flex items-center justify-center py-4 text-ui-base text-foreground-subtle"
-                style={{ minHeight: placeholderHeight }}
-              >
-                {diffState?.state === "loaded" ? null : t("Loading…")}
-              </p>
-            }
-          >
-            {diffState?.state === "loaded" ? (
-              <ReviewDiffViewer
-                path={file.path}
-                relative={file.relative}
-                diff={diffState.diff}
-                busy={busy}
-                onStageHunk={source === "unstaged" ? stageHunk : undefined}
-              />
-            ) : (
-              <p
-                className="flex items-center justify-center px-4 py-4 text-ui-base text-foreground-subtle"
-                role={diffState?.state === "error" ? "alert" : undefined}
-                style={
-                  diffState?.state === "error"
-                    ? undefined
-                    : { minHeight: placeholderHeight }
-                }
-              >
-                {diffState?.state === "error"
-                  ? t("Couldn’t load diff: {error}", { error: diffState.error })
-                  : t("Loading…")}
-              </p>
-            )}
-          </DeferredMount>
-        )}
+        {() =>
+          mixed ? (
+            <p className="px-4 py-4 text-center text-ui-base text-foreground-subtle">
+              {t(MIXED_CHANGES_NOTE)}
+            </p>
+          ) : (
+            <DeferredMount
+              ready={entered}
+              fallback={
+                <p
+                  className="flex items-center justify-center py-4 text-ui-base text-foreground-subtle"
+                  style={{ minHeight: placeholderHeight }}
+                >
+                  {diffState?.state === "loaded" ? null : t("Loading…")}
+                </p>
+              }
+            >
+              {diffState?.state === "loaded" ? (
+                <ReviewDiffViewer
+                  path={file.path}
+                  relative={file.relative}
+                  diff={diffState.diff}
+                  busy={busy}
+                  onStageHunk={source === "unstaged" ? stageHunk : undefined}
+                />
+              ) : (
+                <p
+                  className="flex items-center justify-center px-4 py-4 text-ui-base text-foreground-subtle"
+                  role={diffState?.state === "error" ? "alert" : undefined}
+                  style={
+                    diffState?.state === "error"
+                      ? undefined
+                      : { minHeight: placeholderHeight }
+                  }
+                >
+                  {diffState?.state === "error"
+                    ? t("Couldn’t load diff: {error}", {
+                        error: diffState.error,
+                      })
+                    : t("Loading…")}
+                </p>
+              )}
+            </DeferredMount>
+          )
+        }
       </AnimatedCollapse>
     </section>
   );

@@ -24,6 +24,7 @@ export function sessionChangesIndex(status: CheckpointStatus): SessionChangesInd
     deletions: file.deletions,
     staged: false,
     unstaged: true,
+    exact: file.exact,
   }));
   return {
     branch: null,

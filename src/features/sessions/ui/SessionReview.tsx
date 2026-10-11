@@ -137,6 +137,7 @@ export function SessionReview({
     }),
     { additions: 0, deletions: 0 },
   );
+  const mixedCount = files.filter((file) => !file.exact).length;
 
   const run = (action: "keep" | "undo") => {
     if (disabled || (action === "undo" && !canUndoAll)) return;
@@ -185,12 +186,21 @@ export function SessionReview({
               })}
             </div>
             <div className="flex items-center gap-1.5 font-sans text-[11px] font-semibold tabular-nums -mt-0.5">
-              <span className="text-emerald-400">
-                +{formatInteger(totals.additions)}
-              </span>
-              <span className="text-red-400">
-                -{formatInteger(totals.deletions)}
-              </span>
+              {mixedCount < files.length && (
+                <>
+                  <span className="text-emerald-400">
+                    +{formatInteger(totals.additions)}
+                  </span>
+                  <span className="text-red-400">
+                    -{formatInteger(totals.deletions)}
+                  </span>
+                </>
+              )}
+              {mixedCount > 0 && (
+                <span className="font-medium text-amber-300/80">
+                  {uiT("Mixed changes")}
+                </span>
+              )}
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-0.5">

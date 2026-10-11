@@ -286,16 +286,26 @@ export function GitReviewPane({
     [rows, getDiff],
   );
 
-  const counts = (
-    <span className="ml-1 flex shrink-0 gap-2 text-ui-base tabular-nums">
-      <span className="text-[var(--review-added)]">
-        +{totals.additions.toLocaleString()}
+  // Inexact session files report 0/0; do not present that as "no changes".
+  const mixedCount = rows.filter((file) => file.exact === false).length;
+  const counts =
+    rows.length > 0 && mixedCount === rows.length ? (
+      <span className="ml-1 shrink-0 text-ui-base text-amber-300/80">
+        {t("Mixed changes")}
       </span>
-      <span className="text-[var(--review-removed)]">
-        -{totals.deletions.toLocaleString()}
+    ) : (
+      <span className="ml-1 flex shrink-0 gap-2 text-ui-base tabular-nums">
+        <span className="text-[var(--review-added)]">
+          +{totals.additions.toLocaleString()}
+        </span>
+        <span className="text-[var(--review-removed)]">
+          -{totals.deletions.toLocaleString()}
+        </span>
+        {mixedCount > 0 && (
+          <span className="text-amber-300/80">{t("Mixed changes")}</span>
+        )}
       </span>
-    </span>
-  );
+    );
 
   return (
     <ReviewDiffsWorkerPool>

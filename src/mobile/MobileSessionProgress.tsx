@@ -231,10 +231,14 @@ function ProgressSections({
           >
             <span>
               <span className="mobile-progress-git-meta">
-                <MobileDiffCounts
-                  additions={sessionReview.index.additions}
-                  deletions={sessionReview.index.deletions}
-                />
+                {sessionReview.index.files.every((file) => file.exact === false) ? (
+                  <span className="mobile-git-mixed">{t("Mixed changes")}</span>
+                ) : (
+                  <MobileDiffCounts
+                    additions={sessionReview.index.additions}
+                    deletions={sessionReview.index.deletions}
+                  />
+                )}
               </span>
             </span>
             <ChevronRight size={18} aria-hidden="true" />
