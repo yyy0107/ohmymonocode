@@ -711,5 +711,10 @@
   padding-bottom: 0;
   overflow: hidden;
 }
+.mobile-chat[data-new-conversation="true"] > .mobile-empty {
+  /* Keep the greeting centered in the full screen above the resting composer,
+     even when the keyboard shortens the shell. */
+  flex: 0 0 max(0px, calc(var(--mobile-viewport-full, 100dvh) - var(--mobile-dock-height, 0px)));
+}
 /* Android keeps the WebView full screen. The page reserves keyboard space
    once per motion; only the moving surfaces use the animated height. */

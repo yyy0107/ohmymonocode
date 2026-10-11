@@ -752,6 +752,7 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
           data-project-background-effect={projectBackground?.effect}
           data-project-background-scope={projectBackground?.scope}
           data-session-empty={!(snapshot?.hasBlocks || placeholder?.session.blocks.length)}
+          data-new-conversation={!sessionId}
           style={projectBackgroundStyle}>
           {(projectBackground?.effect === "gradient-blur" || (!projectBackground && backgroundPath && backgroundEffect === "gradient-blur")) && <GradientBlurBackground />}
           {transcriptSessionId ? (
