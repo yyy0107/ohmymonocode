@@ -16,6 +16,7 @@ import {
   sinceDate,
   supersedeMemoryEntry,
   topicName,
+  validMemoryName,
 } from "./memory";
 import { tokenizeMemorySearch } from "./memorySearch";
 
@@ -109,8 +110,16 @@ it("archives struck, then expired, then oldest entries, never the user's own", (
 
 it("accepts plain topic names only", () => {
   expect(topicName("releases.md")).toBe("releases");
-  for (const bad of ["", "../soul", ".hidden", "a/b", "archive"])
+  expect(topicName(" 发布流程.md ")).toBe("发布流程");
+  expect(topicName("-发布_流程")).toBe("-发布_流程");
+  expect(topicName("_legacy")).toBe("_legacy");
+  expect(topicName("CHAT-DAYS.md")).toBe("CHAT-DAYS");
+  for (const name of ["CON", "aux.notes", "name.", "double.md"])
+    expect(topicName(`${name}.md`)).toBe(name);
+  for (const bad of ["", "../soul", ".hidden", "a/b", "archive", "Archive.md", "a\\b", "中文.", "中文.md.md"])
     expect(() => topicName(bad)).toThrow("topic");
+  expect(validMemoryName("中文主题")).toBe(true);
+  expect(validMemoryName("tail ")).toBe(false);
 });
 
 it("finds entries by their words across files", () => {

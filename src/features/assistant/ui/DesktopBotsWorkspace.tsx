@@ -7,6 +7,8 @@ import { botCacheKey, type BotScope, type BotsSnapshot, type BotThread, type Bot
 import { migrateDefaultBotCache, scopedBotRpc } from "../model/botClient";
 import { BOT_SELECTION_EVENT, readBotSelection, selectBotThread } from "../model/botSelection";
 import { useBotUnread } from "../model/useBotUnread";
+import { BotMemoryDrafts } from "../model/botMemoryDrafts";
+import { DesktopBotMemory } from "./DesktopBotMemory";
 import { assistantErrorMessage } from "../model/assistantErrors";
 import { REMOTE_PROVIDERS, type HostDescriptor, type HostModelCatalog, type HostProject } from "../../connections/model/protocol";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
@@ -43,10 +45,10 @@ export function DesktopBotsWorkspace(props: Props) {
     <Loader2 size={20} className="animate-spin motion-reduce:animate-none" /><span>{t("Connecting…")}</span>
   </div>;
   if (!descriptor.capabilities?.includes("bots.v1")) return <AssistantChat {...props} rpc={rpc} />;
-  return <MultiBotWorkspace {...props} rpc={rpc} />;
+  return <MultiBotWorkspace {...props} rpc={rpc} memorySupported={descriptor.capabilities.includes("botMemory.v1")} />;
 }
 
-function MultiBotWorkspace(props: Props) {
+function MultiBotWorkspace(props: Props & { memorySupported: boolean }) {
   const { t } = useTranslation();
   const visible = useSurfaceVisibility();
   const [snapshot, setSnapshot] = useState<BotsSnapshot>();
@@ -62,6 +64,7 @@ function MultiBotWorkspace(props: Props) {
   const [projects, setProjects] = useState<HostProject[]>([]);
   const [catalogState, setCatalogState] = useState<"loading" | "ready" | "failed">("loading");
   const [draftVersion, setDraftVersion] = useState(0);
+  const [memoryDrafts] = useState(() => new BotMemoryDrafts());
   const createCommand = useRef<{ text: string; id: string } | undefined>(undefined);
   const lastThread = useRef(new Map<string, string>());
   const choose = useCallback((scope: BotScope) => {
@@ -178,6 +181,7 @@ function MultiBotWorkspace(props: Props) {
       return <div key={botCacheKey(props.hostKey, scope)} className="desktop-bots-thread-surface" style={{ display: selected ? "flex" : "none" }} inert={!selected} aria-hidden={!selected || undefined}>
         <SurfaceVisibilityContext.Provider value={visible && selected}>
           <ScopedBotChat {...props} scope={scope} threadTitle={thread?.title} botNavigation={navigation}
+            botMemory={props.memorySupported ? <DesktopBotMemory botId={scope.botId} rpc={props.rpc} drafts={memoryDrafts} /> : undefined}
             botSettings={snapshot?.bots.find((bot) => bot.id === scope.botId)}
             defaultScope={scope.botId === snapshot?.defaultBotId && scope.threadId === snapshot.defaultThreadId} />
         </SurfaceVisibilityContext.Provider>

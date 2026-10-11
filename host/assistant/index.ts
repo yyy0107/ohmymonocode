@@ -37,9 +37,9 @@ import {
 } from "../../src/features/assistant/model/assistant";
 import { parseRemoteAttachments, resolveAttachments } from "../attachments";
 import { rotationReason } from "./rotation";
-import { searchChat, type ChatHit } from "./chatSearch";
+import { recallBotMemory } from "../bots/recall";
 import { matchPlaybook } from "./playbooks";
-import { DIARY_TOPIC, diaryBrief, dueDiaryDays, enqueueDiaries } from "./diary";
+import { dueDiaryDays, enqueueDiaries } from "./diary";
 import {
   createHabit,
   deleteHabit,
@@ -53,7 +53,6 @@ import {
   memoryDate,
   memoryEntry,
   memoryLines,
-  memoryWithinBudget,
   topicName,
   withLineEdited,
   withoutLine,
@@ -66,9 +65,6 @@ import {
   splitReply,
 } from "./prompt";
 
-/** A fresh brief quotes the last two exchanges word for word. */
-const RECALL_VERBATIM = 4;
-const RECALL_LIMIT = 3;
 /** Bounds one merged event turn; matches the per-tick source batch. */
 const MAX_JOINED_EVENTS = 20;
 const MAX_EVENT_REFS = 50;
@@ -100,7 +96,7 @@ export class HostAssistant {
   /** Retains attribution when finalizing a turn throws after clearing active. */
   private tickingWakeupId?: string;
   /** The memory version shown to the brain in the running turn, if any. */
-  private injectedMemory?: { generation: number; revision: number };
+  private injectedMemory?: { generation: number; revision: number; hash: string };
   private diaryCheckedFor?: string;
   private closing = false;
   private ticking = false;
@@ -1101,6 +1097,15 @@ export class HostAssistant {
       if (!wakeup) return;
       if (this.options.managed && !this.options.managed.acquire()) return;
       this.tickingWakeupId = wakeup.id;
+      // Markdown is authoritative. Capture one immutable context for this turn;
+      // edits during execution are loaded at the next turn boundary.
+      const memory = this.store.memory.loadContext();
+      const topics = this.store.memory.topicDocuments();
+      const contextHash = signature({
+        memory: memory.hash, topics: topics.map(topic => [topic.path, topic.hash]),
+        name: config.name, persona: config.persona, policyVersion: config.policyVersion,
+        playbooks: this.store.playbookRevision(),
+      });
       const chain = this.liveChain(wakeup.rootCauseId, config);
       if (
         wakeup.kind !== "user" &&
@@ -1123,6 +1128,7 @@ export class HostAssistant {
         if (
           brain.status !== "running" &&
           (rotationReason(brain.session, Date.now(), config.brainBaseline) ||
+            config.brainMemory?.hash !== contextHash ||
             (this.options.managed && runtimeConfiguration(brain.session) !== runtimeConfiguration(config)))
         )
           // A fresh generation is briefed from the public chat on its first turn.
@@ -1203,15 +1209,7 @@ export class HostAssistant {
             ? { targetRef: a.targetRef }
             : {}),
         }));
-      const memory = this.store.memoryDoc("memory");
-      const seen = config.brainMemory;
-      const showMemory =
-        fresh ||
-        seen?.generation !== config.brainGeneration ||
-        seen.revision !== memory.revision;
-      this.injectedMemory = showMemory
-        ? { generation: config.brainGeneration, revision: memory.revision }
-        : undefined;
+      this.injectedMemory = { generation: config.brainGeneration, revision: memory.revision, hash: contextHash };
       const messages = this.store.latestMessages();
       const playbooks = this.store.playbooks();
       const prompt = buildBrainPrompt({
@@ -1224,26 +1222,16 @@ export class HostAssistant {
         ledger,
         now: Date.now(),
         fresh,
-        ...(fresh
-          ? { diary: diaryBrief(this.store.memoryDoc(`topic:${DIARY_TOPIC}`).text) }
-          : {}),
+        soul: memory.soul,
         playbooks: playbooks.map(({ body: _body, ...summary }) => summary),
         ...(this.active.kind === "user"
           ? { playbook: matchPlaybook(playbooks, this.active.text) }
           : {}),
-        recall: this.recall(
-          messages,
-          fresh,
-          this.engine.store.session(brainId).createdAt,
-        ),
-        ...(showMemory
-          ? {
-              memory: {
-                ...memoryWithinBudget(memory.text),
-                topics: this.store.memoryTopics(),
-              },
-            }
-          : {}),
+        recall: recallBotMemory(this.engine.store, this.store.scope, topics, this.active.text, {
+          threadKind: this.store.bots.getThread(this.store.botId, this.store.threadId)!.kind,
+          directInput: this.active.kind === "user" && wakeupSource(this.active).kind !== "automatic",
+        }),
+        memory,
       });
       this.engine.assistantCommand({
         type: "send",
@@ -1255,36 +1243,6 @@ export class HostAssistant {
     } finally {
       this.ticking = false;
       if (!this.active) this.options.managed?.release();
-    }
-  }
-  /**
-   * Earlier chat that matches the user's input but is outside the brain's
-   * context: before this brain started, or older than a fresh brief's verbatim
-   * exchanges. Requires two shared words so ordinary turns stay quiet.
-   */
-  private recall(
-    messages: AssistantMessage[],
-    fresh: boolean,
-    brainCreatedAt: number | undefined,
-  ): ChatHit[] {
-    const wakeup = this.active;
-    if (wakeup?.kind !== "user") return [];
-    const chat = messages.filter(
-      (m) =>
-        (m.kind === "user" || m.kind === "assistant") &&
-        !(m.kind === "user" && m.wakeupId === wakeup.id),
-    );
-    const before = fresh ? chat.at(-RECALL_VERBATIM)?.createdAt : brainCreatedAt;
-    if (before === undefined) return [];
-    try {
-      return searchChat(messages, wakeup.text, {
-        timeZone: this.store.get()?.timezone ?? "UTC",
-        before,
-        limit: RECALL_LIMIT,
-        minWords: 2,
-      });
-    } catch {
-      return [];
     }
   }
   private liveChain(

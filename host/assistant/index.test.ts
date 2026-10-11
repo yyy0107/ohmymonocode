@@ -1276,7 +1276,7 @@ it("rotates an oversized brain into a fresh generation briefed from the chat", a
   expect(turns[1].input.text).toContain("Inspect the projects");
   expect(turns[0].input.text).not.toContain("<previous_conversation>");
 });
-it("keeps memory across turns and shows it to the brain only when it changes", async () => {
+it("rereads resident memory every turn and replaces the native cache after memory changes", async () => {
   const { engine, store, turns } = await setup();
   const act = (requestId: string, action: string, input: Record<string, unknown>) =>
     executeAssistantAction(engine.assistant, requestId, action, input, () => true);
@@ -1294,8 +1294,9 @@ it("keeps memory across turns and shows it to the brain only when it changes", a
   ]);
   const brainId = engine.assistant.store.get()!.brainSessionId!;
   const nextTurn = async (text: string, count: number) => {
+    const currentBrainId = turns.at(-1)!.input.sessionId;
     turns.at(-1)!.finish();
-    await vi.waitFor(() => expect(store.session(brainId).status).toBe("idle"));
+    await vi.waitFor(() => expect(store.session(currentBrainId).status).toBe("idle"));
     await engine.assistant.tick();
     await engine.assistant.rpc("assistant.send", { commandId: text, text });
     await vi.waitFor(() => expect(turns).toHaveLength(count));
@@ -1304,7 +1305,9 @@ it("keeps memory across turns and shows it to the brain only when it changes", a
   const second = await nextTurn("What do I prefer?", 2);
   expect(second).toContain("Prefers pnpm");
   expect(second).toContain("Topic notes: deploys");
-  expect(await nextTurn("Thanks", 3)).not.toContain("Your memory (current version");
+  expect(turns[1].input.sessionId).not.toBe(brainId);
+  expect(await nextTurn("Thanks", 3)).toContain("Your memory (current version");
+  expect(turns[2].input.sessionId).toBe(turns[1].input.sessionId);
 });
 it("searches Chinese memory through controls across resident, topic and archived facts", async () => {
   const { engine } = await setup();
@@ -1336,6 +1339,31 @@ it("searches Chinese memory through controls across resident, topic and archived
   expect(await act("search-default", "memory.search", { query: "ordinary" })).toHaveLength(20);
   expect(await act("search-max", "memory.search", { query: "ordinary", limit: 50 })).toHaveLength(50);
   await expect(act("search-invalid", "memory.search", { query: "发布", limit: 51 })).rejects.toThrow("limit");
+});
+it("reads desktop-authored Unicode topics through the legacy Bot controls", async () => {
+  const { engine } = await setup(), store = engine.assistant.store;
+  const memory = store.memory, path = "memory/发布流程.md", original = memory.read(path);
+  memory.save(path, "发布前检查 staging", { expectedRevision: original.revision, expectedHash: original.hash });
+  const act = (requestId: string, action: string, input: Record<string, unknown>) =>
+    executeAssistantAction(engine.assistant, requestId, action, input, () => true);
+  expect(await act("read-unicode", "memory.read", { topic: "发布流程" })).toEqual({ text: "发布前检查 staging" });
+  await act("append-unicode", "memory.add", { topic: "发布流程.md", fact: "发布后检查 health" });
+  expect(memory.read(path).text).toContain("发布后检查 health");
+  expect(await engine.assistant.rpc("assistant.memoryTopic", { topic: "发布流程" })).toMatchObject({ text: expect.stringContaining("发布后检查 health") });
+  await expect(act("reserved-topic", "memory.read", { topic: "archive" })).rejects.toThrow("topic");
+  // Existing diary automation still reaches its virtual log aggregate.
+  expect(await act("legacy-diary", "memory.read", { topic: "chat-days" })).toEqual({ text: "" });
+});
+it("keeps historical topic aliases reachable without changing their spelling or diary identity", async () => {
+  const { engine } = await setup(), store = engine.assistant.store;
+  for (const [index, name] of ["CON", "foo.", "foo.md", "CHAT-DAYS"].entries()) {
+    store.writeMemoryDoc(`topic:${name}`, `Original topic ${index}`);
+    const input = { topic: `${name}.md` };
+    expect(await executeAssistantAction(engine.assistant, `alias-${index}`, "memory.read", input, () => true))
+      .toEqual({ text: `Original topic ${index}` });
+    expect(await engine.assistant.rpc("assistant.memoryTopic", input)).toMatchObject({ name, text: `Original topic ${index}` });
+  }
+  expect(store.memoryDoc("topic:chat-days").text).toBe("");
 });
 it("lets the user read, add, edit and forget memory without overwriting newer writes", async () => {
   const { engine } = await setup();

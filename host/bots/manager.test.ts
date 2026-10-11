@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
@@ -7,6 +7,7 @@ import { HostEngine } from "../engine";
 import type { HostProvider } from "../providers";
 import type { SendTurnInput } from "../../src/integrations/harness/core/types";
 import type { BotScope, BotThread, BotView, BotsSnapshot } from "../../src/features/assistant/model/bots";
+import type { BotMemoryChange, BotMemoryDocument } from "../../src/features/assistant/model/botMemory";
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0)) await cleanup(); });
@@ -38,6 +39,63 @@ async function setup() {
   const send = (scope: BotScope, text: string, commandId = "send") => engine.bots.rpc("botThreads.send", { ...scope, text, commandId });
   return { store, engine, provider, turns, createBot, createThread, send };
 }
+
+it("scopes memory CAS, command retries and undo to their Bot without requiring a thread", async () => {
+  const { engine, createBot } = await setup();
+  const first = await createBot("Memory first"), second = await createBot("Memory second");
+  const read = (botId: string) => engine.bots.rpc("botMemory.read", { botId, path: "MEMORY.md" }) as Promise<BotMemoryDocument>;
+  const original = await read(first.botId);
+  const request = { botId: first.botId, commandId: "save", path: "MEMORY.md", text: "shared deployment notes",
+    expectedRevision: original.revision, expectedHash: original.hash };
+  const saved = await engine.bots.rpc("botMemory.save", request) as BotMemoryDocument;
+  expect(await engine.bots.rpc("botMemory.save", request)).toEqual(saved);
+  expect((await read(second.botId)).text).toBe("");
+  await expect(engine.bots.rpc("botMemory.save", { ...request, commandId: "stale", text: "overwrite" })).rejects.toMatchObject({ code: "MEMORY_CONFLICT" });
+  const changes = await engine.bots.rpc("botMemory.log", { botId: first.botId, path: "MEMORY.md" }) as BotMemoryChange[];
+  const change = changes.find(change => change.afterHash === saved.hash)!;
+  await expect(engine.bots.rpc("botMemory.undo", { botId: second.botId, commandId: "undo", changeId: change.id,
+    expectedRevision: 0, expectedHash: original.hash })).rejects.toThrow(/does not belong/);
+  const undo = { botId: first.botId, commandId: "undo", changeId: change.id, expectedRevision: saved.revision, expectedHash: saved.hash };
+  const restored = await engine.bots.rpc("botMemory.undo", undo) as BotMemoryDocument;
+  expect(restored.text).toBe(original.text);
+  expect(await engine.bots.rpc("botMemory.undo", undo)).toEqual(restored);
+  await expect(engine.bots.rpc("botMemory.read", { botId: first.botId, path: "../outside.md" })).rejects.toThrow();
+  expect(await engine.bots.rpc("botMemory.rebuild", { botId: first.botId, commandId: "rebuild" })).toMatchObject({ files: expect.any(Array) });
+});
+
+it("reloads Soul and bounded memory at turn boundaries without automatically loading logs", async () => {
+  const { engine, store, turns, createBot, createThread, send } = await setup();
+  const scope = await createBot("Context"), sibling = await createThread(scope.botId, "Other direct chat");
+  const runtime = engine.bots.assistant(scope), memory = runtime.store.memory;
+  const save = (path: string, text: string) => {
+    const document = memory.read(path);
+    return memory.save(path, text, { expectedRevision: document.revision, expectedHash: document.hash });
+  };
+  save("SOUL.md", "Respond with careful evidence.");
+  save("MEMORY.md", `Resident preference\n${"ordinary note\n".repeat(199)}OUTSIDE_RESIDENT_BUDGET`);
+  save("memory/deploy.md", "Deployment procedures require staging.");
+  save("memory/log/2026-10-01.md", "LOG_MUST_STAY_ON_DEMAND deployment procedures");
+  engine.bots.assistant(sibling).store.message({ id: "earlier", kind: "assistant", text: "Deployment procedures need two checks." });
+  await send(scope, "Explain deployment procedures", "first");
+  await vi.waitFor(() => expect(turns).toHaveLength(1));
+  expect(turns[0].input.text).toContain("User-authored Bot identity (SOUL.md):\nRespond with careful evidence.");
+  expect(turns[0].input.text).toContain("Memory truncated:");
+  expect(turns[0].input.text).not.toMatch(/OUTSIDE_RESIDENT_BUDGET|LOG_MUST_STAY_ON_DEMAND/);
+  const currentInput = turns[0].input.text.split("Current input (user):")[1];
+  expect(currentInput).toContain('"kind":"topic"');
+  expect(currentInput).toContain(`"threadId":"${sibling.threadId}"`);
+  writeFileSync(join(memory.workspace, "SOUL.md"), "Respond with concise evidence.");
+  expect(runtime.store.get()!.brainSessionId).toBe(turns[0].input.sessionId);
+  turns[0].finish();
+  await vi.waitFor(() => expect(store.session(turns[0].input.sessionId).status).toBe("idle"));
+  await send(scope, "Explain deployment procedures again", "second");
+  await vi.waitFor(() => expect(turns).toHaveLength(2));
+  expect(turns[1].input.sessionId).not.toBe(turns[0].input.sessionId);
+  expect(turns[1].input.text).toContain("Respond with concise evidence.");
+  expect(turns[1].input.text).not.toContain("Respond with careful evidence.");
+  expect(turns[1].input.text).toContain("<previous_conversation>");
+  expect(turns[1].input.text).not.toContain("LOG_MUST_STAY_ON_DEMAND");
+});
 
 it("serializes sibling threads while another Bot runs, preserving scopes and callback ownership", async () => {
   const { engine, turns, createBot, createThread, send } = await setup();

@@ -471,6 +471,12 @@ fn supported_remote_method(method: &str) -> bool {
             | "botThreads.archive"
             | "botThreads.restore"
             | "botMemory.get"
+            | "botMemory.list"
+            | "botMemory.read"
+            | "botMemory.save"
+            | "botMemory.log"
+            | "botMemory.undo"
+            | "botMemory.rebuild"
             | "botMemory.topic"
             | "im.get"
             | "im.configure"
@@ -817,6 +823,12 @@ mod tests {
             "botThreads.archive",
             "botThreads.restore",
             "botMemory.get",
+            "botMemory.list",
+            "botMemory.read",
+            "botMemory.save",
+            "botMemory.log",
+            "botMemory.undo",
+            "botMemory.rebuild",
             "botMemory.topic",
         ] {
             assert!(supported_remote_method(method), "{method}");
@@ -824,6 +836,7 @@ mod tests {
         assert!(!supported_remote_method("git.arbitrary"));
         assert!(!supported_remote_method("bots.arbitrary"));
         assert!(!supported_remote_method("botThreads.arbitrary"));
+        assert!(!supported_remote_method("botMemory.arbitrary"));
     }
     #[test]
     fn endpoints_require_an_encrypted_route_and_no_embedded_secrets() {

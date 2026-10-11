@@ -65,6 +65,7 @@ import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
 import { slidePromptIn } from "../../sessions/ui/promptLaunch";
 import { Loader2, Sparkles } from "../../../shared/ui/icons";
 import { DesktopBotsNavigation, desktopBotsChrome } from "./DesktopBotsChrome";
+import { DesktopBotDetails } from "./DesktopBotDetails";
 
 /** History renders newest-first in slices so opening never blocks the app. */
 const INITIAL_HISTORY_ROWS = 30;
@@ -174,6 +175,7 @@ export function AssistantChat({
   botNavigation,
   threadTitle,
   botSettings,
+  botMemory,
 }: {
   hostKey: string;
   rpc: AssistantRpc;
@@ -190,6 +192,8 @@ export function AssistantChat({
   threadTitle?: string;
   /** Bot defaults stay separate from a thread's effective model override. */
   botSettings?: AssistantView;
+  /** File memory is available only in the capable desktop Bot workspace. */
+  botMemory?: ReactNode;
   /** Opens a sent file in a tab; receives a reader for the file's base64 bytes. */
   onOpenAttachment?: (file: RemoteAttachment, read: () => Promise<string>) => void;
 }) {
@@ -910,6 +914,7 @@ export function AssistantChat({
               onClose={() => (assistant ? setSettingsOpen(false) : onClose?.())}
             >
               {settingsShown && errorNotice}
+              <DesktopBotDetails memory={botsLayout ? botMemory : undefined}>
               <AssistantSettings
                 key={`${cacheKey}:${settingsBase?.revision ?? "new"}`}
                 value={settingsBase}
@@ -968,6 +973,7 @@ export function AssistantChat({
                     : undefined
                 }
               />
+              </DesktopBotDetails>
             </SettingsPanel>
             {assistant && controls && (
               <div

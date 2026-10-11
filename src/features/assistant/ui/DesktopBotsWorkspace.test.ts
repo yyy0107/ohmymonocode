@@ -18,6 +18,7 @@ const thread = (botId: string, id: string): BotThread => ({ botId, id, title: id
 let snapshot: BotsSnapshot;
 let messages: Record<string, AssistantMessage[]>;
 let rpc: ReturnType<typeof vi.fn>;
+let memorySupported: boolean;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.useFakeTimers();
@@ -25,13 +26,16 @@ beforeEach(() => {
   setUiLanguage("en");
   snapshot = { revision: 1, bots: [bot("A"), bot("B")], threads: [thread("A", "A-1"), thread("A", "A-2"), thread("B", "B-1")], defaultBotId: "A", defaultThreadId: "A-1" };
   messages = {};
+  memorySupported = false;
   const view = (id: string) => {
     const target = snapshot.threads.find((thread) => thread.id === id)!;
     const owner = snapshot.bots.find((bot) => bot.id === target.botId)!;
     return { ...owner, ...target.modelOverride, botId: target.botId, threadId: target.id, title: target.title, chatRevision: target.chatRevision };
   };
   rpc = vi.fn(async (method: string, params: Record<string, any> = {}) => {
-    if (method === "environment.describe") return { capabilities: ["assistant.v1", "assistant.history", "bots.shell.v1", "bots.v1"] };
+    if (method === "environment.describe") return { capabilities: ["assistant.v1", "assistant.history", "bots.shell.v1", "bots.v1", ...(memorySupported ? ["botMemory.v1"] : [])] };
+    if (method === "botMemory.list") return { revision: 1, files: [], topicLimit: 100, topicsTruncated: false };
+    if (method === "botMemory.read") return { path: params.path, text: `${params.botId} memory`, kind: "resident", revision: 1, hash: params.botId, bytes: 8, updatedAt: 1 };
     if (method === "bots.list") return { ...snapshot, threads: [...snapshot.threads] };
     if (method === "botThreads.get") return view(params.threadId);
     if (method === "botThreads.messages") {
@@ -140,4 +144,28 @@ it("labels an empty stored default title without mutating it", async () => {
   expect(row.getAttribute("aria-label")).toBe("Main thread");
   expect(row.textContent).toContain("Main thread");
   expect(snapshot.threads[0].title).toBe("");
+});
+
+it("shares file drafts across a Bot's threads, keeps Bots isolated, and retains drafts when details close", async () => {
+  memorySupported = true;
+  await render();
+  expect(rpc.mock.calls.some(([method]) => method.startsWith("botMemory."))).toBe(false);
+  const openFiles = async () => {
+    act(() => active().querySelector<HTMLButtonElement>('[aria-label="Bot details"]')!.click()); await flush();
+    act(() => [...active().querySelectorAll<HTMLButtonElement>('[role="tab"]')].find((button) => button.textContent === "Memory files")!.click()); await flush();
+  };
+  const contents = () => active().querySelector<HTMLTextAreaElement>('[aria-label="File contents"]')!;
+  await openFiles();
+  act(() => setValue(contents(), "Shared A draft"));
+  await select("A-2"); await openFiles();
+  expect(contents().value).toBe("Shared A draft");
+  await select("B"); await openFiles();
+  expect(contents().value).toBe("B memory");
+  act(() => setValue(contents(), "Private B draft"));
+  await select("A-1");
+  expect(contents().value).toBe("Shared A draft");
+  act(() => active().querySelector<HTMLButtonElement>('[aria-label="Hide bot details"]')!.click()); await flush();
+  act(() => active().querySelector<HTMLButtonElement>('[aria-label="Bot details"]')!.click()); await flush();
+  expect(contents().value).toBe("Shared A draft");
+  expect(rpc.mock.calls.filter(([method]) => method.startsWith("botMemory.")).every(([, params]) => !Object.hasOwn(params, "threadId"))).toBe(true);
 });

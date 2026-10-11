@@ -203,8 +203,9 @@ commands/results and deferred checks, including manual visual checks.
 | --- | --- | --- | --- |
 | 0 | Roadmap recorded | `6f1e17c0` | Baseline, branch and unrelated-file inspection; documentation requires no tests |
 | 1 | Desktop shell complete | `df30c960` | Targeted UI/Host tests, TypeScript and local browser checks below |
-| 2 | Isolated Bots/Threads complete | This stage's named commit (see git log) | Scoped persistence, RPC, desktop and compatibility checks below |
-| 3–8 | Not started | — | None |
+| 2 | Isolated Bots/Threads complete | `cf4e906e` | Scoped persistence, RPC, desktop and compatibility checks below |
+| 3 | File-backed memory complete | This stage's named commit (see git log) | File durability, recall, UI and compatibility checks below |
+| 4–8 | Not started | — | None |
 
 Stage 1 verification (Node 24.16.0, Vitest 3.2.7, Vite 7.3.6):
 
@@ -297,3 +298,71 @@ Stage 2 checks:
   needed the existing packaged Host resource directory; linked the ignored
   `build/desktop-host` to the existing resource, then reran successfully. This
   was test compilation; no application build/package or publication was run.
+
+
+Stage 3 implementation notes:
+
+- `FileMemoryService` provides a Host-cached service per Bot. `SOUL.md`,
+  `MEMORY.md`, topic/archive Markdown, dated logs and `playbooks/*.md` live in
+  the stable Bot workspace. The existing persona remains the base identity;
+  a new empty Soul adds user-authored instructions without overriding phone
+  persona settings. Legacy `chat-days` content maps to dated log files.
+- File writes participate in the outer Host SQLite transaction: prepare a durable
+  journal, atomically replace files, commit the revision/command receipt, then
+  move the journal to history. Startup/read recovery uses the SQLite commit
+  marker to finish or roll back interrupted file work. Newer external edits are
+  preserved. Journals/history remain outside the workspace.
+- File APIs require matching revision and SHA-256 hash; conflicts retain desktop
+  drafts. Reads/turn boundaries reconcile external edits. Rebuild reconstructs
+  projections from Markdown plus durable history without copying stale SQL bodies.
+- Every turn loads current Soul, bounded resident memory and at most 100 topic
+  names (8,000 characters). Resident memory keeps the full editable file but loads
+  only 200 lines / 24 KiB. A 1 MiB per-file and 2,000-file workspace bound protects
+  file operations. Paths are canonical and symlinks are rejected.
+- Automatic recall uses Chinese tokenization/BM25, an eight-code-point input
+  minimum, at most four notes and four excerpts from other direct Threads of the
+  current Bot. Each excerpt is at most 1,000 code points; the complete annotated
+  reference block is at most 6,000. Current Thread, archive, logs and resident
+  memory are excluded. Automatic/non-direct inputs recall only topic notes.
+- The desktop memory tab is gated by `botMemory.v1`. Host/Bot/file drafts survive
+  Thread switching and panel closure. Explicit conflict choices precede retry;
+  saving after an unknown response reuses its command ID. Undo requires a clean
+  draft and uses the same revision/hash checks. The phone uses existing APIs.
+
+Stage 3 checks:
+
+- Host RPC file-memory/CAS/legacy-mobile integration: 1 passed.
+- Localization selection: 6 passed.
+- Rust RPC whitelist: `CARGO_TARGET_DIR=/projects/monocode/target npm run check:rust`
+  passed (format, Clippy, 602 tests passed / 1 ignored).
+
+- Runtime/manager/recall/prompt selection: 72 passed. Unicode topic/control
+  compatibility selection: 5 passed.
+- Desktop workspace/memory/AssistantChat/MobileAssistant selection: 71 passed;
+  no mobile component or style changes.
+- Browser fixture: light 680px layout verified conflict draft preservation,
+  explicit conflict resolution, save, undo and rapid history collapse reversal;
+  dark 1280px memory editor layout inspected. The previous Vite process had
+  exited; restarted the local fixture before these checks. No production data.
+- Web and Host TypeScript checks passed. No real CLI inference, application
+  build, publication, push or merge was run in this stage.
+
+- Final file service: 13 passed; existing scoped/Assistant stores: 28 passed.
+  These cover exact Unicode/byte budgets, external edit and deletion/undo,
+  deferred SQLite COMMIT failure, committed/uncommitted journal recovery,
+  external-write races, rebuild, path/symlink/UTF-8/size rejection and topic bounds.
+- Final historical-name/Unicode control selection: 3 passed; final Host TypeScript
+  and `git diff --check` passed.
+
+Additional migration recovery details:
+
+- Portable filename aliases (including old names such as `CON`, trailing dots,
+  repeated extensions, and case-fold collisions) are persisted in
+  `bots/<botId>/memory-aliases.json`, outside the workspace. Legacy controls and
+  the context topic index retain the original name. Existing Markdown wins on
+  migration; the original SQL document bodies are preserved separately in
+  `memory-sql-backup.json` with owner-only permissions.
+- Back up the complete `bots/<botId>` directory along with SQLite: workspace,
+  aliases, journals and history form the recoverable file-memory state. Do not
+  delete pending journals to clear an error. Restart/read retries settle them
+  using the SQLite commit marker. The service preserves a newer external edit.

@@ -100,7 +100,7 @@ async function setup(providers: RemoteProvider[] = ["codex"], discoverProviders?
     });
     return {
       status: response.status,
-      value: (await response.json()) as { result?: any; error?: string },
+      value: (await response.json()) as { result?: any; error?: string; code?: string },
     };
   };
   cleanups.push(async () => {
@@ -1308,6 +1308,39 @@ it("routes scoped Bot RPCs without crossing legacy history or forged Thread owne
   expect((await call("assistant.messages", { latest: true })).value.result.entries).toEqual([]);
   expect((await call("botThreads.messages", { botId: listing.defaultBotId, threadId: scope.threadId })).value.error).toBeTruthy();
   expect((await call("bots.list", {}, undefined, { environmentId: "other-host" })).value.error).toMatch(/identity changed/);
+});
+
+it("serves file-backed Bot memory with conflict codes and the legacy mobile facade", async () => {
+  const { engine, store, call } = await setup();
+  await engine.ready;
+  engine.bots.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }] }, errors: {} }));
+  const created = (await call("bots.create", { commandId: "memory-bot", patch: {
+    harness: "codex", model: "test", triggers: { user: true, event: false, schedule: false },
+  } })).value.result;
+  const botId = created.bot.id;
+  const initial = (await call("botMemory.read", { botId, path: "MEMORY.md" })).value.result;
+  const save = { botId, path: "MEMORY.md", commandId: "memory-save", text: "- 2026-10-11 · Prefer focused tests\n",
+    expectedRevision: initial.revision, expectedHash: initial.hash };
+  const written = (await call("botMemory.save", save)).value.result;
+  expect(written.text).toBe(save.text);
+  expect((await call("botMemory.save", save)).value.result).toEqual(written);
+  expect((await call("assistant.memory")).value.result.facts).toEqual(expect.arrayContaining([
+    expect.objectContaining({ text: "Prefer focused tests" }),
+  ]));
+  writeFileSync(join(dirname(store.attachmentDir), "bots", botId, "workspace", "MEMORY.md"), "- 2026-10-11 · Changed externally\n");
+  const conflict = await call("botMemory.save", { ...save, commandId: "memory-stale", text: "Stale edit",
+    expectedRevision: written.revision, expectedHash: written.hash });
+  expect(conflict.value.code).toBe("MEMORY_CONFLICT");
+  const external = (await call("botMemory.read", { botId, path: "MEMORY.md" })).value.result;
+  expect(external.text).toContain("Changed externally");
+  expect(external.revision).toBeGreaterThan(written.revision);
+  expect((await call("assistant.control", { commandId: "mobile-memory", action: "addMemory", fact: "Keep mobile compatible" })).status).toBe(200);
+  expect((await call("botMemory.read", { botId, path: "MEMORY.md" })).value.result.text).toContain("Keep mobile compatible");
+  expect((await call("botMemory.read", { botId, path: "../other/MEMORY.md" })).value.error).toBeTruthy();
+  expect((await call("botMemory.rebuild", { botId, commandId: "rebuild-memory" })).status).toBe(200);
+  expect((await call("assistant.memory")).value.result.facts).toEqual(expect.arrayContaining([
+    expect.objectContaining({ text: "Keep mobile compatible" }),
+  ]));
 });
 
 it("records phone hardware only for the authenticated device and retains it on legacy reconnects", async () => {

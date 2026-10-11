@@ -52,6 +52,11 @@ export class BotStore {
       CREATE TABLE IF NOT EXISTS bot_chains (bot_id TEXT NOT NULL, thread_id TEXT NOT NULL, root TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(bot_id,thread_id,root), FOREIGN KEY(bot_id,thread_id) REFERENCES bot_threads(bot_id,id));
       CREATE TABLE IF NOT EXISTS bot_memory (bot_id TEXT NOT NULL REFERENCES bots(id), name TEXT NOT NULL, revision INTEGER NOT NULL, text TEXT NOT NULL, PRIMARY KEY(bot_id,name));
       CREATE TABLE IF NOT EXISTS bot_commands (scope TEXT NOT NULL, id TEXT NOT NULL, signature TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(scope,id));
+      CREATE TABLE IF NOT EXISTS bot_memory_state (bot_id TEXT PRIMARY KEY REFERENCES bots(id), initialized INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS bot_memory_files (bot_id TEXT NOT NULL REFERENCES bots(id), path TEXT NOT NULL, revision INTEGER NOT NULL, hash TEXT NOT NULL, present INTEGER NOT NULL, bytes INTEGER NOT NULL, updated_at INTEGER NOT NULL, text TEXT NOT NULL, PRIMARY KEY(bot_id,path));
+      CREATE TABLE IF NOT EXISTS bot_memory_commits (id TEXT PRIMARY KEY, bot_id TEXT NOT NULL REFERENCES bots(id));
+      CREATE TABLE IF NOT EXISTS bot_memory_changes (id TEXT PRIMARY KEY, bot_id TEXT NOT NULL REFERENCES bots(id), path TEXT NOT NULL, at INTEGER NOT NULL, payload TEXT NOT NULL);
+      CREATE INDEX IF NOT EXISTS bot_memory_changes_bot ON bot_memory_changes(bot_id,at);
     `);
     this.migrate(options.onMigrationPhase);
   }

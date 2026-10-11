@@ -3,6 +3,7 @@ import { assistantNotificationActivity } from "../../src/features/assistant/mode
 import { followSession } from "../../src/features/assistant/model/assistantSessions";
 import type { HostStore } from "../store";
 import { BotStore } from "../bots/store";
+import { FileMemoryService } from "../bots/memory";
 import type { BotScope } from "../../src/features/assistant/model/bots";
 import {
   type AssistantAction,
@@ -15,7 +16,7 @@ import {
   type AssistantView,
 } from "../../src/features/assistant/model/assistant";
 import { memoryLines } from "./memory";
-import { PLAYBOOK_PREFIX, parsePlaybook, type Playbook } from "./playbooks";
+import { parsePlaybook, type Playbook } from "./playbooks";
 import type { RemoteAttachment } from "../../src/features/connections/model/protocol";
 
 export function signature(value: unknown): string {
@@ -39,7 +40,7 @@ export type AssistantRecord = AssistantView & {
   /** Context a fresh brain of this generation used on its first turn. */
   brainBaseline?: number;
   /** The memory version the brain of this generation last saw in a finished turn. */
-  brainMemory?: { generation: number; revision: number };
+  brainMemory?: { generation: number; revision: number; hash?: string };
   sourceCursor: number;
 };
 export type Wakeup = {
@@ -117,59 +118,24 @@ export class AssistantStore {
    * A memory document: `memory` (resident), `archive`, or `topic:<name>`.
    * Missing documents read as empty at revision 0.
    */
+  get memory(): FileMemoryService {
+    return FileMemoryService.forBot(this.host, this.botId);
+  }
   memoryDoc(name: string): { text: string; revision: number } {
-    const row = this.host.db
-      .prepare("SELECT revision, text FROM bot_memory WHERE bot_id=? AND name=?")
-      .get(this.botId, name);
-    return row
-      ? { text: String(row.text), revision: Number(row.revision) }
-      : { text: "", revision: 0 };
+    return this.get() ? this.memory.legacyRead(name) : { text: "", revision: 0 };
   }
-  /** Writes a memory document unless another writer changed it since `expected`. */
+  /** Legacy controls retain their revision CAS, redaction and budget handling. */
   writeMemoryDoc(name: string, text: string, expected?: number): number {
-    return this.host.transaction(() => {
-      const current = this.memoryDoc(name).revision;
-      if (expected !== undefined && expected !== current)
-        throw new Error("Memory changed elsewhere. Reload before saving.");
-      this.host.db
-        .prepare(
-          "INSERT INTO bot_memory VALUES (?, ?, ?, ?) ON CONFLICT(bot_id,name) DO UPDATE SET revision=excluded.revision, text=excluded.text",
-        )
-        .run(this.botId, name, current + 1, text);
-      this.bots.memoryChanged(this.botId);
-      return current + 1;
-    });
+    return this.memory.legacyWrite(name, text, expected);
   }
-  /** Saved playbooks; a deleted one is kept as an empty document. */
   playbooks(): Playbook[] {
-    return this.host.db
-      .prepare(
-        "SELECT name, text FROM bot_memory WHERE bot_id=? AND name LIKE 'playbook:%' AND text<>'' ORDER BY name",
-      )
-      .all(this.botId)
-      .map((row) =>
-        parsePlaybook(
-          String(row.name).slice(PLAYBOOK_PREFIX.length),
-          String(row.text),
-        ),
-      );
+    return this.get() ? this.memory.legacyDocuments("playbook:").filter(doc => doc.text).map(doc => parsePlaybook(doc.name, doc.text)) : [];
   }
-  /** Rises with every playbook write, including deletions. */
   playbookRevision(): number {
-    const row = this.host.db
-      .prepare(
-        "SELECT COALESCE(SUM(revision), 0) AS revision FROM bot_memory WHERE bot_id=? AND name LIKE 'playbook:%'",
-      )
-      .get(this.botId)!;
-    return Number(row.revision);
+    return this.get() ? this.memory.legacyDocuments("playbook:").reduce((sum, doc) => sum + doc.revision, 0) : 0;
   }
   memoryTopics(): string[] {
-    return this.host.db
-      .prepare(
-        "SELECT name FROM bot_memory WHERE bot_id=? AND name LIKE 'topic:%' AND text<>'' ORDER BY name",
-      )
-      .all(this.botId)
-      .map((row) => String(row.name).slice("topic:".length));
+    return this.get() ? this.memory.legacyDocuments("topic:").filter(doc => doc.text).map(doc => doc.name) : [];
   }
   get(): AssistantRecord | null {
     return this.bots.record(this.scope);

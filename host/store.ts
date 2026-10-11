@@ -46,6 +46,7 @@ export function pairingCode(): string {
 
 export class HostStore {
   private transactionDepth = 0;
+  private transactionParticipants: { beforeCommit?: () => void; afterCommit?: () => void; rollback?: () => void }[] = [];
   onSessionSave?: (previous: HostSession | undefined, next: HostSession, event: unknown) => void;
   readonly db: DatabaseSync;
   readonly environmentId: string;
@@ -108,11 +109,17 @@ export class HostStore {
     if (this.transactionDepth) return fn();
     this.db.exec("BEGIN IMMEDIATE");
     this.transactionDepth++;
+    this.transactionParticipants = [];
+    let committed = false;
     try {
       const value = fn();
+      for (const participant of this.transactionParticipants) participant.beforeCommit?.();
       this.db.exec("COMMIT");
+      committed = true;
+      for (const participant of this.transactionParticipants) participant.afterCommit?.();
       return value;
     } catch (error) {
+      if (committed) throw error;
       this.cache.clear();
       this.queuedSessions = undefined;
       try {
@@ -120,10 +127,21 @@ export class HostStore {
       } catch (rollbackError) {
         console.error("Could not roll back host transaction:", rollbackError);
       }
+      for (const participant of [...this.transactionParticipants].reverse()) {
+        try { participant.rollback?.(); }
+        catch (rollbackError) { console.error("Could not restore a Host transaction participant:", rollbackError); }
+      }
       throw error;
     } finally {
       this.transactionDepth--;
+      this.transactionParticipants = [];
     }
+  }
+
+  /** Durable file participants attach to the outermost SQLite transaction. */
+  participateInTransaction(participant: { beforeCommit?: () => void; afterCommit?: () => void; rollback?: () => void }): void {
+    if (!this.transactionDepth) throw new Error("No active Host transaction");
+    this.transactionParticipants.push(participant);
   }
 
   project(id: string): HostProject {

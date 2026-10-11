@@ -183,6 +183,15 @@ export class BotManager {
       if (raw.includeArchived !== undefined && typeof raw.includeArchived !== "boolean") throw new Error("Invalid archive filter");
       return this.store.listThreads(this.botScope(raw).botId, raw.includeArchived === true);
     }
+    if (["botMemory.list", "botMemory.read", "botMemory.log"].includes(method)) {
+      fields(raw, method === "botMemory.list" ? ["botId"] : method === "botMemory.read" ? ["botId", "path"] : ["botId", "path", "limit"]);
+      const memory = this.assistant(this.botScope(raw)).store.memory;
+      if (method === "botMemory.list") return memory.list();
+      if (method === "botMemory.read") return memory.read(id(raw.path, "memory path", 500));
+      if (raw.limit !== undefined && (!Number.isSafeInteger(raw.limit) || Number(raw.limit) < 1 || Number(raw.limit) > 200))
+        throw new Error("Invalid memory log limit");
+      return memory.log(raw.path === undefined ? undefined : id(raw.path, "memory path", 500), raw.limit as number | undefined);
+    }
     if (["botThreads.get", "botThreads.messages", "botMemory.get", "botMemory.topic"].includes(method)) {
       const scope = this.scope(raw), { botId: _bot, threadId: _thread, ...params } = raw;
       const target = method === "botMemory.get" ? "memory" : method === "botMemory.topic" ? "memoryTopic" : method.slice("botThreads.".length);
@@ -251,6 +260,23 @@ export class BotManager {
   }
 
   private async mutateRpc(method: string, raw: Record<string, unknown>): Promise<unknown> {
+    if (["botMemory.save", "botMemory.undo", "botMemory.rebuild"].includes(method)) {
+      fields(raw, method === "botMemory.save"
+        ? ["botId", "commandId", "path", "text", "expectedRevision", "expectedHash"]
+        : method === "botMemory.undo" ? ["botId", "commandId", "changeId", "expectedRevision", "expectedHash"] : ["botId", "commandId"]);
+      const scope = this.botScope(raw);
+      this.assertWritable(scope);
+      const memory = this.assistant(scope).store.memory;
+      return this.command(`memory:${scope.botId}`, method, raw, () => {
+        if (method === "botMemory.rebuild") return memory.rebuildIndex();
+        if (!Number.isSafeInteger(raw.expectedRevision) || Number(raw.expectedRevision) < 0 || typeof raw.expectedHash !== "string")
+          throw new Error("A memory revision and hash are required");
+        const expected = { expectedRevision: Number(raw.expectedRevision), expectedHash: raw.expectedHash };
+        if (method === "botMemory.undo") return memory.undo(id(raw.changeId, "memory change"), expected);
+        if (typeof raw.text !== "string") throw new Error("Invalid memory text");
+        return memory.save(id(raw.path, "memory path", 500), raw.text, expected);
+      });
+    }
     if (method === "bots.create") {
       fields(raw, ["commandId", "patch"]);
       const commandId = id(raw.commandId), sig = signature({ method, raw });
