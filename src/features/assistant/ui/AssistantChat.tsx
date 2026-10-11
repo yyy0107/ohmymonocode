@@ -170,6 +170,10 @@ export function AssistantChat({
   chrome,
   onOpenAttachment,
   desktopBots = false,
+  cacheKey = hostKey,
+  botNavigation,
+  threadTitle,
+  botSettings,
 }: {
   hostKey: string;
   rpc: AssistantRpc;
@@ -180,6 +184,12 @@ export function AssistantChat({
   chrome?: AssistantChatChrome;
   /** Opt into the desktop shell only when the Host advertises its capability. */
   desktopBots?: boolean;
+  /** Storage identity is separate from the real Host identity used for navigation. */
+  cacheKey?: string;
+  botNavigation?: ReactNode;
+  threadTitle?: string;
+  /** Bot defaults stay separate from a thread's effective model override. */
+  botSettings?: AssistantView;
   /** Opens a sent file in a tab; receives a reader for the file's base64 bytes. */
   onOpenAttachment?: (file: RemoteAttachment, read: () => Promise<string>) => void;
 }) {
@@ -188,11 +198,11 @@ export function AssistantChat({
   const client = useMemo(
     () =>
       new AssistantClient(
-        hostKey,
+        cacheKey,
         rpc,
         typeof localStorage === "undefined" ? undefined : localStorage,
       ),
-    [hostKey, rpc],
+    [cacheKey, rpc],
   );
   const readImage = useCallback((messageId: string, file: RemoteAttachment) =>
     client.readImage(messageId, file), [client]);
@@ -207,12 +217,12 @@ export function AssistantChat({
     if (!visible) return;
     const markRead = () => {
       if (document.visibilityState !== "hidden")
-        markAssistantRead(hostKey, messages);
+        markAssistantRead(cacheKey, messages);
     };
     markRead();
     document.addEventListener("visibilitychange", markRead);
     return () => document.removeEventListener("visibilitychange", markRead);
-  }, [hostKey, messages, visible]);
+  }, [cacheKey, messages, visible]);
   const visibleMessages = useMemo(
     () => chrome ? compactAssistantTimeline(messages) : messages,
     [messages, chrome],
@@ -305,12 +315,12 @@ export function AssistantChat({
     catalogLoad.disposed = false;
     return () => { catalogLoad.disposed = true; };
   }, [catalogLoad]);
-  const [draft, setDraft] = useAssistantDraft(hostKey);
+  const [draft, setDraft] = useAssistantDraft(cacheKey);
   const [retry, setRetry] = useState(() => client.pending());
   const [replyText, setReplyText] = useState<string | undefined>(() => {
     if (!chrome) return;
     try {
-      return localStorage.getItem(`monocode.assistant-reply:${hostKey}`) ?? undefined;
+      return localStorage.getItem(`monocode.assistant-reply:${cacheKey}`) ?? undefined;
     } catch {
       return undefined;
     }
@@ -447,13 +457,13 @@ export function AssistantChat({
   useEffect(() => {
     if (!chrome) return;
     try {
-      const key = `monocode.assistant-reply:${hostKey}`;
+      const key = `monocode.assistant-reply:${cacheKey}`;
       if (replyText === undefined) localStorage.removeItem(key);
       else localStorage.setItem(key, replyText);
     } catch {
       /* The reply remains usable without persistent storage. */
     }
-  }, [hostKey, chrome, replyText]);
+  }, [cacheKey, chrome, replyText]);
   // WebKit has no scroll anchoring, and rows outside the viewport only
   // estimate their height. Keep the row the reader is on where they saw it
   // whenever older rows join or anything above it changes size.
@@ -672,7 +682,7 @@ export function AssistantChat({
     : undefined;
   const openSettings = () => {
     if (!botsLayout || !retainedSettingsDraft.current) {
-      setSettingsBase(assistant ?? null);
+      setSettingsBase(botSettings ?? assistant ?? null);
       retainedSettingsDraft.current = true;
     }
     setSettingsOpen((v) => !v);
@@ -761,7 +771,7 @@ export function AssistantChat({
       actions={settingsOpen ? (
         <ComposerNoticeButton
           onClick={() => {
-            setSettingsBase(assistant ?? null);
+            setSettingsBase(botSettings ?? assistant ?? null);
             setError(undefined);
           }}
         >
@@ -808,7 +818,7 @@ export function AssistantChat({
           if (event.target === event.currentTarget && event.propertyName === "grid-template-columns") detailsMotion.finish();
         } : undefined}
       >
-        {botsLayout && (
+        {botsLayout && (botNavigation ?? (
           <DesktopBotsNavigation
             hostName={hostName}
             hostPicker={hostPicker}
@@ -816,7 +826,7 @@ export function AssistantChat({
             messages={messages}
             onSelect={() => chat.current?.querySelector<HTMLTextAreaElement>(".assistant-conversation textarea")?.focus()}
           />
-        )}
+        ))}
         <div
           className="assistant-heading"
           inert={settingsCovering}
@@ -824,6 +834,7 @@ export function AssistantChat({
         >
           <Header
             name={assistant?.name ?? t("Assistant")}
+            threadTitle={threadTitle}
             harness={assistant?.harness}
             hostName={hostName}
             hostPicker={hostPicker}
@@ -900,7 +911,7 @@ export function AssistantChat({
             >
               {settingsShown && errorNotice}
               <AssistantSettings
-                key={`${hostKey}:${settingsBase?.revision ?? "new"}`}
+                key={`${cacheKey}:${settingsBase?.revision ?? "new"}`}
                 value={settingsBase}
                 catalog={catalog}
                 catalogState={catalogState}

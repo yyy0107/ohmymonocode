@@ -1,7 +1,8 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { RemoteAttachment } from "../../connections/model/protocol";
-import { AssistantChat } from "./AssistantChat";
+import { DesktopBotsWorkspace } from "./DesktopBotsWorkspace";
+import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { AssistantFilePanel, useAssistantFilePanel } from "./AssistantFilePanel";
 import {
   remoteRequest,
@@ -19,13 +20,15 @@ import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { SearchableSelect } from "../../../shared/ui/SearchableSelect";
 import { useDesktopAssistantHosts } from "../model/useDesktopAssistantHosts";
 import { GradientBlurBackground } from "../../settings/ui/GradientBlurBackground";
-export function DesktopAssistant({
+function DesktopAssistantHost({
   selectedMachineId,
   onSelectMachine,
   onLocalSession,
   onRemoteSession,
+  sourceMachine,
 }: {
   selectedMachineId?: string;
+  sourceMachine?: ReturnType<typeof useDesktopAssistantHosts>[number];
   onSelectMachine: (id: string) => void;
   onLocalSession: (id: string, project: string) => Promise<void> | void;
   onRemoteSession: (project: string, id: string) => void;
@@ -33,7 +36,7 @@ export function DesktopAssistant({
   const { t } = useTranslation();
   const choices = useDesktopAssistantHosts();
   const localId = sharedHostMachineId();
-  const machine =
+  const machine = sourceMachine ??
     choices.find((m) => m.id === (selectedMachineId ?? localId)) ?? choices[0];
   const rpc = useCallback(
     <T,>(method: string, params?: object) =>
@@ -107,7 +110,7 @@ export function DesktopAssistant({
     >
       <GradientBlurBackground />
       {machine ? (
-        <AssistantChat
+        <DesktopBotsWorkspace
           desktopBots
           key={machine.environmentId}
           hostKey={machine.environmentId}
@@ -125,4 +128,29 @@ export function DesktopAssistant({
       <AssistantFilePanel {...filePanel} onOpenFile={openFile} />
     </section>
   );
+}
+
+
+/** Retain visited Hosts so switching never discards unsent files or scroll state. */
+export function DesktopAssistant(props: Omit<ComponentProps<typeof DesktopAssistantHost>, "sourceMachine">) {
+  const choices = useDesktopAssistantHosts();
+  const visible = useSurfaceVisibility();
+  const machine = choices.find((host) => host.id === (props.selectedMachineId ?? sharedHostMachineId())) ?? choices[0];
+  const [retained, setRetained] = useState<typeof choices>([]);
+  useEffect(() => {
+    if (machine) setRetained((current) => current.some((host) => host.environmentId === machine.environmentId)
+      ? current : [...current, machine]);
+  }, [machine]);
+  const hosts = machine && !retained.some((host) => host.environmentId === machine.environmentId) ? [...retained, machine] : retained;
+  if (!machine) return <DesktopAssistantHost {...props} />;
+  return <div className="desktop-bots-host-surfaces" style={{ display: "flex", flex: 1, minWidth: 0, minHeight: 0 }}>
+    {hosts.map((host) => {
+      const selected = host.environmentId === machine.environmentId;
+      return <div key={host.environmentId} style={{ display: selected ? "flex" : "none", flex: 1, minWidth: 0, minHeight: 0 }} inert={!selected} aria-hidden={!selected || undefined}>
+        <SurfaceVisibilityContext.Provider value={visible && selected}>
+          <DesktopAssistantHost {...props} sourceMachine={choices.find((item) => item.environmentId === host.environmentId) ?? host} />
+        </SurfaceVisibilityContext.Provider>
+      </div>;
+    })}
+  </div>;
 }

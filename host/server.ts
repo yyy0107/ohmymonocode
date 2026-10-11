@@ -229,7 +229,7 @@ export function createHostServer(
     return Object.entries(catalog.models).flatMap(([harness, entries]) =>
       (entries ?? []).map((model) => ({ harness: harness as RemoteProvider, model: model.id, name: model.name })));
   });
-  engine.assistant.setCatalog(availableProviders, models);
+  engine.bots.setCatalog(availableProviders, models);
   engine.workflows.setModelSource((cwd, harness) => providerModels(cwd, harness as RemoteProvider));
   const resourceId = (token: string, value: unknown) => {
     if (typeof value !== "string" || !/^[A-Za-z0-9_:-]{1,200}$/.test(value)) throw new Error("Invalid editor resource identity");
@@ -284,7 +284,7 @@ export function createHostServer(
           return;
         }
         const input = await body(request);
-        assistantRequest = typeof input.method === "string" && input.method.startsWith("assistant.");
+        assistantRequest = typeof input.method === "string" && /^(assistant|bots|botThreads|botMemory|botTeams|botRooms|botDelegations)\./.test(input.method);
         // Reading a request body yields: a device may have been revoked since
         // the headers arrived. Reject it before dispatching any operation.
         if (!engine.store.authenticated(token)) {
@@ -383,6 +383,8 @@ export function createHostServer(
                 "assistant.history",
                 "assistant.persona",
                 "bots.shell.v1",
+                "bots.v1",
+                "botThreads.v1",
                 "im.feishu.v1",
                 "resources",
                 "workflows.v1",
@@ -667,7 +669,27 @@ export function createHostServer(
           case "assistant.respond":
           case "assistant.memory":
           case "assistant.memoryTopic":
-            result = await engine.assistant.rpc(input.method, params);
+          case "bots.list":
+          case "bots.get":
+          case "bots.create":
+          case "bots.configure":
+          case "bots.control":
+          case "bots.archive":
+          case "bots.restore":
+          case "botThreads.list":
+          case "botThreads.get":
+          case "botThreads.create":
+          case "botThreads.configure":
+          case "botThreads.messages":
+          case "botThreads.send":
+          case "botThreads.respond":
+          case "botThreads.control":
+          case "botThreads.cancel":
+          case "botThreads.archive":
+          case "botThreads.restore":
+          case "botMemory.get":
+          case "botMemory.topic":
+            result = await engine.bots.rpc(input.method, params);
             break;
           case "im.get":
           case "im.configure":

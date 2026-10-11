@@ -1,7 +1,8 @@
 import { selectComposerConfiguration } from "../src/features/sessions/model/composerConfiguration";
 import { createHash, randomUUID } from "node:crypto";
 import { HostOrchestration, type HostOrchestrationOptions } from "./orchestration";
-import { HostAssistant } from "./assistant";
+import type { HostAssistant } from "./assistant";
+import { BotManager } from "./bots/manager";
 import { HostImService, type HostImOptions } from "./im-service";
 import { HostWorkflows } from "./workflows/service";
 import type { WorkflowWorkerPort } from "./workflows/driver";
@@ -325,6 +326,7 @@ export function parseCommand(input: unknown): HostCommand {
 }
 
 export class HostEngine {
+  readonly bots: BotManager;
   readonly assistant: HostAssistant;
   readonly im: HostImService;
   readonly workflows: HostWorkflows;
@@ -505,9 +507,10 @@ export class HostEngine {
       ...(options.entry ? { entry: options.entry } : {}),
       ...(options.node ? { node: options.node } : {}),
     });
-    this.assistant = new HostAssistant(this, Object.keys(providers) as RemoteProvider[], this.orchestration.ready, options);
+    this.bots = new BotManager(this, Object.keys(providers) as RemoteProvider[], this.orchestration.ready, options);
+    this.assistant = this.bots.defaultAssistant;
     this.im = new HostImService(store, this.assistant, options.im);
-    this.ready = this.im.ready;
+    this.ready = Promise.all([this.bots.ready, this.im.ready]).then(() => undefined);
     this.nativeSessions.start();
   }
 
@@ -2291,7 +2294,7 @@ export class HostEngine {
     this.nativeSessions.close();
     await this.im.close();
     await this.workflows.close();
-    await this.assistant.close();
+    await this.bots.close();
     await this.orchestration.close();
     this.titles.close();
     this.skills.close();

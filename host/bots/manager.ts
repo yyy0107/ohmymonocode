@@ -1,0 +1,361 @@
+import type { HostEngine } from "../engine";
+import { HostAssistant, type AssistantRuntimeOptions } from "../assistant";
+import { AssistantStore, signature } from "../assistant/store";
+import { fields, id, object } from "../assistant/policy";
+import { BotStore } from "./store";
+import type { BotScope, BotsSnapshot } from "../../src/features/assistant/model/bots";
+import type { HostModelCatalog, HostSession, RemoteProvider } from "../../src/features/connections/model/protocol";
+import type { TurnOrigin } from "../../src/features/sessions/model/session";
+
+const BOT_CONTROLS = new Set(["pause", "resume", "disable", "enable"]);
+
+/** Owns Host callbacks and routes every runtime through its durable Bot/Thread scope. */
+export class BotManager {
+  readonly store: BotStore;
+  readonly defaultAssistant: HostAssistant;
+  readonly ready: Promise<void>;
+  private readonly runtimes = new Map<string, HostAssistant>();
+  private readonly leases = new Map<string, string>();
+  private readonly blocked = new Set<string>();
+  private readonly blockedThreads = new Set<string>();
+  private timer?: ReturnType<typeof setInterval>;
+  private closing = false;
+  private mutations: Promise<unknown> = Promise.resolve();
+  private available?: () => Promise<RemoteProvider[]>;
+  private catalog?: (projectId?: string) => Promise<HostModelCatalog>;
+  private readonly observeSession = (previous: HostSession | undefined, next: HostSession, event: unknown) => {
+    const errors: unknown[] = [];
+    for (const runtime of this.runtimes.values()) {
+      try { runtime.observe(previous, next, event); } catch (error) { errors.push(error); }
+    }
+    // Every observer gets the event; a failed durable projection still rolls back
+    // the surrounding Host transaction instead of committing a missing journal.
+    if (errors.length) throw errors[0];
+  };
+  private readonly authorizeQueued = (origin: TurnOrigin, projectId: string, sessionId: string): boolean => {
+    if (this.closing || (origin.botId !== undefined && origin.botId !== origin.assistantId)) return false;
+    const bot = this.store.getBot(origin.assistantId);
+    if (!bot?.enabled || bot.archivedAt !== undefined) return false;
+    const scopes = origin.threadId
+      ? [{ botId: bot.id, threadId: origin.threadId }]
+      : this.store.listThreads(bot.id, true).map(thread => ({ botId: bot.id, threadId: thread.id }));
+    for (const scope of scopes) {
+      const thread = this.store.getThread(scope.botId, scope.threadId);
+      if (!thread || thread.archivedAt !== undefined) continue;
+      const runtime = this.assistant(scope);
+      if (!origin.threadId && !runtime.store.wakeup(origin.wakeupId)) continue;
+      try { runtime.checkSessionAccess("sessions.send", projectId, sessionId); return true; }
+      catch { /* Another legacy thread may own this trusted origin. */ }
+    }
+    return false;
+  };
+
+  constructor(
+    readonly engine: HostEngine,
+    private readonly providers: RemoteProvider[],
+    private readonly parentReady: Promise<void>,
+    private readonly options: Pick<AssistantRuntimeOptions, "entry" | "node"> = {},
+  ) {
+    this.store = new BotStore(engine.store);
+    this.defaultAssistant = this.createRuntime(this.store.defaultScope());
+    for (const bot of this.store.listBots(true))
+      for (const thread of this.store.listThreads(bot.id, true))
+        this.createRuntime({ botId: bot.id, threadId: thread.id });
+    engine.authorizeAssistantQueued = this.authorizeQueued;
+    engine.store.onSessionSave = this.observeSession;
+    this.ready = Promise.all([...this.runtimes.values()].map(runtime => runtime.ready)).then(() => {
+      if (this.closing) return;
+      this.timer = setInterval(() => this.tick(), 1000);
+      this.timer.unref?.();
+      this.tick();
+    });
+  }
+
+  private key(scope: BotScope): string { return JSON.stringify([scope.botId, scope.threadId]); }
+
+  private createRuntime(scope: BotScope): HostAssistant {
+    const key = this.key(scope);
+    const existing = this.runtimes.get(key);
+    if (existing) return existing;
+    const runtime = new HostAssistant(this.engine, this.providers, this.parentReady, {
+      ...this.options,
+      store: new AssistantStore(this.engine.store, this.store.getThread(scope.botId, scope.threadId) ? scope : undefined),
+      managed: {
+        automatic: () => this.store.getBot(scope.botId)?.defaultThreadId === scope.threadId,
+        acquire: () => {
+          const bot = this.store.getBot(scope.botId), thread = this.store.getThread(scope.botId, scope.threadId);
+          if (this.closing || this.blocked.has(scope.botId) || this.blockedThreads.has(key) || !bot?.enabled || bot.paused || !thread ||
+              bot.archivedAt !== undefined || thread.archivedAt !== undefined) return false;
+          const owner = this.leases.get(scope.botId);
+          if (owner && owner !== scope.threadId) return false;
+          this.leases.set(scope.botId, scope.threadId);
+          return true;
+        },
+        release: () => {
+          if (this.leases.get(scope.botId) !== scope.threadId) return;
+          this.leases.delete(scope.botId);
+          if (!this.closing) setImmediate(() => this.tick());
+        },
+      },
+    });
+    if (this.available && this.catalog) runtime.setCatalog(this.available, this.catalog);
+    else if (this.defaultAssistant) runtime.setCatalog(
+      () => this.defaultAssistant.providers(), projectId => this.defaultAssistant.models(projectId),
+    );
+    this.runtimes.set(key, runtime);
+    return runtime;
+  }
+
+  assistant(scope: BotScope): HostAssistant {
+    if (!this.store.getThread(scope.botId, scope.threadId)) throw new Error("Thread does not belong to this Bot");
+    return this.createRuntime(scope);
+  }
+
+  setCatalog(available: () => Promise<RemoteProvider[]>, catalog: (projectId?: string) => Promise<HostModelCatalog>): void {
+    this.available = available;
+    this.catalog = catalog;
+    for (const runtime of this.runtimes.values()) runtime.setCatalog(available, catalog);
+  }
+
+  environment(brainSessionId: string): Record<string, string> {
+    for (const runtime of this.runtimes.values()) {
+      if (runtime.store.get()?.brainSessionId === brainSessionId) return runtime.environment(brainSessionId);
+    }
+    return {};
+  }
+
+  private tick(): void {
+    if (this.closing) return;
+    for (const runtime of this.runtimes.values()) void runtime.managedTick();
+  }
+
+  private snapshot(includeArchived: boolean): BotsSnapshot {
+    const bots = this.store.listBots(includeArchived).map(bot => {
+      const threads = this.store.listThreads(bot.id, includeArchived);
+      const lifecycle = !bot.enabled ? "disabled" : bot.paused ? "paused"
+        : threads.some(thread => thread.lifecycle === "running") ? "running" : bot.lifecycle;
+      return { ...bot, lifecycle } as typeof bot;
+    }), scope = this.store.defaultScope();
+    return {
+      revision: this.store.revision(), bots,
+      threads: bots.flatMap(bot => this.store.listThreads(bot.id, includeArchived)),
+      ...(this.store.getBot(scope.botId) ? { defaultBotId: scope.botId, defaultThreadId: scope.threadId } : {}),
+    };
+  }
+
+  private scope(raw: Record<string, unknown>): BotScope {
+    const scope = { botId: id(raw.botId, "Bot"), threadId: id(raw.threadId, "thread") };
+    if (!this.store.getThread(scope.botId, scope.threadId)) throw new Error("Thread does not belong to this Bot");
+    return scope;
+  }
+
+  private botScope(raw: Record<string, unknown>): BotScope {
+    const botId = id(raw.botId, "Bot"), bot = this.store.getBot(botId);
+    if (!bot) throw new Error("Bot not found");
+    return { botId, threadId: bot.defaultThreadId };
+  }
+
+  private assertWritable(scope: BotScope): void {
+    if (this.store.getBot(scope.botId)?.archivedAt !== undefined ||
+        this.store.getThread(scope.botId, scope.threadId)?.archivedAt !== undefined)
+      throw new Error("Restore the archived Bot or thread before changing it");
+  }
+
+  async rpc(method: string, raw: Record<string, unknown>): Promise<unknown> {
+    await this.ready;
+    if (this.closing) throw new Error("Bots are closing");
+    if (method.startsWith("assistant.")) {
+      if (method === "assistant.control" && BOT_CONTROLS.has(String(raw.action)))
+        return this.mutate(() => this.controlBot(this.store.defaultScope(), raw));
+      return this.defaultAssistant.rpc(method, raw);
+    }
+    if (method === "bots.list") {
+      fields(raw, ["includeArchived"]);
+      if (raw.includeArchived !== undefined && typeof raw.includeArchived !== "boolean") throw new Error("Invalid archive filter");
+      return this.snapshot(raw.includeArchived === true);
+    }
+    if (method === "bots.get") {
+      fields(raw, ["botId"]);
+      return this.store.getBot(this.botScope(raw).botId);
+    }
+    if (method === "botThreads.list") {
+      fields(raw, ["botId", "includeArchived"]);
+      if (raw.includeArchived !== undefined && typeof raw.includeArchived !== "boolean") throw new Error("Invalid archive filter");
+      return this.store.listThreads(this.botScope(raw).botId, raw.includeArchived === true);
+    }
+    if (["botThreads.get", "botThreads.messages", "botMemory.get", "botMemory.topic"].includes(method)) {
+      const scope = this.scope(raw), { botId: _bot, threadId: _thread, ...params } = raw;
+      const target = method === "botMemory.get" ? "memory" : method === "botMemory.topic" ? "memoryTopic" : method.slice("botThreads.".length);
+      const result = await this.assistant(scope).rpc(`assistant.${target}`, params);
+      if (method === "botThreads.get") {
+        const thread = this.store.getThread(scope.botId, scope.threadId)!;
+        return { ...(result as object), ...scope, title: thread.title, archivedAt: thread.archivedAt };
+      }
+      return result;
+    }
+    return this.mutate(() => this.mutateRpc(method, raw));
+  }
+
+  private mutate<T>(run: () => Promise<T>): Promise<T> {
+    const next = this.mutations.then(run);
+    this.mutations = next.catch(() => undefined);
+    return next;
+  }
+
+  private command<T>(scopeKey: string, method: string, raw: Record<string, unknown>, effect: () => T): T {
+    const commandId = id(raw.commandId), sig = signature({ method, raw });
+    const previous = this.store.commandReceipt(scopeKey, commandId, sig);
+    if (previous !== undefined) return previous as T;
+    return this.engine.store.transaction(() => {
+      const result = effect();
+      this.store.recordCommandReceipt(scopeKey, commandId, sig, result);
+      return result;
+    });
+  }
+
+  /** Persist prevalidation before a cancellation whose effects cannot be rolled back. */
+  private prepareArchive(scopeKey: string, method: string, raw: Record<string, unknown>, revision: number): void {
+    const commandId = id(raw.commandId), sig = signature({ method, raw }), intent = `archive-intent:${scopeKey}`;
+    if (this.store.commandReceipt(intent, commandId, sig) !== undefined) return;
+    if (raw.expectedRevision !== undefined && raw.expectedRevision !== revision)
+      throw new Error("Settings changed elsewhere. Reload before saving.");
+    this.engine.store.transaction(() => this.store.recordCommandReceipt(intent, commandId, sig, { acceptedRevision: revision }));
+  }
+
+  private async controlBot(scope: BotScope, raw: Record<string, unknown>): Promise<unknown> {
+    const runtime = this.assistant(scope);
+    if (!BOT_CONTROLS.has(String(raw.action))) return runtime.rpc("assistant.control", raw);
+    const commandId = id(raw.commandId), sig = signature({ method: "bots.control", scope, raw });
+    const controlScope = `control:${this.key(scope)}`;
+    const previous = this.store.commandReceipt(controlScope, commandId, sig);
+    if (previous !== undefined) return previous;
+    this.blocked.add(scope.botId);
+    try {
+      const result = await runtime.rpc("assistant.control", raw);
+      for (const thread of this.store.listThreads(scope.botId, true)) {
+        if (thread.id === scope.threadId) continue;
+        const { expectedGeneration: _generation, ...params } = raw;
+        await this.assistant({ botId: scope.botId, threadId: thread.id }).rpc("assistant.control", {
+          ...params, commandId: `bot-control:${signature({ scope, commandId })}`,
+        });
+      }
+      this.engine.store.transaction(() => {
+        this.store.updateBot(scope.botId, { paused: raw.action === "pause" });
+        this.store.recordCommandReceipt(controlScope, commandId, sig, result);
+      });
+      return result;
+    } finally {
+      this.blocked.delete(scope.botId);
+      this.tick();
+    }
+  }
+
+  private async mutateRpc(method: string, raw: Record<string, unknown>): Promise<unknown> {
+    if (method === "bots.create") {
+      fields(raw, ["commandId", "patch"]);
+      const commandId = id(raw.commandId), sig = signature({ method, raw });
+      const previous = this.store.commandReceipt("host", commandId, sig);
+      if (previous !== undefined) return previous;
+      const patch = await this.defaultAssistant.validatePatch(raw.patch, null);
+      const result = this.command("host", method, raw, () => {
+        const scope = this.store.createBot(patch);
+        return { bot: this.store.getBot(scope.botId)!, thread: this.store.getThread(scope.botId, scope.threadId)! };
+      });
+      await this.assistant({ botId: result.bot.id, threadId: result.thread.id }).ready;
+      return result;
+    }
+    if (method === "bots.configure") {
+      const scope = this.botScope(raw), { botId: _bot, ...params } = raw;
+      this.assertWritable(scope);
+      return this.assistant(scope).rpc("assistant.configure", params);
+    }
+    if (method === "bots.control") {
+      const scope = this.botScope(raw), { botId: _bot, ...params } = raw;
+      this.assertWritable(scope);
+      return this.controlBot(scope, params);
+    }
+    if (method === "botThreads.create") {
+      fields(raw, ["commandId", "botId", "title", "modelOverride"]);
+      const scope = this.botScope(raw);
+      this.assertWritable(scope);
+      const title = raw.title === undefined ? undefined : id(raw.title, "title", 200);
+      const override = raw.modelOverride === undefined ? undefined : object(raw.modelOverride);
+      if (override) {
+        fields(override, ["harness", "model", "modelSettings"]);
+        await this.assistant(scope).validatePatch(override, null);
+      }
+      const result = this.command(scope.botId, method, raw, () => {
+        const created = this.store.createThread(scope.botId, { title, modelOverride: override as never });
+        return this.store.getThread(created.botId, created.threadId)!;
+      });
+      await this.assistant({ botId: result.botId, threadId: result.id }).ready;
+      return result;
+    }
+    if (method === "bots.archive" || method === "bots.restore") {
+      fields(raw, ["commandId", "botId", "expectedRevision"]);
+      const scope = this.botScope(raw), archive = method === "bots.archive";
+      const previous = this.store.commandReceipt(scope.botId, id(raw.commandId), signature({ method, raw }));
+      if (previous !== undefined) return previous;
+      if (archive && scope.botId === this.store.defaultScope().botId) throw new Error("The default Bot cannot be archived");
+      this.prepareArchive(scope.botId, method, raw, this.store.getBot(scope.botId)!.revision);
+      if (archive) await this.controlBot(scope, { commandId: `archive:${signature(raw.commandId)}`, action: "pause" });
+      return this.command(scope.botId, method, raw, () => this.store.updateBot(scope.botId,
+        { archivedAt: archive ? Date.now() : undefined }));
+    }
+    const scope = this.scope(raw), { botId: _bot, threadId: _thread, ...params } = raw;
+    const runtime = this.assistant(scope);
+    if (method === "botThreads.archive" || method === "botThreads.restore") {
+      fields(params, ["commandId", "expectedRevision"]);
+      const archive = method === "botThreads.archive";
+      const previous = this.store.commandReceipt(this.key(scope), id(raw.commandId), signature({ method, raw }));
+      if (previous !== undefined) return previous;
+      if (archive && scope.threadId === this.store.getBot(scope.botId)!.defaultThreadId)
+        throw new Error("The default thread cannot be archived");
+      this.prepareArchive(this.key(scope), method, raw, this.store.getThread(scope.botId, scope.threadId)!.revision);
+      this.blockedThreads.add(this.key(scope));
+      try {
+        if (archive) {
+          await runtime.rpc("assistant.control", { commandId: `archive:${signature(raw.commandId)}`, action: "cancelTurn" });
+          // A failed metadata write must leave automatic work stopped as well.
+          runtime.store.update({ lifecycle: "paused" });
+        }
+        return this.command(this.key(scope), method, raw, () => this.store.updateThread(scope.botId, scope.threadId,
+          { archivedAt: archive ? Date.now() : undefined }));
+      } finally {
+        this.blockedThreads.delete(this.key(scope));
+        this.tick();
+      }
+    }
+    this.assertWritable(scope);
+    if (method === "botThreads.configure") {
+      fields(params, ["commandId", "expectedRevision", "patch"]);
+      const patch = object(params.patch);
+      fields(patch, ["title", "modelOverride"]);
+      if (patch.title !== undefined) id(patch.title, "title", 200);
+      if (patch.modelOverride !== undefined && patch.modelOverride !== null) {
+        const override = object(patch.modelOverride);
+        fields(override, ["harness", "model", "modelSettings"]);
+        await runtime.validatePatch(override, null);
+      }
+      return this.command(this.key(scope), method, raw, () => this.store.updateThread(scope.botId, scope.threadId,
+        patch as never, params.expectedRevision as number | undefined));
+    }
+    if (method === "botThreads.control") return this.controlBot(scope, params);
+    if (method === "botThreads.cancel") {
+      fields(params, ["commandId", "expectedGeneration"]);
+      return runtime.rpc("assistant.control", { ...params, action: "cancelTurn" });
+    }
+    if (method === "botThreads.send" || method === "botThreads.respond")
+      return runtime.rpc(`assistant.${method.slice("botThreads.".length)}`, params);
+    throw new Error("Unsupported Bot RPC");
+  }
+
+  async close(): Promise<void> {
+    this.closing = true;
+    clearInterval(this.timer);
+    if (this.engine.store.onSessionSave === this.observeSession) this.engine.store.onSessionSave = undefined;
+    if (this.engine.authorizeAssistantQueued === this.authorizeQueued) this.engine.authorizeAssistantQueued = undefined;
+    await Promise.all([...this.runtimes.values()].map(runtime => runtime.close()));
+    this.leases.clear();
+  }
+}

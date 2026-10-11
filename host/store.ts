@@ -50,6 +50,7 @@ export class HostStore {
   readonly db: DatabaseSync;
   readonly environmentId: string;
   readonly attachmentDir: string;
+  readonly databasePath: string;
   // This process is the only session writer, so recently used snapshots are
   // served from memory instead of re-parsing whole transcripts. Callers must
   // treat returned values as immutable.
@@ -60,6 +61,7 @@ export class HostStore {
   private queuedSessions?: Set<string>;
 
   constructor(path: string) {
+    this.databasePath = path;
     this.attachmentDir = join(dirname(path), "attachments");
     this.db = new DatabaseSync(path);
     this.db

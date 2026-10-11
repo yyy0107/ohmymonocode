@@ -78,6 +78,19 @@ const STOP_COMMANDS = new Set(["停止", "停", "stop", "/stop"]);
 export function isStopCommand(text: string): boolean {
   return STOP_COMMANDS.has(text.trim().toLowerCase());
 }
+export type AssistantRuntimeOptions = {
+  entry?: string;
+  node?: string;
+  store?: AssistantStore;
+  managed?: {
+    acquire: () => boolean;
+    release: () => void;
+    automatic: () => boolean;
+  };
+};
+function runtimeConfiguration(value: { harness: string; model: string; runtimeMode?: string; modelSettings?: Record<string, string> }): string {
+  return signature([value.harness, value.model, value.runtimeMode, value.modelSettings ?? {}]);
+}
 export class HostAssistant {
   readonly store: AssistantStore;
   readonly control: HostControl;
@@ -107,10 +120,10 @@ export class HostAssistant {
     readonly engine: HostEngine,
     providers: RemoteProvider[],
     parentReady: Promise<void>,
-    options: { entry?: string; node?: string },
+    private readonly options: AssistantRuntimeOptions,
   ) {
     this.entry = options.entry;
-    this.store = new AssistantStore(engine.store);
+    this.store = options.store ?? new AssistantStore(engine.store);
     this.available = async () => providers;
     this.catalog = async () => ({
       models: Object.fromEntries(providers.map((p) => [p, modelsFor(p)])),
@@ -142,7 +155,7 @@ export class HostAssistant {
       },
       { namespace: "assistant", actions: ASSISTANT_ACTIONS },
     );
-    engine.authorizeAssistantQueued = (origin, project, sessionId) => {
+    if (!options.managed) engine.authorizeAssistantQueued = (origin, project, sessionId) => {
       const current = this.store.get();
       if (!current?.enabled || current.id !== origin.assistantId) return false;
       try {
@@ -152,10 +165,11 @@ export class HostAssistant {
         return false;
       }
     };
-    engine.store.onSessionSave = (previous, next, event) =>
+    if (!options.managed) engine.store.onSessionSave = (previous, next, event) =>
       this.observe(previous, next, event);
     this.ready = Promise.all([parentReady, this.control.ready]).then(() => {
       this.store.recover();
+      if (options.managed) return;
       this.timer = setInterval(() => {
         void this.tick().catch((error) => this.fail(error));
       }, 1000);
@@ -183,6 +197,10 @@ export class HostAssistant {
   }
   providers() {
     return this.available();
+  }
+  /** Manager ticks every thread; each Bot shares one execution lease in phase 2. */
+  async managedTick(): Promise<void> {
+    try { await this.ready; await this.tick(); } catch (error) { this.fail(error); }
   }
   environment(brain: string): Record<string, string> {
     const value = this.store.get();
@@ -333,7 +351,9 @@ export class HostAssistant {
       return this.store.host.transaction(() => {
         const result = this.engine.assistantCommand({
           type: message.inputKind === "approval" ? "approve" : "answer",
-          commandId: `assistant:human:${commandId}`,
+          commandId: this.options.managed
+            ? `assistant:human:${signature({ scope: this.store.scope, commandId })}`
+            : `assistant:human:${commandId}`,
           sessionId: config.brainSessionId,
           runId: raw.runId,
           requestId: raw.requestId,
@@ -616,13 +636,8 @@ export class HostAssistant {
     void this.tick().catch((error) => this.fail(error));
     return result;
   }
-  private async configure(raw: Record<string, unknown>): Promise<unknown> {
-    fields(raw, ["commandId", "expectedRevision", "patch"]);
-    const commandId = id(raw.commandId),
-      sig = signature({ method: "configure", raw });
-    const previous = this.store.receipt(commandId, sig);
-    if (previous) return previous;
-    const patch = object(raw.patch);
+  async validatePatch(rawPatch: unknown, current: AssistantRecord | null = this.store.get()): Promise<AssistantPatch> {
+    const patch = object(rawPatch);
     fields(patch, [
       "name",
       "persona",
@@ -639,9 +654,6 @@ export class HostAssistant {
       "maxAutoTurns",
       "chainWindowMinutes",
     ]);
-    const current = this.store.get();
-    if ((current?.revision ?? 0) !== raw.expectedRevision)
-      throw new Error("Assistant settings changed. Reload before saving.");
     if (patch.name !== undefined) id(patch.name, "name", 100);
     if (patch.persona !== undefined) {
       const persona = object(patch.persona);
@@ -801,10 +813,25 @@ export class HostAssistant {
           this.engine.store.session(id(session));
       }
     }
+    return patch as AssistantPatch;
+  }
+  private async configure(raw: Record<string, unknown>): Promise<unknown> {
+    fields(raw, ["commandId", "expectedRevision", "patch"]);
+    const commandId = id(raw.commandId),
+      sig = signature({ method: "configure", raw });
+    const previous = this.store.receipt(commandId, sig);
+    if (previous) return previous;
+    const current = this.store.get();
+    if ((current?.revision ?? 0) !== raw.expectedRevision)
+      throw new Error("Assistant settings changed. Reload before saving.");
+    const defaults = this.options.managed && current ? this.store.bots.getBot(current.id) : null;
+    const patch = await this.validatePatch(raw.patch, defaults && current
+      ? { ...current, harness: defaults.harness, model: defaults.model, modelSettings: defaults.modelSettings }
+      : current);
     if ((this.store.get()?.revision ?? 0) !== raw.expectedRevision)
       throw new Error("Assistant settings changed. Reload before saving.");
     if (
-      current &&
+      current && !this.options.managed &&
       ((patch.harness !== undefined && patch.harness !== current.harness) ||
         (patch.model !== undefined && patch.model !== current.model) ||
         (patch.runtimeMode !== undefined &&
@@ -840,18 +867,16 @@ export class HostAssistant {
   private async brain(): Promise<string | undefined> {
     const config = this.store.get()!;
     if (config.brainSessionId) return config.brainSessionId;
-    const cwd = join(
-      dirname(this.engine.store.attachmentDir),
-      "assistant-workspace",
-      config.id,
-      String(config.brainGeneration),
-    );
+    const cwd = this.options.managed
+      ? join(dirname(this.engine.store.attachmentDir), "bots", config.id, "threads", this.store.threadId, String(config.brainGeneration))
+      : join(dirname(this.engine.store.attachmentDir), "assistant-workspace", config.id, String(config.brainGeneration));
     await mkdir(cwd, { recursive: true, mode: 0o700 });
     const current = this.store.get();
     if (
       !current?.enabled ||
+      current.paused ||
       current.brainGeneration !== config.brainGeneration ||
-      current.harness !== config.harness ||
+      runtimeConfiguration(current) !== runtimeConfiguration(config) ||
       ["paused", "disabled", "interrupted", "failed"].includes(
         current.lifecycle,
       )
@@ -865,7 +890,9 @@ export class HostAssistant {
       );
       const receipt = this.engine.assistantCommand({
         type: "create",
-        commandId: `assistant:brain:${config.id}:${config.brainGeneration}`,
+        commandId: this.options.managed
+          ? `assistant:brain:${config.id}:${this.store.threadId}:${config.brainGeneration}`
+          : `assistant:brain:${config.id}:${config.brainGeneration}`,
         projectId: project.id,
         harness: config.harness,
         model: config.model,
@@ -1013,13 +1040,14 @@ export class HostAssistant {
         }
         config = this.store.get()!;
       }
-      enqueueSchedules(this.store);
+      const automatic = this.options.managed?.automatic() ?? true;
+      if (automatic) enqueueSchedules(this.store);
       // Finished days are checked once per day, not on every tick.
       const diaryDay = dueDiaryDays(Date.now(), config.timezone ?? "UTC").at(-1);
-      if (diaryDay !== this.diaryCheckedFor && enqueueDiaries(this.store))
+      if (automatic && diaryDay !== this.diaryCheckedFor && enqueueDiaries(this.store))
         this.diaryCheckedFor = diaryDay;
       config = this.store.get()!;
-      if (config.triggers.event)
+      if (automatic && config.triggers.event)
         this.engine.store.transaction(() => {
           const sources = this.store
             .sources(config!.sourceCursor, 50)
@@ -1071,6 +1099,7 @@ export class HostAssistant {
         });
       const wakeup = this.store.pending().find((w) => !this.steering.has(w.id));
       if (!wakeup) return;
+      if (this.options.managed && !this.options.managed.acquire()) return;
       this.tickingWakeupId = wakeup.id;
       const chain = this.liveChain(wakeup.rootCauseId, config);
       if (
@@ -1093,7 +1122,8 @@ export class HostAssistant {
         const brain = this.engine.store.session(config.brainSessionId);
         if (
           brain.status !== "running" &&
-          rotationReason(brain.session, Date.now(), config.brainBaseline)
+          (rotationReason(brain.session, Date.now(), config.brainBaseline) ||
+            (this.options.managed && runtimeConfiguration(brain.session) !== runtimeConfiguration(config)))
         )
           // A fresh generation is briefed from the public chat on its first turn.
           this.store.update({
@@ -1112,6 +1142,8 @@ export class HostAssistant {
       if (
         epoch !== this.epoch ||
         !config.enabled ||
+        config.paused ||
+        (this.options.managed && runtimeConfiguration(this.engine.store.session(brainId).session) !== runtimeConfiguration(config)) ||
         ["paused", "disabled", "interrupted", "failed"].includes(
           config.lifecycle,
         )
@@ -1222,6 +1254,7 @@ export class HostAssistant {
       });
     } finally {
       this.ticking = false;
+      if (!this.active) this.options.managed?.release();
     }
   }
   /**
@@ -1312,7 +1345,7 @@ export class HostAssistant {
     const briefs = eventBriefs(sessions);
     return briefs ? { ...wakeup, text: `${wakeup.text}\n${briefs}` } : wakeup;
   }
-  private observe(
+  observe(
     previous: HostSession | undefined,
     next: HostSession,
     _event: unknown,
@@ -1325,7 +1358,7 @@ export class HostAssistant {
     ) {
       // Finish the turn and start queued work now instead of on the next poll;
       // deferred so it runs after the save that reported the stop.
-      if (previous?.status === "running" && next.status !== "running" && this.timer)
+      if (previous?.status === "running" && next.status !== "running" && (this.timer || this.options.managed))
         setImmediate(() => void this.tick().catch((error) => this.fail(error)));
       const before = new Map(previous?.session.blocks.map((b) => [b.id, b]));
       for (const block of next.session.blocks) {
@@ -1422,7 +1455,7 @@ export class HostAssistant {
         });
       return;
     }
-    if (config.enabled && config.triggers.event)
+    if ((this.options.managed?.automatic() ?? true) && config.enabled && config.triggers.event)
       for (const source of importantSources(previous, next)) {
         let origin = [...next.session.blocks]
           .reverse()
@@ -1628,6 +1661,7 @@ export class HostAssistant {
     if (this.active)
       this.store.saveWakeup({ ...this.active, state: "interrupted" });
     this.active = undefined;
+    this.options.managed?.release();
     for (const message of this.store.latestMessages())
       if (message.kind === "input" && !message.resolved)
         this.store.message({ ...message, resolved: true });
@@ -1635,6 +1669,7 @@ export class HostAssistant {
   private fail(error: unknown): void {
     const wakeupId = this.active?.id ?? this.tickingWakeupId;
     this.active = undefined;
+    this.options.managed?.release();
     const config = this.store.get();
     if (config?.brainSessionId) this.control.disable(config.brainSessionId);
     try {
@@ -1661,6 +1696,7 @@ export class HostAssistant {
     this.closing = true;
     clearInterval(this.timer);
     await this.control.close();
-    this.engine.store.onSessionSave = undefined;
+    if (!this.options.managed) this.engine.store.onSessionSave = undefined;
+    this.options.managed?.release();
   }
 }

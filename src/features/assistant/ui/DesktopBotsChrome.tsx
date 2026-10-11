@@ -79,12 +79,13 @@ export function DesktopBotsNavigation({ hostName, hostPicker, assistant, message
   );
 }
 
-function DesktopBotsHeader({ name, harness, status, lifecycle, busy, settingsOpen, onSettings, controls }: AssistantHeaderProps) {
+function DesktopBotsHeader({ name, threadTitle, harness, status, lifecycle, busy, settingsOpen, onSettings, controls }: AssistantHeaderProps) {
   const { t } = useTranslation();
+  const title = threadTitle && harness ? sessionDisplayTitle(threadTitle, harness) : threadTitle;
   return <header className="assistant-header desktop-bots-header">
     <div className="desktop-bots-header-title">
       <strong>{name}</strong>
-      <span>{t("Main thread")}</span>
+      <span>{title?.trim() ? title : t("Main thread")}</span>
     </div>
     <div className="desktop-bots-run-status">
       {harness && <span className="desktop-bots-engine" title={HARNESS_TITLE[harness]}>

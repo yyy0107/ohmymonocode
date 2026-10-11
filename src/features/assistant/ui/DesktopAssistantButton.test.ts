@@ -218,3 +218,31 @@ it("keeps the Bots entry stable when a bot is renamed or removed", async () => {
   expect(button().textContent).toBe("Bots");
   expect(button().title).toBe("Bots");
 });
+
+it("isolates Bot thread unread state and routes notifications to their exact thread", async () => {
+  const legacy = mocks.rpc.getMockImplementation()!;
+  const entries: Record<string, AssistantMessage[]> = { one: [reply("one", 1)], two: [reply("two", 2)] };
+  mocks.rpc.mockImplementation(async (id, method, params = {}) => {
+    if (id !== "local") return legacy(id, method, params);
+    if (method === "environment.describe") return { capabilities: ["assistant.v1", "bots.v1"] };
+    if (method === "bots.list") return { revision: 1, bots: [{ id: "bot" }], threads: ["one", "two"].map((threadId) => ({ botId: "bot", id: threadId })) };
+    if (method === "botThreads.get") return { id: "bot", name: "Bot", chatRevision: entries[params.threadId].at(-1)?.revision ?? 0 };
+    if (method === "botThreads.messages") return { entries: entries[params.threadId].filter((message) => message.revision > params.afterRevision), nextRevision: entries[params.threadId].at(-1)?.revision ?? 0, hasMore: false };
+    throw new Error(method);
+  });
+  await render();
+  expect(button().getAttribute("aria-label")).toBe("Bots, 2 unread messages");
+  act(() => markAssistantRead(JSON.stringify(["env-local", "bot", "one"]), entries.one));
+  expect(button().getAttribute("aria-label")).toBe("Bots, 1 unread messages");
+  act(() => button().click());
+  expect(JSON.parse(localStorage.getItem("monocode.bot-selection:env-local")!)).toMatchObject({ botId: "bot", threadId: "two" });
+  expect(onOpen).toHaveBeenLastCalledWith("local");
+  entries.two.push(reply("new-two", 3, "Thread two completed"));
+  await act(async () => vi.advanceTimersByTimeAsync(2000));
+  expect(mocks.notify).toHaveBeenLastCalledWith('bot:["env-local","main","bot","two"]', {
+    title: "MonoCode", subtitle: "Bot", body: "Thread two completed",
+  }, false);
+  await act(async () => mocks.listen.mock.calls[0][1]({ payload: 'bot:["env-local","main","bot","one"]' }));
+  expect(JSON.parse(localStorage.getItem("monocode.bot-selection:env-local")!)).toMatchObject({ botId: "bot", threadId: "one" });
+  expect(mocks.rpc.mock.calls.some(([id, method]) => id === "local" && method.startsWith("assistant."))).toBe(false);
+});

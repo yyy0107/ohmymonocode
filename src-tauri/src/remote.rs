@@ -452,6 +452,26 @@ fn supported_remote_method(method: &str) -> bool {
             | "assistant.respond"
             | "assistant.memory"
             | "assistant.memoryTopic"
+            | "bots.list"
+            | "bots.get"
+            | "bots.create"
+            | "bots.configure"
+            | "bots.control"
+            | "bots.archive"
+            | "bots.restore"
+            | "botThreads.list"
+            | "botThreads.get"
+            | "botThreads.create"
+            | "botThreads.configure"
+            | "botThreads.messages"
+            | "botThreads.send"
+            | "botThreads.respond"
+            | "botThreads.control"
+            | "botThreads.cancel"
+            | "botThreads.archive"
+            | "botThreads.restore"
+            | "botMemory.get"
+            | "botMemory.topic"
             | "im.get"
             | "im.configure"
             | "im.control"
@@ -778,10 +798,32 @@ mod tests {
             "titleModel.test",
             "titleModel.generate",
             "titleModel.generateBranch",
+            "bots.list",
+            "bots.get",
+            "bots.create",
+            "bots.configure",
+            "bots.control",
+            "bots.archive",
+            "bots.restore",
+            "botThreads.list",
+            "botThreads.get",
+            "botThreads.create",
+            "botThreads.configure",
+            "botThreads.messages",
+            "botThreads.send",
+            "botThreads.respond",
+            "botThreads.control",
+            "botThreads.cancel",
+            "botThreads.archive",
+            "botThreads.restore",
+            "botMemory.get",
+            "botMemory.topic",
         ] {
             assert!(supported_remote_method(method), "{method}");
         }
         assert!(!supported_remote_method("git.arbitrary"));
+        assert!(!supported_remote_method("bots.arbitrary"));
+        assert!(!supported_remote_method("botThreads.arbitrary"));
     }
     #[test]
     fn endpoints_require_an_encrypted_route_and_no_embedded_secrets() {

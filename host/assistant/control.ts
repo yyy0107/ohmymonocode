@@ -301,6 +301,8 @@ function reminderAction(
       origin: {
         kind: "assistant",
         assistantId: config.id,
+        botId: store.botId,
+        threadId: store.threadId,
         assistantName: config.name,
         actionId,
         wakeupId: wakeup.id,
@@ -352,6 +354,8 @@ function recordOwnAction(
       origin: {
         kind: "assistant",
         assistantId: config.id,
+        botId: store.botId,
+        threadId: store.threadId,
         assistantName: config.name,
         actionId,
         wakeupId: wakeup.id,
@@ -742,6 +746,8 @@ export async function executeAssistantAction(
     origin: {
       kind: "assistant",
       assistantId: config.id,
+      botId: store.botId,
+      threadId: store.threadId,
       assistantName: config.name,
       actionId: "",
       wakeupId: wakeup.id,

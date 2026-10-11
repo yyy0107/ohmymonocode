@@ -123,6 +123,8 @@ export type AssistantView = {
   revision: number;
   chatRevision: number;
   enabled: boolean;
+  /** Host-wide Bot scheduling gate, independent of the selected Thread state. */
+  paused?: boolean;
   lifecycle: AssistantLifecycle;
   harness: RemoteProvider;
   model: string;

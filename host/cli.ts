@@ -278,7 +278,7 @@ Connect another computer using an SSH forward to the loopback port.`);
     };
     const available = await discoverAvailableProviders();
     const engine = new HostEngine(store, hostProviders, undefined, { entry: fileURLToPath(import.meta.url) });
-    backend.configureSessionEnvironment((id) => ({ ...engine.workflows.environment(id), ...engine.orchestration.environment(id), ...engine.assistant.environment(id) }));
+    backend.configureSessionEnvironment((id) => ({ ...engine.workflows.environment(id), ...engine.orchestration.environment(id), ...engine.bots.environment(id) }));
     await engine.ready;
     const secret = randomBytes(32).toString("base64url");
     let stopping = false;

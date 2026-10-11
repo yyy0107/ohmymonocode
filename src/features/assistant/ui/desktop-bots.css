@@ -432,3 +432,133 @@ html.is-resizing .assistant-chat.desktop-bots-workspace .assistant-body {
 .assistant-chat.desktop-bots-workspace .desktop-bots-no-results {
   overflow-wrap: anywhere;
 }
+
+.desktop-bots-host {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+.desktop-bots-host .desktop-bots-thread-surface {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.desktop-bots-host .desktop-bots-thread-surface > .desktop-bots-workspace,
+.desktop-bots-host > .desktop-bots-create {
+  flex: 1;
+  width: 100%;
+}
+.desktop-bots-host .desktop-bots-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 14px;
+  color: var(--color-content);
+  background: var(--color-surface-hover);
+}
+.desktop-bots-workspace .desktop-bots-new {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 12px 12px;
+  padding: 7px 9px;
+  border-radius: 7px;
+  color: var(--color-foreground-subtle);
+  font-size: var(--text-ui-sm);
+  cursor: pointer;
+}
+.desktop-bots-workspace .desktop-bots-new:hover,
+.desktop-bots-workspace .desktop-bots-thread[aria-current="page"] {
+  color: var(--color-content);
+  background: var(--color-surface-hover);
+}
+.desktop-bots-workspace .desktop-bots-contact[data-selected="false"] {
+  background: transparent;
+}
+.desktop-bots-workspace .desktop-bots-bot-group + .desktop-bots-bot-group {
+  margin-top: 5px;
+}
+.desktop-bots-workspace .desktop-bots-thread > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.desktop-bots-workspace .desktop-bots-unread {
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: var(--color-brand);
+  color: var(--color-brand-foreground);
+  font-size: var(--text-ui-xs);
+}
+.desktop-bots-workspace.desktop-bots-create {
+  grid-template-rows: minmax(0, 1fr);
+}
+.desktop-bots-workspace .desktop-bots-create-content {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.desktop-bots-workspace .desktop-bots-create-content > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-stroke);
+}
+.desktop-bots-workspace .desktop-bots-empty {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--color-foreground-subtle);
+}
+.desktop-bots-workspace .desktop-bots-empty button,
+.desktop-bots-host .desktop-bots-create-thread button {
+  padding: 7px 12px;
+  border-radius: 7px;
+  background: var(--color-surface-hover);
+  color: var(--color-content);
+  cursor: pointer;
+}
+.desktop-bots-host .desktop-bots-create-thread {
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-stroke);
+}
+.desktop-bots-host .desktop-bots-create-thread form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+  padding: 12px;
+}
+.desktop-bots-host .desktop-bots-create-thread label {
+  display: flex;
+  flex: 1;
+  min-width: 160px;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--text-ui-sm);
+}
+.desktop-bots-host .desktop-bots-create-thread input {
+  border: 1px solid var(--color-stroke);
+  border-radius: 6px;
+  padding: 7px;
+  background: var(--color-background-base);
+}
+@container (max-width: 600px) {
+  .desktop-bots-workspace .desktop-bots-new > span { display: none; }
+}
+@container (max-width: 760px) {
+  .desktop-bots-workspace[data-bot-details="true"] .desktop-bots-new > span { display: none; }
+}

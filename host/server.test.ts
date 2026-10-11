@@ -1238,7 +1238,7 @@ it("advertises assistant RPC, enforces device auth and hides the private brain",
   await engine.ready;
   engine.assistant.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }] }, errors: {} }));
   expect((await call("environment.describe")).value.result.capabilities)
-    .toEqual(expect.arrayContaining(["assistant.v1", "assistant.history", "bots.shell.v1"]));
+    .toEqual(expect.arrayContaining(["assistant.v1", "assistant.history", "bots.shell.v1", "bots.v1", "botThreads.v1"]));
   expect((await call("assistant.get")).value.result).toBeNull();
   expect((await call("assistant.messages", { latest: true })).value.result)
     .toMatchObject({ assistant: null, entries: [], hasMore: false });
@@ -1279,6 +1279,35 @@ it("advertises assistant RPC, enforces device auth and hides the private brain",
   expect((await call("assistant.get")).status).toBe(401);
   expect((await call("assistant.messages", { latest: true })).status).toBe(401);
   expect((await call("assistant.memoryTopic", { topic: "deploys" })).status).toBe(401);
+});
+
+it("routes scoped Bot RPCs without crossing legacy history or forged Thread ownership", async () => {
+  const { engine, call } = await setup();
+  await engine.ready;
+  engine.bots.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }] }, errors: {} }));
+  const patch = { harness: "codex", model: "test", triggers: { user: true, event: false, schedule: false } };
+  const first = await call("assistant.configure", { commandId: "legacy-setup", expectedRevision: 0, patch });
+  expect(first.status).toBe(200);
+  const creation = { commandId: "create-second", patch: { ...patch, name: "Second" } };
+  const created = await call("bots.create", creation);
+  expect(created.status).toBe(200);
+  expect((await call("bots.create", creation)).value.result).toEqual(created.value.result);
+  const scope = { botId: created.value.result.bot.id, threadId: created.value.result.thread.id };
+  const listing = (await call("bots.list")).value.result;
+  expect(listing.bots).toHaveLength(2);
+  expect(listing.defaultBotId).not.toBe(scope.botId);
+  const thread = await call("botThreads.create", { commandId: "thread-second", botId: scope.botId, title: "Another conversation" });
+  expect(thread.status).toBe(200);
+  const sibling = { botId: scope.botId, threadId: thread.value.result.id };
+  await call("bots.control", { botId: scope.botId, commandId: "pause-second", action: "pause" });
+  expect((await call("botThreads.send", { ...scope, commandId: "same-command", text: "Private first" })).status).toBe(200);
+  expect((await call("botThreads.send", { ...sibling, commandId: "same-command", text: "Private sibling" })).status).toBe(200);
+  const messages = async (target: typeof scope) => (await call("botThreads.messages", { ...target, latest: true })).value.result.entries;
+  expect((await messages(scope)).filter((m: any) => m.kind === "user").map((m: any) => m.text)).toEqual(["Private first"]);
+  expect((await messages(sibling)).filter((m: any) => m.kind === "user").map((m: any) => m.text)).toEqual(["Private sibling"]);
+  expect((await call("assistant.messages", { latest: true })).value.result.entries).toEqual([]);
+  expect((await call("botThreads.messages", { botId: listing.defaultBotId, threadId: scope.threadId })).value.error).toBeTruthy();
+  expect((await call("bots.list", {}, undefined, { environmentId: "other-host" })).value.error).toMatch(/identity changed/);
 });
 
 it("records phone hardware only for the authenticated device and retains it on legacy reconnects", async () => {

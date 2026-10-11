@@ -5,6 +5,7 @@ import type { AssistantLifecycle } from "../model/assistant";
 /** Presentation slots keep Host state and command ownership in AssistantChat. */
 export type AssistantHeaderProps = {
   name: string;
+  threadTitle?: string;
   hostName: string;
   harness?: RemoteProvider;
   /** Optional Host switcher shown in place of the Host name. */

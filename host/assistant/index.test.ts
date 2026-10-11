@@ -547,7 +547,7 @@ it("rolls back pure database effects when the assistant acceptance or card canno
   follow(engine, project.id, target.sessionId);
   const original = store.session(target.sessionId);
   store.db.exec(
-    "CREATE TRIGGER fail_acceptance BEFORE UPDATE ON assistant_actions WHEN json_extract(NEW.payload, '$.state')='completed' BEGIN SELECT RAISE(ABORT, 'acceptance failure'); END",
+    "CREATE TRIGGER fail_acceptance BEFORE UPDATE ON bot_actions WHEN json_extract(NEW.payload, '$.state')='completed' BEGIN SELECT RAISE(ABORT, 'acceptance failure'); END",
   );
   await expect(
     executeAssistantAction(
@@ -560,7 +560,7 @@ it("rolls back pure database effects when the assistant acceptance or card canno
   ).rejects.toThrow(/acceptance failure/);
   expect(store.session(target.sessionId)).toEqual(original);
   store.db.exec(
-    "DROP TRIGGER fail_acceptance; CREATE TRIGGER fail_card BEFORE INSERT ON assistant_messages WHEN json_extract(NEW.payload, '$.kind')='session-card' BEGIN SELECT RAISE(ABORT, 'card failure'); END",
+    "DROP TRIGGER fail_acceptance; CREATE TRIGGER fail_card BEFORE INSERT ON bot_messages WHEN json_extract(NEW.payload, '$.kind')='session-card' BEGIN SELECT RAISE(ABORT, 'card failure'); END",
   );
   const count = store.sessions().length;
   await expect(
@@ -723,6 +723,9 @@ it("preserves public history and creates a different brain when switching agents
     commandId: "after-switch",
     text: "Continue in the new agent",
   });
+  expect(engine.assistant.store.get()!.brainSessionId).toBe(brain);
+  expect(engine.assistant.store.get()!.lifecycle).toBe("running");
+  turns[0].finish();
   await vi.waitFor(() => expect(turns).toHaveLength(2));
   expect(engine.assistant.store.get()!.brainSessionId).not.toBe(brain);
   expect(turns[1].input.text).toContain("Continue in the new agent");
@@ -1231,13 +1234,8 @@ it("validates personality settings and reads older records with defaults", async
     persona: { preset: "partner", userName: "Wy" },
     timezone: "Asia/Shanghai",
   });
-  const {
-    persona: _p,
-    timezone: _t,
-    reminders: _r,
-    ...legacy
-  } = engine.assistant.store.get()!;
-  engine.assistant.store.write(legacy as never);
+  engine.store.db.prepare("UPDATE bots SET config=json_remove(config,'$.persona','$.timezone','$.reminders') WHERE id=?")
+    .run(engine.assistant.store.botId);
   expect(engine.assistant.store.get()).toMatchObject({
     persona: { preset: "secretary", style: "" },
     timezone: "UTC",

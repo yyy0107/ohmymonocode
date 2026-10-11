@@ -202,8 +202,9 @@ commands/results and deferred checks, including manual visual checks.
 | Stage | Status | Commit | Checks actually run |
 | --- | --- | --- | --- |
 | 0 | Roadmap recorded | `6f1e17c0` | Baseline, branch and unrelated-file inspection; documentation requires no tests |
-| 1 | Desktop shell complete | This stage's named commit (see git log) | Targeted UI/Host tests, TypeScript and local browser checks below |
-| 2–8 | Not started | — | None |
+| 1 | Desktop shell complete | `df30c960` | Targeted UI/Host tests, TypeScript and local browser checks below |
+| 2 | Isolated Bots/Threads complete | This stage's named commit (see git log) | Scoped persistence, RPC, desktop and compatibility checks below |
+| 3–8 | Not started | — | None |
 
 Stage 1 verification (Node 24.16.0, Vitest 3.2.7, Vite 7.3.6):
 
@@ -226,3 +227,73 @@ Stage 1 verification (Node 24.16.0, Vitest 3.2.7, Vite 7.3.6):
 Each subsequent stage records the preceding commit SHA here and its own checks
 before committing. Its own SHA is resolved by the named commit in git log, then
 recorded by the next stage; this avoids rewriting a commit to embed its own hash.
+
+
+Stage 2 implementation notes:
+
+- `BotStore` owns relational Bot/Thread metadata and the migration checkpoint.
+  `AssistantStore` now uses explicit `(bot_id, thread_id)` predicates. Bot
+  configuration/memory is shared; messages, receipts, wakeups, source cursors,
+  action ledgers and provider-session state belong to Threads. Thread model
+  overrides never write back to Bot defaults. The first Bot on an empty Host
+  becomes the compatibility default.
+- `BotManager` owns the Host callbacks, catalog routing and execution leases.
+  This stage limits each Bot to one executing Thread. Only its default Thread
+  produces existing schedule/event wakeups. Host-signed tool origins carry
+  optional Bot/Thread IDs while old origins stay readable.
+- The default assistant facade, IM binding/cursors and unscoped attachment reads
+  target the default Thread. New attachment reads require matching Bot/Thread
+  ownership. The desktop uses a separate composite cache key while retaining
+  the actual Host environment for connection/session routing.
+
+Migration recovery and rollback:
+
+1. Startup records stable default IDs, takes a SQLite `VACUUM INTO` snapshot
+   (including committed WAL contents) at `<databasePath>.pre-bots-v1.sqlite`,
+   prepares the workspace/manifest, copies all legacy rows transactionally, then
+   marks completion. Each checkpoint can be retried; old assistant tables become
+   read-only once copied. Existing attachments and brain directories stay put.
+2. On interruption, restart the new Host against the same database. Do not delete
+   the new tables or checkpoint metadata to retry.
+3. To roll back, stop the Host first. Preserve the current database **and** its
+   WAL/SHM files as a separate recovery copy. Restore the pre-Bots snapshot at
+   the original database path without the newer WAL/SHM, then start the matching
+   old version. Checking out an old commit alone is not a database rollback.
+4. A restored old Host may receive new writes. Before migrating that restored
+   installation again, archive the earlier `.pre-bots-v1.sqlite` under another
+   name so the next migration takes a fresh pre-migration snapshot. Never discard
+   the post-migration copy if its newer conversations may still be needed.
+
+Stage 2 checks:
+
+- `host/bots/store.test.ts` and `host/assistant/store.test.ts`: 28 passed;
+  a later targeted public-state projection check passed.
+- Host attachment scope tests: 2 passed. RPC/IM focused selection: 8 passed
+  after fixing initial empty-Host default runtime initialization. Additional
+  publication rollback and resolved-input/IM checks: 4 passed.
+- Host TypeScript `tsc --noEmit -p host/tsconfig.json`: passed after linking the
+  existing ignored `host/im/node_modules` dependencies into this worktree.
+- Browser fixture: dark desktop and light 680px layout; independent Bot drafts,
+  Thread switching, named Thread creation, Bot draft-before-save creation,
+  default-title accessibility and details focus verified.
+
+- Manager regression file: 6 passed (serial sibling/cross-Bot execution, independent
+  approvals/cancellation, Bot pause and new Threads, next-turn model changes,
+  default-model overrides, archive failure/retry). Final model boundary selection:
+  2 passed. Existing Assistant index: 56/58 initially passed; two old-semantic
+  fixtures were updated for next-turn configuration and scoped storage, then both
+  passed. No failing scenario remains in those executed checks.
+- Existing desktop/AssistantChat/Mobile selection: 75 passed. Final client,
+  scoped RPC adapter, desktop notification and workspace selection: 29 passed;
+  unread-hook tests: 2 passed. Web `tsc --noEmit`: passed.
+- Final RPC compatibility/scope selection: 2 passed; final Host TypeScript and
+  `git diff --check`: passed. No Mobile component/style change and no real CLI,
+  build, publication, push or merge was performed.
+
+- Final native-path review caught the desktop Rust RPC allowlist missing the new
+  Bot methods. Added the exact methods and allowlist assertions to this stage.
+  `CARGO_TARGET_DIR=/projects/monocode/target npm run check:rust`: passed (format,
+  Clippy with warnings denied, 602 tests passed / 1 ignored). The first attempt
+  needed the existing packaged Host resource directory; linked the ignored
+  `build/desktop-host` to the existing resource, then reran successfully. This
+  was test compilation; no application build/package or publication was run.

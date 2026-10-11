@@ -349,8 +349,7 @@ export class HostImService {
     assertReplyAttachmentAccess(this.assistant, action.input);
   }
   private publicMessage(messageId: string): AssistantMessage | undefined {
-    const row = this.host.db.prepare("SELECT payload FROM assistant_messages WHERE id=? ORDER BY revision DESC LIMIT 1").get(messageId);
-    return row ? JSON.parse(String(row.payload)) : undefined;
+    return this.assistant.store.messageById(messageId);
   }
   private inputStillPending(messageId: string): boolean {
     const current = this.publicMessage(messageId);
