@@ -12,9 +12,46 @@ function MobileLoading() {
 type MobileModule = () => Promise<{ default: ComponentType<any> }>;
 type MobileProps<Load extends MobileModule> = ComponentProps<Awaited<ReturnType<Load>>["default"]>;
 
+const PRELOAD_DELAY_MS = 4_000;
+const preloads: (() => Promise<unknown>)[] = [];
+let preloadScheduled = false;
+
+/** Fetch deferred chunks one at a time once startup is over, so a first open
+ * shows the real page or sheet instead of flashing its loading placeholder. */
+function schedulePreload(start: () => Promise<unknown>) {
+  preloads.push(start);
+  if (preloadScheduled || typeof window === "undefined") return;
+  preloadScheduled = true;
+  const idle = (next: () => void) =>
+    typeof window.requestIdleCallback === "function"
+      ? window.requestIdleCallback(next, { timeout: 2_000 })
+      : window.setTimeout(next, 50);
+  const step = () => {
+    const start = preloads.shift();
+    if (!start) return;
+    void start().catch(() => undefined).finally(() => idle(step));
+  };
+  window.setTimeout(() => idle(step), PRELOAD_DELAY_MS);
+}
+
+/** One loader for both lazy() and the preload. Once loaded, lazy() receives a
+ * thenable that resolves synchronously, so it never suspends for a tick. */
+function preloadable<Load extends MobileModule>(load: Load): Load {
+  let loaded: Awaited<ReturnType<Load>> | undefined;
+  let pending: Promise<Awaited<ReturnType<Load>>> | undefined;
+  const start = () => (pending ??= load().then(
+    (module) => (loaded = module as Awaited<ReturnType<Load>>),
+    (problem) => { pending = undefined; throw problem; },
+  ));
+  schedulePreload(start);
+  return (() => loaded
+    ? { then: (resolve: (value: unknown) => void) => resolve(loaded) }
+    : start()) as unknown as Load;
+}
+
 /** Keep the Suspense boundary inside the retained page/overlay lifetime. */
 export function lazyMobilePage<Load extends MobileModule>(load: Load) {
-  const Component = lazy(load);
+  const Component = lazy(preloadable(load));
   return function LazyMobilePage(props: MobileProps<Load>) {
     return <Suspense fallback={<MobileLoading />}><Component {...props} /></Suspense>;
   };
@@ -25,7 +62,7 @@ type SheetLifetime = { open?: boolean; onExited?: () => void; onClose: () => voi
 /** A loading sheet can still close and finish its presence lifetime, even if
  * its chunk has not arrived. The loaded sheet receives the latest open state. */
 export function lazyMobileSheet<Load extends MobileModule>(load: Load) {
-  const Component = lazy(load);
+  const Component = lazy(preloadable(load));
   return function LazyMobileSheet(props: MobileProps<Load> & SheetLifetime) {
     const { t } = useTranslation();
     const open = props.open ?? true;
