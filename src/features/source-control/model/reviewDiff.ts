@@ -32,8 +32,6 @@ export type ReviewFile = {
   status: string;
   additions: number;
   deletions: number;
-  /** Session source only: false when outside edits prevent an exact diff. */
-  exact?: boolean;
 };
 export type ReviewDiff = {
   original: string;

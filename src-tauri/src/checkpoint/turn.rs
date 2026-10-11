@@ -606,6 +606,8 @@ fn git_command(root: &Path, args: &[&str]) -> Command {
         .env("GIT_OPTIONAL_LOCKS", "0")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_LITERAL_PATHSPECS", "1")
+        // begin_turn matches "not a git repository" in Git's messages.
+        .env("LC_ALL", "C")
         .env("PATH", crate::harness::gui_search_path());
     for name in [
         "GIT_DIR",

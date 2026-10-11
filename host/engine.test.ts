@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, readdirSync, readFileSync, writeFileSync } from "n
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import type { SendTurnInput } from "../src/integrations/harness/core/types";
 import type { HostProvider } from "./providers";
 import { HostEngine, parseCommand } from "./engine";
@@ -212,9 +213,14 @@ describe("headless session ownership", () => {
     turns[0].finish();
   });
 
-  it.each(["codex", "pi", "omp"] as const)(
-    "resumes the saved %s conversation after its idle process is released",
-    async (harness) => {
+  it.each([
+    { harness: "codex", failed: false },
+    { harness: "codex", failed: true },
+    { harness: "pi", failed: false },
+    { harness: "omp", failed: false },
+  ] as const)(
+    "resumes the saved $harness conversation after its process is released (failed: $failed)",
+    async ({ harness, failed }) => {
       vi.useFakeTimers();
       const { engine, store, provider, turns, id } = setup(harness);
       await engine.ready;
@@ -233,13 +239,15 @@ describe("headless session ownership", () => {
       engine.command({ type: "send", commandId: "before-idle", sessionId: id, text: "Remember this task" });
       await vi.waitFor(() => expect(turns).toHaveLength(1));
       turns[0].input.onEvent({ type: "session.providerBound", providerSessionId: "original-thread" });
-      if (harness === "codex") turns[0].input.onEvent({ type: "session.error", message: "You've hit your usage limit" });
+      if (failed) turns[0].input.onEvent({ type: "session.error", message: "You've hit your usage limit" });
       turns[0].finish();
       await vi.waitFor(() => expect(store.session(id).status).toBe("idle"));
-      expect(provider.stop).not.toHaveBeenCalled();
+      // Failed providers stop before the final checkpoint; successful ones
+      // remain parked until their idle timeout. Both retain the conversation.
+      expect(provider.stop).toHaveBeenCalledTimes(failed ? 1 : 0);
       await vi.advanceTimersByTimeAsync(5 * 60_000);
       expect(provider.stop).toHaveBeenCalledOnce();
-      expect(retained).toBeUndefined();
+      expect(retained).toBe(failed ? "original-thread" : undefined);
 
       engine.command({ type: "send", commandId: "after-idle", sessionId: id, text: "Continue" });
       await vi.waitFor(() => expect(turns).toHaveLength(2));
@@ -1324,6 +1332,66 @@ it.each(["running", "idle"] as const)("submits an expired Codex question as a du
 });
 
 describe("session checkpoints", () => {
+  it.each(["completed", "cancelled", "rejected", "error event"] as const)(
+    "records Git turns after %s providers settle, including writes before edit events",
+    async (outcome) => {
+      const { engine, store, turns, provider, id, directory } = setup();
+      const git = (...args: string[]) => execFileSync("git", args, { cwd: directory });
+      const file = join(directory, "notes.txt");
+      // Host database and checkpoint storage live in the fixture too.
+      writeFileSync(join(directory, ".gitignore"), "*\n!notes.txt\n");
+      writeFileSync(file, "before\n");
+      git("init", "-q");
+      git("config", "core.autocrlf", "false");
+      git("add", "notes.txt");
+      git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "initial");
+      provider.readSessionTitle = vi.fn(async () => null);
+      const send = provider.send;
+      provider.send = vi.fn(async (input) => {
+        await send(input);
+        if (outcome === "rejected") throw new Error("Provider stream failed");
+      });
+      let releaseStop!: () => void;
+      const stopping = new Promise<void>((resolve) => { releaseStop = resolve; });
+      provider.stop = vi.fn(async () => {
+        await stopping;
+        if (outcome !== "completed") writeFileSync(file, "after\nsettled\n");
+      });
+      try {
+        engine.command({ type: "send", commandId: "git-edit", sessionId: id, text: "Edit notes" });
+        await vi.waitFor(() => expect(turns).toHaveLength(1));
+        const emit = turns[0].input.onEvent;
+        // Full-access providers may write before either structured event arrives.
+        for (const [callId, contents] of [["first", "intermediate\n"], ["second", "after\n"]]) {
+          writeFileSync(file, contents);
+          emit({ type: "tool.started", callId, title: "Edit notes.txt", kind: "edit", paths: [file] });
+          emit({ type: "tool.updated", callId, status: "completed" });
+        }
+        if (outcome === "error event") emit({ type: "session.error", message: "Provider failed" });
+        if (outcome === "cancelled")
+          engine.command({ type: "cancel", commandId: "cancel-edit", sessionId: id, runId: store.session(id).runId! });
+        else turns[0].finish();
+        if (outcome !== "completed") {
+          await vi.waitFor(() => expect(provider.stop).toHaveBeenCalled());
+          expect(store.session(id).status).toBe("running");
+          await expect(engine.sessionCheckpoint(id, "status", undefined)).rejects.toThrow(/without a final/);
+        }
+        releaseStop();
+        await vi.waitFor(() => expect(store.session(id).status).toBe("idle"));
+        expect(await engine.sessionCheckpoint(id, "diff", "notes.txt")).toMatchObject({
+          original: "before\n",
+          current: outcome === "completed" ? "after\n" : "after\nsettled\n",
+        });
+        expect(await engine.sessionCheckpoint(id, "status", undefined)).toMatchObject({
+          files: [{ relative: "notes.txt", exact: true, undoable: true }],
+        });
+        if (outcome === "completed") expect(provider.stop).not.toHaveBeenCalled();
+      } finally {
+        releaseStop();
+      }
+    },
+  );
+
   it("captures structured edits for review and undoes them once the turn ends", async () => {
     const { engine, store, turns, id, directory } = setup("claude");
     const file = join(directory, "notes.txt");

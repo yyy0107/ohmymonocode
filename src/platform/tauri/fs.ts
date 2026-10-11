@@ -190,8 +190,6 @@ export type GitChangedFile = {
   deletions: number;
   staged: boolean;
   unstaged: boolean;
-  /** Session changes only: false when outside edits prevent an exact diff. */
-  exact?: boolean;
 };
 
 export type GitDiffIndex = {

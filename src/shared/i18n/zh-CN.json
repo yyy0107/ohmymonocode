@@ -1071,8 +1071,6 @@
   "Minute": "分钟",
   "Missed-run grace": "错过任务的宽限期",
   "Missing folder": "文件夹已丢失",
-  "Mixed changes": "混合更改",
-  "This file was also changed outside this session between its edits, so the session's own lines can't be separated. See Uncommitted for the full diff.": "该文件在本会话的多次编辑之间被外部修改过，无法单独区分本会话改动的行。可在“未提交”中查看完整差异。",
   "Model": "模型",
   "Model (⌘.)": "模型（⌘.）",
   "Model and settings": "模型与设置",

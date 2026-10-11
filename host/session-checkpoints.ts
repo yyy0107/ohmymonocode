@@ -18,6 +18,7 @@ import type {
   CheckpointFileDiff,
   CheckpointStatus,
 } from "../src/features/sessions/model/checkpoint";
+import { TurnCheckpoints } from "./turn-checkpoints";
 import { workspacePath } from "./workspace";
 
 const exec = promisify(execFile);
@@ -61,14 +62,17 @@ type Manifest = {
 
 /**
  * Per-session Keep/Undo checkpoints for conversations the Host runs. It follows
- * the desktop store (src-tauri/src/checkpoint.rs): a file becomes reviewable
- * only after a structured edit captured it at tool start, and Undo refuses to
- * overwrite a file that changed outside the session's own edits.
+ * the desktop store (src-tauri/src/checkpoint.rs): Git workspaces review the
+ * latest turn's snapshots, while folders without Git retain structured-edit
+ * checkpoints. Undo refuses to overwrite later or shared changes.
  */
 export class SessionCheckpoints {
   private tail: Promise<unknown> = Promise.resolve();
+  private readonly turns: TurnCheckpoints;
 
-  constructor(private readonly root: string) {}
+  constructor(private readonly root: string) {
+    this.turns = new TurnCheckpoints(root, (sessionId) => this.sessionDir(sessionId));
+  }
 
   /** Every operation shares one queue: status reads other sessions' claims. */
   private exclusive<T>(operation: () => Promise<T>): Promise<T> {
@@ -96,6 +100,26 @@ export class SessionCheckpoints {
     });
   }
 
+  /** Record the workspace before a turn's provider runs. Folders without Git
+   * keep structured-edit review instead. */
+  beginTurn(sessionId: string, cwd: string, turnId: string): Promise<void> {
+    return this.exclusive(async () => {
+      if (await this.turns.begin(sessionId, cwd, turnId)) return;
+      const root = await projectRoot(cwd);
+      const dir = this.sessionDir(sessionId);
+      const manifest = await readManifest(dir);
+      if (manifest && sameCwd(manifest.cwd, root)) return;
+      await rm(dir, { recursive: true, force: true });
+      await mkdir(join(dir, "files"), { recursive: true });
+      await writeManifest(dir, emptyManifest(root));
+    });
+  }
+
+  /** Capture the settled workspace once the turn's provider has stopped. */
+  finishTurn(sessionId: string, cwd: string, turnId: string): Promise<void> {
+    return this.exclusive(() => this.turns.finish(sessionId, cwd, turnId));
+  }
+
   /** Capture files immediately before a structured edit starts. Contents are
    * read now, before the provider can write, and recorded in queue order. */
   prepare(sessionId: string, cwd: string, paths: string[]): Promise<void> {
@@ -109,6 +133,7 @@ export class SessionCheckpoints {
     }
     if (!before.size) return Promise.resolve();
     return this.exclusive(async () => {
+      if (await this.turns.has(sessionId, cwd)) return;
       const dir = this.sessionDir(sessionId);
       const manifest = await readManifest(dir);
       if (!manifest || !sameCwd(manifest.cwd, root)) return;
@@ -146,6 +171,7 @@ export class SessionCheckpoints {
   capture(sessionId: string, cwd: string, paths: string[]): Promise<void> {
     if (!paths.length) return Promise.resolve();
     return this.exclusive(async () => {
+      if (await this.turns.captureEdits(sessionId, cwd, paths)) return;
       const root = await projectRoot(cwd);
       const dir = this.sessionDir(sessionId);
       const manifest = await readManifest(dir);
@@ -180,11 +206,14 @@ export class SessionCheckpoints {
   }
 
   status(sessionId: string, cwd: string): Promise<CheckpointStatus> {
-    return this.exclusive(() => this.currentStatus(sessionId, cwd));
+    return this.exclusive(async () =>
+      (await this.turns.status(sessionId, cwd)) ?? this.currentStatus(sessionId, cwd));
   }
 
   fileDiff(sessionId: string, cwd: string, input: string): Promise<CheckpointFileDiff> {
     return this.exclusive(async () => {
+      const recorded = await this.turns.fileDiff(sessionId, cwd, input);
+      if (recorded) return recorded;
       const root = await projectRoot(cwd);
       const dir = this.sessionDir(sessionId);
       const manifest = await readManifest(dir);
@@ -219,6 +248,8 @@ export class SessionCheckpoints {
 
   undo(sessionId: string, cwd: string, input?: string): Promise<CheckpointStatus> {
     return this.exclusive(async () => {
+      const recorded = await this.turns.undo(sessionId, cwd, input);
+      if (recorded) return recorded;
       const root = await projectRoot(cwd);
       const dir = this.sessionDir(sessionId);
       const manifest = await readManifest(dir);
@@ -250,6 +281,8 @@ export class SessionCheckpoints {
 
   keep(sessionId: string, cwd: string, input?: string): Promise<CheckpointStatus> {
     return this.exclusive(async () => {
+      const recorded = await this.turns.keep(sessionId, cwd, input);
+      if (recorded) return recorded;
       const root = await projectRoot(cwd);
       const dir = this.sessionDir(sessionId);
       const manifest = await readManifest(dir);
@@ -267,9 +300,10 @@ export class SessionCheckpoints {
   }
 
   forget(sessionId: string): Promise<void> {
-    return this.exclusive(() =>
-      rm(this.sessionDir(sessionId), { recursive: true, force: true }),
-    );
+    return this.exclusive(async () => {
+      await this.turns.forget(sessionId).catch(() => undefined);
+      await rm(this.sessionDir(sessionId), { recursive: true, force: true });
+    });
   }
 
   private async currentStatus(sessionId: string, cwd: string): Promise<CheckpointStatus> {
