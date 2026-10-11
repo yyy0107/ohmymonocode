@@ -65,13 +65,12 @@ export function createDragLabel(idle: string, target: string) {
 
 /**
  * A lifted copy of `source` that follows the pointer from where it was
- * grabbed. Over a drop target it gives way to a compact `target` label.
+ * grabbed, outside clipping and transformed ancestors in the original list.
  */
 export function createDragGhost(
   source: HTMLElement,
   startX: number,
   startY: number,
-  target: string,
 ) {
   const rect = source.getBoundingClientRect();
   const offsetX = startX - rect.left;
@@ -79,13 +78,20 @@ export function createDragGhost(
   const ghost = document.createElement("div");
   ghost.className = "drag-ghost";
   ghost.style.zIndex = String(LAYER.dragLabel);
+  ghost.inert = true;
+  ghost.setAttribute("aria-hidden", "true");
   const card = source.cloneNode(true) as HTMLElement;
   // The copy must not be found as the real card, or steal focus or labels.
   for (const node of [card, ...card.querySelectorAll<HTMLElement>("*")]) {
     node.removeAttribute("id");
     node.removeAttribute("tabindex");
     for (const name of node.getAttributeNames()) {
-      if (name.startsWith("data-session-") || name.startsWith("aria-"))
+      if (
+        name.startsWith("data-session-") ||
+        name.startsWith("data-project-") ||
+        name.startsWith("data-sidebar-") ||
+        name.startsWith("aria-")
+      )
         node.removeAttribute(name);
     }
   }
@@ -93,16 +99,17 @@ export function createDragGhost(
   card.classList.add("drag-ghost-card");
   card.style.width = `${rect.width}px`;
   card.style.height = `${rect.height}px`;
-  const label = document.createElement("div");
-  label.className = "drag-label drag-ghost-label";
-  label.textContent = target;
-  ghost.append(card, label);
+  card.style.font = getComputedStyle(source).font;
+  card.style.transition = "none";
+  ghost.append(card);
   document.body.append(ghost);
   return {
-    move(x: number, y: number, onTarget: boolean) {
+    move(x: number, y: number) {
       card.style.transform = `translate(${x - offsetX}px, ${y - offsetY}px)`;
-      label.style.transform = `translate(${x - 10}px, ${y}px) translate(-100%, -50%)`;
-      ghost.dataset.target = String(onTarget);
+    },
+    settle(left: number, top: number, transition: string) {
+      card.style.transition = transition;
+      card.style.transform = `translate(${left}px, ${top}px)`;
     },
     dispose() {
       ghost.remove();

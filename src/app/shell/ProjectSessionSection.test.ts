@@ -972,10 +972,13 @@ describe("named project/session tree", () => {
       expect(group.classList.contains("mb-1.5")).toBe(false);
     }
     for (const id of ["plain", "folder", "pinned", "reminder"]) {
-      expect(card(id).classList.contains("h-8")).toBe(true);
-      expect(card(id).classList.contains("w-full")).toBe(true);
+      const row = id === "pinned"
+        ? container.querySelector<HTMLElement>('[data-project-section="pinned"] [data-session-card="pinned"]')!
+        : card(id);
+      expect(row.classList.contains("h-8")).toBe(true);
+      expect(row.classList.contains("w-full")).toBe(true);
       for (
-        let node = card(id).parentElement;
+        let node = row.parentElement;
         node && !node.hasAttribute("data-project-session-section");
         node = node.parentElement
       ) {
@@ -983,6 +986,7 @@ describe("named project/session tree", () => {
         expect(node.classList.contains("p-1")).toBe(false);
       }
     }
+    expect(project(A).querySelector('[data-session-card="pinned"]')).toBeNull();
     // Rows keep the header's bounds while their text indents to its name.
     expect(card("plain").classList.contains("pl-8")).toBe(true);
     expect(card("plain").classList.contains("pr-2")).toBe(true);
@@ -2299,9 +2303,10 @@ describe("unified pinned sidebar group", () => {
     act(() => render());
   }
 
-  it("keeps conversations before projects when restoring a mixed saved order", () => {
+  it("restores manual mixed ordering after defaulting to conversations before projects", () => {
     pinFixtures();
     const initial = pinnedRows();
+    expect(initial.map((row) => !!row.dataset.sidebarPinnedEntry)).toEqual([true, true, false]);
     localStorage.setItem(
       "monocode.sidebarPinnedOrder.v1",
       JSON.stringify([
@@ -2315,13 +2320,13 @@ describe("unified pinned sidebar group", () => {
     expect(pinnedRows().map(
       (row) => row.dataset.sidebarPinnedEntry ?? row.dataset.projectPath,
     )).toEqual([
+      A,
       initial[1].dataset.sidebarPinnedEntry,
       initial[0].dataset.sidebarPinnedEntry,
-      A,
     ]);
   });
 
-  it("reorders conversations and projects within their own groups and restores their order", () => {
+  it("reorders conversations and projects together and restores their mixed order", () => {
     pinFixtures();
     act(() => savePinnedProjects([A, B]));
     const initial = measurePins();
@@ -2334,19 +2339,19 @@ describe("unified pinned sidebar group", () => {
     expect(document.body.style.cursor).toBe("grabbing");
     pointer(window, "pointerup", 16);
     act(() => name.click());
-    expect(pinnedRows()).toEqual([initial[0], initial[1], initial[3], initial[2]]);
+    expect(pinnedRows()).toEqual([initial[3], initial[0], initial[1], initial[2]]);
     expect(props.onSelectProject).not.toHaveBeenCalled();
     expect(loadProjectTreeExpanded(A).size).toBe(0);
 
     const rows = measurePins();
-    const session = rows[1].querySelector<HTMLElement>("[data-session-card]")!;
+    const session = rows[2].querySelector<HTMLElement>("[data-session-card]")!;
     expect(session.classList.contains("cursor-grab")).toBe(true);
-    pointer(session, "pointerdown", 49);
-    pointer(window, "pointermove", 45);
-    expect(rows[1].dataset.dragging).toBe("true");
+    pointer(session, "pointerdown", 82);
+    pointer(window, "pointermove", 78);
+    expect(rows[2].dataset.dragging).toBe("true");
     pointer(window, "pointerup", 16);
     act(() => session.click());
-    expect(pinnedRows()).toEqual([initial[1], initial[0], initial[3], initial[2]]);
+    expect(pinnedRows()).toEqual([initial[1], initial[3], initial[0], initial[2]]);
     expect(props.onSelectSession).not.toHaveBeenCalled();
 
     const order = pinnedRows().map(
@@ -2534,6 +2539,195 @@ describe("unified pinned sidebar group", () => {
     ).toHaveLength(1);
     expect(pinned.textContent).toContain("Pinned conversation 6");
   });
+  function measurePinDropSource(source: HTMLElement) {
+    const list = container.querySelector<HTMLElement>("[data-project-list]")!;
+    const pinArea = container.querySelector<HTMLElement>(
+      '[data-project-section="pinned"]',
+    )!;
+    const pinHeader = pinArea.querySelector<HTMLElement>(
+      "[data-sidebar-section-header]",
+    )!;
+    const row = source.closest<HTMLElement>(".session-reorder-item")!;
+    vi.spyOn(list, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(0, 0, 240, 500),
+    );
+    vi.spyOn(pinArea, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(0, 0, 240, 80),
+    );
+    vi.spyOn(pinHeader, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(0, 0, 240, 28),
+    );
+    vi.spyOn(row, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(0, 200, 240, 32),
+    );
+    Object.assign(row, {
+      setPointerCapture: vi.fn(),
+      hasPointerCapture: () => true,
+      releasePointerCapture: vi.fn(),
+    });
+    return pinArea;
+  }
+
+  it.each([
+    { origin: "project", cancel: false },
+    { origin: "pinned project", cancel: false },
+    { origin: "chat", cancel: false },
+    { origin: "reminder", cancel: false },
+    { origin: "project", cancel: true },
+  ])(
+    "pins a conversation dragged from $origin without duplicate rows (cancel: $cancel)",
+    ({ origin, cancel }) => {
+      vi.spyOn(window, "matchMedia").mockReturnValue({
+        matches: true,
+      } as MediaQueryList);
+      const path =
+        origin === "chat"
+          ? "/home/me/Documents/ohmymonocode/2026-10-11/chat-101010-aaaaaa"
+          : A;
+      if (origin === "chat") {
+        localStorage.setItem("monocode.chatFolders.v1", JSON.stringify([path]));
+        props.recents = [];
+      }
+      if (origin === "pinned project") savePinnedProjects([path]);
+      props.cwd = path;
+      props.projectHistory = [summary("drag-me", path)];
+      props.sessions = props.projectHistory;
+      props.loadedProjectPaths = new Set([path]);
+      if (origin === "reminder")
+        props.reminders = [
+          {
+            sessionId: "drag-me",
+            cwd: path,
+            title: "Reminder",
+            harness: "codex",
+            dueAt: Date.now() + 60_000,
+            firedAt: null,
+          },
+        ];
+      saveProjectTreeExpanded([path]);
+      props.onPinSession = vi.fn((id, pinned) => {
+        props.projectHistory = props.projectHistory!.map((row) =>
+          row.id === id ? { ...row, pinned } : row,
+        );
+        props.sessions = props.projectHistory;
+        render();
+      });
+      act(() => render());
+      const source = container.querySelector<HTMLElement>(
+        '[data-session-card="drag-me"]',
+      )!;
+      const pinArea = measurePinDropSource(source);
+      const toggle = pinArea.querySelector<HTMLButtonElement>(
+        "[data-sidebar-section-toggle]",
+      )!;
+      // A source inside a pinned project must remain visible while dragged.
+      if (origin !== "pinned project") act(() => toggle.click());
+      pointer(source, "pointerdown", 216);
+      pointer(window, "pointermove", 16);
+      expect(pinArea.dataset.sidebarPinDropTarget).toBe("true");
+      expect(props.onPinSession).not.toHaveBeenCalled();
+      if (cancel)
+        act(() =>
+          window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })),
+        );
+      else pointer(window, "pointerup", 16);
+      expect(pinArea.dataset.sidebarPinDropTarget).toBeUndefined();
+      expect(document.querySelector(".drag-label")).toBeNull();
+      expect(props.onSelectSession).not.toHaveBeenCalled();
+      if (cancel) {
+        expect(props.onPinSession).not.toHaveBeenCalled();
+        expect(
+          project(path).querySelector('[data-session-card="drag-me"]'),
+        ).not.toBeNull();
+      } else {
+        expect(props.onPinSession).toHaveBeenCalledExactlyOnceWith(
+          "drag-me",
+          true,
+        );
+        expect(toggle.getAttribute("aria-expanded")).toBe("true");
+        expect(
+          pinArea.querySelector('[data-pinned-session-shortcut="drag-me"]'),
+        ).not.toBeNull();
+        expect(
+          container.querySelectorAll('[data-session-card="drag-me"]'),
+        ).toHaveLength(1);
+        expect(
+          container.querySelector(
+            '[data-project-path] [data-session-card="drag-me"]',
+          ),
+        ).toBeNull();
+        expect(
+          container.querySelector(
+            '[data-chat-project] [data-session-card="drag-me"]',
+          ),
+        ).toBeNull();
+        // Unpinning restores the original project/chat/reminder list.
+        act(() => props.onPinSession!("drag-me", false));
+        expect(
+          pinArea.querySelector('[data-pinned-session-shortcut="drag-me"]'),
+        ).toBeNull();
+        expect(
+          container.querySelectorAll('[data-session-card="drag-me"]'),
+        ).toHaveLength(1);
+      }
+    },
+  );
+
+  it("routes a dragged Host conversation pin to its own project despite duplicate IDs", async () => {
+    vi.spyOn(window, "matchMedia").mockReturnValue({
+      matches: true,
+    } as MediaQueryList);
+    const machine = {
+      id: "machine",
+      name: "Host",
+      endpoint: "http://localhost",
+      environmentId: "environment",
+    };
+    configureSharedHost(
+      machine.environmentId,
+      [
+        { id: "alpha-host", cwd: A, name: "alpha" },
+        { id: "beta-host", cwd: B, name: "beta" },
+      ],
+      machine.id,
+    );
+    for (const path of [A, B]) {
+      remoteState.rows.set(path, [
+        hostRow("same", path === A ? "Alpha" : "Beta"),
+      ]);
+      remoteState.states.set(path, { machine });
+    }
+    props.onPinSession = vi.fn();
+    saveProjectTreeExpanded([A, B]);
+    act(() => render());
+    const source = project(B).querySelector<HTMLElement>(
+      '[data-session-card="same"]',
+    )!;
+    measurePinDropSource(source);
+    pointer(source, "pointerdown", 216);
+    pointer(window, "pointermove", 16);
+    await act(async () => pointer(window, "pointerup", 16));
+    expect(remoteState.request).toHaveBeenCalledExactlyOnceWith(
+      "machine",
+      "sessions.update",
+      { projectId: "beta-host", sessionId: "same", pinned: true },
+    );
+    expect(props.onPinSession).not.toHaveBeenCalled();
+    remoteState.rows.set(B, [{ ...hostRow("same", "Beta"), pinned: true }]);
+    act(() => window.dispatchEvent(new Event(REMOTE_HISTORY_UPDATED)));
+    expect(
+      project(A).querySelector('[data-session-card="same"]'),
+    ).not.toBeNull();
+    expect(project(B).querySelector('[data-session-card="same"]')).toBeNull();
+    expect(
+      container.querySelector(
+        '[data-project-section="pinned"] [data-project-session-section="' +
+          B +
+          '"] [data-session-card="same"]',
+      ),
+    ).not.toBeNull();
+  });
+
 });
 
 describe("sidebar chat conversations", () => {
@@ -2585,7 +2779,7 @@ describe("sidebar chat conversations", () => {
   });
 
   const chatCard = (path: string, id: string) =>
-    chats().querySelector<HTMLElement>(
+    container.querySelector<HTMLElement>(
       `[data-project-session-section="${path}"] [data-session-card="${id}"]`,
     )!;
   const pickChatAction = async (path: string, id: string, label: string) => {
@@ -2768,7 +2962,7 @@ describe("sidebar chat conversations", () => {
     expect(chatIds()).toEqual(["running"]);
   });
 
-  it("sorts chats by update time regardless of pins and refreshes after activity", () => {
+  it("keeps pinned chats only in the pinned section while sorting ordinary chats by activity", () => {
     props.projectHistory = [
       { ...summary("old-pin", C1), updatedAt: 1, pinned: true },
       { ...summary("latest", C2), updatedAt: 30 },
@@ -2779,7 +2973,8 @@ describe("sidebar chat conversations", () => {
     saveProjectTreeExpanded([]);
     props.onSessionNavigationOrder = vi.fn();
     act(() => render());
-    expect(chatIds()).toEqual(["latest", "middle", "old-pin"]);
+    expect(chatIds()).toEqual(["latest", "middle"]);
+    expect(container.querySelector('[data-project-section="pinned"] [data-session-card="old-pin"]')).not.toBeNull();
     expect(chats().textContent).toContain("Chats");
     expect(card("latest")).toBeNull();
     act(() =>
@@ -2793,7 +2988,7 @@ describe("sidebar chat conversations", () => {
       row.id === "middle" ? { ...row, updatedAt: 60 } : row,
     );
     act(() => render());
-    expect(chatIds()).toEqual(["middle", "latest", "old-pin"]);
+    expect(chatIds()).toEqual(["middle", "latest"]);
     query("no matching conversation");
     settleFolds();
     expect(chats()).toBeNull();
@@ -3050,6 +3245,70 @@ describe("project tree session preview", () => {
   const toggle = () =>
     project(A).querySelector<HTMLButtonElement>("[data-session-list-toggle]");
 
+  it.each(["project", "section"])(
+    "resets expanded conversations to five when their %s collapses",
+    (scope) => {
+      props.projectHistory = many(12);
+      props.sessions = props.projectHistory;
+      act(() => render());
+      const header = scope === "project"
+        ? project(A).querySelector<HTMLElement>("[data-project-header]")!
+        : container.querySelector<HTMLElement>(
+          '[data-sidebar-reorder-section="projects"] [data-sidebar-section-toggle]',
+        )!;
+      const count = () => project(A).querySelectorAll("[data-session-card]").length;
+      for (const rapid of [false, true]) {
+        act(() => toggle()!.click());
+        act(() => toggle()!.click());
+        expect(count()).toBe(12);
+        act(() => header.click());
+        expect(count()).toBe(12);
+        expect(project(A).querySelector('[data-fold-state="closing"]')).not.toBeNull();
+        if (!rapid) settleFolds();
+        act(() => header.click());
+        if (rapid) settleFolds();
+        expect(count()).toBe(5);
+        expect(toggle()?.getAttribute("aria-expanded")).toBe("false");
+      }
+    },
+  );
+
+  it.each(["pinned", "reminders"] as const)(
+    "resets the nested %s preview after closing without resetting ordinary conversations",
+    (kind) => {
+      props.recents = undefined;
+      props.projectHistory = many(24).map((row, index) => ({
+        ...row,
+        pinned: kind === "pinned" && index < 12,
+      }));
+      props.sessions = props.projectHistory;
+      if (kind === "reminders") props.reminders = props.sessions.slice(0, 12).map((row) => ({
+        sessionId: row.id,
+        cwd: A,
+        title: "Reminder",
+        harness: "codex",
+        dueAt: 12_345,
+        firedAt: null,
+      }));
+      act(() => render());
+      const group = project(A).querySelector<HTMLElement>(kind === "pinned"
+        ? "[data-pinned-sessions]" : "[data-reminder-sessions]")!;
+      const more = () => group.querySelector<HTMLButtonElement>("[data-sidebar-list-toggle]")!;
+      act(() => toggle()!.click());
+      act(() => more().click());
+      act(() => more().click());
+      expect(group.querySelectorAll("[data-session-card]")).toHaveLength(12);
+      const header = group.querySelector<HTMLButtonElement>("button[aria-expanded]")!;
+      act(() => header.click());
+      settleFolds();
+      act(() => header.click());
+      expect(group.querySelectorAll("[data-session-card]")).toHaveLength(5);
+      expect(more().getAttribute("aria-expanded")).toBe("false");
+      expect(toggle()?.getAttribute("aria-expanded")).toBe("true");
+      expect(project(A).querySelectorAll("[data-session-card]")).toHaveLength(15);
+    },
+  );
+
   it("reveals five more chats per click without automatic paging, then animates Show less", () => {
     props.projectHistory = many(43);
     props.sessions = props.projectHistory;
@@ -3215,7 +3474,7 @@ describe("chat project row", () => {
     const projects = container.querySelector('[data-project-section="projects"]')!;
     expect(projects.querySelector("[data-chat-project]")).toBeNull();
     expect([...container.querySelectorAll<HTMLElement>("[data-project-section]")]
-      .map((section) => section.dataset.projectSection)).toEqual(["chats", "workflows", "projects"]);
+      .map((section) => section.dataset.projectSection)).toEqual(["pinned", "chats", "workflows", "projects"]);
     expect(projects.textContent).toContain("Projects");
     expect(chatIds()).toEqual(["newer-chat", "older-chat"]);
     expect(project(C1)).toBeNull();
@@ -3233,9 +3492,9 @@ describe("chat project row", () => {
         .click(),
     );
     expect(props.onNewChat).toHaveBeenCalledOnce();
-    act(() => chatRow().querySelector<HTMLButtonElement>("[data-chat-project-toggle]")!.click());
+    act(() => chatRow().querySelector<HTMLButtonElement>("[data-sidebar-section-toggle]")!.click());
     expect(
-      chatRow().querySelector("[data-chat-project-toggle]")!.getAttribute("aria-expanded"),
+      chatRow().querySelector("[data-sidebar-section-toggle]")!.getAttribute("aria-expanded"),
     ).toBe("false");
     act(() => setUiLanguage("zh-CN"));
     expect(chatRow().textContent).toContain("聊天");

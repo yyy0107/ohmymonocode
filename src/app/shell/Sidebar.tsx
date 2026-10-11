@@ -1068,7 +1068,7 @@ function SidebarComponent(props: SidebarProps) {
           .sort(compareSessionSummaries);
   const pinnedSessions = shortcutSessions.filter((session) => session.pinned);
   const chatSessions = shortcutSessions
-    .filter((session) => isChatFolder(session.cwd))
+    .filter((session) => !session.pinned && isChatFolder(session.cwd))
     .sort(
       (a, b) =>
         sessionRecencyAt(b) - sessionRecencyAt(a) ||

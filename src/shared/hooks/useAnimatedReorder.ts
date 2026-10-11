@@ -7,7 +7,7 @@ import {
 } from "react";
 import { reducedMotionQuery } from "../lib/reducedMotion";
 import { flushSync } from "react-dom";
-import { setGrabbing, suppressTextSelection } from "../lib/drag";
+import { createDragGhost, setGrabbing, suppressTextSelection } from "../lib/drag";
 import { reorderMotion } from "../lib/motion";
 import { moveItem } from "../lib/reorder";
 
@@ -46,6 +46,8 @@ function nearestScroller(element: HTMLElement, axis: "x" | "y") {
 export type ReorderOptions<T extends string> = {
   activationDistance?: number;
   collapsedSize?: (id: T, node: HTMLElement) => number | undefined;
+  /** Lift this part of the item into a free-moving, unclipped pointer preview. */
+  floatingPreview?: (id: T, node: HTMLElement) => HTMLElement;
 };
 
 /** Direct manipulation for a row or column, optionally compacting the dragged item. */
@@ -121,6 +123,8 @@ export function useAnimatedReorder<T extends string>(
       const duration = reducedMotion ? 0 : motionDuration;
       const transition = `transform ${duration}ms ${easing}`;
       let restoreSelection: (() => void) | undefined;
+      let previewSource: HTMLElement | undefined;
+      let ghost: ReturnType<typeof createDragGhost> | undefined;
       let active = false;
       let collapsedLayout = false;
       let settling = false;
@@ -161,6 +165,9 @@ export function useAnimatedReorder<T extends string>(
           delete element.dataset.settling;
         }
         releasePointer();
+        ghost?.dispose();
+        ghost = undefined;
+        delete handle.dataset.reorderFloating;
         if (active) suppressClickUntil.current = performance.now() + 400;
         external()?.onEnd?.(id);
         cleanup.current = null;
@@ -206,7 +213,7 @@ export function useAnimatedReorder<T extends string>(
             rects[rects.length - 1].end - rects[from].end,
           ),
         );
-        if (moveHandle) {
+        if (moveHandle && !ghost) {
           handle.style.transform = transform(offset);
         }
         const center = rects[from].start + rects[from].size / 2 + offset;
@@ -282,13 +289,19 @@ export function useAnimatedReorder<T extends string>(
         pointerPosition = ev[coordinate];
         if (!active) {
           if (
-            (external()
+            (external() || latest.current.options?.floatingPreview
               ? Math.hypot(ev.clientX - event.clientX, ev.clientY - event.clientY)
               : Math.abs(pointerPosition - startPosition)) <
             (latest.current.options?.activationDistance ?? 5)
           )
             return;
           active = true;
+          previewSource = latest.current.options?.floatingPreview?.(id, handle);
+          if (previewSource) {
+            // Snapshot before the disclosure closes, retaining the grab point.
+            ghost = createDragGhost(previewSource, event.clientX, event.clientY);
+            handle.dataset.reorderFloating = "true";
+          }
           const collapsedSize = latest.current.options?.collapsedSize?.(
             id,
             handle,
@@ -318,6 +331,9 @@ export function useAnimatedReorder<T extends string>(
           handle.style.transition = "none";
           handle.dataset.dragging = "true";
         }
+        // The visual follows both coordinates, even outside this list or while
+        // an external drop target owns the gesture. Only sorting is axis-bound.
+        ghost?.move(ev.clientX, ev.clientY);
         overExternalTarget =
           external()?.onMove(id, ev) ?? false;
         if (overExternalTarget) {
@@ -352,12 +368,20 @@ export function useAnimatedReorder<T extends string>(
         suppressClickUntil.current = performance.now() + duration + 400;
         const to = commit ? destination : from;
         preview(to);
-        handle.style.transition = transition;
-        handle.style.transform = transform(
+        const offset =
           collapsedLayout && to > from
             ? rects[to].end - rects[from].end
-            : rects[to].start - rects[from].start,
-        );
+            : rects[to].start - rects[from].start;
+        if (ghost && previewSource) {
+          const rect = previewSource.getBoundingClientRect();
+          ghost.settle(
+            rect.left + (axis === "x" ? offset : 0),
+            rect.top + (axis === "y" ? offset : 0),
+            transition,
+          );
+        }
+        handle.style.transition = transition;
+        handle.style.transform = transform(offset);
         const finish = () => {
           // Clear the preview and commit the order before the next browser paint.
           flushSync(() => {

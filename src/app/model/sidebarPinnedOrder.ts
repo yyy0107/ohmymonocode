@@ -1,8 +1,33 @@
-import { mergeOrderedSubset } from "../../shared/lib/reorder";
+import { mergeOrderedSubset, orderByIds } from "../../shared/lib/reorder";
 import { preferenceStorage } from "../../features/settings/model/sharedPreferences";
 
 const KEY = "monocode.sidebarPinnedOrder.v1";
 const CHANGED = "monocode:sidebar-pinned-order-changed";
+
+/** Preserve manual mixing; newly pinned sessions default to before projects. */
+export function orderSidebarPins<T extends { id: string }>(
+  items: T[],
+  order: string[],
+): T[] {
+  const saved = new Set(order);
+  const newSessions = items.filter(
+    (item) => item.id.startsWith("session:") && !saved.has(item.id),
+  );
+  const newIds = new Set(newSessions.map((item) => item.id));
+  const ordered = orderByIds(
+    items.filter((item) => !newIds.has(item.id)),
+    order,
+  );
+  const firstProject = ordered.findIndex(
+    (item) => !item.id.startsWith("session:"),
+  );
+  ordered.splice(
+    firstProject < 0 ? ordered.length : firstProject,
+    0,
+    ...newSessions,
+  );
+  return ordered;
+}
 
 export function loadSidebarPinnedOrder(): string[] {
   try {

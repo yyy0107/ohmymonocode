@@ -26,10 +26,14 @@ import {
 } from "../../features/projects/model/recents";
 import { useAnimatedReorder } from "../../shared/hooks/useAnimatedReorder";
 import { SurfaceVisibilityContext } from "../../shared/ui/SurfaceVisibility";
+import {
+  loadSidebarSectionOrder,
+  saveSidebarSectionOrder,
+} from "../../features/settings/model/sidebarSectionOrder";
 
 const { reorderPointerDown, reorderState } = vi.hoisted(() => ({
   reorderPointerDown: vi.fn(),
-  reorderState: { draggingId: null as string | null },
+  reorderState: { draggingId: null as string | null, consumeClick: false },
 }));
 vi.mock("../../shared/hooks/useAnimatedReorder", () => ({
   useAnimatedReorder: vi.fn((ids: string[]) => ({
@@ -38,7 +42,7 @@ vi.mock("../../shared/hooks/useAnimatedReorder", () => ({
       : null,
     setItemRef: vi.fn(),
     onItemPointerDown: reorderPointerDown,
-    consumeClick: () => false,
+    consumeClick: () => reorderState.consumeClick,
   })),
 }));
 
@@ -77,6 +81,7 @@ beforeEach(() => {
   reorderPointerDown.mockClear();
   vi.mocked(useAnimatedReorder).mockClear();
   reorderState.draggingId = null;
+  reorderState.consumeClick = false;
   vi.mocked(useProjectDiffStats).mockClear();
   vi.mocked(useRemoteMachines)
     .mockReset()
@@ -265,6 +270,7 @@ it("keeps expand, select, new session and child actions independent", async () =
   expect(reorderPointerDown).toHaveBeenCalledExactlyOnceWith(
     "/work/beta",
     expect.objectContaining({ type: "pointerdown" }),
+    expect.objectContaining({ onDrop: expect.any(Function) }),
   );
 });
 
@@ -287,6 +293,7 @@ it.each([false, true])(
     expect(reorderPointerDown).toHaveBeenCalledExactlyOnceWith(
       "/work/beta",
       expect.objectContaining({ type: "pointerdown" }),
+      expect.objectContaining({ onDrop: expect.any(Function) }),
     );
     const call = vi.mocked(useAnimatedReorder).mock.calls.find(([ids]) =>
       ids.includes("/work/beta"),
@@ -368,9 +375,7 @@ it("persists each project subset without moving pins, other groups or chats", as
     paths[1],
     paths[2],
   ]);
-  expect(
-    vi.mocked(useAnimatedReorder).mock.calls.some(([ids]) => ids.length === 0),
-  ).toBe(true);
+  expect(container.querySelector("[data-chat-project]")?.textContent).toContain("Chat conversation");
   expect(loadPinnedProjects()).toEqual([paths[0]]);
 });
 
@@ -624,8 +629,8 @@ it("observes newly inserted sections without replacing the mask observer", async
   const observer = fixture.observers()[0];
   const mutations = fixture.mutations()[0];
   expect(mutations.options).toEqual({ childList: true });
-  await fixture.render(true, { pinnedEntries: [{ id: "new-pin", content: "Pinned conversation" }] });
-  const section = fixture.element().querySelector('[data-project-section="pinned"]')!;
+  await fixture.render(true, { workflowsSection: "Saved workflows" });
+  const section = fixture.element().querySelector('[data-sidebar-reorder-section="workflows"]')!;
   expect(section).not.toBeNull();
   mutations.emit();
   expect(observer.targets.has(section)).toBe(true);
@@ -1140,3 +1145,607 @@ it("reveals projects in batches of five independently for pins, groups and loose
   expect(headers()).toHaveLength(1);
   expect(container.textContent).toContain("project-35");
 });
+
+const sectionIds = () =>
+  [
+    ...container.querySelectorAll<HTMLElement>(
+      "[data-sidebar-reorder-section]",
+    ),
+  ].map((section) => section.dataset.sidebarReorderSection);
+const sectionHeader = (id: string) =>
+  container.querySelector<HTMLButtonElement>(
+    `[data-sidebar-reorder-section="${id}"] [data-sidebar-section-toggle]`,
+  )!;
+
+it.each(["pinned", "chats", "group", "groups", "projects"])(
+  "resets only the collapsed %s preview to five, including rapid reopening",
+  async (id) => {
+    const recents = Array.from({ length: 36 }, (_, index) => ({
+      path: `/work/project-${index}`,
+      openedAt: 100 - index,
+    }));
+    savePinnedProjects(recents.slice(0, 12).map((row) => row.path));
+    saveProjectGroups([{ id: "group", name: "Group", collapsed: false }]);
+    for (const row of recents.slice(12, 24))
+      setProjectGroupAssignment(row.path, "group");
+    await renderTree({
+      cwd: recents[0].path,
+      recents,
+      chatEntries: Array.from({ length: 12 }, (_, index) => ({
+        id: `chat-${index}`,
+        content: createElement("span", { "data-chat-preview-row": index }, `Chat ${index}`),
+      })),
+    });
+    const lists = ["pinned", "chats", "group", "projects"].map((name) =>
+      container.querySelector<HTMLElement>(name === "group"
+        ? '[data-project-group="group"]'
+        : `[data-sidebar-reorder-section="${name}"]`)!,
+    );
+    const target = lists[id === "groups" ? 2 : ["pinned", "chats", "group", "projects"].indexOf(id)];
+    const count = (list: HTMLElement) => list.querySelectorAll(
+      "[data-project-header], [data-chat-preview-row]",
+    ).length;
+    const more = (list: HTMLElement) => list.querySelector<HTMLButtonElement>("[data-sidebar-list-toggle]")!;
+    const header = id === "group"
+      ? target.querySelector<HTMLButtonElement>("[data-project-group-header] button")!
+      : sectionHeader(id);
+    const settle = () => act(() => {
+      container.querySelectorAll('[data-fold-state="closing"]').forEach((fold) =>
+        fold.dispatchEvent(new Event("animationend", { bubbles: true })),
+      );
+    });
+    for (const list of lists) {
+      act(() => more(list).click());
+      act(() => more(list).click());
+      expect(count(list)).toBe(12);
+    }
+    for (const rapid of [false, true]) {
+      act(() => header.click());
+      // Expanded rows stay mounted and inert until the closing animation ends.
+      expect(count(target)).toBe(12);
+      expect(target.closest("[inert]") ?? target.querySelector("[inert]")).not.toBeNull();
+      if (!rapid) settle();
+      act(() => header.click());
+      if (rapid) settle();
+      expect(count(target)).toBe(5);
+      expect(more(target).getAttribute("aria-expanded")).toBe("false");
+      for (const other of lists.filter((list) => list !== target))
+        expect(count(other)).toBe(12);
+      act(() => more(target).click());
+      expect(count(target)).toBe(10);
+      act(() => more(target).click());
+    }
+  },
+);
+
+it("drags every sidebar section from its title without intercepting new-chat or child actions", async () => {
+  saveProjectGroups([{ id: "team", name: "Team", collapsed: false }]);
+  const childClick = vi.fn();
+  const props = await renderTree({
+    pinnedEntries: [{ id: "pin", content: "Pinned conversation" }],
+    chatEntries: [
+      {
+        id: "chat",
+        content: createElement(
+          "button",
+          { "data-chat-action": true, onClick: childClick },
+          "Chat",
+        ),
+      },
+    ],
+    onNewChat: vi.fn(),
+    workflowsSection: "Workflows",
+  });
+  for (const id of sectionIds()) {
+    reorderPointerDown.mockClear();
+    act(() =>
+      sectionHeader(id!).dispatchEvent(
+        new PointerEvent("pointerdown", { bubbles: true, button: 0 }),
+      ),
+    );
+    expect(reorderPointerDown).toHaveBeenCalledExactlyOnceWith(
+      id,
+      expect.objectContaining({ type: "pointerdown" }),
+    );
+  }
+  reorderPointerDown.mockClear();
+  act(() => {
+    for (const selector of ['[aria-label="New chat"]', "[data-chat-action]"]) {
+      const button = container.querySelector<HTMLButtonElement>(selector)!;
+      button.dispatchEvent(
+        new PointerEvent("pointerdown", { bubbles: true, button: 0 }),
+      );
+      button.click();
+    }
+  });
+  expect(reorderPointerDown).not.toHaveBeenCalled();
+  expect(props.onNewChat).toHaveBeenCalledOnce();
+  expect(childClick).toHaveBeenCalledOnce();
+
+  reorderState.consumeClick = true;
+  act(() => sectionHeader("chats").click());
+  expect(sectionHeader("chats").getAttribute("aria-expanded")).toBe("true");
+  reorderState.consumeClick = false;
+  act(() => sectionHeader("chats").click());
+  expect(sectionHeader("chats").getAttribute("aria-expanded")).toBe("false");
+});
+
+it("persists section moves, preserves mounted content and restores hidden sections in their saved slots", async () => {
+  const props = await renderTree({
+    chatEntries: [
+      {
+        id: "chat",
+        content: createElement("input", { "data-chat-draft": true }),
+      },
+    ],
+    workflowsSection: "Workflows",
+  });
+  const draft = container.querySelector<HTMLInputElement>("[data-chat-draft]")!;
+  draft.value = "Keep this draft";
+  const call = vi
+    .mocked(useAnimatedReorder)
+    .mock.calls.find(([ids]) => ids.includes("chats"))!;
+  act(() => call[1](["projects", "chats", "workflows"], "projects"));
+  expect(sectionIds()).toEqual(["pinned", "projects", "chats", "workflows"]);
+  expect(container.querySelector("[data-chat-draft]")).toBe(draft);
+  expect(draft.value).toBe("Keep this draft");
+  expect(loadSidebarSectionOrder()).toEqual([
+    "pinned",
+    "projects",
+    "chats",
+    "groups",
+    "workflows",
+  ]);
+
+  act(() => saveProjectGroups([{ id: "team", name: "Team", collapsed: false }]));
+  await renderTree({
+    ...props,
+    pinnedEntries: [{ id: "pin", content: "Pinned" }],
+  });
+  expect(sectionIds()).toEqual([
+    "pinned",
+    "projects",
+    "chats",
+    "groups",
+    "workflows",
+  ]);
+  act(() => root.unmount());
+  root = createRoot(container);
+  await renderTree(props);
+  expect(sectionIds()).toEqual(["pinned", "projects", "chats", "groups", "workflows"]);
+  act(() =>
+    saveSidebarSectionOrder([
+      "workflows",
+      "chats",
+      "projects",
+      "groups",
+      "pinned",
+    ]),
+  );
+  expect(sectionIds()).toEqual(["workflows", "chats", "projects", "groups", "pinned"]);
+});
+
+it.each(["pinned", "chats", "workflows", "groups", "projects"])(
+  "temporarily folds only the dragged %s section and reverses without changing its preference",
+  async (id) => {
+    saveProjectGroups([{ id: "team", name: "Team", collapsed: false }]);
+    const props = await renderTree({
+      pinnedEntries: [{ id: "pin", content: "Pinned" }],
+      chatEntries: [{ id: "chat", content: "Chat" }],
+      workflowsSection: "Workflows",
+    });
+    const section = container.querySelector(
+      `[data-sidebar-reorder-section="${id}"]`,
+    )!;
+    const fold = section.querySelector<HTMLElement>(".project-tree-collapse")!;
+    const content = fold.firstElementChild;
+    reorderState.draggingId = id;
+    await renderTree(props);
+    expect(fold.dataset.foldState).toBe("closing");
+    expect(fold.inert).toBe(true);
+    expect(sectionHeader(id).getAttribute("aria-expanded")).toBe("true");
+    for (const other of sectionIds().filter((value) => value !== id)) {
+      expect(
+        container.querySelector<HTMLElement>(
+          `[data-sidebar-reorder-section="${other}"] .project-tree-collapse`,
+        )?.dataset.foldState,
+      ).toBe("open");
+    }
+    reorderState.draggingId = null;
+    await renderTree(props);
+    expect(fold.dataset.foldState).toBe("opening");
+    expect(fold.inert).toBe(false);
+    expect(fold.firstElementChild).toBe(content);
+    expect(
+      localStorage.getItem("monocode.sidebarSectionsCollapsed.v1"),
+    ).toBeNull();
+    expect(localStorage.getItem("monocode.chatProjectExpanded.v1")).toBeNull();
+  },
+);
+
+it("keeps a previously collapsed section closed after dragging and leaves the compact rail usable", async () => {
+  const props = await renderTree({
+    chatEntries: [],
+    workflowsSection: "Workflows",
+  });
+  act(() => sectionHeader("workflows").click());
+  const fold = container.querySelector<HTMLElement>(
+    '[data-sidebar-reorder-section="workflows"] .project-tree-collapse',
+  )!;
+  act(() => fold.dispatchEvent(new Event("animationend", { bubbles: true })));
+  reorderState.draggingId = "workflows";
+  await renderTree(props);
+  reorderState.draggingId = null;
+  await renderTree(props);
+  expect(fold.hidden).toBe(true);
+  expect(sectionHeader("workflows").getAttribute("aria-expanded")).toBe(
+    "false",
+  );
+  await renderTree({ ...props, compact: true });
+  expect(container.querySelector("[data-sidebar-section-toggle]")).toBeNull();
+  expect(
+    container.querySelector<HTMLElement>(
+      '[data-project-section="projects"] .project-tree-collapse',
+    )?.dataset.foldState,
+  ).toBe("open");
+});
+
+it.each([false, true])(
+  "handles a real section pointer gesture across unequal heights (cancel: %s)",
+  async (cancel) => {
+    const actual = await vi.importActual<
+      typeof import("../../shared/hooks/useAnimatedReorder")
+    >("../../shared/hooks/useAnimatedReorder");
+    const mock = vi.mocked(useAnimatedReorder);
+    const implementation = mock.getMockImplementation()!;
+    mock.mockImplementation(actual.useAnimatedReorder);
+    document.documentElement.dataset.reducedMotion = "on";
+    try {
+      await renderTree({
+        chatEntries: [{ id: "chat", content: "Chat" }],
+        workflowsSection: "Workflows",
+      });
+      const layouts = [
+        { top: -64, height: 60 },
+        { top: 0, height: 100 },
+        { top: 104, height: 80 },
+        { top: 188, height: 220 },
+      ];
+      const sections = [
+        ...container.querySelectorAll<HTMLElement>(
+          "[data-sidebar-reorder-section]",
+        ),
+      ];
+      sections.forEach((node, index) => {
+        const { top, height } = layouts[index];
+        vi.spyOn(node, "getBoundingClientRect").mockReturnValue({
+          top,
+          bottom: top + height,
+          height,
+          left: 0,
+          right: 200,
+          width: 200,
+          x: 0,
+          y: top,
+          toJSON: () => ({}),
+        });
+        Object.defineProperty(node, "offsetHeight", { value: height });
+        Object.defineProperty(
+          node.querySelector(".project-tree-collapse"),
+          "offsetHeight",
+          { value: height - 24 },
+        );
+        Object.assign(node, {
+          setPointerCapture: vi.fn(),
+          hasPointerCapture: () => true,
+          releasePointerCapture: vi.fn(),
+        });
+      });
+      const header = sectionHeader("chats");
+      act(() =>
+        header.dispatchEvent(
+          new PointerEvent("pointerdown", {
+            bubbles: true,
+            button: 0,
+            buttons: 1,
+            pointerId: 1,
+            pointerType: "mouse",
+            clientY: 12,
+          }),
+        ),
+      );
+      act(() =>
+        window.dispatchEvent(
+          new PointerEvent("pointermove", {
+            buttons: 1,
+            pointerId: 1,
+            pointerType: "mouse",
+            clientY: 300,
+          }),
+        ),
+      );
+      expect(sections[1].dataset.dragging).toBe("true");
+      expect(
+        sections[1].querySelector<HTMLElement>(".project-tree-collapse")?.inert,
+      ).toBe(true);
+      act(() => {
+        if (cancel)
+          window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+        else
+          window.dispatchEvent(
+            new PointerEvent("pointerup", {
+              pointerId: 1,
+              pointerType: "mouse",
+              clientY: 300,
+            }),
+          );
+        header.click();
+      });
+      expect(sectionIds()).toEqual(
+        cancel
+          ? ["pinned", "chats", "workflows", "projects"]
+          : ["pinned", "workflows", "projects", "chats"],
+      );
+      expect(header.getAttribute("aria-expanded")).toBe("true");
+      expect(
+        sections[1].querySelector<HTMLElement>(".project-tree-collapse")?.inert,
+      ).toBe(false);
+      expect(sections[1].dataset.dragging).toBeUndefined();
+      expect(document.documentElement.classList.contains("is-reordering")).toBe(
+        false,
+      );
+      expect(loadSidebarSectionOrder()).toEqual(
+        cancel
+          ? ["pinned", "chats", "workflows", "groups", "projects"]
+          : ["pinned", "workflows", "projects", "groups", "chats"],
+      );
+    } finally {
+      delete document.documentElement.dataset.reducedMotion;
+      mock.mockImplementation(implementation);
+    }
+  },
+);
+
+it.each([
+  { origin: "projects", cancel: false },
+  { origin: "group", cancel: false },
+  { origin: "pinned", cancel: false },
+  { origin: "projects", cancel: true },
+])(
+  "drags a lone project from $origin into a collapsed group (cancel: $cancel)",
+  async ({ origin, cancel }) => {
+    const actual = await vi.importActual<
+      typeof import("../../shared/hooks/useAnimatedReorder")
+    >("../../shared/hooks/useAnimatedReorder");
+    const mock = vi.mocked(useAnimatedReorder);
+    const implementation = mock.getMockImplementation()!;
+    mock.mockImplementation(actual.useAnimatedReorder);
+    document.documentElement.dataset.reducedMotion = "on";
+    try {
+      saveProjectGroups([
+        { id: "source", name: "Source", collapsed: false },
+        { id: "target", name: "Target", collapsed: true },
+      ]);
+      if (origin === "group")
+        setProjectGroupAssignment("/work/alpha", "source");
+      if (origin === "pinned") savePinnedProjects(["/work/alpha"]);
+      const props = await renderTree({
+        recents: [{ path: "/work/alpha", openedAt: 1 }],
+      });
+      const list = container.querySelector<HTMLElement>("[data-project-list]")!;
+      const header = projectNameButton("/work/alpha").closest<HTMLElement>(
+        "[data-project-header]",
+      )!;
+      const node = header.closest<HTMLElement>("[data-project-path]")!;
+      const target = container.querySelector<HTMLElement>(
+        '[data-project-group-header="target"]',
+      )!;
+      vi.spyOn(list, "getBoundingClientRect").mockReturnValue(
+        new DOMRect(0, 0, 300, 600),
+      );
+      vi.spyOn(target, "getBoundingClientRect").mockReturnValue(
+        new DOMRect(8, 40, 284, 32),
+      );
+      vi.spyOn(node, "getBoundingClientRect").mockReturnValue(
+        new DOMRect(8, 200, 284, 100),
+      );
+      Object.defineProperty(header, "offsetHeight", { value: 32 });
+      Object.assign(node, {
+        setPointerCapture: vi.fn(),
+        hasPointerCapture: () => true,
+        releasePointerCapture: vi.fn(),
+      });
+      act(() =>
+        header.dispatchEvent(
+          new PointerEvent("pointerdown", {
+            bubbles: true,
+            button: 0,
+            buttons: 1,
+            pointerId: 1,
+            pointerType: "mouse",
+            clientX: 100,
+            clientY: 216,
+          }),
+        ),
+      );
+      act(() =>
+        window.dispatchEvent(
+          new PointerEvent("pointermove", {
+            buttons: 1,
+            pointerId: 1,
+            pointerType: "mouse",
+            clientX: 100,
+            clientY: 56,
+          }),
+        ),
+      );
+      expect(target.dataset.projectGroupDropTarget).toBe("true");
+      expect(
+        projectNameButton("/work/alpha")
+          .closest("[data-project-group]")
+          ?.getAttribute("data-project-group"),
+      ).toBe(origin === "group" ? "source" : undefined);
+      act(() => {
+        if (cancel)
+          window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+        else
+          window.dispatchEvent(
+            new PointerEvent("pointerup", {
+              pointerId: 1,
+              pointerType: "mouse",
+              clientX: 100,
+              clientY: 56,
+            }),
+          );
+      });
+      expect(target.dataset.projectGroupDropTarget).toBeUndefined();
+      expect(document.querySelector(".drag-label")).toBeNull();
+      expect(props.onSelectProject).not.toHaveBeenCalled();
+      expect(props.onToggleProject).not.toHaveBeenCalled();
+      expect(loadProjectRailOrder()).toEqual(["/work/alpha"]);
+      if (cancel) {
+        expect(
+          projectNameButton("/work/alpha").closest("[data-project-group]"),
+        ).toBeNull();
+        expect(
+          target.querySelector("button")?.getAttribute("aria-expanded"),
+        ).toBe("false");
+      } else {
+        expect(
+          projectNameButton("/work/alpha")
+            .closest("[data-project-group]")
+            ?.getAttribute("data-project-group"),
+        ).toBe("target");
+        expect(
+          target.querySelector("button")?.getAttribute("aria-expanded"),
+        ).toBe("true");
+        expect(loadPinnedProjects()).toEqual([]);
+        act(() => root.unmount());
+        root = createRoot(container);
+        await renderTree(props);
+        expect(
+          projectNameButton("/work/alpha")
+            .closest("[data-project-group]")
+            ?.getAttribute("data-project-group"),
+        ).toBe("target");
+      }
+    } finally {
+      delete document.documentElement.dataset.reducedMotion;
+      mock.mockImplementation(implementation);
+    }
+  },
+);
+
+it.each([false, true])(
+  "drags a project into the empty pinned area (cancel: %s)",
+  async (cancel) => {
+    const actual = await vi.importActual<
+      typeof import("../../shared/hooks/useAnimatedReorder")
+    >("../../shared/hooks/useAnimatedReorder");
+    const mock = vi.mocked(useAnimatedReorder);
+    const implementation = mock.getMockImplementation()!;
+    mock.mockImplementation(actual.useAnimatedReorder);
+    document.documentElement.dataset.reducedMotion = "on";
+    try {
+      const props = await renderTree({
+        recents: [{ path: "/work/alpha", openedAt: 1 }],
+      });
+      const list = container.querySelector<HTMLElement>("[data-project-list]")!;
+      const pins = container.querySelector<HTMLElement>(
+        '[data-project-section="pinned"]',
+      )!;
+      expect(pins.textContent).toContain(
+        "Drag conversations or projects here to pin them",
+      );
+      const toggle = pins.querySelector<HTMLButtonElement>(
+        "[data-sidebar-section-toggle]",
+      )!;
+      act(() => toggle.click());
+      const header = projectNameButton("/work/alpha").closest<HTMLElement>(
+        "[data-project-header]",
+      )!;
+      const node = header.closest<HTMLElement>("[data-project-path]")!;
+      vi.spyOn(list, "getBoundingClientRect").mockReturnValue(
+        new DOMRect(0, 0, 300, 600),
+      );
+      vi.spyOn(pins, "getBoundingClientRect").mockReturnValue(
+        new DOMRect(8, 0, 284, 32),
+      );
+      vi.spyOn(node, "getBoundingClientRect").mockReturnValue(
+        new DOMRect(8, 200, 284, 100),
+      );
+      Object.defineProperty(header, "offsetHeight", { value: 32 });
+      Object.assign(node, {
+        setPointerCapture: vi.fn(),
+        hasPointerCapture: () => true,
+        releasePointerCapture: vi.fn(),
+      });
+      act(() =>
+        header.dispatchEvent(
+          new PointerEvent("pointerdown", {
+            bubbles: true,
+            button: 0,
+            buttons: 1,
+            pointerId: 1,
+            pointerType: "mouse",
+            clientX: 100,
+            clientY: 216,
+          }),
+        ),
+      );
+      act(() =>
+        window.dispatchEvent(
+          new PointerEvent("pointermove", {
+            buttons: 1,
+            pointerId: 1,
+            pointerType: "mouse",
+            clientX: 100,
+            clientY: 16,
+          }),
+        ),
+      );
+      expect(pins.dataset.sidebarPinDropTarget).toBe("true");
+      expect(loadPinnedProjects()).toEqual([]);
+      act(() => {
+        if (cancel)
+          window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+        else
+          window.dispatchEvent(
+            new PointerEvent("pointerup", {
+              pointerId: 1,
+              pointerType: "mouse",
+              clientX: 100,
+              clientY: 16,
+            }),
+          );
+      });
+      expect(pins.dataset.sidebarPinDropTarget).toBeUndefined();
+      expect(document.querySelector(".drag-label")).toBeNull();
+      expect(props.onSelectProject).not.toHaveBeenCalled();
+      expect(props.onToggleProject).not.toHaveBeenCalled();
+      expect(loadPinnedProjects()).toEqual(cancel ? [] : ["/work/alpha"]);
+      expect(
+        pins.querySelector('[data-project-path="/work/alpha"]') !== null,
+      ).toBe(!cancel);
+      if (!cancel) {
+        expect(toggle.getAttribute("aria-expanded")).toBe("true");
+        expect(
+          container.querySelector(
+            '[data-project-section="projects"] [data-project-path]',
+          ),
+        ).toBeNull();
+        act(() => root.unmount());
+        root = createRoot(container);
+        await renderTree(props);
+        expect(
+          container.querySelector(
+            '[data-project-section="pinned"] [data-project-path="/work/alpha"]',
+          ),
+        ).not.toBeNull();
+      }
+    } finally {
+      delete document.documentElement.dataset.reducedMotion;
+      mock.mockImplementation(implementation);
+    }
+  },
+);

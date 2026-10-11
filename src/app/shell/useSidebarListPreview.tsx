@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "../../shared/i18n/useTranslation";
+import { useSurfaceVisibility } from "../../shared/ui/SurfaceVisibility";
 
 export const SIDEBAR_PREVIEW_COUNT = 5;
 
@@ -8,9 +9,16 @@ export function useSidebarListPreview(
   total: number,
   resetKey: string,
   disabled = false,
-  { indented = true }: { indented?: boolean } = {},
+  {
+    indented = true,
+    expanded = true,
+  }: {
+    indented?: boolean;
+    expanded?: boolean;
+  } = {},
 ) {
   const { t } = useTranslation();
+  const parentVisible = useSurfaceVisibility();
   const [preview, setPreview] = useState({
     key: resetKey,
     count: SIDEBAR_PREVIEW_COUNT,
@@ -22,9 +30,16 @@ export function useSidebarListPreview(
       count: SIDEBAR_PREVIEW_COUNT,
       mountedCount: SIDEBAR_PREVIEW_COUNT * 2,
     });
+  // Apply this before retained disclosure content freezes its closing props.
+  // Keep mounted rows available until their own closing animations finish.
+  else if (
+    (!expanded || !parentVisible) &&
+    preview.count !== SIDEBAR_PREVIEW_COUNT
+  )
+    setPreview({ ...preview, count: SIDEBAR_PREVIEW_COUNT });
   const count = disabled
     ? total
-    : preview.key === resetKey
+    : preview.key === resetKey && expanded && parentVisible
       ? preview.count
       : SIDEBAR_PREVIEW_COUNT;
   // Prepare only the next page; keep previously revealed rows for closing/reversal.

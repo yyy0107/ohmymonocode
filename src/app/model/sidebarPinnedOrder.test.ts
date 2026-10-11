@@ -2,11 +2,32 @@
 import { afterEach, expect, it } from "vitest";
 import {
   loadSidebarPinnedOrder,
+  orderSidebarPins,
   reorderSidebarPins,
   saveSidebarPinnedOrder,
 } from "./sidebarPinnedOrder";
 
 afterEach(() => localStorage.clear());
+
+it("defaults new conversations above projects while retaining deliberate mixed ordering", () => {
+  const items = ["session:a", "session:b", "/project"].map((id) => ({ id }));
+  expect(orderSidebarPins(items, []).map(({ id }) => id)).toEqual([
+    "session:a",
+    "session:b",
+    "/project",
+  ]);
+  expect(
+    orderSidebarPins(items, ["/project", "session:b", "session:a"]).map(
+      ({ id }) => id,
+    ),
+  ).toEqual(["/project", "session:b", "session:a"]);
+  expect(
+    orderSidebarPins(
+      [...items, { id: "session:new" }],
+      ["/project", "session:b", "session:a"],
+    ).map(({ id }) => id),
+  ).toEqual(["session:new", "/project", "session:b", "session:a"]);
+});
 
 it("persists mixed ordering without moving hidden or unloaded pins", () => {
   const order = [

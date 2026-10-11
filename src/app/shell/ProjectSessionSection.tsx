@@ -1,7 +1,10 @@
 import { usePreferenceState } from "../../features/settings/model/usePreferenceState";
 import { useSidebarListPreview } from "./useSidebarListPreview";
 import { delegateDesktopSession } from "../../features/assistant/model/delegateDesktopSession";
-import { SidebarEntryReorderContext } from "./SidebarEntryReorder";
+import {
+  SidebarEntryReorderContext,
+  sidebarDragPreview,
+} from "./SidebarEntryReorder";
 import { AnimatedCollapse } from "../../shared/ui/AnimatedCollapse";
 import { useSurfaceVisibility } from "../../shared/ui/SurfaceVisibility";
 import { useListReorderMotion } from "../../shared/hooks/useListReorderMotion";
@@ -72,7 +75,8 @@ import {
   setExternalPaneDrop,
 } from "../../features/workspace/model/paneDrop";
 import type { PaneEdge } from "../../features/workspace/model/layout";
-import { createDragGhost, suppressTextSelection } from "../../shared/lib/drag";
+import { createDragLabel } from "../../shared/lib/drag";
+import { combineSidebarDrops, sidebarPinDrop, SidebarPinDropContext } from "./sidebarPinDrop";
 import {
   compareSessionSummaries,
   filterSessionsByArchive,
@@ -502,6 +506,7 @@ function ProjectSessionSectionComponent({
     (session) =>
       !session.orchestrationLeadId &&
       !session.workflowParentId &&
+      (!flatPins || !!shortcutId || !session.pinned) &&
       (shortcutId || searchActive || inWorktreeFocus(session, focusedWorktree)),
   );
   const filteredSessions = [
@@ -641,6 +646,8 @@ function ProjectSessionSectionComponent({
       setSavedSessionOrder({ cwd, ids: next });
     },
     "y",
+    undefined,
+    { floatingPreview: sidebarDragPreview },
   );
   const sessionNavigationIds = sessionListNavigationIds(
     fullSessionListEntries,
@@ -691,10 +698,12 @@ function ProjectSessionSectionComponent({
   const treePreviewExpanded = shownUngroupedCount > previewUngroupedCount;
   const narrowedByUser = searchNarrowed || filtersActive;
   useEffect(() => {
+    // Retained project/group content starts with five rows on its next opening.
+    // Keep the mounted window intact so closing rows can finish their motion.
     setSessionListLimit(LIST_PAGE_SIZE);
     setTreeSessionLimit(TREE_PREVIEW_COUNT);
     // The shared project tree owns its scroll position.
-  }, [sessionListKey]);
+  }, [sessionListKey, sectionVisible]);
 
   useEffect(() => {
     if (tab !== "sessions" || !hasMoreSessions) return;
@@ -1080,6 +1089,8 @@ function ProjectSessionSectionComponent({
     onPlaceSessionOnPane,
     onSessionContextMenu,
     onArchiveSession,
+    onPinSession,
+    onPinSessions,
     setRenamingSessionId,
     onDeleteSession,
   });
@@ -1090,6 +1101,8 @@ function ProjectSessionSectionComponent({
     onPlaceSessionOnPane,
     onSessionContextMenu,
     onArchiveSession,
+    onPinSession,
+    onPinSessions,
     setRenamingSessionId,
     onDeleteSession,
   };
@@ -1114,6 +1127,11 @@ function ProjectSessionSectionComponent({
         cardHandlers.current.onSessionContextMenu(sessionId, e),
       archive: (sessionId: string, archived: boolean) =>
         cardHandlers.current.onArchiveSession?.(sessionId, archived),
+      pin: (sessionId: string) => {
+        if (cardHandlers.current.onPinSession)
+          cardHandlers.current.onPinSession(sessionId, true);
+        else cardHandlers.current.onPinSessions?.([sessionId], true);
+      },
       rename: (sessionId: string) =>
         cardHandlers.current.setRenamingSessionId(sessionId),
       delete: (sessionId: string) =>
@@ -1181,6 +1199,7 @@ function ProjectSessionSectionComponent({
         }
         onContextMenu={cardActions.contextMenu}
         onArchive={onArchiveSession ? cardActions.archive : undefined}
+        onPin={!session.pinned && (onPinSession || onPinSessions) ? cardActions.pin : undefined}
         onRename={onRenameSession ? cardActions.rename : undefined}
         onDelete={onDeleteSession ? cardActions.delete : undefined}
       />
@@ -1688,6 +1707,7 @@ const SessionCard = memo(function SessionCard({
   onPlaceOnPane,
   onContextMenu,
   onArchive,
+  onPin,
   onRename,
   onDelete,
 }: {
@@ -1721,21 +1741,34 @@ const SessionCard = memo(function SessionCard({
     e: ReactMouseEvent<HTMLDivElement>,
   ) => void;
   onArchive?: (sessionId: string, archived: boolean) => void;
+  onPin?: (sessionId: string) => void;
   onRename?: (sessionId: string) => void;
   onDelete?: (sessionId: string) => void;
 }) {
   const { t: uiT } = useTranslation();
-  const skipClickUntil = useRef(0);
-  const sidebarReorder = useContext(SidebarEntryReorderContext);
+  const inheritedReorder = useContext(SidebarEntryReorderContext);
+  const revealPins = useContext(SidebarPinDropContext);
+  const standaloneReorder = useAnimatedReorder(
+    inheritedReorder ? [] : [session.id],
+    () => {},
+    "y",
+    undefined,
+    { floatingPreview: sidebarDragPreview },
+  );
+  const sidebarReorder = inheritedReorder ?? {
+    dragging: standaloneReorder.draggingId !== null,
+    onPointerDown: (event: ReactPointerEvent, drop?: ReorderExternalDrop<string>) =>
+      standaloneReorder.onItemPointerDown(session.id, event, drop),
+    consumeClick: standaloneReorder.consumeClick,
+  };
   const prefetchTimer = useRef<number | null>(null);
   const orchestrationTooltipRootRef = useRef<HTMLDivElement>(null);
   const orchestrationTooltipId = useId();
-  const [dragging, setDragging] = useState(false);
   const [orchestrationTooltipOpen, setOrchestrationTooltipOpen] =
     useState(false);
   const metadataHover = useHoverSummary<HTMLDivElement>({
     enabled:
-      dense && !orchestrationTooltipOpen && !dragging && !sidebarReorder?.dragging,
+      dense && !orchestrationTooltipOpen && !sidebarReorder.dragging,
   });
   const orchestration = session.orchestration;
   const failed = orchestration?.tasks.some((task) => task.status === "failed");
@@ -1925,138 +1958,56 @@ const SessionCard = memo(function SessionCard({
       prefetchTimer.current = null;
     }
     onPrefetch?.(session.id);
-    if (sidebarReorder) {
-      const source = event.currentTarget;
-      const startX = event.clientX;
-      const startY = event.clientY;
-      let ghost: ReturnType<typeof createDragGhost> | undefined;
-      const clearDrop = () => {
-        ghost?.dispose();
-        ghost = undefined;
-        source.style.removeProperty("opacity");
-        setExternalPaneDrop(null);
-      };
-      sidebarReorder.onPointerDown(
-        event,
-        onPlaceOnPane
-          ? {
-              onMove: (_id, ev) => {
-                const over = paneDropFromPoint(ev.clientX, ev.clientY);
-                if (!over) {
-                  clearDrop();
-                  return false;
-                }
-                ghost ??= createDragGhost(
-                  source,
-                  startX,
-                  startY,
-                  uiT("Open in split view"),
-                );
-                ghost.move(ev.clientX, ev.clientY, over.id !== session.id);
-                source.style.opacity = "0";
-                setExternalPaneDrop({
-                  fromId: session.id,
-                  overId: over.id,
-                  edge: over.edge,
-                });
-                return true;
-              },
-              onDrop: (_id, ev) => {
-                const over = paneDropFromPoint(ev.clientX, ev.clientY);
-                if (!over) return false;
-                if (over.id !== session.id)
-                  onPlaceOnPane(session.id, over.id, over.edge);
-                return true;
-              },
-              onEnd: clearDrop,
-            }
-          : undefined,
-      );
-      return;
-    }
-
-    if (!onPlaceOnPane) return;
-    const handle = event.currentTarget;
-    const pointerId = event.pointerId;
-    const startX = event.clientX;
-    const startY = event.clientY;
-    let active = false;
-    let lastX = startX;
-    let lastY = startY;
-    let label: ReturnType<typeof createDragGhost> | undefined;
-    handle.setPointerCapture(pointerId);
-    const restoreSelection = suppressTextSelection();
-
-    const onMove = (ev: PointerEvent) => {
-      lastX = ev.clientX;
-      lastY = ev.clientY;
-      if (!active) {
-        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
-        active = true;
-        setDragging(true);
-        label = createDragGhost(
-          handle,
-          startX,
-          startY,
-          uiT("Open in split view"),
-        );
-        setExternalPaneDrop({
-          fromId: session.id,
-          overId: null,
-          edge: "left",
-        });
-      }
-      const over = paneDropFromPoint(ev.clientX, ev.clientY);
-      label?.move(ev.clientX, ev.clientY, !!over && over.id !== session.id);
-      if (!over || over.id === session.id) {
-        setExternalPaneDrop({
-          fromId: session.id,
-          overId: over?.id === session.id ? session.id : null,
-          edge: over?.edge ?? "left",
-        });
-        return;
-      }
-      setExternalPaneDrop({
-        fromId: session.id,
-        overId: over.id,
-        edge: over.edge,
-      });
-    };
-
-    const onUp = () => finish(true);
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key !== "Escape") return;
-      ev.preventDefault();
-      finish(false);
-    };
-
-    function finish(commit: boolean) {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-      window.removeEventListener("keydown", onKey);
-      restoreSelection();
-      label?.dispose();
-      setDragging(false);
+    const source = event.currentTarget;
+    let feedback: ReturnType<typeof createDragLabel> | undefined;
+    const clearPaneDrop = () => {
+      feedback?.dispose();
+      feedback = undefined;
       setExternalPaneDrop(null);
-      try {
-        handle.releasePointerCapture(pointerId);
-      } catch {
-        /* already released */
-      }
-      if (!active) return;
-      skipClickUntil.current = performance.now() + 400;
-      if (!commit) return;
-      const over = paneDropFromPoint(lastX, lastY);
-      if (over && over.id !== session.id) {
-        onPlaceOnPane?.(session.id, over.id, over.edge);
-      }
-    }
-
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
-    window.addEventListener("keydown", onKey);
+    };
+    const pinDrop =
+      onPin && !session.pinned
+        ? sidebarPinDrop(source, uiT("Pin"), () => {
+            onPin(session.id);
+            revealPins?.();
+          })
+        : undefined;
+    const paneDrop: ReorderExternalDrop<string> | undefined = onPlaceOnPane
+      ? {
+          onMove: (_id, ev) => {
+            const over = paneDropFromPoint(ev.clientX, ev.clientY);
+            if (!over) {
+              clearPaneDrop();
+              return false;
+            }
+            if (over.id !== session.id) {
+              feedback ??= createDragLabel(
+                uiT("Open in split view"),
+                uiT("Open in split view"),
+              );
+              feedback.move(ev.clientX, ev.clientY, true);
+            } else {
+              feedback?.dispose();
+              feedback = undefined;
+            }
+            setExternalPaneDrop({
+              fromId: session.id,
+              overId: over.id,
+              edge: over.edge,
+            });
+            return true;
+          },
+          onDrop: (_id, ev) => {
+            const over = paneDropFromPoint(ev.clientX, ev.clientY);
+            if (!over) return false;
+            if (over.id !== session.id)
+              onPlaceOnPane(session.id, over.id, over.edge);
+            return true;
+          },
+          onEnd: clearPaneDrop,
+        }
+      : undefined;
+    sidebarReorder.onPointerDown(event, combineSidebarDrops(pinDrop, paneDrop));
   };
 
   useEffect(
@@ -2096,7 +2047,13 @@ const SessionCard = memo(function SessionCard({
       : "py-2";
 
   return (
-    <div ref={metadataHover.anchorRef} className="group relative">
+    <div
+      ref={(node) => {
+        metadataHover.anchorRef.current = node;
+        standaloneReorder.setItemRef(session.id, inheritedReorder ? null : node);
+      }}
+      className={`group relative ${inheritedReorder ? "" : "reorder-item session-reorder-item"}`}
+    >
       <div
         title={dense ? undefined : title}
         data-session-card={session.id}
@@ -2114,10 +2071,7 @@ const SessionCard = memo(function SessionCard({
         }}
         onClick={(event) => {
           metadataHover.close();
-          if (
-            sidebarReorder?.consumeClick() ||
-            performance.now() < skipClickUntil.current
-          ) return;
+          if (sidebarReorder.consumeClick()) return;
           onSelect(session.id, event);
         }}
         onContextMenu={
@@ -2129,8 +2083,6 @@ const SessionCard = memo(function SessionCard({
             : undefined
         }
         className={`relative border flex w-full ${sidebarReorder ? "cursor-grab" : "cursor-default"} select-none touch-none rounded-lg text-left ${dense ? `h-8 flex-row items-center gap-1 ${shortcut ? "px-2" : compact ? "pl-[54px] pr-2" : "pl-8 pr-2"}` : `flex-col px-2.5 ${cardPaddingY}`} ${
-          dragging ? "opacity-0" : ""
-        } ${
           isSelected
             ? `bg-accent/15 text-content ${draft ? "border-content/30 border-dashed" : "border-transparent"}`
             : waitingFor
