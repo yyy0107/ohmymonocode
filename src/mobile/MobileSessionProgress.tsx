@@ -66,7 +66,7 @@ export function MobileSessionProgress({
   const summaryModel = shown ? model : retained.current;
   const capsule = (
       <div className="mobile-session-progress" data-docked={dock ? true : undefined}>
-        <AnimatedCollapse expanded={shown} motion="height">
+        <AnimatedCollapse expanded={shown} motion="height" durationMs={dock ? undefined : 560}>
           <button
             type="button"
             className="mobile-progress-capsule"

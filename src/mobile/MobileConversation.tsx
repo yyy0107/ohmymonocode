@@ -9,6 +9,7 @@ import { AgentTranscript } from "../features/sessions/ui/AgentTranscript";
 import { useTranscriptLayout } from "../features/sessions/hooks/useTranscriptLayout";
 import { useTranslation } from "../shared/i18n/useTranslation";
 import { ArrowDownCircle } from "../shared/ui/icons";
+import { useCollapseMotion } from "../shared/ui/AnimatedCollapse";
 
 /** The phone conversation surface, shared by chats and subagent sheet pages. */
 export function MobileConversation({
@@ -32,6 +33,7 @@ export function MobileConversation({
   const layout = useTranscriptLayout();
   const [jump, setJump] = useState<(() => void) | undefined>();
   const [showJump, setShowJump] = useState(false);
+  const jumpMotion = useCollapseMotion(showJump, 560);
   const onJumpReady = useCallback(
     (callback: () => void) => setJump(() => callback),
     [],
@@ -57,29 +59,37 @@ export function MobileConversation({
         onJumpToBottomChange={setShowJump}
         onJumpToBottomReady={onJumpReady}
       />
-      {showJump && (
-        <button
-          className="mobile-jump"
-          type="button"
-          aria-label={t("Jump to latest")}
-          // Keep focus in the composer so tapping does not collapse it first.
-          onPointerDown={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-          }}
-          onMouseDown={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-          }}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            jump?.();
-          }}
-        >
-          <ArrowDownCircle size={22} />
-        </button>
-      )}
+      {/* Keep the button mounted so fades can reverse without restarting. */}
+      <button
+        className="mobile-jump"
+        type="button"
+        data-open={showJump}
+        data-fold-state={jumpMotion.foldState}
+        disabled={!showJump}
+        inert={!showJump}
+        aria-hidden={!showJump}
+        aria-label={t("Jump to latest")}
+        onTransitionEnd={(event) => {
+          if (event.target === event.currentTarget && event.propertyName === "opacity")
+            jumpMotion.finish();
+        }}
+        // Keep focus in the composer so tapping does not collapse it first.
+        onPointerDown={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+        onMouseDown={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          jump?.();
+        }}
+      >
+        <ArrowDownCircle size={22} />
+      </button>
     </div>
   );
 }

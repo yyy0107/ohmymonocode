@@ -102,7 +102,7 @@ const dialog = () =>
     '.mobile-sheet-backdrop:not([inert]) [role="dialog"]',
   );
 const click = (element: HTMLElement) => act(() => element.click());
-const finish = () => act(() => vi.advanceTimersByTime(400));
+const finish = () => act(() => vi.advanceTimersByTime(600));
 const row = (text: string) =>
   [
     ...dialog()!.querySelectorAll<HTMLButtonElement>(".mobile-progress-row"),

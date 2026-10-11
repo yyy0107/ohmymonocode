@@ -159,6 +159,12 @@ describe("mobile approval interaction", () => {
 });
 
 describe("mobile jump interaction", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    act(() => root?.unmount());
+    root = undefined;
+    vi.useRealTimers();
+  });
   it("consumes pointer, mouse and click events and keeps composer focus", () => {
     const { node } = render({ runId: "active-run" });
     const parent = document.createElement("div");
@@ -180,6 +186,8 @@ describe("mobile jump interaction", () => {
     act(() => scroller.dispatchEvent(new WheelEvent("wheel", { deltaY: -10 })));
     const button = node.querySelector<HTMLButtonElement>(".mobile-jump")!;
     expect(button).not.toBeNull();
+    expect(button.dataset.foldState).toBe("opening");
+    expect(button.disabled).toBe(false);
     const composer = document.createElement("textarea");
     node.append(composer);
     composer.focus();
@@ -193,7 +201,24 @@ describe("mobile jump interaction", () => {
     }
     expect(bubbled).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(composer);
-    expect(node.querySelector(".mobile-jump")).toBeNull();
+    expect(node.querySelector(".mobile-jump")).toBe(button);
+    expect(button.dataset.foldState).toBe("closing");
+    expect(button.disabled).toBe(true);
+    expect(button.inert).toBe(true);
+    expect(button.getAttribute("aria-hidden")).toBe("true");
+    act(() => vi.advanceTimersByTime(200));
+    // Scroll away again during the fade: reuse the same button and cancel closing.
+    act(() => scroller.dispatchEvent(new WheelEvent("wheel", { deltaY: -10 })));
+    expect(node.querySelector(".mobile-jump")).toBe(button);
+    expect(button.dataset.foldState).toBe("opening");
+    expect(button.disabled).toBe(false);
+    act(() => vi.advanceTimersByTime(600));
+    expect(button.dataset.foldState).toBe("open");
+    act(() => button.click());
+    act(() => vi.advanceTimersByTime(400));
+    expect(button.dataset.foldState).toBe("closing");
+    act(() => vi.advanceTimersByTime(200));
+    expect(button.dataset.foldState).toBe("closed");
   });
 });
 
