@@ -1,0 +1,136 @@
+/* OpenMausBot desktop metrics. Sizes, spacing, radii and motion copied from
+   the mobile shell so skinned desktop matches the phone. Colors stay in
+   omb-skin.css. Every rule starts with `html[data-skin]`: Classic never sets
+   it and the phone shell removes it, so neither sees these values. Tailwind's
+   `--radius-lg` / `--radius-xl` stay per-skin; new radii use `--omb-radius-*`.
+   omb-metrics.test.ts guards both. */
+
+html[data-skin] {
+  --omb-space-2: 2px;
+  --omb-space-4: 4px;
+  --omb-space-6: 6px;
+  --omb-space-8: 8px;
+  --omb-space-10: 10px;
+  --omb-space-12: 12px;
+  --omb-space-16: 16px;
+  --omb-space-18: 18px;
+  --omb-space-20: 20px;
+  --omb-space-22: 22px;
+  --omb-space-28: 28px;
+
+  --omb-hit: 44px;
+  --omb-control: 36px;
+  --omb-chrome: 28px;
+  --omb-row: 56px;
+  --omb-row-project: 52px;
+
+  --omb-radius-field: 10px;
+  --omb-radius-row: 12px;
+  --omb-radius-card: 16px;
+  --omb-radius-sheet: 20px;
+  --omb-radius-bubble: 20px;
+
+  --omb-shadow-float: 0 8px 28px rgb(0 0 0 / 0.28), 0 1px 3px rgb(0 0 0 / 0.18);
+
+  /* Mirrors src/shared/lib/springs.ts and src/mobile/motion.css. */
+  --omb-motion-press: 120ms;
+  --omb-motion-feedback: 160ms;
+  --omb-motion-content-in: 220ms;
+  --omb-motion-content-out: 140ms;
+  --omb-motion-shift: 8px;
+  --omb-motion-press-scale: 0.97;
+  --omb-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --omb-spring-snappy-duration: 340ms;
+  --omb-spring-smooth-duration: 400ms;
+  --omb-spring-release-duration: 310ms;
+  --omb-spring-snappy: var(--omb-ease-out);
+  --omb-spring-smooth: var(--omb-ease-out);
+  --omb-spring-release: var(--omb-ease-out);
+}
+
+html[data-skin].theme-light {
+  --omb-shadow-float: 0 8px 28px rgb(0 0 0 / 0.1), 0 1px 3px rgb(0 0 0 / 0.08);
+}
+
+@supports (transition-timing-function: linear(0, 1)) {
+  html[data-skin] {
+    --omb-spring-snappy: linear(0, 0.037, 0.125, 0.238, 0.358, 0.474, 0.579, 0.672, 0.749, 0.813, 0.864, 0.904, 0.935, 0.958, 0.974, 0.986, 0.994, 0.999, 1.002, 1.004, 1.005, 1.005, 1.005, 1.004, 1);
+    --omb-spring-smooth: linear(0, 0.036, 0.12, 0.227, 0.341, 0.452, 0.553, 0.643, 0.719, 0.783, 0.834, 0.876, 0.909, 0.934, 0.953, 0.968, 0.979, 0.986, 0.992, 0.996, 0.998, 1, 1.001, 1.001, 1);
+    --omb-spring-release: linear(0, 0.041, 0.139, 0.264, 0.396, 0.522, 0.635, 0.731, 0.81, 0.872, 0.92, 0.955, 0.979, 0.996, 1.006, 1.012, 1.015, 1.015, 1.014, 1.013, 1.011, 1.009, 1.007, 1.005, 1);
+  }
+}
+
+/* Buttons. Unlayered so they win over Tailwind size utilities on the same
+   node (`h-7`, `px-2.5`, `rounded-md`...). `.ui-icon-button` is window chrome
+   and keeps its 28px square. */
+html[data-skin] .ui-button,
+html[data-skin] .primary-action:not(.composer-send):not(.composer-stop) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--omb-space-8);
+  height: auto;
+  min-height: var(--omb-control);
+  padding: 0 var(--omb-space-12);
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 22px;
+}
+html[data-skin] .ui-button.ui-button-md {
+  min-height: 32px;
+  font-size: 13px;
+  line-height: 18px;
+}
+html[data-skin] .ui-button.ui-button-sm {
+  gap: var(--omb-space-4);
+  min-height: var(--omb-chrome);
+  padding: 0 var(--omb-space-8);
+  font-size: 12px;
+  line-height: 16px;
+}
+html[data-skin] .ui-button-primary,
+html[data-skin] .primary-action:not(.composer-send):not(.composer-stop) {
+  font-weight: 600;
+}
+html[data-skin] .ui-icon-button {
+  width: var(--omb-chrome);
+  height: var(--omb-chrome);
+  min-height: var(--omb-chrome);
+  padding: 0;
+  border-radius: 8px;
+}
+html[data-skin] .ui-icon-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+html[data-skin] :is(.ui-button, .primary-action:not(.composer-send):not(.composer-stop)):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Press: shrink fast on press, spring back on release. */
+html[data-skin] :is(.ui-button, .primary-action:not(.composer-send):not(.composer-stop)) {
+  transition:
+    background-color var(--omb-motion-feedback) var(--omb-ease-out),
+    color var(--omb-motion-feedback) var(--omb-ease-out),
+    transform var(--omb-spring-release-duration) var(--omb-spring-release);
+}
+html[data-skin] :is(.ui-button, .primary-action:not(.composer-send):not(.composer-stop)):enabled:active {
+  transform: scale(var(--omb-motion-press-scale));
+  transition:
+    background-color var(--omb-motion-feedback) var(--omb-ease-out),
+    color var(--omb-motion-feedback) var(--omb-ease-out),
+    transform var(--omb-motion-press) var(--omb-ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-skin] :is(.ui-button, .primary-action:not(.composer-send):not(.composer-stop)) {
+    transition: none;
+  }
+  html[data-skin] :is(.ui-button, .primary-action:not(.composer-send):not(.composer-stop)):enabled:active {
+    transform: none;
+  }
+}
