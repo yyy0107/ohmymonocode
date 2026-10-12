@@ -2063,7 +2063,8 @@ const SessionCard = memo(function SessionCard({
         data-session-active={isActive ? "true" : undefined}
         data-session-waiting={waitingFor ? "true" : undefined}
         data-density={compact ? "compact" : "comfort"}
-        data-session-dense={dense && !shortcut ? "" : undefined}
+        data-session-dense={dense ? "" : undefined}
+        data-session-shortcut={dense && shortcut ? "" : undefined}
         data-tauri-drag-region="false"
         onPointerDown={onPointerDown}
         onPointerEnter={(event) => {

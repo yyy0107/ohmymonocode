@@ -178,7 +178,7 @@ html[data-skin] {
   --omb-side-tile-icon: 20px;
   --omb-side-tile-radius: var(--omb-radius-row);
   --omb-side-group-row: 40px;
-  --omb-side-nest: var(--omb-space-28);
+  --omb-side-nest: var(--omb-space-16);
   --omb-side-title: 15px;
   --omb-side-title-line: 22px;
   --omb-side-title-weight: 600;
@@ -197,7 +197,7 @@ html[data-skin].compact-sidebar {
   --omb-side-tile-icon: 14px;
   --omb-side-tile-radius: 8px;
   --omb-side-group-row: 32px;
-  --omb-side-nest: var(--omb-space-20);
+  --omb-side-nest: var(--omb-space-12);
   --omb-side-title: 13px;
   --omb-side-title-line: 18px;
   --omb-side-title-weight: 500;
@@ -245,7 +245,7 @@ html[data-skin] [data-project-header] [data-project-machine] {
 html[data-skin] [data-session-group-row] {
   gap: var(--omb-side-gap);
   height: var(--omb-side-group-row);
-  padding-inline: var(--omb-space-8);
+  padding-inline: calc(var(--omb-space-8) + var(--omb-side-nest)) var(--omb-space-8);
   border-radius: var(--omb-radius-row);
 }
 html[data-skin] [data-session-group-row] > span:first-child {
@@ -257,8 +257,9 @@ html[data-skin] [data-session-group-row] > span:nth-child(2) {
 }
 
 /* Session rows, as the phone's Home row: one line, round agent avatar,
-   title, recency or state at the end. Rows inside a session group keep a
-   small indent so the nesting still reads. */
+   title, recency or state at the end. Rows under a project step in by one
+   nest and rows inside a session group by two, so sessions never read as
+   projects; pinned and chat shortcuts sit at the section edge. */
 html[data-skin] [data-session-dense] {
   align-items: center;
   gap: var(--omb-side-gap);
@@ -267,8 +268,11 @@ html[data-skin] [data-session-dense] {
   padding: var(--omb-side-row-pad) var(--omb-space-8);
   border-radius: var(--omb-radius-row);
 }
-html[data-skin] [data-session-dense][data-density="compact"] {
+html[data-skin] [data-session-dense]:not([data-session-shortcut]) {
   padding-inline-start: calc(var(--omb-space-8) + var(--omb-side-nest));
+}
+html[data-skin] [data-session-dense][data-density="compact"]:not([data-session-shortcut]) {
+  padding-inline-start: calc(var(--omb-space-8) + 2 * var(--omb-side-nest));
 }
 html[data-skin] [data-session-dense] [data-session-select] > span {
   gap: var(--omb-side-gap);
@@ -876,4 +880,16 @@ html[data-skin] [data-settings-segmented][data-direction="back"] > [data-segment
   html[data-skin] [data-segment-indicator] {
     transition: none;
   }
+}
+
+/* "Show more" lines up with the row titles it reveals. */
+html[data-skin] [data-sidebar-list-toggle] {
+  min-height: var(--omb-side-group-row);
+  padding-inline-start: calc(var(--omb-space-8) + var(--omb-side-avatar) + var(--omb-side-gap));
+  border-radius: var(--omb-radius-row);
+  font-size: 13px;
+  line-height: 18px;
+}
+html[data-skin] [data-sidebar-list-toggle][data-indented] {
+  padding-inline-start: calc(var(--omb-space-8) + var(--omb-side-nest) + var(--omb-side-avatar) + var(--omb-side-gap));
 }

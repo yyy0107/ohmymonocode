@@ -58,6 +58,7 @@ export function useSidebarListPreview(
       <button
         type="button"
         data-sidebar-list-toggle
+        data-indented={indented ? "" : undefined}
         data-no-drag
         aria-expanded={count > SIDEBAR_PREVIEW_COUNT}
         onClick={() => {
