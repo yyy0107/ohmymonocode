@@ -2398,6 +2398,7 @@ function UserMessageBlock({
         ) : null}
         <div
           hidden={!hasBubble}
+          data-bubble-layout={layout}
           data-draft={block.draft ? "true" : undefined}
           data-monocode={monocode ? "true" : undefined}
           className={`user-message-bubble relative w-fit min-w-0 px-3 py-2 font-sans text-content transition-[background-color] duration-200 ${

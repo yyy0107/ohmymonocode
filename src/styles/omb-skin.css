@@ -600,10 +600,6 @@ html[data-skin]:not(.has-user-accent) .primary-action:not(.composer-send):not(.c
   color: var(--color-accent-ink, #fff);
 }
 
-html[data-skin] :where(.user-message-row:not(.mobile-desktop-transcript *)) .user-message-bubble {
-  border-radius: 16px 16px 4px 16px;
-}
-
 html[data-skin]:not(.has-user-accent) :where(.user-message-row:not(.mobile-desktop-transcript *)) .user-message-bubble:not([data-draft="true"]) {
   background: var(--color-bubble-user);
   color: var(--color-bubble-user-ink);
