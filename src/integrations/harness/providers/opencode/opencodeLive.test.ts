@@ -206,6 +206,25 @@ describe("OpenCode subagent trails", () => {
     state: { status: "running", title: `Task ${callID}`, metadata: { sessionId: child } },
   });
 
+  it("pairs streamed text parts with their assistant message usage", async () => {
+    const events: HarnessEvent[] = [];
+    const { done } = await startTurn(events);
+    let now = 1_000;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
+    try {
+      onSseEvent?.({ type: "message.updated", properties: { sessionID: "session_1", info: { id: "m1", role: "assistant", sessionID: "session_1" } } });
+      onSseEvent?.({ type: "message.part.updated", properties: { sessionID: "session_1", part: { id: "p1", messageID: "m1", type: "text", text: "" } } });
+      onSseEvent?.({ type: "message.part.delta", properties: { sessionID: "session_1", partID: "p1", delta: "Hello " } });
+      now = 3_000;
+      onSseEvent?.({ type: "message.part.delta", properties: { sessionID: "session_1", partID: "p1", delta: "world" } });
+      onSseEvent?.({ type: "message.updated", properties: { sessionID: "session_1", info: { id: "m1", role: "assistant", time: { completed: 3_000 }, tokens: { output: 20, reasoning: 0 } } } });
+      idle();
+      await done;
+      const samples = events.filter(e => e.type === "turn.metrics" && e.generationSample !== undefined);
+      expect(samples.at(-1)?.generationSample).toMatchObject({ outputTokens: 20, durationMs: 2_000, tokenSource: "provider" });
+    } finally { clock.mockRestore(); }
+  });
+
   it("pairs concurrent children by metadata and replays their latest parts after creating the row", async () => {
     const events: HarnessEvent[] = [];
     const { done } = await startTurn(events);

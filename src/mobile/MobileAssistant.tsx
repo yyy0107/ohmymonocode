@@ -1,3 +1,7 @@
+import { lightImpact, attentionHaptic } from "./haptics";
+import { useTranscriptHaptics } from "./useTranscriptHaptics";
+import type { AssistantFeedbackProps } from "../features/assistant/ui/AssistantChatChrome";
+import type { Block } from "../features/sessions/model/session";
 import { MobileSpinner } from "./MobileSpinner";
 import { AttachmentList } from "../features/sessions/ui/AttachmentList";
 import { AssistantAttachmentPreview } from "../features/assistant/ui/AssistantAttachmentPreview";
@@ -529,6 +533,11 @@ function MobileAssistantMessageMenu({
   onReply,
   onClose,
 }: AssistantMessageMenuProps) {
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (open && !wasOpen.current) void lightImpact();
+    wasOpen.current = open;
+  }, [open]);
   const { t } = useTranslation();
   const { copyMessage } = useContext(TranscriptPlatformContext);
   const [copying, setCopying] = useState(false);
@@ -755,7 +764,24 @@ function MobileAssistantSelect({
   );
 }
 
+function MobileAssistantFeedback({ messages, historyIds, active, busy, scope }: AssistantFeedbackProps) {
+  const blocks = useMemo(() => messages.flatMap((message): Block[] =>
+    message.kind === "assistant" || message.kind === "user"
+      ? [{ id: message.id, role: message.kind, text: message.text, streaming: message.streaming }]
+      : []), [messages]);
+  const baseline = useRef(new Map<string, Block>());
+  const history = useMemo(() => {
+    for (const block of blocks)
+      if (historyIds.has(block.id) && !baseline.current.has(block.id)) baseline.current.set(block.id, block);
+    return [...baseline.current.values()];
+  }, [blocks, historyIds]);
+  useTranscriptHaptics({ blocks, active, busy, scope, history });
+  return null;
+}
+
 const chrome: AssistantChatChrome = {
+  Feedback: MobileAssistantFeedback,
+  onSendFeedback: (success) => { void (success ? lightImpact() : attentionHaptic()); },
   Header: MobileAssistantHeader,
   Controls: MobileAssistantControls,
   SettingsPanel: MobileAssistantSettingsPanel,

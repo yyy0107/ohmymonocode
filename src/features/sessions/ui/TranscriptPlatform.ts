@@ -22,6 +22,8 @@ export const TranscriptPlatformContext = createContext<
   Omit<typeof desktopPlatform, "liveClockInFooter"> & {
     textReveal?: (blockId?: string) => TextRevealOptions;
     textRevealQueue?: TextRevealQueue;
+    /** Animate message entrances and layout alongside character reveal. */
+    messageMotion?: "slide";
     /** Clients without a side panel show a finished tool call's details on tap. */
     openTool?: (block: Block) => void;
     /** Show desktop hover/focus diff popovers; touch clients use their detail sheets. */

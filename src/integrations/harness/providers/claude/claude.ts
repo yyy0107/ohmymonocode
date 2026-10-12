@@ -1,3 +1,10 @@
+import {
+  resetGenerationMetrics,
+  measureGenerationTurn,
+  emitGenerationText,
+  generationRequestStarted,
+  reportGenerationUsage,
+} from "../../core/generationMetrics";
 import { readClaudeNativeTitle } from "../../core/child";
 import type { NativeTitleInput } from "../../core/titleCoordinator";
 import type { NativeSessionLink } from "../../../../features/sessions/model/session";
@@ -237,6 +244,10 @@ export function setClaudeBinaryResolver(
 }
 
 export async function sendClaudeTurn(input: SendTurnInput): Promise<void> {
+  return measureGenerationTurn(input, sendClaudeTurnMeasured);
+}
+
+async function sendClaudeTurnMeasured(input: SendTurnInput): Promise<void> {
   let live: Live;
   try {
     live = await ensureLive(input);
@@ -345,6 +356,7 @@ export async function cancelClaudeTurn(sessionId: string): Promise<void> {
     cancelledThreads.add(sessionId);
     return;
   }
+  resetGenerationMetrics(live.onEvent);
   live.cancelled = true;
   live.muteUpdates = true;
   live.pendingContextRead?.finish(null);
@@ -854,6 +866,13 @@ function handleStreamEvent(live: Live, rec: Record<string, unknown>): void {
   const parentId = stringField(rec, "parent_tool_use_id");
   const stream = parentId ? childStream(live, parentId) : undefined;
   const raw = asRecord(rec.event);
+  if (!subagent && raw?.type === "message_start") generationRequestStarted(live.onEvent);
+  if (!subagent && raw?.type === "message_delta" && asRecord(raw.delta)?.stop_reason != null) {
+    const usage = asRecord(raw.usage);
+    reportGenerationUsage(live.onEvent, {
+      outputTokens: typeof usage?.output_tokens === "number" ? usage.output_tokens : undefined,
+    });
+  }
   if (stream && raw?.type === "message_start") {
     stream.messageId = stringField(asRecord(raw.message), "id");
     stream.tools.clear();
@@ -869,7 +888,7 @@ function handleStreamEvent(live: Live, rec: Record<string, unknown>): void {
     if (delta.kind === "assistant") {
       closePendingAssistantMessage(live);
       live.emittedAssistant = joinStreamText(live.emittedAssistant, delta.text);
-      live.onEvent({ type: "message.delta", text: delta.text });
+      emitGenerationText(live.onEvent, delta.text);
     } else {
       live.emittedReasoning = joinStreamText(live.emittedReasoning, delta.text);
       live.onEvent({ type: "reasoning.delta", text: delta.text });

@@ -68,6 +68,21 @@ const glyphs = {
       <path d="M4 9v6h4l5 4V5L8 9H4ZM16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" />
     </>
   ),
+  haptics: (
+    <>
+      <rect x="8" y="5" width="8" height="14" rx="2" />
+      <path d="m4 7-2 3 2 4-2 3m18-10-2 3 2 4-2 3" />
+    </>
+  ),
+  outputHaptics: (
+    <path d="M3 10v4m4-7v10m5-14v18m5-14v10m4-7v4" />
+  ),
+  play: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m10 8 6 4-6 4V8Z" />
+    </>
+  ),
   layout: (
     <>
       <path d="M20 5h-9a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h9M4 13h9a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H4" />

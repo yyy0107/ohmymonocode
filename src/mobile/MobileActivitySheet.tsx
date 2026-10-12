@@ -1,4 +1,7 @@
+import { useTranscriptHaptics } from "./useTranscriptHaptics";
 import { MobileSpinner } from "./MobileSpinner";
+import { TranscriptContentMotion, useMessageArrivals } from "../features/sessions/ui/TranscriptContentMotion";
+import { useSurfaceVisibility } from "../shared/ui/SurfaceVisibility";
 import { MobileAgentSheet } from "./MobileAgentSheet";
 import type { ComponentType } from "react";
 import type { Block } from "../features/sessions/model/session";
@@ -80,6 +83,8 @@ export function MobileActivitySheet({
   onOpenFile?: (path: string) => void;
 }) {
   const { t } = useTranslation();
+  useTranscriptHaptics({ blocks: steps, busy: live, active: open && !selectedStep && !selectedAgent });
+  const arrives = useMessageArrivals(steps, useSurfaceVisibility() && open && !selectedStep && !selectedAgent);
   return (
     <MobileSheet
       open={open}
@@ -124,22 +129,24 @@ export function MobileActivitySheet({
                         const text = proseSummary(block.text);
                         if (!text) return null;
                         return (
-                          <li
+                          <TranscriptContentMotion as="li"
                             key={block.id}
                             className="mobile-activity-step"
-                            data-kind="note"
+                            arrive={arrives(block.id)}
                           >
-                            <span className="mobile-activity-icon">
-                              <StepIcon block={block} />
-                            </span>
-                            <span className="mobile-activity-text">{text}</span>
-                          </li>
+                            <div className="mobile-activity-note">
+                              <span className="mobile-activity-icon">
+                                <StepIcon block={block} />
+                              </span>
+                              <span className="mobile-activity-text">{text}</span>
+                            </div>
+                          </TranscriptContentMotion>
                         );
                       }
                       const state = toolCallState(block);
                       const diff = workDiffStats([block]);
                       return (
-                        <li key={block.id} className="mobile-activity-step">
+                        <TranscriptContentMotion as="li" key={block.id} className="mobile-activity-step" arrive={arrives(block.id)}>
                           <button type="button" onClick={() => onStep(block)}>
                             <span className="mobile-activity-icon">
                               <StepIcon block={block} />
@@ -169,7 +176,7 @@ export function MobileActivitySheet({
                               <ChevronRight size={16} aria-hidden="true" />
                             )}
                           </button>
-                        </li>
+                        </TranscriptContentMotion>
                       );
                     })}
                   </ol>

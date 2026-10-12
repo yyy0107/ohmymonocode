@@ -40,6 +40,30 @@
           if (scheme === "light") {
             root.classList.add("theme-light");
           }
+          // OpenMausBot skins. `auto` (the default) follows Dark/Light.
+          // `classic` leaves the tint variables above in charge.
+          var skinSchemes = {
+            midnight: "dark",
+            atelier: "light",
+            foundry: "dark",
+            lagoon: "light",
+            graphite: "dark",
+            linen: "light",
+            dusk: "dark",
+            daylight: "light",
+            meadow: "light",
+          };
+          var skin = localStorage.getItem("monocode.desktopSkin");
+          if (skin !== "classic") {
+            var resolved = Object.prototype.hasOwnProperty.call(skinSchemes, skin)
+              ? skin
+              : scheme === "light"
+                ? "daylight"
+                : "midnight";
+            root.dataset.skin = resolved;
+            if (skinSchemes[resolved] === "light") root.classList.add("theme-light");
+            else root.classList.remove("theme-light");
+          }
           var bodyGlass = localStorage.getItem("monocode.bodyGlass");
           if (bodyGlass == null || bodyGlass === "1" || bodyGlass === "true") {
             root.classList.add("glass-body");

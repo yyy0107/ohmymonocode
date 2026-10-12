@@ -250,3 +250,23 @@ it("opens an activity agent in the same sheet and restores the activity scroll",
     page().querySelector<HTMLElement>("[data-mobile-page-scroll]")!.scrollTop,
   ).toBe(84);
 });
+
+it("slides new tool and thought entries into an open activity sheet without replaying its history", () => {
+  const animate = vi.spyOn(Element.prototype, "animate");
+  const entrances = () => animate.mock.contexts.filter(node => node.matches("li[data-transcript-content-motion]"));
+  const history: Block = { id: "old", role: "assistant", text: "Existing activity" };
+  const render = (steps: Block[]) => act(() => root.render(createElement(MobileActivitySheet, {
+    steps, live: true, onStep: () => {}, onBack: () => {}, onClose: () => {},
+  })));
+  render([history]);
+  expect(entrances()).toHaveLength(0);
+  const added: Block[] = [
+    { id: "thought", role: "reasoning", text: "Thinking about the next step" },
+    { id: "tool", role: "tool", text: "Read file", tool: { kind: "read", status: "in_progress" } },
+  ];
+  render([history, ...added]);
+  expect(entrances()).toHaveLength(2);
+  expect(page().textContent).toContain("Thinking about the next step");
+  render([history, { ...added[0], text: "Updated thought" }, added[1]]);
+  expect(entrances()).toHaveLength(2);
+});

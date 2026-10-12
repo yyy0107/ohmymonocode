@@ -178,7 +178,7 @@ export function QuestionForm({ prompt, onReply, onInteraction, onCollapse }: Pro
           ) : null}
           <button
             type="button"
-            className="h-6 shrink-0 rounded-md px-1.5 text-[11px] text-content/55 hover:bg-content/10 hover:text-content"
+            className="ui-button ui-button-md ui-button-pill h-6 shrink-0 rounded-md px-1.5 text-[11px] text-content/55 hover:bg-content/10 hover:text-content"
             data-question-secondary
             onClick={skipCurrent}
           >
@@ -258,7 +258,7 @@ export function QuestionForm({ prompt, onReply, onInteraction, onCollapse }: Pro
           {index > 0 ? (
             <button
               type="button"
-              className="h-6 shrink-0 rounded-md px-1.5 text-[11px] text-content/55 hover:bg-content/10 hover:text-content"
+              className="ui-button ui-button-md ui-button-pill h-6 shrink-0 rounded-md px-1.5 text-[11px] text-content/55 hover:bg-content/10 hover:text-content"
               data-question-secondary
               onClick={goBack}
             >
@@ -268,7 +268,7 @@ export function QuestionForm({ prompt, onReply, onInteraction, onCollapse }: Pro
           <button
             type="submit"
             disabled={!ready}
-            className="h-6 rounded-md bg-content px-2.5 text-[11px] font-medium text-background-base hover:bg-content/80 disabled:opacity-40"
+            className="ui-button ui-button-md ui-button-primary ui-button-pill h-6 rounded-md bg-content px-2.5 text-[11px] font-medium text-background-base hover:bg-content/80 disabled:opacity-40"
             data-question-submit
           >
             {uiT("Continue")}

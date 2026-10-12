@@ -86,6 +86,8 @@ function Conversation({
         embedded
         managed
         active={visible}
+        hapticsScope={block.id}
+        hapticsCompleted={toolCallState(block) !== "rejected"}
         visible={visible}
         blocks={rows}
         busy={busy}

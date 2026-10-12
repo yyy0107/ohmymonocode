@@ -216,6 +216,14 @@ import {
   type ColorScheme,
 } from "../model/appearance";
 import {
+  DESKTOP_SKIN_IDS,
+  DESKTOP_SKIN_INFO,
+  loadDesktopSkin,
+  normalizeDesktopSkin,
+  saveDesktopSkin,
+  type DesktopSkinPreference,
+} from "../../../shared/theme/desktopSkin";
+import {
   pickAndSaveChatBackground,
   removeChatBackground,
 } from "../../projects/model/chatBackground";
@@ -2028,6 +2036,7 @@ type AppearanceSettings = ReturnType<typeof useAppearanceSettings>;
 function useAppearanceSettings() {
   const [themePreference, setThemePreference] =
     usePreferenceState<ThemePreference>(loadThemePreference);
+  const [skin, setSkin] = usePreferenceState<DesktopSkinPreference>(loadDesktopSkin);
   const [accentColor, setAccentColor] = usePreferenceState(loadAccentColor);
   const [opacity, setOpacity] = usePreferenceState(loadSidebarOpacity);
   const [popoverOpacity, setPopoverOpacity] = usePreferenceState(loadPopoverOpacity);
@@ -2127,9 +2136,30 @@ function useAppearanceSettings() {
   );
 
   const onThemePreference = useCallback((next: ThemePreference) => {
+    // A named skin owns the scheme. Dark/Light returns to Auto so the two
+    // controls cannot disagree.
+    const current = loadDesktopSkin();
+    if (current !== "auto" && current !== "classic") {
+      saveDesktopSkin("auto");
+      setSkin("auto");
+    }
     applyThemePreference(next);
     saveThemePreference(next);
     setThemePreference(next);
+  }, []);
+
+  const onSkin = useCallback((value: string) => {
+    const next = normalizeDesktopSkin(value);
+    saveDesktopSkin(next);
+    setSkin(next);
+    if (next !== "auto" && next !== "classic") {
+      const scheme = DESKTOP_SKIN_INFO[next].scheme;
+      saveThemePreference(scheme);
+      setThemePreference(scheme);
+      applyThemePreference(scheme);
+      return;
+    }
+    applyThemePreference(loadThemePreference());
   }, []);
 
   const onAccentColor = useCallback((value: string | null) => {
@@ -2365,6 +2395,8 @@ function useAppearanceSettings() {
 
   return {
     themePreference,
+    skin,
+    onSkin,
     accentColor: separateSchemes ? profile.accentColor : accentColor,
     opacity,
     popoverOpacity,
@@ -2463,6 +2495,27 @@ function AppearancePage({ appearance }: { appearance: AppearanceSettings }) {
             onChange={appearance.onThemePreference}
           />
         </Row>
+        <Row
+          id="skin"
+          label={uiT("Skin")}
+          description={uiT(
+            "Automatic uses Midnight in dark mode and Daylight in light mode. A named skin replaces hue and lightness. Classic keeps the original tint.",
+          )}
+        >
+          <Select
+            label={uiT("Skin")}
+            value={appearance.skin}
+            options={[
+              { value: "classic", label: uiT("Classic") },
+              { value: "auto", label: uiT("Automatic") },
+              ...DESKTOP_SKIN_IDS.map((id) => ({
+                value: id,
+                label: uiT(DESKTOP_SKIN_INFO[id].label),
+              })),
+            ]}
+            onChange={appearance.onSkin}
+          />
+        </Row>
         {appearance.separateSchemes ? null : (
           <AccentRow appearance={appearance} />
         )}
@@ -2472,9 +2525,15 @@ function AppearancePage({ appearance }: { appearance: AppearanceSettings }) {
 
       <Group
         title={uiT("Color")}
-        description={uiT(
-          "Hue and saturation tint every surface. Lightness only moves the dark theme.",
-        )}
+        description={
+          appearance.skin === "classic"
+            ? uiT(
+                "Hue and saturation tint every surface. Lightness only moves the dark theme.",
+              )
+            : uiT(
+                "This skin supplies the palette. Classic restores hue, saturation and dark-mode lightness.",
+              )
+        }
       >
         {appearance.separateSchemes ? null : (
           <TintRows appearance={appearance} />
@@ -2500,7 +2559,7 @@ function AppearancePage({ appearance }: { appearance: AppearanceSettings }) {
             max={THEME_DARK_LIGHTNESS_MAX}
             preview={applyThemeDarkLightness}
             onChange={appearance.onDarkLightness}
-            disabled={glassDisabled}
+            disabled={glassDisabled || appearance.skin !== "classic"}
           />
         </Row>
       </Group>
@@ -2697,6 +2756,7 @@ function TintRows({ appearance }: { appearance: AppearanceSettings }) {
           onChange={(value) =>
             appearance.onTint(value, appearance.themeSaturation)
           }
+          disabled={appearance.skin !== "classic"}
         />
       </Row>
       <Row
@@ -2714,6 +2774,7 @@ function TintRows({ appearance }: { appearance: AppearanceSettings }) {
           max={THEME_SATURATION_MAX}
           preview={(value) => appearance.previewTint(appearance.themeHue, value)}
           onChange={(value) => appearance.onTint(appearance.themeHue, value)}
+          disabled={appearance.skin !== "classic"}
         />
       </Row>
     </>

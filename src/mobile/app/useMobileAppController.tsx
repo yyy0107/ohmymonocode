@@ -1,3 +1,4 @@
+import { lightImpact, attentionHaptic, setHapticsForeground } from "../haptics";
 
 import { usePreferenceState } from "../../features/settings/model/usePreferenceState";
 import type { MobileNotesHandle } from "../MobileNotes";
@@ -376,6 +377,7 @@ export function useMobileAppController() {
   const [pollError, setPollError] = useState("");
   const [pending, setPending] = useState<PendingCommand>();
   const [foreground, setForeground] = useState(true);
+  useEffect(() => { setHapticsForeground(foreground); }, [foreground]);
   const hostStatus = useHostConnectionStatus(client, connected, foreground);
   const assistantUnreadCount = useMobileAssistantUnread(
     assistantHostId,
@@ -1401,7 +1403,12 @@ export function useMobileAppController() {
           created ? { ...prompt, worktreeCreation: created } : prompt,
         );
       }
+      if (generation === navigation.current) {
+        if (recorded) void lightImpact();
+        else void attentionHaptic();
+      }
     } catch (problem) {
+      if (generation === navigation.current) void attentionHaptic();
       setError(message(problem));
     } finally {
       setBusy(false);

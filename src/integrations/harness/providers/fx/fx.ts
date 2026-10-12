@@ -1,3 +1,8 @@
+import {
+  resetGenerationMetrics,
+  measureGenerationTurn,
+  emitAcpGenerationEvent,
+} from "../../core/generationMetrics";
 import { nativeAcpTitleEvent, noteAcpTitleCapabilities, readAcpSessionTitle, readAcpTitleInProcess } from "../../core/nativeTitles";
 import type { NativeTitleInput } from "../../core/titleCoordinator";
 import { nativeModelId } from "../../../../features/sessions/model/models";
@@ -99,6 +104,10 @@ const cancelledThreads = new Set<string>();
  * Image/audio prompt blocks are not supported; the composer hides attachments.
  */
 export async function sendFxTurn(input: SendTurnInput): Promise<void> {
+  return measureGenerationTurn(input, sendFxTurnMeasured);
+}
+
+async function sendFxTurnMeasured(input: SendTurnInput): Promise<void> {
   let live: Live;
   try {
     live = await ensureLive(input);
@@ -161,6 +170,7 @@ export async function cancelFxTurn(sessionId: string): Promise<void> {
     cancelledThreads.add(sessionId);
     return;
   }
+  resetGenerationMetrics(live.onEvent);
   live.cancelled = true;
   live.muteUpdates = true;
   await live.acp
@@ -484,13 +494,14 @@ function ignoreUnsupportedControl(method: string, error: unknown): void {
 }
 
 function handleNotification(live: Live, method: string, params: unknown) {
+  const receivedAt = performance.now();
   if (method === "session/update") {
     const titleEvent = nativeAcpTitleEvent(params, live.acpSessionId);
     if (titleEvent) { live.onEvent(titleEvent); return; }
   }
   if (method !== "session/update") return;
   for (const event of live.subagents.route(params, eventsFromAcpUpdate(params))) {
-    live.onEvent(event);
+    emitAcpGenerationEvent(live.onEvent, event, params, receivedAt, live.acpSessionId);
   }
 }
 

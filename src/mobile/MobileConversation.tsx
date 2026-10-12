@@ -1,3 +1,4 @@
+import { useTranscriptHaptics } from "./useTranscriptHaptics";
 import {
   useCallback,
   useState,
@@ -18,17 +19,31 @@ export function MobileConversation({
   progress = false,
   embedded = false,
   notice,
+  hapticsActive = active,
+  hapticsScope,
+  hapticsAttention,
+  hapticsCompleted = true,
   ...transcript
 }: Omit<
   ComponentProps<typeof AgentTranscript>,
   "onJumpToBottomChange" | "onJumpToBottomReady"
 > & {
   active?: boolean;
+  hapticsActive?: boolean;
+  hapticsScope?: string;
+  hapticsAttention?: string;
+  hapticsCompleted?: boolean;
   containerRef?: Ref<HTMLDivElement>;
   progress?: boolean;
   embedded?: boolean;
   notice?: ReactNode;
 }) {
+  useTranscriptHaptics({
+    blocks: transcript.blocks, busy: !!transcript.busy,
+    active: hapticsActive && transcript.visible !== false,
+    scope: hapticsScope, history: transcript.historyEntries,
+    attention: hapticsAttention, completed: hapticsCompleted,
+  });
   const { t } = useTranslation();
   const layout = useTranscriptLayout();
   const [jump, setJump] = useState<(() => void) | undefined>();

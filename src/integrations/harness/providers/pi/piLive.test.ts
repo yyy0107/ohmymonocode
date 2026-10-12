@@ -71,6 +71,27 @@ describe("Pi live session", () => {
     );
   });
 
+  it("measures a Pi assistant message independently of turn settlement", async () => {
+    const events: HarnessEvent[] = [];
+    const turn = sendPiTurn({ sessionId: "pi-rate", cwd: "/repo", model: "pi:default", runtimeMode: "supervised", text: "Hello", onEvent: e => events.push(e) });
+    await vi.waitFor(() => expect(mocks.request).toHaveBeenCalledWith(expect.objectContaining({ type: "prompt" }), 15_000));
+    let now = 1_000;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
+    const frame = mocks.frames[0]!;
+    try {
+      frame({ type: "message_start", message: { role: "assistant" } });
+      frame({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: "Hello " } });
+      now = 3_000;
+      frame({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: "world" } });
+      frame({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "Hello world" }], usage: { output: 20 } } });
+      now = 200_000;
+      frame({ type: "agent_settled" });
+      await turn;
+      const samples = events.filter(e => e.type === "turn.metrics" && e.generationSample !== undefined);
+      expect(samples.at(-1)?.generationSample).toMatchObject({ outputTokens: 20, durationMs: 2_000, tokenSource: "provider" });
+    } finally { clock.mockRestore(); await stopPiSession("pi-rate"); }
+  });
+
   it("resumes imported files exactly and reloads their latest history between idle operations", async () => {
     const source = { provider: "pi" as const, providerSessionId: "pi_session", path: "/native/import.jsonl", revision: "1", blockIds: [], createdAt: 1, updatedAt: 2 };
     bindPiSession("pi-import", "pi_session", "/repo", undefined, source);

@@ -60,6 +60,11 @@
   inherits: false;
   initial-value: 0px;
 }
+@property --mobile-composer-safe-gap {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
 /* Composer motion publishes its target once; other resizes publish per frame.
    Only the dock's layout consumers inherit it; transcript text must not be
    restyled with each change. */
@@ -123,17 +128,23 @@
 .mobile-desktop-transcript:is(
     :has(+ .mobile-composer-dock),
     :has(+ .mobile-shared-question-dock[data-fold-state="closed"] + .mobile-composer-dock)
+  ) {
+  --mobile-composer-safe-gap: max(0px, var(--mobile-safe-bottom) - 8px);
+}
+.mobile-desktop-transcript:is(
+    :has(+ .mobile-composer-dock),
+    :has(+ .mobile-shared-question-dock[data-fold-state="closed"] + .mobile-composer-dock)
   ) > .agent-transcript {
-  --mobile-keyboard-height: inherit;
-  padding-bottom: calc(var(--mobile-dock-height, 0px) - min(max(0px, var(--mobile-safe-bottom) - 8px), var(--mobile-keyboard-height)));
-  scroll-padding-bottom: calc(var(--mobile-dock-height, 0px) - min(max(0px, var(--mobile-safe-bottom) - 8px), var(--mobile-keyboard-height)));
+  --mobile-keyboard-layout: inherit;
+  padding-bottom: calc(var(--mobile-dock-height, 0px) - min(max(0px, var(--mobile-safe-bottom) - 8px), var(--mobile-keyboard-layout)));
+  scroll-padding-bottom: calc(var(--mobile-dock-height, 0px) - min(max(0px, var(--mobile-safe-bottom) - 8px), var(--mobile-keyboard-layout)));
 }
 .mobile-desktop-transcript:is(
     :has(+ .mobile-composer-dock),
     :has(+ .mobile-shared-question-dock[data-fold-state="closed"] + .mobile-composer-dock)
   ) > .mobile-jump {
-  --mobile-keyboard-height: inherit;
-  bottom: calc(var(--mobile-dock-height, 0px) + 12px - min(max(0px, var(--mobile-safe-bottom) - 8px), var(--mobile-keyboard-height)));
+  --mobile-keyboard-layout: inherit;
+  bottom: calc(var(--mobile-dock-height, 0px) + 12px - min(max(0px, var(--mobile-safe-bottom) - 8px), var(--mobile-keyboard-layout)));
 }
 .mobile-chat > :not(.mobile-desktop-transcript, .mobile-shared-question-dock):has(+ .mobile-composer-dock) {
   margin-bottom: var(--mobile-dock-height, 0px);

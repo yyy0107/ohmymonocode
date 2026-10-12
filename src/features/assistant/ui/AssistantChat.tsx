@@ -575,10 +575,14 @@ export function AssistantChat({
       try {
         followLog.current = true;
         await client.send(text, files.map(({ previewFile: _preview, ...ref }) => ref));
+        chrome?.onSendFeedback?.(true);
         setRetry(undefined);
         setDraft("");
         setReplyText(undefined);
         setAttachments([]);
+      } catch (error) {
+        chrome?.onSendFeedback?.(false);
+        throw error;
       } finally {
         setSending(false);
         setRetry(client.pending());
@@ -707,7 +711,7 @@ export function AssistantChat({
   const ui = chrome ?? desktopAssistantChrome;
   const mobile = !!chrome;
   const replying = mobile && replyText !== undefined;
-  const { Header, SettingsPanel, Controls, Composer } = ui;
+  const { Header, SettingsPanel, Controls, Composer, Feedback } = ui;
   const settingsCovering =
     supported === true && (settingsOpen || assistant === null);
   const replyMenu = useAssistantReplyMenu(
@@ -783,6 +787,9 @@ export function AssistantChat({
   const messageProjects = useMemo(() => assistant?.policy.allowedProjects, [allowedProjectsKey]);
   return (
     <TranscriptPlatformContext.Provider value={renderingPlatform}>
+      {Feedback && <Feedback messages={messages} historyIds={client.historyMessageIds}
+        active={visible && !!assistant && !settingsCovering && !replyMenu.menu}
+        busy={assistant?.lifecycle === "running"} scope={hostKey} />}
       <section
         ref={chat}
         className="assistant-chat bg-background-base text-content"

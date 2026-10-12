@@ -1,3 +1,4 @@
+import { lightImpact } from "./haptics";
 import { MobileSettingsGlyph } from "./MobileSettingsIcon";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
@@ -105,6 +106,7 @@ function ConnectionRow({
             y,
             timer: setTimeout(() => {
               held.current = true;
+              void lightImpact();
               openMenu(element, { x, y });
             }, HOLD_DELAY),
           };

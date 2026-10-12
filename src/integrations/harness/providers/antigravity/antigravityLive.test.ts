@@ -146,6 +146,27 @@ describe.each(providers)("$id offline ACP transport", (provider) => {
     resetHarnessModelOverlays();
   });
 
+  it("samples ACP text and excludes tool execution time", async () => {
+    const turn = provider.send(input);
+    await waitPrompt();
+    let now = 1_000;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
+    const update = (value: unknown) => childListener()(JSON.stringify({ jsonrpc: "2.0", method: "session/update", params: { sessionId: "provider-session", update: value } }));
+    try {
+      update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: "abcd" } });
+      now = 2_000;
+      update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: "efgh" } });
+      update({ sessionUpdate: "tool_call", toolCallId: "t", title: "wait", status: "pending" });
+      now = 200_000;
+      update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: "你好" } });
+      now = 202_000;
+      update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: "世界" } });
+      finishPrompt();
+      await turn;
+      expect(events.filter(e => e.type === "turn.metrics").at(-1)?.generationSample).toMatchObject({ outputTokens: 4, durationMs: 2_000, tokenSource: "text-estimate" });
+    } finally { clock.mockRestore(); }
+  });
+
   it("spawns the exact endpoint, sends settings/images and routes real approvals", async () => {
     const turn = provider.send({ ...input, modelSettings: { effort: "high" }, attachments: [
       { id: "img", name: "img.png", kind: "image", mimeType: "image/png", size: 4, data: "aGV5" },

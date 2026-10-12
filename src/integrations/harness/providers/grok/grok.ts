@@ -1,3 +1,8 @@
+import {
+  resetGenerationMetrics,
+  measureGenerationTurn,
+  emitAcpGenerationEvent,
+} from "../../core/generationMetrics";
 import { nativeAcpTitleEvent, noteAcpTitleCapabilities, readAcpSessionTitle, readAcpTitleInProcess } from "../../core/nativeTitles";
 import type { NativeTitleInput } from "../../core/titleCoordinator";
 import { nativeModelId } from "../../../../features/sessions/model/models";
@@ -84,6 +89,10 @@ const cancelledThreads = new Set<string>();
  * Grok accepts ACP image blocks despite advertising image: false.
  */
 export async function sendGrokTurn(input: SendTurnInput): Promise<void> {
+  return measureGenerationTurn(input, sendGrokTurnMeasured);
+}
+
+async function sendGrokTurnMeasured(input: SendTurnInput): Promise<void> {
   let live: Live;
   try {
     live = await ensureLive(input);
@@ -174,6 +183,7 @@ export async function cancelGrokTurn(sessionId: string): Promise<void> {
     cancelledThreads.add(sessionId);
     return;
   }
+  resetGenerationMetrics(live.onEvent);
   live.cancelled = true;
   live.muteUpdates = true;
   for (const [, resolve] of live.approvals) resolve("deny");
@@ -491,6 +501,7 @@ function ignoreUnsupportedControl(method: string, error: unknown): void {
 }
 
 function handleNotification(live: Live, method: string, params: unknown) {
+  const receivedAt = performance.now();
   if (method === "session/update") {
     const outer = asRecord(params);
     const update = asRecord(outer?.update) ?? outer;
@@ -517,7 +528,7 @@ function handleNotification(live: Live, method: string, params: unknown) {
     ) {
       live.onEvent({ ...event, window: live.contextWindow });
     } else {
-      live.onEvent(event);
+      emitAcpGenerationEvent(live.onEvent, event, updateParams, receivedAt, live.acpSessionId);
     }
   }
 }

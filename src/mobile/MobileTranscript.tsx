@@ -363,6 +363,10 @@ export const MobileTranscript = memo(function MobileTranscript({
       <MobileConversation
         containerRef={findSheetHost}
         active={visible}
+        hapticsActive={visible && !disabled && !detail.active}
+        hapticsScope={`${session.id}:${runId}`}
+        hapticsAttention={session.pendingQuestion ? `question:${session.pendingQuestion.requestId}` : session.blocks.filter((block) => block.role === "approval" && block.approval && !block.approval.decided).at(-1)?.id}
+        hapticsCompleted={snapshot.status === "idle"}
         progress={!progressDock && visible && (progress.hasContent || !!git.error || (detail.active === "progress" && !!gitSource))}
         clockOffsetMs={snapshot.clockOffsetMs}
         // The drawer and overlays only cover the transcript. Treating that

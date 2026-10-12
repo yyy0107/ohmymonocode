@@ -174,14 +174,16 @@ function ApprovalToastCard({
         <div className="flex gap-2 border-t border-stroke px-3.5 py-2.5">
           <button
             type="button"
-            className="flex-1 rounded-md bg-content px-2.5 py-1 text-[11px] font-medium text-background-base hover:bg-content/80"
+            data-approval="allow"
+            className="ui-button ui-button-md ui-button-primary ui-button-pill flex-1 rounded-md bg-content px-2.5 py-1 text-[11px] font-medium text-background-base hover:bg-content/80"
             onClick={() => onApproval(session.id, requestId, "allow")}
           >
             {uiT("Allow")}
           </button>
           <button
             type="button"
-            className="flex-1 rounded-md bg-content/10 px-2.5 py-1 text-[11px] font-medium text-content/70 hover:bg-content/20"
+            data-approval="deny"
+            className="ui-button ui-button-md ui-button-pill flex-1 rounded-md bg-content/10 px-2.5 py-1 text-[11px] font-medium text-content/70 hover:bg-content/20"
             onClick={() => onApproval(session.id, requestId, "deny")}
           >
             {uiT("Deny")}

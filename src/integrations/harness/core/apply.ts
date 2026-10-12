@@ -281,6 +281,7 @@ function mergeTurnMetrics(
   const current = session.blocks[userIndex];
   const metrics = {
     ...(current.turnMetrics ?? {}),
+    ...(event.generationSample !== undefined ? { generationSample: event.generationSample } : {}),
     ...(event.inputTokens != null ? { inputTokens: event.inputTokens } : {}),
     ...(event.outputTokens != null ? { outputTokens: event.outputTokens } : {}),
     ...(event.cacheReadTokens != null

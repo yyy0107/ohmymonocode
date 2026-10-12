@@ -163,6 +163,41 @@ async function startTurn(
 }
 
 describe("codex live turn sequence", () => {
+  it("does not consume a new stream on a duplicate usage snapshot", async () => {
+    const { events, turn } = await startTurn("codex-live");
+    let now = 1_000;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
+    const chunk = (itemId: string, delta: string) => notify("item/agentMessage/delta", { threadId: "thr_1", turnId: "turn_1", itemId, delta });
+    const usage = (outputTokens: number, total: number) => notify("thread/tokenUsage/updated", { threadId: "thr_1", turnId: "turn_1", tokenUsage: { last: { outputTokens, reasoningOutputTokens: 0 }, total: { outputTokens: total } } });
+    try {
+      chunk("first", "one "); now = 2_000; chunk("first", "reply"); usage(10, 10);
+      now = 100_000; chunk("second", "another ");
+      usage(10, 10); // replayed previous-request counters
+      now = 102_000; chunk("second", "reply"); usage(20, 30);
+      notify("turn/completed", { turn: { id: "turn_1", status: "completed" } });
+      await turn;
+      expect(events.filter(e => e.type === "turn.metrics" && e.generationSample !== undefined).at(-1)?.generationSample).toMatchObject({ outputTokens: 20, durationMs: 2_000, tokenSource: "provider" });
+    } finally { clock.mockRestore(); }
+  });
+
+  it("measures streamed generation with matching last-request tokens", async () => {
+    const { events, turn } = await startTurn("codex-live");
+    let now = 1_000;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
+    try {
+      notify("item/agentMessage/delta", { threadId: "thr_1", turnId: "turn_1", itemId: "answer", delta: "Hello " });
+      now = 3_000;
+      notify("item/agentMessage/delta", { threadId: "thr_1", turnId: "turn_1", itemId: "answer", delta: "world" });
+      now = 200_000;
+      const usage = { threadId: "thr_1", turnId: "turn_1", tokenUsage: { last: { outputTokens: 76, reasoningOutputTokens: 0 } } };
+      notify("thread/tokenUsage/updated", usage);
+      notify("thread/tokenUsage/updated", usage);
+      notify("turn/completed", { turn: { id: "turn_1", status: "completed" } });
+      await turn;
+      expect(events.filter(e => e.type === "turn.metrics" && e.generationSample !== undefined).at(-1)?.generationSample).toMatchObject({ outputTokens: 76, durationMs: 2_000, tokenSource: "provider" });
+    } finally { clock.mockRestore(); }
+  });
+
   it("reads native names without another turn and forwards late name notifications", async () => {
     const { events, turn } = await startTurn("native-title");
     const reading = readCodexSessionTitle({ sessionId: "native-title", providerSessionId: "thr_1", cwd: "/repo" });

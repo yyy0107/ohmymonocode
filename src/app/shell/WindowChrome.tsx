@@ -80,7 +80,7 @@ export function IconButton({
             }
           : undefined
       }
-      className={`grid size-7 place-items-center rounded-lg transition-colors ${
+      className={`ui-icon-button grid size-7 place-items-center rounded-lg transition-colors ${
         disabled
           ? "text-foreground-subtlest opacity-60"
           : accent

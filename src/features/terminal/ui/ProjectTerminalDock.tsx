@@ -331,7 +331,7 @@ export function ProjectTerminalDock({
       />
       <div
         data-focused={focused}
-        className={`project-terminal-card pane-card ${moving ? "opacity-40" : ""}`}
+        className={`project-terminal-card pane-card ${dock.side === "right" ? "omb-slide-panel" : ""} ${moving ? "opacity-40" : ""}`}
       >
         <SurfaceTabs
           files={dock.pane.files}

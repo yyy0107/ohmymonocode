@@ -1,3 +1,4 @@
+import { sanitizeGenerationSample } from "../model/generationSample";
 import { manualSessionTitle, sanitizeTitleState } from "../model/titlePolicy";
 import { sessionMessageActivityAt } from "../model/sessionActivity";
 import { invoke } from "@tauri-apps/api/core";
@@ -1129,6 +1130,9 @@ function sanitizeTurnMetrics(value: unknown): TurnMetrics | undefined {
       : undefined;
   };
   const metrics: TurnMetrics = {
+    ...(rec.generationSample !== undefined
+      ? { generationSample: sanitizeGenerationSample(rec.generationSample) }
+      : {}),
     ...(number("inputTokens") != null
       ? { inputTokens: number("inputTokens") }
       : {}),

@@ -14,6 +14,8 @@ import { displayPath, resolveWorkspacePath } from "../shared/lib/paths";
 import { useTranslation } from "../shared/i18n/useTranslation";
 import { Check, ChevronRight, Copy, File as FileIcon, WrapText } from "../shared/ui/icons";
 import { AnimatedCollapse } from "../shared/ui/AnimatedCollapse";
+import { TranscriptContentMotion, useMessageArrivals } from "../features/sessions/ui/TranscriptContentMotion";
+import { useSurfaceVisibility } from "../shared/ui/SurfaceVisibility";
 import { MobileSheet, MobileSheetHeader } from "./MobileSheet";
 import { MobileDiffCounts } from "./MobileDiffCounts";
 import { MobileToolDiff } from "./MobileGitDiff";
@@ -114,6 +116,11 @@ export function MobileToolSheet({
   const diffId = useId();
   const { label, state, input, output, details, readOutput, path, preview } =
     useMemo(() => toolDetails(block, cwd), [block, cwd]);
+  const arrives = useMessageArrivals(
+    ["call", ...(input ? ["input"] : []), ...(output ? ["output"] : []), ...(details ? ["details"] : [])]
+      .map(id => ({ id: `${block.id}:${id}` })),
+    useSurfaceVisibility() && open,
+  );
 
   const copy = (key: string, text: string) => {
     void copyText(text).then(() => {
@@ -155,23 +162,25 @@ export function MobileToolSheet({
     text: string,
     notice?: ReactNode,
   ) => (
-    <section className="mobile-detail-section">
-      <div className="mobile-detail-section-head">
-        <h3>{t(title)}</h3>
-        <button
-          type="button"
-          className="mobile-detail-copy"
-          aria-label={t(copied === key ? "Copied" : "Copy")}
-          onClick={() => copy(key, text)}
-        >
-          {copied === key ? <Check size={15} /> : <Copy size={15} />}
-        </button>
-      </div>
-      {notice}
-      {isLongText(text)
-        ? <ReadonlyTextView text={text} stateKey={`${block.id}:${key}`} />
-        : <pre className="mobile-detail-pre">{text}</pre>}
-    </section>
+    <TranscriptContentMotion key={key} arrive={arrives(`${block.id}:${key}`)}>
+      <section className="mobile-detail-section">
+        <div className="mobile-detail-section-head">
+          <h3>{t(title)}</h3>
+          <button
+            type="button"
+            className="mobile-detail-copy"
+            aria-label={t(copied === key ? "Copied" : "Copy")}
+            onClick={() => copy(key, text)}
+          >
+            {copied === key ? <Check size={15} /> : <Copy size={15} />}
+          </button>
+        </div>
+        {notice}
+        {isLongText(text)
+          ? <ReadonlyTextView text={text} stateKey={`${block.id}:${key}`} />
+          : <pre className="mobile-detail-pre">{text}</pre>}
+      </section>
+    </TranscriptContentMotion>
   );
 
   // The sheet is titled by the tool, like "Bash" or "Read"; the call itself

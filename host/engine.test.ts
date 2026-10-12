@@ -421,6 +421,22 @@ describe("headless session ownership", () => {
     turns[0].finish();
   });
 
+  it("preserves generation samples through Host snapshots and delta sync", async () => {
+    const { engine, store, turns, id } = setup();
+    engine.command({ type: "send", commandId: "rate-turn", sessionId: id, text: "Hello" });
+    await vi.waitFor(() => expect(turns).toHaveLength(1));
+    const revision = store.session(id).revision;
+    const generationSample = { outputTokens: 4, durationMs: 1_000, tokenSource: "text-estimate" as const, estimator: "text-heuristic-v1" as const, method: "stream-estimate" as const, scope: "last-text-segment" as const };
+    turns[0].input.onEvent({ type: "turn.metrics", generationSample });
+    const delta = JSON.parse(JSON.stringify(store.sync(id, revision)));
+    expect(delta.kind).toBe("delta");
+    expect(delta.blocks.find((block: { id: string }) => block.id === "rate-turn").turnMetrics).toEqual({ generationSample });
+    turns[0].finish();
+    await vi.waitFor(() => expect(store.session(id).status).toBe("idle"));
+    const snapshot = JSON.parse(JSON.stringify(store.sync(id)));
+    expect(snapshot.value.session.blocks[0].turnMetrics).toEqual({ generationSample });
+  });
+
   it.each(["codex", "claude"] as const)("passes an uploaded image to %s on an attachment-only turn", async (harness) => {
     const { engine, store, turns, id } = setup(harness);
     const fileId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";

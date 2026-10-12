@@ -1,3 +1,4 @@
+import { MobileHapticSettings } from "./MobileHapticSettings";
 import { MobileSettingsIcon as SettingsIcon, MobileSettingsGlyph } from "./MobileSettingsIcon";
 import { useCallback, useRef, type CSSProperties, type ReactNode, type RefObject } from "react";
 import {
@@ -462,11 +463,6 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
             <SettingsIcon name="sounds" />
             <label className="mobile-settings-label">
               <span>{t("Sounds")}</span>
-              <small>
-                {t(
-                  "Play a sound when a reply finishes or a conversation needs your input while the app is open.",
-                )}
-              </small>
               <input
                 type="checkbox"
                 role="switch"
@@ -478,17 +474,11 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
               />
             </label>
           </div>
+          <MobileHapticSettings />
           <div className="mobile-settings-row mobile-settings-notifications">
             <SettingsIcon name="notifications" />
             <label className="mobile-settings-label">
               <span>{t("System notifications")}</span>
-              <small>
-                {activity.permission === "unsupported"
-                  ? t("System notifications are unavailable on this platform.")
-                  : t(
-                      "Notify when a new reply is ready or a conversation needs your input.",
-                    )}
-              </small>
               <input
                 type="checkbox"
                 role="switch"
@@ -505,14 +495,14 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
           </div>
           {(activity.enabled || activity.canOpenSettings) &&
           activity.permission === "prompt" ? (
-            <div className="mobile-settings-row">
-              <button
-                className="mobile-button"
-                onClick={() => void activity.requestPermission()}
-              >
-                {t("Allow notifications")}
-              </button>
-            </div>
+            <button
+              type="button"
+              className="mobile-settings-row mobile-settings-action"
+              onClick={() => void activity.requestPermission()}
+            >
+              <SettingsIcon name="notifications" />
+              <span className="mobile-settings-label">{t("Allow notifications")}</span>
+            </button>
           ) : (activity.enabled || activity.canOpenSettings) &&
             activity.permission === "denied" ? (
             <div className="mobile-settings-row mobile-settings-note">
@@ -532,14 +522,15 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
           {activity.enabled &&
           activity.permission === "granted" &&
           activity.canOpenSettings ? (
-            <div className="mobile-settings-row">
-              <button
-                className="mobile-button"
-                onClick={() => void activity.openSettings()}
-              >
-                {t("Notification settings…")}
-              </button>
-            </div>
+            <button
+              type="button"
+              className="mobile-settings-row"
+              onClick={() => void activity.openSettings()}
+            >
+              <SettingsIcon name="notifications" />
+              <span className="mobile-settings-label">{t("Notification settings…")}</span>
+              <ChevronRight size={18} aria-hidden="true" />
+            </button>
           ) : null}
           {activity.notificationError ? (
             <p className="mobile-form-error mobile-settings-note" role="status">

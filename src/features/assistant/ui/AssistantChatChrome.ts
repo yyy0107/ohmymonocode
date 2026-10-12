@@ -1,6 +1,6 @@
 import type { ClipboardEventHandler, ComponentType, DragEventHandler, ReactNode } from "react";
 import type { RemoteAttachment, RemoteProvider } from "../../connections/model/protocol";
-import type { AssistantLifecycle } from "../model/assistant";
+import type { AssistantLifecycle, AssistantMessage } from "../model/assistant";
 
 /** Presentation slots keep Host state and command ownership in AssistantChat. */
 export type AssistantHeaderProps = {
@@ -59,7 +59,16 @@ export type AssistantComposerProps = {
   retry: boolean;
   onRetry: () => void;
 };
+export type AssistantFeedbackProps = {
+  messages: AssistantMessage[];
+  historyIds: ReadonlySet<string>;
+  active: boolean;
+  busy: boolean;
+  scope: string;
+};
 export type AssistantChatChrome = {
+  Feedback?: ComponentType<AssistantFeedbackProps>;
+  onSendFeedback?: (success: boolean) => void;
   Header: ComponentType<AssistantHeaderProps>;
   Controls: ComponentType<AssistantControlsProps>;
   SettingsPanel: ComponentType<AssistantSettingsPanelProps>;

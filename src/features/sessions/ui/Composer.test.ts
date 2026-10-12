@@ -258,7 +258,9 @@ describe("Composer question focus", () => {
 
     it("opens the existing MCP picker from the + menu without replacing draft text", async () => {
       await renderComposer(undefined, vi.fn(), false, 0, "Keep this draft");
-      await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Add files or choose a mode"]')!.click());
+      const plus = container.querySelector<HTMLButtonElement>('[aria-label="Add files or choose a mode"]')!;
+      expect(plus.classList.contains("composer-plus")).toBe(true);
+      await act(async () => plus.click());
       const item = [...document.querySelectorAll<HTMLButtonElement>("[data-composer-plus] button")].find((button) => button.textContent === "MCP servers")!;
       await act(async () => item.click());
       expect(container.querySelector("textarea")!.value).toBe("Keep this draft");

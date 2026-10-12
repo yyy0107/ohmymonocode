@@ -1,3 +1,10 @@
+import {
+  measureGenerationTurn,
+  emitGenerationText,
+  generationRequestStarted,
+  reportGenerationUsage,
+  resetGenerationMetrics,
+} from "../../core/generationMetrics";
 import { nativeModelId } from "../../../../features/sessions/model/models";
 import { taskListFromToolInput } from "../../../../features/sessions/model/taskList";
 import { normalizeProjectPath } from "../../../../features/projects/model/recents";
@@ -238,6 +245,10 @@ export async function sendTurn(
   input: SendTurnInput,
   imageMaterializer?: PiImageMaterializer,
 ): Promise<void> {
+  return measureGenerationTurn(input, (measured) => sendMeasuredTurn(flavor, measured, imageMaterializer));
+}
+
+async function sendMeasuredTurn(flavor: PiFlavor, input: SendTurnInput, imageMaterializer?: PiImageMaterializer): Promise<void> {
   const { cancelledThreads } = stateFor(flavor);
   let live: Live;
   try {
@@ -401,6 +412,7 @@ export async function cancelTurn(
     cancelledThreads.add(sessionId);
     return;
   }
+  resetGenerationMetrics(live.onEvent);
   live.cancelled = true;
   live.muteUpdates = true;
   live.settleToken += 1;
@@ -931,6 +943,8 @@ function handleFrame(
     }
     if (type === "agent_end" && rec.isTerminal === false) return;
   }
+  if (type === "message_start") generationRequestStarted(live.onEvent);
+  if (type === "compaction_start" || type === "auto_retry_start") resetGenerationMetrics(live.onEvent);
   if (type === "compaction_start") live.compacting = true;
   if (type === "compaction_end") live.compacting = false;
   if (type === "auto_retry_start") live.retrying = true;
@@ -946,12 +960,15 @@ function handleFrame(
   if (context) live.onEvent({ type: "context", ...context });
   const metrics = turnMetricsFromUsage(rec);
   if (metrics) live.onEvent({ type: "turn.metrics", ...metrics });
+  if (type === "message_end" && metrics) {
+    reportGenerationUsage(live.onEvent, { outputTokens: metrics.outputTokens });
+  }
 
   const delta = assistantDeltaFromEvent(rec);
   if (delta) {
     if (delta.kind === "text") {
       live.emittedAssistant += delta.text;
-      live.onEvent({ type: "message.delta", text: delta.text });
+      emitGenerationText(live.onEvent, delta.text);
     } else {
       live.emittedReasoning += delta.text;
       live.onEvent({ type: "reasoning.delta", text: delta.text });

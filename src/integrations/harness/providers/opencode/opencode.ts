@@ -1,3 +1,10 @@
+import {
+  generationRequestStarted,
+  resetGenerationMetrics,
+  measureGenerationTurn,
+  emitGenerationText,
+  reportGenerationUsage,
+} from "../../core/generationMetrics";
 import type { NativeTitleInput } from "../../core/titleCoordinator";
 import { modelContextWindow, nativeModelId } from "../../../../features/sessions/model/models";
 import type { RuntimeMode, TurnMetrics } from "../../../../features/sessions/model/session";
@@ -132,6 +139,10 @@ export function setOpenCodeBinaryResolver(
 }
 
 export async function sendOpenCodeTurn(input: SendTurnInput): Promise<void> {
+  return measureGenerationTurn(input, sendOpenCodeTurnMeasured);
+}
+
+async function sendOpenCodeTurnMeasured(input: SendTurnInput): Promise<void> {
   let live: Live;
   try {
     live = await ensureLive(input);
@@ -301,6 +312,7 @@ export async function cancelOpenCodeTurn(sessionId: string): Promise<void> {
     cancelledThreads.add(sessionId);
     return;
   }
+  resetGenerationMetrics(live.onEvent);
   live.cancelled = true;
   live.muteUpdates = true;
   for (const [, pending] of live.approvals) pending.resolve("deny");
@@ -639,6 +651,7 @@ async function handleEvent(
   live: Live,
   event: Record<string, unknown>,
 ): Promise<void> {
+  const receivedAt = performance.now();
   const type = typeof event.type === "string" ? event.type : "";
   const properties = asRecord(event.properties) ?? {};
   // Session lifecycle events establish ancestry, including nested subagents.
@@ -680,13 +693,27 @@ async function handleEvent(
       const role = stringField(info, "role");
       const agent = stringField(info, "agent");
       const hidden = agent != null && KNOWN_HIDDEN_AGENTS.has(agent);
+      if (id && role === "assistant" && !hidden && !live.messageRoleById.has(id)) {
+        generationRequestStarted(live.onEvent);
+      }
       if (id && (role === "user" || role === "assistant")) {
         live.messageRoleById.set(id, hidden ? "hidden" : role);
       }
       // A compaction assistant's usage describes the summarization call, not
       // the rebuilt context. Keep the previous meter value until a real turn
       // reports the post-compaction window level.
-      if (role === "assistant" && !hidden) emitContext(live, info);
+      if (role === "assistant" && !hidden) {
+        emitContext(live, info);
+        if (asRecord(info?.time)?.completed != null) {
+          const tokens = asRecord(info?.tokens);
+          reportGenerationUsage(live.onEvent, {
+            key: id,
+            outputTokens: typeof tokens?.output === "number" && typeof tokens?.reasoning === "number"
+              ? tokens.output + tokens.reasoning : undefined,
+            reasoningTokens: typeof tokens?.reasoning === "number" ? tokens.reasoning : undefined,
+          });
+        }
+      }
       break;
     }
     case "message.removed": {
@@ -711,7 +738,9 @@ async function handleEvent(
         live.partById.set(partID, { ...existing, text: nextText });
       }
       const mapped = textDeltaEvent(existing, deltaToEmit);
-      if (mapped) live.onEvent(mapped);
+      if (mapped?.type === "message.delta") {
+        emitGenerationText(live.onEvent, mapped.text, existing.messageID, receivedAt);
+      } else if (mapped) live.onEvent(mapped);
       break;
     }
     case "message.part.updated": {
@@ -719,7 +748,7 @@ async function handleEvent(
       if (!part) break;
       live.partById.set(part.id, part);
       if (roleForPart(live, part) === "assistant") {
-        emitAssistantText(live, part);
+        emitAssistantText(live, part, receivedAt);
       }
       if (part.type === "tool") emitTool(live, part);
       break;
@@ -928,7 +957,7 @@ function emitContext(live: Live, info: Record<string, unknown> | null): void {
   live.onEvent({ type: "context", used, ...(window ? { window } : {}) });
 }
 
-function emitAssistantText(live: Live, part: OpenCodePart): void {
+function emitAssistantText(live: Live, part: OpenCodePart, receivedAt?: number): void {
   const text = part.text;
   if (text === undefined) return;
   const previous = live.emittedTextByPartId.get(part.id);
@@ -938,7 +967,11 @@ function emitAssistantText(live: Live, part: OpenCodePart): void {
   );
   live.emittedTextByPartId.set(part.id, latestText);
   const mapped = textDeltaEvent(part, deltaToEmit);
-  if (mapped) live.onEvent(mapped);
+  // Growing live snapshots are the SSE stream on older OpenCode versions.
+  // A completed part or a history fetch is not a new streaming observation.
+  if (mapped?.type === "message.delta" && receivedAt != null && part.time?.end == null) {
+    emitGenerationText(live.onEvent, mapped.text, part.messageID, receivedAt);
+  } else if (mapped) live.onEvent(mapped);
 }
 
 function emitTool(live: Live, part: OpenCodePart): void {

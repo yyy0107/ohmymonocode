@@ -143,6 +143,22 @@ afterEach(async () => {
 });
 
 describe("cursor background subagents", () => {
+  it("estimates tokens from ACP text without treating context usage as output", async () => {
+    const { events, promptId, turn } = await startTurn("cursor-live");
+    let now = 1_000;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
+    const update = (value: unknown) => notify("session/update", { sessionId: "cursor_1", update: value });
+    try {
+      update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: "你好" } });
+      now = 3_000;
+      update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: "世界" } });
+      update({ sessionUpdate: "usage_update", used: 100_000, size: 200_000 });
+      reply(promptId, { stopReason: "end_turn" });
+      await turn;
+      expect(events.filter(e => e.type === "turn.metrics").at(-1)?.generationSample).toMatchObject({ outputTokens: 4, durationMs: 2_000, tokenSource: "text-estimate" });
+    } finally { clock.mockRestore(); }
+  });
+
   it("forwards ACP context usage without mixing child or malformed readings", async () => {
     const { events, promptId, turn } = await startTurn("cursor-live");
     const usage = (update: Record<string, unknown>) => notify("session/update", {

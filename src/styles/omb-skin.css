@@ -1,0 +1,889 @@
+/* OpenMausBot desktop skins.
+   Mapping onto MonoCode:
+   - `--color-app` is the thread (window / background).
+   - `--color-panel` is the sidebar and window chrome.
+   - `--color-raised` is the selected or hovered session row.
+   - `--color-card` is a bot message.
+   - `--color-bubble-user` is your message.
+   - `--color-composer` is the input shell.
+   - `--color-accent` is primary buttons, the send control and unread dots.
+   A skin block wins over the tint tokens because `[data-skin]` is more
+   specific than `:root`. Classic leaves `data-skin` unset, so none of the
+   bridge below applies. Radii stay out of `@theme` so `rounded-*` keeps
+   Tailwind's defaults until a skin is active. */
+
+@theme {
+  --animate-panel-in: panel-in 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-workspace-in: workspace-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-pop-in: pop-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-pop-out: pop-out 0.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  --animate-caret: caret-blink 1s step-end infinite;
+  --animate-msg-in: msg-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-status-pulse: status-pulse 1.6s steps(2, jump-none) infinite;
+  --animate-rise: rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-spot-in: spot-in 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-ripple: ripple 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-bolt: bolt 0.9s cubic-bezier(0.77, 0, 0.175, 1) infinite;
+}
+
+@keyframes panel-in {
+  from { transform: translateX(28px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes workspace-in {
+  from { opacity: 0.92; }
+  to { opacity: 1; }
+}
+@keyframes pop-in {
+  from { transform: scale(0.96) translateY(6px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes pop-out {
+  from { transform: none; opacity: 1; }
+  to { transform: scale(0.96) translateY(6px); opacity: 0; }
+}
+@keyframes caret-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+@keyframes msg-in {
+  from { transform: translateY(4px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes shimmer {
+  from { background-position: 200% 50%; }
+  to { background-position: -200% 50%; }
+}
+@keyframes status-pulse {
+  0%, 100% { opacity: 0.25; }
+  30% { opacity: 1; }
+  60% { opacity: 0.25; }
+}
+@keyframes rise {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes spot-in {
+  from { transform: scale(0.94); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes ripple {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 55%, transparent); }
+  to { box-shadow: 0 0 0 14px color-mix(in srgb, var(--color-accent) 0%, transparent); }
+}
+@keyframes bolt {
+  0% { transform: translateX(-4px) scale(0.9); opacity: 0.2; }
+  40% { transform: translateX(6px) scale(1.05); opacity: 1; }
+  100% { transform: translateX(22px) scale(0.85); opacity: 0; }
+}
+
+[data-skin="midnight"] {
+  --color-app: #070707;
+  --color-panel: #111111;
+  --color-raised: #2f2f2f;
+  --color-raised-hover: #3d3d3d;
+  --color-composer: #2f2f2f;
+  --color-composer-ring: transparent;
+  --color-card: #262626;
+  --color-menu: #262626;
+  --color-inset: #191919;
+  --color-control: #2f2f2f;
+  --color-hairline: #333333;
+  --color-ink: #fcfcfc;
+  --color-ink-secondary: #fcfcfc99;
+  --color-ink-tertiary: #fcfcfc90;
+  --color-accent: #1084fe;
+  --color-accent-border: #459ffe;
+  --color-accent-text: #7fc0ff;
+  --color-focus: #459ffe;
+  --color-accent-ink: #ffffff;
+  --color-bubble-user: #5a5a5a;
+  --color-bubble-user-ink: #fcfcfc;
+  --color-success: #38d591;
+  --color-danger: #ff5667;
+  --color-danger-ink: #ffffff;
+  --color-success-ink: #072114;
+  --color-warning: #ff9800;
+  --color-scrollbar: #3d3d3d;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+}
+
+[data-skin="atelier"] {
+  --color-app: #f5f1eb;
+  --color-panel: #fbf8f2;
+  --color-raised: #ffffff;
+  --color-raised-hover: #f2e9dc;
+  --color-composer: #ffffff;
+  --color-composer-ring: transparent;
+  --color-card: #ffffff;
+  --color-menu: #ffffff;
+  --color-inset: #f5f1eb;
+  --color-control: #ece4d6;
+  --color-hairline: #c8bda8;
+  --color-ink: #1a1a18;
+  --color-ink-secondary: #6b6559;
+  --color-ink-tertiary: #6d685c;
+  --color-accent: #a05f25;
+  --color-accent-border: #b06a2c;
+  --color-accent-text: #96551f;
+  --color-focus: #96551f;
+  --color-accent-ink: #ffffff;
+  --color-bubble-user: #f2e9dc;
+  --color-bubble-user-ink: #1a1a18;
+  --color-success: #3f6b47;
+  --color-danger: #a33a32;
+  --color-danger-ink: #ffffff;
+  --color-success-ink: #ffffff;
+  --color-warning: #7a5f31;
+  --color-scrollbar: #c9c0ae;
+  --radius-lg: 6px;
+  --radius-xl: 10px;
+}
+
+[data-skin="foundry"] {
+  --color-app: #100e0b;
+  --color-panel: #171410;
+  --color-raised: #262019;
+  --color-raised-hover: #322b21;
+  --color-composer: #262019;
+  --color-composer-ring: transparent;
+  --color-card: #1e1a14;
+  --color-menu: #1e1a14;
+  --color-inset: #0b0a08;
+  --color-control: #262019;
+  --color-hairline: #3d3529;
+  --color-ink: #f4efe4;
+  --color-ink-secondary: #b0a696;
+  --color-ink-tertiary: #9c9384;
+  --color-accent: #d99a3e;
+  --color-accent-border: #e8b25e;
+  --color-accent-text: #e0a44c;
+  --color-focus: #e0a44c;
+  --color-accent-ink: #1c150c;
+  --color-bubble-user: #2a2318;
+  --color-bubble-user-ink: #f4efe4;
+  --color-success: #57b078;
+  --color-danger: #e0685e;
+  --color-danger-ink: #1c0d0b;
+  --color-success-ink: #1c150c;
+  --color-warning: #dfa441;
+  --color-scrollbar: #3d3529;
+  --radius-lg: 4px;
+  --radius-xl: 8px;
+}
+
+[data-skin="lagoon"] {
+  --color-app: #dfeceb;
+  --color-panel: #ecf4f3;
+  --color-raised: #ffffff;
+  --color-raised-hover: #cfe4e1;
+  --color-composer: #ffffff;
+  --color-composer-ring: transparent;
+  --color-card: #ffffff;
+  --color-menu: #ffffff;
+  --color-inset: #d5e8e5;
+  --color-control: #c3dcd9;
+  --color-hairline: #aebfbd;
+  --color-ink: #14201f;
+  --color-ink-secondary: #4d5c5b;
+  --color-ink-tertiary: #566564;
+  --color-accent: #11736d;
+  --color-accent-border: #14807a;
+  --color-accent-text: #0d5f5a;
+  --color-focus: #0d5f5a;
+  --color-accent-ink: #ffffff;
+  --color-bubble-user: #cfe4e1;
+  --color-bubble-user-ink: #14201f;
+  --color-success: #2f6b4f;
+  --color-danger: #a8382f;
+  --color-danger-ink: #ffffff;
+  --color-success-ink: #ffffff;
+  --color-warning: #7a5a2a;
+  --color-scrollbar: #a6b8b6;
+  --radius-lg: 8px;
+  --radius-xl: 14px;
+}
+
+[data-skin="graphite"] {
+  --color-app: #111214;
+  --color-panel: #181a1d;
+  --color-raised: #2a2d32;
+  --color-raised-hover: #353941;
+  --color-composer: #2a2d32;
+  --color-composer-ring: transparent;
+  --color-card: #22252a;
+  --color-menu: #22252a;
+  --color-inset: #0d0e10;
+  --color-control: #2a2d32;
+  --color-hairline: #3b4048;
+  --color-ink: #f2f4f7;
+  --color-ink-secondary: #b3b8c2;
+  --color-ink-tertiary: #9fa4ad;
+  --color-accent: #4f75a2;
+  --color-accent-border: #698fbb;
+  --color-accent-text: #8fb4df;
+  --color-focus: #8fb4df;
+  --color-accent-ink: #ffffff;
+  --color-bubble-user: #30343a;
+  --color-bubble-user-ink: #f2f4f7;
+  --color-success: #63b58a;
+  --color-danger: #dd6b73;
+  --color-danger-ink: #1e0b0e;
+  --color-success-ink: #101a14;
+  --color-warning: #d3a150;
+  --color-scrollbar: #464b54;
+  --radius-lg: 6px;
+  --radius-xl: 10px;
+}
+
+[data-skin="linen"] {
+  --color-app: #eceff3;
+  --color-panel: #f5f6f8;
+  --color-raised: #ffffff;
+  --color-raised-hover: #e1e6ed;
+  --color-composer: #ffffff;
+  --color-composer-ring: transparent;
+  --color-card: #ffffff;
+  --color-menu: #ffffff;
+  --color-inset: #e6e9ee;
+  --color-control: #d3d9e1;
+  --color-hairline: #b4bbc5;
+  --color-ink: #1d2229;
+  --color-ink-secondary: #59616c;
+  --color-ink-tertiary: #5f6671;
+  --color-accent: #355f8a;
+  --color-accent-border: #4978a6;
+  --color-accent-text: #2c5680;
+  --color-focus: #2c5680;
+  --color-accent-ink: #ffffff;
+  --color-bubble-user: #e1e6ed;
+  --color-bubble-user-ink: #1d2229;
+  --color-success: #2f704f;
+  --color-danger: #a83d48;
+  --color-danger-ink: #ffffff;
+  --color-success-ink: #ffffff;
+  --color-warning: #765b2b;
+  --color-scrollbar: #aeb6c0;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+}
+
+[data-skin="dusk"] {
+  --color-app: #121014;
+  --color-panel: #19161c;
+  --color-raised: #2b2630;
+  --color-raised-hover: #37303d;
+  --color-composer: #2b2630;
+  --color-composer-ring: transparent;
+  --color-card: #231f27;
+  --color-menu: #231f27;
+  --color-inset: #0d0b0f;
+  --color-control: #2b2630;
+  --color-hairline: #403847;
+  --color-ink: #f4eff6;
+  --color-ink-secondary: #b9afbd;
+  --color-ink-tertiary: #a199a5;
+  --color-accent: #765683;
+  --color-accent-border: #9670a3;
+  --color-accent-text: #c49bd2;
+  --color-focus: #c49bd2;
+  --color-accent-ink: #ffffff;
+  --color-bubble-user: #332b38;
+  --color-bubble-user-ink: #f4eff6;
+  --color-success: #6fad83;
+  --color-danger: #db727a;
+  --color-danger-ink: #210c10;
+  --color-success-ink: #101812;
+  --color-warning: #d0a35d;
+  --color-scrollbar: #4a414f;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+}
+
+[data-skin="daylight"] {
+  --color-app: #fcfcfc;
+  --color-panel: #f7f7f7;
+  --color-raised: #e1e1e1;
+  --color-raised-hover: #d7d7d7;
+  --color-composer: #fcfcfc;
+  --color-composer-ring: #e4e4e4;
+  --color-card: #eeeeee;
+  --color-menu: #fcfcfc;
+  --color-inset: #e6e6e6;
+  --color-control: #dedede;
+  --color-hairline: #d0d0d0;
+  --color-ink: #0d0d0d;
+  --color-ink-secondary: #575757;
+  --color-ink-tertiary: #5c5c5c;
+  --color-accent: #0b62c4;
+  --color-accent-border: #1084fe;
+  --color-accent-text: #0b5cb8;
+  --color-focus: #0b62c4;
+  --color-accent-ink: #ffffff;
+  --color-bubble-user: #070707;
+  --color-bubble-user-ink: #fcfcfc;
+  --color-success: #1f7a4d;
+  --color-danger: #c02b3a;
+  --color-danger-ink: #ffffff;
+  --color-success-ink: #ffffff;
+  --color-warning: #8a5a00;
+  --color-scrollbar: #c4c4c4;
+  --radius-lg: 8px;
+  --radius-xl: 14px;
+}
+
+[data-skin="meadow"] {
+  --color-app: #ffffff;
+  --color-panel: #f6f8f6;
+  --color-raised: #e9eeea;
+  --color-raised-hover: #d6efdf;
+  --color-composer: #ffffff;
+  --color-composer-ring: #e3e9e4;
+  --color-card: #f1f5f2;
+  --color-menu: #ffffff;
+  --color-inset: #e7ece8;
+  --color-control: #dce3de;
+  --color-hairline: #c9d3cc;
+  --color-ink: #0f1a13;
+  --color-ink-secondary: #4d5a52;
+  --color-ink-tertiary: #4f5c54;
+  --color-accent: #1a7a48;
+  --color-accent-border: #1f8a52;
+  --color-accent-text: #176b3f;
+  --color-focus: #1a7a48;
+  --color-accent-ink: #ffffff;
+  --color-bubble-user: #0f1a13;
+  --color-bubble-user-ink: #ffffff;
+  --color-success: #1a7a48;
+  --color-danger: #c02b3a;
+  --color-danger-ink: #ffffff;
+  --color-success-ink: #ffffff;
+  --color-warning: #8a5a00;
+  --color-scrollbar: #c3cdc6;
+  --radius-lg: 10px;
+  --radius-xl: 16px;
+}
+
+/* Repaint the existing surface ladder from the skin. Do not reassign
+   `--color-panel` / `--color-card` / `--color-accent` here: the skin block
+   already set those to concrete colours, and this rule is the same
+   specificity. */
+html[data-skin] {
+  --color-background-base: var(--color-app);
+  --color-background: var(--color-app);
+  --window-color: var(--color-app);
+  --panel-color: var(--color-panel);
+  --card-color: var(--color-card);
+  --menu-hover-color: var(--color-raised-hover);
+  --accent-color: var(--color-accent);
+  --link-color: var(--color-accent-text);
+  --brand-color: var(--color-accent);
+  --brand-foreground: var(--color-accent-ink);
+  --color-content: var(--color-ink);
+  --color-foreground: var(--color-ink);
+  --color-foreground-subtle: var(--color-ink-secondary);
+  --color-foreground-subtlest: var(--color-ink-tertiary);
+  --color-stroke: var(--color-hairline);
+  --color-border: var(--color-hairline);
+  --color-border-hover: var(--color-raised-hover);
+  --color-destructive: var(--color-danger);
+  --color-selection: var(--color-raised);
+  --color-selection-subtle: color-mix(in srgb, var(--color-raised) 72%, transparent);
+  --color-selection-strong: var(--color-raised);
+  --color-selection-hover: var(--color-raised-hover);
+  --color-selection-emphasis: var(--color-raised-hover);
+  --color-surface: color-mix(in srgb, var(--color-raised) 45%, transparent);
+  --color-surface-hover: var(--color-raised-hover);
+  --composer-input: var(--color-composer);
+  --composer-surface: var(--color-panel);
+  --composer-border: var(--color-composer-ring);
+  --composer-border-hover: var(--color-hairline);
+  --composer-hover: var(--color-raised-hover);
+  --composer-placeholder: var(--color-ink-tertiary);
+  --composer-muted: var(--color-ink-secondary);
+}
+
+html[data-skin] .sidebar-glass,
+html[data-skin] .shell-chrome {
+  background: var(--color-panel);
+}
+
+html[data-skin].has-native-glass:not(.theme-light) .sidebar-glass {
+  background: color-mix(
+    in srgb,
+    var(--color-panel) calc(var(--sidebar-opacity) * var(--window-opacity) * 100%),
+    transparent
+  );
+}
+
+/* OpenMausBot control scale. Unlayered so a skin wins over Tailwind size and
+   color utilities on the same node. Classic and the phone shell never set
+   data-skin, so their controls stay as written. */
+html[data-skin] .ui-button,
+html[data-skin] .ui-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2rem;
+  min-height: 2rem;
+  border-radius: var(--radius-lg, 0.5rem);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25rem;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+html[data-skin] .ui-button {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--color-hairline, var(--color-stroke));
+  background: var(--color-control, var(--color-card));
+  color: var(--color-ink, var(--color-content));
+}
+html[data-skin] .ui-icon-button {
+  width: 2rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+html[data-skin] .ui-button-md {
+  height: 1.75rem;
+  min-height: 1.75rem;
+  gap: 0.375rem;
+  padding: 0.125rem 0.625rem;
+  font-size: 13px;
+  line-height: 1.25rem;
+}
+html[data-skin] .ui-button-sm {
+  height: 1.5rem;
+  min-height: 1.5rem;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 12px;
+  line-height: 1rem;
+}
+html[data-skin] .ui-button-primary {
+  border-color: transparent;
+  background: var(--color-accent);
+  color: var(--color-accent-ink, #fff);
+}
+html[data-skin] .ui-button-danger {
+  border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-hairline));
+  background: transparent;
+  color: var(--color-danger);
+}
+html[data-skin] .ui-button-pill {
+  border-radius: 9999px;
+}
+html[data-skin] .ui-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.75rem;
+  padding: 0.125rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--color-hairline, var(--color-stroke)) 40%, transparent);
+  border-radius: 9999px;
+  background: var(--color-panel);
+  color: var(--color-ink-secondary, var(--color-foreground-subtle));
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+html[data-skin] .ui-button:enabled:hover:not(.ui-button-primary):not(.ui-button-danger),
+html[data-skin] button.ui-pill:enabled:hover {
+  background: var(--color-raised-hover, var(--color-surface-hover));
+  color: var(--color-ink, var(--color-content));
+}
+html[data-skin] .ui-icon-button:enabled:hover {
+  background: var(--color-raised-hover, var(--color-surface-hover));
+}
+html[data-skin] .ui-button.ui-button-danger:enabled:hover {
+  border-color: color-mix(in srgb, var(--color-danger) 55%, var(--color-hairline));
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+}
+html[data-skin]:not(.has-user-accent) .ui-button-primary:enabled:hover,
+html[data-skin]:not(.has-user-accent) a.ui-button-primary:hover {
+  background: var(--color-accent);
+  color: var(--color-accent-ink, #fff);
+  filter: brightness(1.08);
+}
+html[data-skin] .ui-button:disabled,
+html[data-skin] .ui-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+@layer components {
+  .table-action {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
+    border-radius: 6px;
+  }
+}
+
+@media (pointer: coarse) {
+  .table-action {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+}
+
+/* Hidden until a skin is on, so Classic keeps the original row. */
+.omb-bot-avatar {
+  display: none;
+}
+
+html[data-skin] [data-session-card].omb-session {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: center;
+  padding: 8px 10px;
+  border-color: transparent;
+  border-radius: var(--radius-lg, 0.5rem);
+  background: transparent;
+}
+
+html[data-skin] [data-session-card].omb-session[data-density="compact"] {
+  grid-template-columns: 36px minmax(0, 1fr);
+  padding: 6px 8px;
+}
+
+html[data-skin] [data-session-card].omb-session > :not(.omb-bot-avatar) {
+  grid-column: 2;
+  min-width: 0;
+}
+
+html[data-skin] [data-session-card].omb-session > .omb-bot-avatar {
+  display: grid;
+  grid-column: 1;
+  grid-row: 1 / -1;
+  align-self: center;
+  position: relative;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-raised);
+  color: var(--color-ink);
+}
+
+html[data-skin] [data-session-card].omb-session[data-density="compact"] > .omb-bot-avatar {
+  width: 36px;
+  height: 36px;
+}
+
+html[data-skin] .omb-bot-avatar::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--color-ink-tertiary);
+  box-shadow: 0 0 0 2px var(--color-panel);
+}
+
+html[data-skin] .omb-bot-avatar[data-presence="live"]::after {
+  background: var(--color-success);
+  animation: status-pulse 1.6s steps(2, jump-none) infinite;
+}
+
+html[data-skin] .omb-bot-avatar[data-presence="away"]::after {
+  background: var(--color-warning);
+}
+
+html[data-skin] .omb-session [data-session-harness-mark] {
+  display: none;
+}
+
+html[data-skin] .omb-session .font-semibold {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+html[data-skin] .omb-session [data-session-preview] {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-ink-secondary);
+}
+
+html[data-skin] .omb-session:hover {
+  background: color-mix(in srgb, var(--color-raised) 65%, transparent);
+}
+
+html[data-skin] .omb-session[data-session-active="true"],
+html[data-skin] .omb-session[data-session-selected="true"] {
+  background: var(--color-raised);
+}
+
+html[data-skin] .omb-session[data-session-waiting="true"] {
+  box-shadow: inset 0 0 0 1px var(--color-warning);
+}
+
+html[data-skin] .omb-session .bg-sky-500 {
+  width: 8px;
+  height: 8px;
+  background-color: var(--color-accent);
+}
+
+html[data-skin] [data-sidebar-search] {
+  height: auto;
+  padding: 8px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+html[data-skin] [data-sidebar-search] > div:first-child {
+  height: 36px;
+  border-radius: var(--radius-lg, 8px);
+  background: var(--color-inset);
+}
+
+html[data-skin] [data-sidebar-search] input {
+  font-size: 13px;
+}
+
+html[data-skin] [data-composer-layout="desktop"] .composer-surface-with-workspace {
+  border-radius: 26px;
+  background: var(--color-panel);
+  box-shadow: none;
+}
+
+html[data-skin] [data-composer-layout="desktop"] .composer-input-shell {
+  background: var(--color-composer);
+  border-color: var(--color-composer-ring);
+  border-radius: 22px;
+}
+
+html[data-skin] [data-composer-layout="desktop"] :is(.composer-field, .composer-highlight) {
+  min-height: 44px;
+  font-size: 15px;
+  line-height: 24px;
+}
+
+html[data-skin] [data-composer-layout="desktop"] .composer-footer :is(.composer-send, .composer-stop) {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+}
+
+html[data-skin] [data-composer-layout="desktop"] .composer-footer .composer-plus {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-ink);
+}
+
+html[data-skin] [data-composer-layout="desktop"] .composer-footer .composer-plus:is(:hover, [aria-expanded="true"]) {
+  background: var(--color-raised-hover);
+  color: var(--color-ink);
+}
+
+html[data-skin]:not(.has-user-accent) .primary-action:not(:disabled):hover {
+  background: var(--color-accent);
+  filter: brightness(1.08);
+}
+
+/* Text primary actions take the 32px button. Round send and stop stay on
+   the composer metrics. User accent still paints `.primary-action`. */
+html[data-skin] .primary-action:not(.composer-send):not(.composer-stop) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  height: 2rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-lg, 0.5rem);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+html[data-skin]:not(.has-user-accent) .primary-action:not(.composer-send):not(.composer-stop):not(:disabled) {
+  border-color: transparent;
+  background: var(--color-accent);
+  color: var(--color-accent-ink, #fff);
+}
+
+html[data-skin] :where(.user-message-row:not(.mobile-desktop-transcript *)) .user-message-bubble {
+  border-radius: 16px 16px 4px 16px;
+}
+
+html[data-skin]:not(.has-user-accent) :where(.user-message-row:not(.mobile-desktop-transcript *)) .user-message-bubble:not([data-draft="true"]) {
+  background: var(--color-bubble-user);
+  color: var(--color-bubble-user-ink);
+  border-color: transparent;
+}
+
+html[data-skin] .omb-bot-message {
+  width: fit-content;
+  max-width: min(80%, 46rem);
+  border-radius: var(--radius-xl, 0.75rem);
+  background: var(--color-card);
+  color: var(--color-ink);
+}
+
+html[data-skin] [data-question-card] {
+  background: var(--color-card);
+  border-color: var(--color-hairline);
+  border-radius: var(--radius-xl, 0.75rem);
+  color: var(--color-ink);
+}
+
+html[data-skin] [data-question-card] :is(input, textarea) {
+  border-color: var(--color-hairline);
+  border-radius: var(--radius-lg, 0.5rem);
+  background: var(--color-inset);
+  color: var(--color-ink);
+  font-size: 13px;
+}
+
+html[data-skin] [data-question-option][aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-card));
+}
+
+html[data-skin] [data-question-option][aria-pressed="true"] [data-question-mark] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+
+/* Pending approval: the tool line is the explanation, the pills sit under it.
+   :has() keeps the summary in the card without a second wrapper per call site. */
+html[data-skin] [data-tool-renderer]:has([data-approval-controls]),
+html[data-skin] [data-monocode-tool-call]:has([data-approval-controls]),
+html[data-skin] [data-approval-host]:has([data-approval-controls]) {
+  margin-block: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-xl, 0.75rem);
+  background: var(--color-card);
+  color: var(--color-ink);
+}
+
+html[data-skin] [data-approval-controls] {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+html[data-skin] :is([data-question-submit], [data-approval="allow"]),
+html[data-skin] :is([data-question-secondary], [data-approval="deny"]) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+html[data-skin] :is([data-question-submit], [data-approval="allow"]) {
+  border: 0;
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+
+html[data-skin] :is([data-question-secondary], [data-approval="deny"]) {
+  border: 1px solid var(--color-hairline);
+  background: var(--color-control);
+  color: var(--color-ink);
+}
+
+html[data-skin] :is([data-question-submit], [data-approval="allow"]):disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* Floating approval notice uses the same card and 28px pills. Allow stays
+   first in the markup so Classic keeps its split buttons; a skin trails
+   the accent pill. */
+html[data-skin] .approval-toast {
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-xl, 0.75rem);
+  background: var(--color-card);
+  color: var(--color-ink);
+  box-shadow: 0 12px 32px color-mix(in srgb, black 28%, transparent);
+  backdrop-filter: none;
+}
+
+html[data-skin] .approval-toast > div:has([data-approval]) {
+  justify-content: flex-end;
+  border-top-color: var(--color-hairline);
+}
+
+html[data-skin] .approval-toast :is([data-approval="allow"], [data-approval="deny"]) {
+  flex: none;
+}
+
+html[data-skin] .approval-toast [data-approval="deny"] {
+  order: 1;
+}
+
+html[data-skin] .approval-toast [data-approval="allow"] {
+  order: 2;
+}
+
+/* Right-hand sheet. Settings, search and assistant share the app dialog and
+   dock to the right edge. A right-side terminal only picks up the chrome;
+   its size stays on the dock grid. Classic never sets data-skin. */
+html[data-skin] .omb-slide-panel {
+  background: var(--color-panel);
+  color: var(--color-ink);
+  border-left: 1px solid var(--color-hairline);
+  animation: panel-in 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html[data-skin] .app-view-dialog.omb-slide-panel {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: auto;
+  width: min(960px, calc(100% - 48px));
+  height: 100%;
+  translate: none;
+  transform: none;
+  border: 0;
+  border-left: 1px solid var(--color-hairline);
+  border-radius: var(--radius-xl, 0.75rem) 0 0 var(--radius-xl, 0.75rem);
+  background: var(--color-panel);
+  color: var(--color-ink);
+  box-shadow: -24px 0 48px color-mix(in srgb, black 32%, transparent);
+}
+
+html[data-skin] .app-view-dialog.omb-slide-panel > .popover-backdrop {
+  display: none;
+}
+
+html[data-skin] .app-view-dialog.omb-slide-panel .modal-panel {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-skin] .omb-bot-avatar[data-presence="live"]::after,
+  html[data-skin] .omb-slide-panel {
+    animation: none;
+  }
+  html[data-skin] :is(.ui-button, .ui-icon-button, .ui-pill) {
+    transition: none;
+  }
+}

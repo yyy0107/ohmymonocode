@@ -138,6 +138,23 @@ async function started(turnInput = input()) {
 }
 
 describe("Pi-family edit recovery", () => {
+  it("measures OMP using the shared Pi-family sampler", async () => {
+    const { turn } = await started();
+    let now = 1_000;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
+    try {
+      frame("omp-test", { type: "message_start", message: { role: "assistant" } });
+      frame("omp-test", { type: "message_update", assistantMessageEvent: { type: "text_delta", delta: "你好" } });
+      now = 3_000;
+      frame("omp-test", { type: "message_update", assistantMessageEvent: { type: "text_delta", delta: "世界" } });
+      frame("omp-test", { type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "你好世界" }], usage: { output: 10 } } });
+      frame("omp-test", { type: "agent_end", willRetry: false });
+      await turn;
+      const samples = events.filter(e => e.type === "turn.metrics" && e.generationSample !== undefined);
+      expect(samples.at(-1)?.generationSample).toMatchObject({ outputTokens: 10, durationMs: 2_000, tokenSource: "provider" });
+    } finally { clock.mockRestore(); }
+  });
+
   it("reads fork cancellation from the RPC data payload", async () => {
     const running = await started();
     frame("omp-test", {

@@ -1,3 +1,8 @@
+import {
+  resetGenerationMetrics,
+  measureGenerationTurn,
+  emitAcpGenerationEvent,
+} from "../../core/generationMetrics";
 import { nativeAcpTitleEvent, noteAcpTitleCapabilities, readAcpSessionTitle, readAcpTitleInProcess } from "../../core/nativeTitles";
 import type { NativeTitleInput } from "../../core/titleCoordinator";
 import { nativeModelId } from "../../../../features/sessions/model/models";
@@ -75,6 +80,10 @@ const cancelledThreads = new Set<string>();
 
 /** Live Hermes Agent adapter. Spawns `hermes acp` over standard ACP. */
 export async function sendHermesTurn(input: SendTurnInput): Promise<void> {
+  return measureGenerationTurn(input, sendHermesTurnMeasured);
+}
+
+async function sendHermesTurnMeasured(input: SendTurnInput): Promise<void> {
   let live: Live;
   try {
     live = await ensureLive(input);
@@ -141,6 +150,7 @@ export async function cancelHermesTurn(sessionId: string): Promise<void> {
     cancelledThreads.add(sessionId);
     return;
   }
+  resetGenerationMetrics(live.onEvent);
   live.cancelled = true;
   live.muteUpdates = true;
   live.background.clear();
@@ -157,6 +167,7 @@ export async function stopHermesSession(sessionId: string): Promise<void> {
   liveByThread.delete(sessionId);
   if (live) {
     live.muteUpdates = true;
+    resetGenerationMetrics(live.onEvent);
     live.cancelled = true;
     live.background.clear();
     resolveApprovals(live);
@@ -234,6 +245,7 @@ async function ensureLive(input: HarnessSessionInput): Promise<Live> {
     (code) => {
       const live = liveRef.current;
       if (live) {
+        resetGenerationMetrics(live.onEvent);
         live.cancelled = true;
         live.background.clear();
       }
@@ -411,6 +423,7 @@ async function prompt(live: Live, input: SendTurnInput): Promise<void> {
 }
 
 function handleNotification(live: Live, method: string, params: unknown): void {
+  const receivedAt = performance.now();
   if (method === "session/update") {
     const titleEvent = nativeAcpTitleEvent(params, live.acpSessionId);
     if (titleEvent) { live.onEvent(titleEvent); return; }
@@ -426,7 +439,7 @@ function handleNotification(live: Live, method: string, params: unknown): void {
       : event,
   );
   for (const event of live.subagents.route(params, events)) {
-    live.onEvent(event);
+    emitAcpGenerationEvent(live.onEvent, event, params, receivedAt, live.acpSessionId);
   }
 }
 

@@ -2059,6 +2059,9 @@ const SessionCard = memo(function SessionCard({
         data-session-card={session.id}
         data-orchestration-card={orchestration ? "true" : undefined}
         data-session-selected={isSelected ? "true" : undefined}
+        data-session-active={isActive ? "true" : undefined}
+        data-session-waiting={waitingFor ? "true" : undefined}
+        data-density={compact ? "compact" : "comfort"}
         data-tauri-drag-region="false"
         onPointerDown={onPointerDown}
         onPointerEnter={(event) => {
@@ -2082,7 +2085,7 @@ const SessionCard = memo(function SessionCard({
               }
             : undefined
         }
-        className={`relative border flex w-full ${sidebarReorder ? "cursor-grab" : "cursor-default"} select-none touch-none rounded-lg text-left ${dense ? `h-8 flex-row items-center gap-1 ${shortcut ? "px-2" : compact ? "pl-[54px] pr-2" : "pl-8 pr-2"}` : `flex-col px-2.5 ${cardPaddingY}`} ${
+        className={`relative border flex w-full ${dense ? "" : "omb-session"} ${sidebarReorder ? "cursor-grab" : "cursor-default"} select-none touch-none rounded-lg text-left ${dense ? `h-8 flex-row items-center gap-1 ${shortcut ? "px-2" : compact ? "pl-[54px] pr-2" : "pl-8 pr-2"}` : `flex-col px-2.5 ${cardPaddingY}`} ${
           isSelected
             ? `bg-accent/15 text-content ${draft ? "border-content/30 border-dashed" : "border-transparent"}`
             : waitingFor
@@ -2098,6 +2101,15 @@ const SessionCard = memo(function SessionCard({
                     }`
         }`}
       >
+        {!dense ? (
+          <span
+            className="omb-bot-avatar"
+            data-presence={busy ? "live" : waitingFor ? "away" : "idle"}
+            aria-hidden="true"
+          >
+            <HarnessIcon harness={session.harness} className="size-5" />
+          </span>
+        ) : null}
         <div
           role="button"
           tabIndex={0}
@@ -2124,10 +2136,12 @@ const SessionCard = memo(function SessionCard({
           {dense || (compact && !orchestrationExpanded) ? null : (
             <span className="relative flex items-center gap-2">
               <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                <HarnessIcon
-                  harness={session.harness}
-                  className="size-3.5 shrink-0"
-                />
+                <span data-session-harness-mark className="inline-flex shrink-0">
+                  <HarnessIcon
+                    harness={session.harness}
+                    className="size-3.5 shrink-0"
+                  />
+                </span>
                 <span className="min-w-0 truncate text-[11px] text-foreground-subtle">
                   {model}
                 </span>
@@ -2194,6 +2208,7 @@ const SessionCard = memo(function SessionCard({
         >
           {!dense && gitLabel ? (
             <span
+              data-session-preview
               className="flex min-w-0 flex-1 items-center gap-1 text-[11px] text-content/45"
               title={
                 session.worktreeCwd

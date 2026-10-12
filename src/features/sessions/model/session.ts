@@ -1,3 +1,4 @@
+import type { GenerationSample } from "./generationSample";
 import { loadSharedAgentDefaults } from "../../settings/model/agentPreferences";
 import { translate } from "../../../shared/i18n/language";
 import { dropContextWindow, type ContextUsage } from "./contextUsage";
@@ -305,6 +306,8 @@ export type TurnModel = {
 
 /** Provider-reported token accounting for one user turn. */
 export type TurnMetrics = {
+  /** Streaming observation, separate from provider token accounting. Null clears a stale sample. */
+  generationSample?: GenerationSample | null;
   inputTokens?: number;
   outputTokens?: number;
   cacheReadTokens?: number;

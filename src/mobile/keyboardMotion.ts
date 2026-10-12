@@ -157,12 +157,17 @@ function contentRatio(delta: number) {
   )].find(element => !element.closest('[inert], [aria-hidden="true"]'));
   if (!scroller) return 0;
   const style = getComputedStyle(scroller);
+  const surface = scroller.parentElement!;
+  const surfaceStyle = getComputedStyle(surface);
+  const safeGap = parseFloat(surfaceStyle.getPropertyValue("--mobile-composer-safe-gap")) || 0;
+  const layout = parseFloat(surfaceStyle.getPropertyValue("--mobile-keyboard-layout")) || 0;
+  const gapChange = Math.min(safeGap, height) - Math.min(safeGap, layout);
   const inner = scroller.firstElementChild as HTMLElement | null;
   const content =
     (inner?.offsetHeight ?? 0) +
     (parseFloat(style.paddingTop) || 0) +
     (parseFloat(style.paddingBottom) || 0) +
-    anchoredTurnChange(scroller, delta);
+    anchoredTurnChange(scroller, delta - gapChange) - gapChange;
   return transcriptFollow(scroller, content, delta);
 }
 

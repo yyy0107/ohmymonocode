@@ -1,3 +1,8 @@
+import {
+  resetGenerationMetrics,
+  measureGenerationTurn,
+  emitAcpGenerationEvent,
+} from "../../core/generationMetrics";
 import { nativeAcpTitleEvent, noteAcpTitleCapabilities, readAcpSessionTitle, readAcpTitleInProcess } from "../../core/nativeTitles";
 import type { NativeTitleInput } from "../../core/titleCoordinator";
 import { nativeModelId } from "../../../../features/sessions/model/models";
@@ -134,6 +139,10 @@ let childSeq = 0;
 
 /** Live Antigravity adapter. Spawns `agy_acp_server.par`, not `agy acp`. */
 export async function sendAntigravityTurn(input: SendTurnInput): Promise<void> {
+  return measureGenerationTurn(input, sendAntigravityTurnMeasured);
+}
+
+async function sendAntigravityTurnMeasured(input: SendTurnInput): Promise<void> {
   const epoch = cancelEpoch.get(input.sessionId) ?? 0;
   const cancelled = () => (cancelEpoch.get(input.sessionId) ?? 0) !== epoch;
   try {
@@ -226,6 +235,7 @@ export async function cancelAntigravityTurn(sessionId: string): Promise<void> {
   abortPendingSetup(sessionId);
   const live = liveByThread.get(sessionId);
   if (!live) return;
+  resetGenerationMetrics(live.onEvent);
   live.cancelled = true;
   live.muteUpdates = true;
   // A prompt cancelled on the wire may still be running server-side, and any
@@ -299,6 +309,7 @@ export function bindAntigravitySession(
 
 /** Terminal settle for a retired transport: stop the clock and release waits. */
 function settleLive(live: Live): void {
+  resetGenerationMetrics(live.onEvent);
   live.cancelled = true;
   live.muteUpdates = true;
   live.promptInFlight = false;
@@ -733,6 +744,7 @@ async function prompt(live: Live, input: SendTurnInput): Promise<void> {
 }
 
 function handleNotification(live: Live, method: string, params: unknown) {
+  const receivedAt = performance.now();
   if (method === "session/update") {
     const titleEvent = nativeAcpTitleEvent(params, live.acpSessionId);
     if (titleEvent) { live.onEvent(titleEvent); return; }
@@ -751,7 +763,7 @@ function handleNotification(live: Live, method: string, params: unknown) {
   }
   if (live.muteUpdates) return;
   for (const event of live.subagents.route(params, eventsFromAcpUpdate(params))) {
-    live.onEvent(event);
+    emitAcpGenerationEvent(live.onEvent, event, params, receivedAt, live.acpSessionId);
   }
 }
 

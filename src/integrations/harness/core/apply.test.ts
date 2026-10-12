@@ -1494,3 +1494,13 @@ describe("tool timing", () => {
     expect(session.blocks[0]).toMatchObject({ durationMs: 3_000, streaming: false });
   });
 });
+
+it("replaces and explicitly clears a generation sample without changing token accounting", () => {
+  let session = appendUser(newSession("codex", "/repo"), "Explain");
+  const sample = { outputTokens: 4, durationMs: 1_000, tokenSource: "text-estimate" as const, estimator: "text-heuristic-v1" as const, method: "stream-estimate" as const, scope: "last-text-segment" as const };
+  session = applyHarnessEvent(session, { type: "turn.metrics", outputTokens: 76, generationSample: sample });
+  session = applyHarnessEvent(session, { type: "turn.metrics", inputTokens: 100 });
+  expect(session.blocks[0].turnMetrics).toMatchObject({ outputTokens: 76, generationSample: sample });
+  session = applyHarnessEvent(session, { type: "turn.metrics", generationSample: null });
+  expect(session.blocks[0].turnMetrics).toMatchObject({ outputTokens: 76, generationSample: null });
+});

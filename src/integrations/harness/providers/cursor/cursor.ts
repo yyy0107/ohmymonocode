@@ -1,3 +1,8 @@
+import {
+  resetGenerationMetrics,
+  measureGenerationTurn,
+  emitAcpGenerationEvent,
+} from "../../core/generationMetrics";
 import { nativeAcpTitleEvent, noteAcpTitleCapabilities, readAcpSessionTitle, readAcpTitleInProcess } from "../../core/nativeTitles";
 import type { NativeTitleInput } from "../../core/titleCoordinator";
 import { nativeModelId } from "../../../../features/sessions/model/models";
@@ -115,6 +120,10 @@ const CLIENT_CAPABILITIES = {
 };
 
 export async function sendCursorTurn(input: SendTurnInput): Promise<void> {
+  return measureGenerationTurn(input, sendCursorTurnMeasured);
+}
+
+async function sendCursorTurnMeasured(input: SendTurnInput): Promise<void> {
   let live: Live;
   try {
     live = await ensureLive(input);
@@ -186,6 +195,7 @@ export async function cancelCursorTurn(sessionId: string): Promise<void> {
     cancelledThreads.add(sessionId);
     return;
   }
+  resetGenerationMetrics(live.onEvent);
   live.cancelled = true;
   live.muteUpdates = true;
   live.promptActive = false;
@@ -777,6 +787,7 @@ async function handlePermission(live: Live, id: number, params: unknown) {
 }
 
 function handleSessionUpdate(live: Live, params: unknown) {
+  const receivedAt = performance.now();
   const rec = asRecord(params);
   const update = asRecord(rec?.update) ?? rec;
   if (!update) return;
@@ -804,7 +815,11 @@ function handleSessionUpdate(live: Live, params: unknown) {
       update.content ?? update.text,
       kind === "agent_message" ? "\n" : "",
     );
-    if (text) emit({ type: "message.delta", text });
+    if (text) {
+      for (const event of live.subagents.route(params, [{ type: "message.delta", text }])) {
+        emitAcpGenerationEvent(live.onEvent, event, params, receivedAt, live.acpSessionId);
+      }
+    }
     return;
   }
   if (kind === "agent_thought_chunk" || kind === "agent_thought") {

@@ -100,6 +100,27 @@ describe("Hermes live ACP sequence", () => {
     await stopHermesSession(sessionId);
   });
 
+  it("estimates generation speed when request-scoped token usage is unavailable", async () => {
+    const events: HarnessEvent[] = [];
+    const turn = sendHermesTurn({ sessionId: "rate-test", cwd: "/repo", model: "hermes:nous:hermes-4", runtimeMode: "supervised", text: "Hello", onEvent: e => events.push(e) });
+    await initialize();
+    await newSession();
+    await waitFor(() => parse().some(m => m.method === "session/set_mode"), "mode");
+    reply(parse().find(m => m.method === "session/set_mode").id, {});
+    await waitFor(() => parse().some(m => m.method === "session/prompt"), "prompt");
+    let now = 1_000;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
+    const chunk = (text: string) => onLine!(JSON.stringify({ jsonrpc: "2.0", method: "session/update", params: { sessionId: "hermes-session-1", update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text } } } }));
+    try {
+      chunk("你好");
+      now = 3_000;
+      chunk("世界");
+      reply(parse().find(m => m.method === "session/prompt").id, { stopReason: "end_turn" });
+      await turn;
+      expect(events.filter(e => e.type === "turn.metrics").at(-1)?.generationSample).toMatchObject({ outputTokens: 4, durationMs: 2_000, tokenSource: "text-estimate" });
+    } finally { clock.mockRestore(); await stopHermesSession("rate-test"); }
+  });
+
   it("starts Hermes ACP, selects model and mode, and sends attachments", async () => {
     const events: HarnessEvent[] = [];
     const turn = sendHermesTurn({

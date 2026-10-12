@@ -214,6 +214,8 @@ describe("QuestionForm steps", () => {
     );
 
     expect(button("Continue").disabled).toBe(true);
+    expect(button("Continue").classList.contains("ui-button-md")).toBe(true);
+    expect(button("Continue").classList.contains("ui-button-primary")).toBe(true);
     expect(navigationButton("Previous question").disabled).toBe(true);
     expect(navigationButton("Next question").disabled).toBe(false);
     act(() => navigationButton("Previous question").click());

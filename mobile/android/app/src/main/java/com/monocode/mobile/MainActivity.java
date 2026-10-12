@@ -24,6 +24,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(MonoCodeCredentialsPlugin.class);
+        registerPlugin(MonoCodeHapticsPlugin.class);
         registerPlugin(MonoCodeUpdatesPlugin.class);
         registerPlugin(MonoCodeNotificationsPlugin.class);
         super.onCreate(savedInstanceState);

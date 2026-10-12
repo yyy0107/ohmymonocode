@@ -1,3 +1,4 @@
+import { formatGenerationRate, sanitizeGenerationSample } from "../model/generationSample";
 import { advanceFollowMotion, dampedMotion, FOLLOW_MOTION_FREQUENCY } from "../../../shared/lib/dampedMotion";
 import { syncLiveFooterClip } from "./liveFooterClip";
 import { timestampTitle } from "./timestampTitle";
@@ -99,6 +100,7 @@ import {
   AfterTextReveal,
   useTranscriptRenderingPlatform,
 } from "./useTranscriptRenderingPlatform";
+import { TranscriptContentMotion, useMessageArrivals } from "./TranscriptContentMotion";
 import { visibleUserPrompt } from "../../orchestration/model/orchestration";
 import { playCue } from "../../settings/model/sounds";
 import { legacyTaskListFromText } from "../model/taskList";
@@ -324,7 +326,8 @@ function AgentTranscriptComponent({
     [basePlatform, onOpenAgent],
   );
   const { t: uiT } = useTranslation();
-  const { liveClockInFooter, openActivity } = useContext(TranscriptPlatformContext);
+  const { liveClockInFooter, openActivity, messageMotion } = useContext(TranscriptPlatformContext);
+  const messageArrives = useMessageArrivals(sourceBlocks, visible, animateFrom, historyEntries);
   const clockInFooter = !!liveClockInFooter && !!cwd;
   const blocks = useMemo(() => {
     let turnHarness = harness;
@@ -1189,7 +1192,7 @@ function AgentTranscriptComponent({
               : item.blocks.some((block) => block.id === searchCurrent);
           // A closing row keeps the look it had before the fold, so a live
           // group shrinks away whole instead of first snapping to its summary.
-          const renderItem = (item: TurnItem, itemIndex: number, closing = false) =>
+          const renderItemContent = (item: TurnItem, itemIndex: number, closing = false) =>
             item.type === "subagents" ? (
               <SubagentStack
                 key={item.blocks[0].id}
@@ -1270,6 +1273,14 @@ function AgentTranscriptComponent({
                 }
               />
             );
+          const renderItem = (item: TurnItem, itemIndex: number, closing = false) => {
+            const content = renderItemContent(item, itemIndex, closing);
+            return messageMotion === "slide" && !(item.type === "block" && item.block.role === "user")
+              ? <TranscriptContentMotion arrive={messageArrives(turnItemKey(item))} resize={isLastTurn && !closing}>
+                  {content}
+                </TranscriptContentMotion>
+              : content;
+          };
           // The fold reaches across a stack of delegated runs, but those rows
           // do not collapse with it: they are lifted out and parked under the
           // work, where they stay put however often it re-folds.
@@ -1342,6 +1353,8 @@ function AgentTranscriptComponent({
                   : ""
               }`}
             >
+              {/* Keep the waiting fold line in the same keyed list when the
+                  first output arrives, so its DOM and motion stay mounted. */}
               {items.flatMap((item, itemIndex) => {
                 const inFold =
                   !!fold && itemIndex >= fold.start && itemIndex <= fold.end;
@@ -1439,8 +1452,7 @@ function AgentTranscriptComponent({
                 return creationRow
                   ? [foldLineRow, row, creationRow]
                   : [foldLineRow, row];
-              })}
-              {foldLineAt >= items.length ? foldLineRow : null}
+              }).concat(foldLineAt >= items.length ? [foldLineRow] : [])}
               {settled &&
                 proposals
                   .filter((block) => block.orchestration?.status !== "planning")
@@ -1605,17 +1617,17 @@ function LiveFoldTitle({
     : background?.length
       ? `${working} · ${backgroundLabel(background)}`
       : working;
-  const shimmer = (
-    <Shimmer className="min-w-0 truncate font-sans text-sm" duration={1}>
+  const label = (
+    <Shimmer className="transcript-live-fold-title min-w-0 truncate font-sans text-sm" duration={1}>
       {text}
     </Shimmer>
   );
   return background?.length ? (
     <span className="flex min-w-0" title={background.join("\n")}>
-      {shimmer}
+      {label}
     </span>
   ) : (
-    shimmer
+    label
   );
 }
 
@@ -1790,7 +1802,7 @@ function TurnDuration({
             excludeFromModel
           />
         ) : null}
-        <TurnMetricsBadge metrics={metrics} elapsedMs={elapsedMs} />
+        <TurnMetricsBadge metrics={metrics} />
       </span>
       {labelHidden ? null : (
         <span className="flex min-w-0 items-center gap-2.5">
@@ -1829,47 +1841,34 @@ function TurnDuration({
   );
 }
 
-function TurnMetricsBadge({
-  metrics,
-  elapsedMs,
-}: {
-  metrics?: TurnMetrics;
-  elapsedMs: number | null;
-}) {
-  const { t: uiT } = useTranslation();
+export function TurnMetricsBadge({ metrics }: { metrics?: TurnMetrics }) {
+  const { t: uiT, language } = useTranslation();
   const root = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
   if (!metrics || !hasTurnMetrics(metrics)) return null;
 
-  const outputRate =
-    metrics.outputTokens != null && elapsedMs != null && elapsedMs > 0
-      ? metrics.outputTokens / (elapsedMs / 1000)
-      : undefined;
-  const headline =
-    [
-      metrics.cacheHitPercent != null
-        ? `Cache hit ${Math.round(metrics.cacheHitPercent)}%`
-        : null,
-      outputRate != null
-        ? `Output ${formatMetricCount(outputRate)} tok/s`
-        : null,
-    ]
-      .filter(Boolean)
-      .join(" · ") || "Turn tokens";
-  const detail = [
+  const sample = sanitizeGenerationSample(metrics.generationSample);
+  const headline = [
+    metrics.cacheHitPercent != null
+      ? uiT("Cache hit {percent}%", { percent: Math.round(metrics.cacheHitPercent) })
+      : null,
+    sample
+      ? uiT("Text generation {rate} tok/s", { rate: formatGenerationRate(sample, language) })
+      : uiT("Generation rate unavailable"),
+  ].filter(Boolean).join(" · ");
+  const sampleDetail = sample ? uiT("Latest text segment · {source}", {
+    source: sample.tokenSource === "provider" ? uiT("Provider-reported tokens") : uiT("Text tokens"),
+  }) : "";
+  const usageDetail = [
     metrics.inputTokens != null
-      ? `${formatMetricCount(metrics.inputTokens)} input`
-      : null,
+      ? uiT("{count} input", { count: formatMetricCount(metrics.inputTokens) }) : null,
     metrics.outputTokens != null
-      ? `${formatMetricCount(metrics.outputTokens)} output`
-      : null,
+      ? uiT("{count} output", { count: formatMetricCount(metrics.outputTokens) }) : null,
     metrics.cacheReadTokens != null
-      ? `${formatMetricCount(metrics.cacheReadTokens)} cached`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  const label = [headline, detail].filter(Boolean).join(". ");
+      ? uiT("{count} cached", { count: formatMetricCount(metrics.cacheReadTokens) }) : null,
+  ].filter(Boolean).join(" · ");
+  const detail = usageDetail ? uiT("Provider usage: {usage}", { usage: usageDetail }) : "";
+  const label = [headline, sampleDetail, detail].filter(Boolean).join(". ");
 
   return (
     <div
@@ -1894,9 +1893,10 @@ function TurnMetricsBadge({
           anchor={root}
           side="top"
           align="start"
-          className="pointer-events-none w-max px-2.5 py-1.5"
+          className="pointer-events-none w-max max-w-[calc(100vw-2rem)] px-2.5 py-1.5"
         >
           <div className="text-[12px] leading-4 text-content">{headline}</div>
+          {sampleDetail ? <div className="text-[11px] leading-4 text-content/50">{sampleDetail}</div> : null}
           {detail ? (
             <div className="text-[11px] leading-4 text-content/50">
               {detail}
@@ -1910,6 +1910,7 @@ function TurnMetricsBadge({
 
 function hasTurnMetrics(metrics: TurnMetrics): boolean {
   return (
+    metrics.generationSample !== undefined ||
     metrics.cacheHitPercent != null ||
     (metrics.inputTokens ?? 0) > 0 ||
     (metrics.outputTokens ?? 0) > 0 ||
@@ -2244,7 +2245,7 @@ const TranscriptBlock = memo(function TranscriptBlock({
   return (
     <div
       data-selectable-agent-response={block.streaming ? undefined : block.id}
-      className={`min-w-0 pb-1 text-content ${embedded ? "" : "px-4 @md:px-6"} ${underLine ? "pt-1" : "pt-3"}`}
+      className={`omb-bot-message min-w-0 pb-1 text-content ${embedded ? "" : "px-4 @md:px-6"} ${underLine ? "pt-1" : "pt-3"}`}
     >
       <AgentMarkdown
         text={block.text}
@@ -2497,7 +2498,7 @@ function UserMessageBlock({
                   title={uiT("Send draft")}
                   aria-label={uiT("Send draft")}
                   onClick={() => onSendDraft?.(block)}
-                  className="primary-action flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-transform duration-150 active:scale-[0.97]"
+                  className="ui-button ui-button-primary primary-action flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-transform duration-150 active:scale-[0.97]"
                 >
                   {uiT("Send")}
                   <ArrowUp className="size-3.5" strokeWidth={2.25} />
@@ -2648,51 +2649,30 @@ function WorkFoldLine({
     open ? " zen-fold-drop" : ""
   }`;
 
-  if (!expandable) {
-    return (
-      <div
-        className={`group ${row}`}
-        role={live ? "status" : undefined}
-        aria-live={live ? "polite" : undefined}
-      >
-        {icon}
-        {label}
-      </div>
-    );
-  }
-  if (sheet) {
-    return (
-      <button
-        type="button"
-        aria-haspopup="dialog"
-        aria-label={uiT("Show the work")}
-        onClick={onToggle}
-        className={`group ${row}`}
-        data-activity-sheet
-      >
-        {icon}
-        {label}
-        {sheet.additions > 0 || sheet.deletions > 0 ? (
-          <span className="shrink-0 font-mono text-xs">
-            <span className="text-emerald-400">+{sheet.additions}</span>
-            <span className="ms-1 text-red-400">−{sheet.deletions}</span>
-          </span>
-        ) : null}
-        <ChevronRight className="size-3.5 shrink-0 text-foreground-subtlest" />
-      </button>
-    );
-  }
+  // Keep one host element as work becomes collapsible. Switching div/button
+  // remounts the live title, resetting its clock and desktop shimmer.
   return (
     <button
       type="button"
-      aria-expanded={open}
-      aria-label={open ? uiT("Hide the work") : uiT("Show the work")}
+      role={!expandable ? (live ? "status" : "presentation") : undefined}
+      tabIndex={expandable ? undefined : -1}
+      aria-haspopup={sheet ? "dialog" : undefined}
+      aria-expanded={expandable && !sheet ? open : undefined}
+      aria-label={expandable ? (open && !sheet ? uiT("Hide the work") : uiT("Show the work")) : undefined}
       aria-live={live ? "polite" : undefined}
-      onClick={onToggle}
-      className={`group ${row}`}
+      onClick={expandable ? onToggle : undefined}
+      className={`group ${row}${expandable ? "" : " cursor-default"}`}
+      data-activity-sheet={sheet ? true : undefined}
     >
       {icon}
       {label}
+      {sheet && (sheet.additions > 0 || sheet.deletions > 0) ? (
+        <span className="shrink-0 font-mono text-xs">
+          <span className="text-emerald-400">+{sheet.additions}</span>
+          <span className="ms-1 text-red-400">−{sheet.deletions}</span>
+        </span>
+      ) : null}
+      {sheet ? <ChevronRight className="size-3.5 shrink-0 text-foreground-subtlest" /> : null}
     </button>
   );
 }
@@ -4052,13 +4032,15 @@ function ToolCall({
   ) {
     return (
       <div className={frame}>
-        <FilePreview
-          preview={preview ?? stubFilePreview(block.tool?.kind, label)}
-          status={state}
-          cwd={cwd}
-          onOpenFile={onOpenDiff ?? onOpenFile}
-        />
-        <ApprovalControls block={block} onApproval={onApproval} />
+        <div data-approval-host>
+          <FilePreview
+            preview={preview ?? stubFilePreview(block.tool?.kind, label)}
+            status={state}
+            cwd={cwd}
+            onOpenFile={onOpenDiff ?? onOpenFile}
+          />
+          <ApprovalControls block={block} onApproval={onApproval} />
+        </div>
       </div>
     );
   }

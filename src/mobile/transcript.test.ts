@@ -222,7 +222,7 @@ describe("mobile jump interaction", () => {
   });
 });
 
-describe("mobile character streaming", () => {
+describe("mobile message streaming", () => {
   beforeEach(() => {
     vi.useFakeTimers({
       toFake: [
@@ -283,14 +283,9 @@ describe("mobile character streaming", () => {
     });
     return node;
   }
-  it("types a newly submitted reply even when it finished before the first sync", () => {
+  it("paces a newly submitted reply even when it finished before the first sync", () => {
     const node = reply(true);
     expect(node.querySelector(".agent-markdown")?.textContent).toBe("");
-    act(() => vi.advanceTimersByTime(100));
-    const partial = node.querySelector(".agent-markdown")?.textContent ?? "";
-    expect(partial.length).toBeGreaterThan(0);
-    expect(partial.length).toBeLessThan(text.length);
-    expect(text.startsWith(partial)).toBe(true);
     act(() => vi.advanceTimersByTime(2000));
     expect(node.querySelector(".agent-markdown")?.textContent).toBe(text);
   });

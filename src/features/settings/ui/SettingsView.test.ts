@@ -276,6 +276,7 @@ describe("settings pages", () => {
       ),
     );
     const dialog = document.querySelector('[role="dialog"]')!;
+    expect(dialog.classList.contains("omb-slide-panel")).toBe(true);
     const header = dialog.querySelector(
       '[data-app-settings] > [data-tauri-drag-region="deep"]',
     )!;

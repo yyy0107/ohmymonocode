@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./omb-skin.css";
 @import "../features/workflows/workflows.css";
 @source "../../node_modules/streamdown/dist/*.js";
 @source "../../node_modules/@streamdown/code/dist/*.js";

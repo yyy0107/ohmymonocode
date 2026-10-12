@@ -1,3 +1,4 @@
+import { lightImpact } from "./haptics";
 import {
   useCallback,
   useEffect,
@@ -146,6 +147,7 @@ export function useQueueDrag(
     const timer = setTimeout(() => {
       if (moved || !latest.current.enabled) return;
       active = true;
+      void lightImpact();
       suppressUntil.current = Infinity;
       place();
       schedule();
@@ -196,6 +198,7 @@ export function useQueueDrag(
         latest.current.enabled &&
         order.some((entry, index) => entry !== ids[index])
       ) {
+        void lightImpact();
         latest.current.onDrop(id, order[order.indexOf(id) + 1]);
       } else setPreview(undefined);
     };

@@ -88,6 +88,24 @@ describe("grok live turn sequence", () => {
     sent.length = 0;
   });
 
+  it("estimates generation speed when request-scoped token usage is unavailable", async () => {
+    const events: HarnessEvent[] = [];
+    const turn = sendGrokTurn({ sessionId: "rate-test", cwd: "/repo", model: "grok:grok-4.6", runtimeMode: "supervised", text: "Hello", onEvent: e => events.push(e) });
+    await handshake();
+    await waitFor(() => parse().some(m => m.method === "session/prompt"), "prompt");
+    let now = 1_000;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
+    const chunk = (text: string) => onLine!(JSON.stringify({ jsonrpc: "2.0", method: "session/update", params: { sessionId: "S1", update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text } } } }));
+    try {
+      chunk("你好");
+      now = 3_000;
+      chunk("世界");
+      reply(parse().find(m => m.method === "session/prompt").id, { stopReason: "end_turn" });
+      await turn;
+      expect(events.filter(e => e.type === "turn.metrics").at(-1)?.generationSample).toMatchObject({ outputTokens: 4, durationMs: 2_000, tokenSource: "text-estimate" });
+    } finally { clock.mockRestore(); await stopGrokSession("rate-test"); }
+  });
+
   it("authenticates, selects the model, and prompts", async () => {
     const events: HarnessEvent[] = [];
     const turn = sendGrokTurn({

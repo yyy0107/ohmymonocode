@@ -145,6 +145,11 @@ describe("NotificationMuteControl", () => {
         .find((button) => button.textContent === "Mute until then")
         ?.classList.contains("primary-action"),
     ).toBe(true);
+    expect(
+      [...document.querySelectorAll("button")]
+        .find((button) => button.textContent === "Mute until then")
+        ?.classList.contains("ui-button-primary"),
+    ).toBe(true);
     act(() =>
       document
         .querySelector<HTMLButtonElement>('button[aria-label="2030-01-15"]')!

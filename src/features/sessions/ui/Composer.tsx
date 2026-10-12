@@ -343,7 +343,7 @@ function ToolButton({
       aria-haspopup="menu"
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className={`grid size-6.5 shrink-0 place-items-center rounded-md ${
+      className={`composer-plus grid size-6.5 shrink-0 place-items-center rounded-md ${
         active
           ? "bg-selection-emphasis text-content"
           : "bg-selection text-content/50 hover:bg-selection-hover hover:text-content"

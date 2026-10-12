@@ -10,6 +10,7 @@ import {
   applyPreparedNewThreadBackground,
   clearPreparedNewThreadBackground,
 } from "./newThreadBackgroundEffects";
+import { applyDesktopSkin } from "../../../shared/theme/desktopSkin";
 
 const ACCENT_COLOR_KEY = "monocode.accentColor";
 const THEME_HUE_KEY = "monocode.themeHue";
@@ -406,9 +407,12 @@ export function isLightScheme(): boolean {
 export function applyThemePreference(value: ThemePreference): ColorScheme {
   const next = resolveColorScheme(value);
   document.documentElement.classList.toggle("theme-light", next === "light");
-  if (nativeGlassReady) syncNativeGlass(next);
+  // A named skin can move the scheme (Meadow is light even if Dark was saved).
+  // Classic returns null and leaves the preference in charge.
+  const scheme = applyDesktopSkin() ?? next;
+  if (nativeGlassReady) syncNativeGlass(scheme);
   window.dispatchEvent(
-    new CustomEvent<ColorScheme>(SCHEME_CHANGE_EVENT, { detail: next }),
+    new CustomEvent<ColorScheme>(SCHEME_CHANGE_EVENT, { detail: scheme }),
   );
   const backgroundPath = loadChatBackgroundPath();
   if (
@@ -417,7 +421,7 @@ export function applyThemePreference(value: ThemePreference): ColorScheme {
   ) {
     renderChatBackground(backgroundPath);
   }
-  return next;
+  return scheme;
 }
 
 /** The page colour the native window sits behind while glass is off. */
