@@ -218,6 +218,7 @@ function DesktopBotsLegacySettingsPanel({
 
 function DesktopBotsComposer({
   draft,
+  placeholder,
   errorNotice,
   onDraftChange,
   onSend,
@@ -296,7 +297,7 @@ function DesktopBotsComposer({
           ref={input}
           rows={1}
           aria-label={t("Message assistant")}
-          placeholder={t("Ask your assistant…")}
+          placeholder={placeholder ?? t("Ask your assistant…")}
           value={draft}
           disabled={inputDisabled}
           onPaste={onPaste}

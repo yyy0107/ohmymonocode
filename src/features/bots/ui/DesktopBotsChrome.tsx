@@ -5,9 +5,12 @@ import { desktopBotsLegacyChrome } from "./DesktopBotsLegacyChrome";
 import { AnimatedCollapse, useCollapseMotion } from "../../../shared/ui/AnimatedCollapse";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
-import { Bot, ChevronRight, Pause, Play, Search, Settings, Square, X } from "../../../shared/ui/icons";
+import { Bot, ChevronRight, Plus, Pause, Play, Search, Settings, Square } from "../../../shared/ui/icons";
 import { HarnessIcon } from "../../sessions/ui/HarnessIcon";
-import { HARNESS_TITLE, sessionDisplayTitle } from "../../sessions/model/session";
+import { sessionDisplayTitle } from "../../sessions/model/session";
+
+import { BotAvatar } from "./BotAvatar";
+import type { BotThread, BotView } from "../model/bots";
 
 /** The first shell shows only the Host's existing assistant and its real chat. */
 export function DesktopBotsNavigation({ hostName, hostPicker, assistant, messages, onSelect }: {
@@ -79,39 +82,62 @@ export function DesktopBotsNavigation({ hostName, hostPicker, assistant, message
   );
 }
 
-function DesktopBotsHeader({ name, threadTitle, harness, status, lifecycle, busy, settingsOpen, onSettings, controls }: BotHeaderProps) {
+export function BotThreadSwitcher({ bot, threads, selected, onSelect, onNew }: {
+  bot: BotView; threads: BotThread[]; selected: string; onSelect: (thread: BotThread) => void; onNew: () => void;
+}) {
+  const { t } = useTranslation(), visible = useSurfaceVisibility();
+  const [open, setOpen] = useState(false);
+  const container = useRef<HTMLDivElement>(null), trigger = useRef<HTMLButtonElement>(null);
+  const current = threads.find(thread => thread.id === selected);
+  const harness = current?.modelOverride?.harness ?? bot.harness;
+  const title = sessionDisplayTitle(current?.title ?? "", harness).trim() || t("Main thread");
+  useEffect(() => { if (!visible) setOpen(false); }, [visible]);
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: PointerEvent) => { if (!container.current?.contains(event.target as Node)) setOpen(false); };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [open]);
+  return <div ref={container} className="desktop-bots-thread-picker" onKeyDown={event => {
+    if (event.key === "Escape" && open) { event.preventDefault(); event.stopPropagation(); setOpen(false); trigger.current?.focus(); }
+    if (open && ["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+      event.preventDefault();
+      const items = [...container.current!.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
+      const index = items.indexOf(document.activeElement as HTMLButtonElement);
+      items[event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : (index + (event.key === "ArrowDown" ? 1 : items.length - 1)) % items.length]?.focus();
+    }
+  }}>
+    <button ref={trigger} type="button" className="desktop-bots-thread-trigger" aria-label={t("Switch thread")} title={title} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(value => !value)}>
+      <HarnessIcon harness={harness} className="size-3.5 shrink-0" /><span>{title}</span><ChevronRight size={12} />
+    </button>
+    <AnimatedCollapse expanded={open && visible} className="desktop-bots-thread-popover">
+      <div role="menu" aria-label={t("Threads")}>
+        {threads.map(thread => {
+          const provider = thread.modelOverride?.harness ?? bot.harness;
+          const label = sessionDisplayTitle(thread.title, provider).trim() || t("Main thread");
+          return <button type="button" role="menuitem" key={thread.id} aria-label={label} aria-current={selected === thread.id ? "page" : undefined} onClick={() => { setOpen(false); onSelect(thread); }}>
+            <HarnessIcon harness={provider} className="size-4 shrink-0" /><span>{label}</span>
+          </button>;
+        })}
+        <button type="button" role="menuitem" aria-label={t("New thread")} onClick={() => { setOpen(false); onNew(); }}><Plus size={16} /><span>{t("New conversation")}</span></button>
+      </div>
+    </AnimatedCollapse>
+  </div>;
+}
+
+function DesktopBotsHeader({ name, botIdentity, threadPicker, threadTitle, harness, status, lifecycle, busy, settingsOpen, onSettings, controls }: BotHeaderProps) {
   const { t } = useTranslation();
   const title = threadTitle && harness ? sessionDisplayTitle(threadTitle, harness) : threadTitle;
   return <header className="assistant-header desktop-bots-header">
-    <div className="desktop-bots-header-title">
-      <strong>{name}</strong>
-      <span>{title?.trim() ? title : t("Main thread")}</span>
-    </div>
-    <div className="desktop-bots-run-status">
-      {harness && <span className="desktop-bots-engine" title={HARNESS_TITLE[harness]}>
-        <HarnessIcon harness={harness} className="size-3.5 shrink-0" />
-        <span>{HARNESS_TITLE[harness]}</span>
-      </span>}
-      <span className="assistant-status" data-lifecycle={lifecycle}>{status}</span>
-    </div>
+    <BotAvatar bot={botIdentity ?? { id: name }} size={40} />
+    <div className="desktop-bots-header-title"><strong>{name}</strong>{threadPicker ?? <span>{title?.trim() ? title : t("Main thread")}</span>}</div>
+    {lifecycle && lifecycle !== "idle" && <span className="assistant-status desktop-bots-run-status" data-lifecycle={lifecycle}>{status}</span>}
     <div className="assistant-header-actions">
       {controls && <>
-        <button type="button" className="assistant-icon-button" disabled={busy}
-          title={t(controls.continuable ? "Continue" : "Pause")}
-          aria-label={t(controls.continuable ? "Continue" : "Pause")} onClick={controls.onToggle}>
-          {controls.continuable ? <Play size={15} /> : <Pause size={15} />}
-        </button>
-        <button type="button" className="assistant-icon-button assistant-danger"
-          disabled={busy || !controls.enabled} title={t("Disable assistant")}
-          aria-label={t("Disable assistant")} onClick={controls.onDisable}>
-          <Square size={14} />
-        </button>
+        <button type="button" className="assistant-icon-button" disabled={busy} title={t(controls.continuable ? "Continue" : "Pause")} aria-label={t(controls.continuable ? "Continue" : "Pause")} onClick={controls.onToggle}>{controls.continuable ? <Play size={15} /> : <Pause size={15} />}</button>
+        <button type="button" className="assistant-icon-button assistant-danger" disabled={busy || !controls.enabled} title={t("Disable assistant")} aria-label={t("Disable assistant")} onClick={controls.onDisable}><Square size={14} /></button>
       </>}
-      {onSettings && <button type="button" className="assistant-icon-button"
-        title={t("Bot details")} aria-label={t("Bot details")} aria-expanded={settingsOpen}
-        onClick={onSettings}>
-        <Settings size={17} />
-      </button>}
+      {onSettings && <button type="button" className="assistant-icon-button" title={t("Bot details")} aria-label={t("Bot details")} aria-expanded={settingsOpen} onClick={onSettings}><Settings size={17} /></button>}
     </div>
   </header>;
 }
@@ -153,9 +179,9 @@ function DesktopBotsSettingsPanel({ open, initialSetup, onClose, children }: Bot
     <SurfaceVisibilityContext.Provider value={visible && open}>
       {opened.current && <>
         <header className="desktop-bots-inspector-header">
-          <strong>{t(initialSetup ? "Set up assistant" : "Bot details")}</strong>
+          {initialSetup && <strong>{t("Set up assistant")}</strong>}
           {!initialSetup && <button type="button" className="assistant-icon-button" onClick={onClose}
-            aria-label={t("Hide bot details")} title={t("Hide bot details")}><X size={16} /></button>}
+            aria-label={t("Hide bot details")} title={t("Hide bot details")}><span aria-hidden="true">»</span></button>}
         </header>
         <div className="assistant-settings-content">{children}</div>
       </>}

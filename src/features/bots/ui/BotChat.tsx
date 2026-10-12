@@ -1,4 +1,4 @@
-import { markBotRead } from "../model/botUnread";
+import { botReadRevision, markBotRead } from "../model/botUnread";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import {
   useCallback,
@@ -63,8 +63,10 @@ import { withStatusToast } from "../../../shared/ui/StatusToast";
 import { usePauseOffscreenAnimation } from "../../../shared/hooks/usePauseOffscreenAnimation";
 import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
 import { slidePromptIn } from "../../sessions/ui/promptLaunch";
-import { Loader2, Sparkles } from "../../../shared/ui/icons";
+import { ArrowUp, X, Loader2, Sparkles } from "../../../shared/ui/icons";
 import { DesktopBotsNavigation, desktopBotsChrome } from "./DesktopBotsChrome";
+import { BotIdentitySettings } from "./BotIdentitySettings";
+import { BotAttachmentCard } from "./BotAttachmentCard";
 import { DesktopBotDetails } from "./DesktopBotDetails";
 
 /** History renders newest-first in slices so opening never blocks the app. */
@@ -76,6 +78,7 @@ const HISTORY_LOAD_DISTANCE = 800;
 const LAUNCH_TTL_MS = 15_000;
 import "./bots.css";
 import "./desktop-bots.css";
+import "./desktop-bot-messenger.css";
 
 type ReadingAnchor = { node: Element; offset: number; scrollTop: number };
 const ANCHOR_ROWS = ".assistant-message-row, .assistant-card, .assistant-input";
@@ -174,6 +177,8 @@ export function BotChat({
   cacheKey = hostKey,
   botNavigation,
   threadTitle,
+  botThreadPicker,
+  botPinControl,
   botSettings,
   botMemory,
   botRuntime,
@@ -197,6 +202,8 @@ export function BotChat({
   cacheKey?: string;
   botNavigation?: ReactNode;
   threadTitle?: string;
+  botThreadPicker?: ReactNode;
+  botPinControl?: ReactNode;
   /** Bot defaults stay separate from a thread's effective model override. */
   botSettings?: BotConfiguration;
   /** File memory is available only in the capable desktop Bot workspace. */
@@ -235,7 +242,7 @@ export function BotChat({
   useEffect(() => {
     if (!visible) return;
     const markRead = () => {
-      if (document.visibilityState !== "hidden")
+      if (document.visibilityState !== "hidden" && (!botsLayout || followLog.current))
         markBotRead(cacheKey, messages);
     };
     markRead();
@@ -355,6 +362,29 @@ export function BotChat({
   const chat = useRef<HTMLElement>(null);
   const followLog = useRef(true);
   const lastScrollTop = useRef(0);
+  const [awayFromBottom, setAwayFromBottom] = useState(false);
+  const [readThrough, setReadThrough] = useState(() => botReadRevision(cacheKey));
+  const latestRevision = messages.reduce((latest, message) => Math.max(latest, message.revision), 0);
+  const newMessages = botsLayout ? messages.filter(message => message.kind === "assistant" && message.revision > readThrough) : [];
+  useEffect(() => {
+    if (botsLayout && visible && followLog.current) setReadThrough(latestRevision);
+  }, [botsLayout, visible, latestRevision]);
+  const jumpToLatest = () => {
+    followLog.current = true; setAwayFromBottom(false); setReadThrough(latestRevision);
+    markBotRead(cacheKey, messages);
+    log.current?.scrollTo?.({ top: log.current.scrollHeight, behavior: reducedMotionQuery().matches ? "instant" : "smooth" });
+  };
+  useEffect(() => {
+    if (!botsLayout || !visible || !chat.current || typeof ResizeObserver === "undefined") return;
+    let previous = chat.current.clientWidth;
+    const observer = new ResizeObserver(() => {
+      const width = chat.current?.clientWidth ?? previous;
+      if (previous >= 1050 && width < 1050) setSettingsOpen(false);
+      previous = width;
+    });
+    observer.observe(chat.current);
+    return () => observer.disconnect();
+  }, [botsLayout, visible]);
   const [worker, setWorker] = useState<SessionReference>();
   const [workerOpen, setWorkerOpen] = useState(false);
   const canRead = (ref: SessionReference, current = assistant) =>
@@ -869,6 +899,8 @@ export function BotChat({
           <Header
             name={assistant?.name ?? t("Assistant")}
             threadTitle={threadTitle}
+            botIdentity={botsLayout && assistant ? botSettings ?? assistant : undefined}
+            threadPicker={botsLayout ? botThreadPicker : undefined}
             harness={assistant?.harness}
             hostName={hostName}
             hostPicker={hostPicker}
@@ -945,9 +977,11 @@ export function BotChat({
             >
               {settingsShown && errorNotice}
               <DesktopBotDetails
+                identity={botsLayout && settingsBase ? <BotIdentitySettings key={`${cacheKey}:${settingsBase.revision}`} bot={settingsBase} busy={busy} onSave={save}>{botPinControl}</BotIdentitySettings> : undefined}
+                delegations={botsLayout ? botDelegations : undefined}
                 memory={botsLayout ? botMemory : undefined}
                 runtime={botsLayout ? botRuntime : undefined}
-                activity={botsLayout && (botActivity || botDelegations) ? <>{botActivity}{botDelegations}</> : undefined}
+                activity={botsLayout ? botActivity : undefined}
                 automation={botsLayout ? botAutomation : undefined}
                 management={botsLayout ? botManagement : undefined}
               >
@@ -1019,6 +1053,9 @@ export function BotChat({
                 aria-hidden={settingsCovering || undefined}
               >
                 <Controls {...controls} />
+                {botsLayout && <AnimatedCollapse expanded={awayFromBottom && newMessages.length > 0} className="desktop-bots-new-messages">
+                  <div><button type="button" onClick={jumpToLatest}><ArrowUp size={14} />{t("{count} new messages", { count: newMessages.length })}</button><button type="button" aria-label={t("Dismiss")} onClick={() => setReadThrough(latestRevision)}><X size={13} /></button></div>
+                </AnimatedCollapse>}
                 <div
                   ref={log}
                   className="assistant-messages"
@@ -1049,6 +1086,10 @@ export function BotChat({
                       lastScrollTop.current = element.scrollTop;
                       followLog.current = gap < 1 || (gap < 60 && !movedUp);
                       element.dataset.followLatest = String(followLog.current);
+                      if (botsLayout) {
+                        setAwayFromBottom(!followLog.current);
+                        if (followLog.current) { setReadThrough(latestRevision); markBotRead(cacheKey, messages); }
+                      }
                       anchor.current = readingAnchor(element);
                     }
                   }}
@@ -1081,6 +1122,8 @@ export function BotChat({
                     </div>
                   )}
                   <BotMessages
+                    botsLayout={botsLayout}
+                    renderFile={botsLayout ? (messageId, file) => <BotAttachmentCard file={file} read={() => client.readAttachment(messageId, file)} onOpen={openAttachment ? () => openAttachment(messageId, file) : undefined} /> : undefined}
                     renderBotDelegation={botsLayout ? renderBotDelegation : undefined}
                     readImage={readImage}
                     onOpenAttachment={openAttachment}
@@ -1116,7 +1159,9 @@ export function BotChat({
                     onClick={cancelReply}
                   />
                 )}
+                {botsLayout && <AnimatedCollapse expanded={awayFromBottom} className="desktop-bots-jump"><button type="button" aria-label={t("Scroll to bottom")} title={t("Scroll to bottom")} onClick={jumpToLatest}><ArrowUp size={18} style={{ transform: "rotate(180deg)" }} /></button></AnimatedCollapse>}
                 <Composer
+                  placeholder={botsLayout ? t("Message {bot}", { bot: assistant.name }) : undefined}
                   draft={draft}
                   errorNotice={composerReadOnly ? <>
                     <ComposerNotice tone="info" role="status" className="desktop-bot-read-only">{t(composerReadOnly)}</ComposerNotice>

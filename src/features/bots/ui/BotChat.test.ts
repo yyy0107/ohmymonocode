@@ -337,7 +337,7 @@ function setValue(
 }
 function rename(value: string) {
   const name = [...node.querySelectorAll("label")]
-    .find((l) => l.textContent?.startsWith("Assistant name"))!
+    .find((l) => (l.textContent?.startsWith("Assistant name") || l.textContent?.startsWith("Name")))!
     .querySelector("input")!;
   setValue(name, value);
 }
@@ -1238,7 +1238,7 @@ it("keeps Bots chat interactive and retains detail drafts through closing, rever
     setValue(composer, "Keep this chat draft");
   });
   const nameInput = [...panel.querySelectorAll("label")]
-    .find((label) => label.textContent?.startsWith("Assistant name"))!.querySelector("input")!;
+    .find((label) => (label.textContent?.startsWith("Assistant name") || label.textContent?.startsWith("Name")))!.querySelector("input")!;
   act(() => node.querySelector<HTMLButtonElement>('[aria-label="Hide bot details"]')!.click());
   expect(panel.getAttribute("data-fold-state")).toBe("closing");
   expect(panel.inert).toBe(true);

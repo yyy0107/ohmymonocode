@@ -18,6 +18,8 @@ import { CornerDownRight } from "../../../shared/ui/icons";
 import { BotMessageImage, type ReadBotImage } from "./BotMessageImage";
 
 type MessageActions = {
+  botsLayout?: boolean;
+  renderFile?: (messageId: string, file: RemoteAttachment) => ReactNode;
   /** Optional desktop-only card; legacy/mobile status text stays unchanged. */
   renderBotDelegation?: (delegationId: string, revision: number) => ReactNode;
   readImage?: ReadBotImage;
@@ -47,6 +49,8 @@ const BotMessageRow = memo(function BotMessageRow({
   readImage,
   onOpenAttachment,
   renderBotDelegation,
+  renderFile,
+  botsLayout,
 }: MessageActions & {
   message: BotMessage;
   previousCreatedAt?: number;
@@ -137,6 +141,7 @@ const BotMessageRow = memo(function BotMessageRow({
       ) : (
         <div
           key={message.id}
+          data-message-id={botsLayout ? message.id : undefined}
           className={`assistant-message-row assistant-message-row-${message.kind}`}
           data-reply-id={
             mobile && message.kind === "assistant" ? message.id : undefined
@@ -159,7 +164,7 @@ const BotMessageRow = memo(function BotMessageRow({
               attachments={[...images, ...otherFiles]}
               renderAttachment={file => readImage && file.kind === "image"
                 ? <BotMessageImage key={file.id} messageId={message.id} file={file} readImage={readImage} />
-                : <AttachmentChip key={file.id} attachment={file} tile
+                : renderFile ? <Fragment key={file.id}>{renderFile(message.id, file)}</Fragment> : <AttachmentChip key={file.id} attachment={file} tile
                     onOpen={onOpenAttachment ? () => onOpenAttachment(message.id, file) : undefined} />}
             />
           )}

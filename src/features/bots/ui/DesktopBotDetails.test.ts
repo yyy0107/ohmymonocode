@@ -65,13 +65,14 @@ it("refreshes loaded older activity through shifting cursors and stops polling w
   expect(rpc.mock.calls.every(call => call[1].botId === "bot-a" && call[1].threadId === "thread-a")).toBe(true);
 });
 
-it("supports keyboard tabs, preserves visited content, and propagates hidden visibility", async () => {
+it("returns from subpages with Escape, preserves visited drafts, and disables hidden activity", async () => {
   function Visible() { return createElement("span", null, useSurfaceVisibility() ? "active" : "hidden"); }
-  act(() => root.render(createElement(DesktopBotDetails, { children: createElement("input", { defaultValue: "draft" }), memory: createElement("p", null, "memory"), activity: createElement(Visible), automation: createElement("p", null, "automations") })));
-  const tabs = () => [...node.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
-  act(() => tabs()[0].dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }))); expect(tabs()[3].getAttribute("aria-selected")).toBe("true"); expect(document.activeElement).toBe(tabs()[3]);
-  act(() => tabs()[2].click()); expect(node.textContent).toContain("active");
-  act(() => tabs()[0].click()); expect(node.textContent).toContain("hidden"); expect(node.querySelector("input")!.value).toBe("draft");
+  act(() => root.render(createElement(DesktopBotDetails, { identity: createElement("input", { defaultValue: "draft" }), children: createElement("p", null, "runtime"), memory: createElement("p", null, "memory"), activity: createElement(Visible) })));
+  act(() => button("Activity").click()); expect(node.textContent).toContain("active");
+  expect(node.querySelector<HTMLElement>('[data-root="true"]')!.inert).toBe(true);
+  act(() => node.querySelector("h3")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  expect(node.textContent).toContain("hidden"); expect(node.querySelector("input")!.value).toBe("draft");
+  expect(node.querySelector<HTMLElement>('[data-root="true"]')!.inert).toBe(false);
 });
 
 it("saves only automation fields with a stable revision and retry command while retaining a failed draft", async () => {

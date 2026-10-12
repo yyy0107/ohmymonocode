@@ -110,6 +110,12 @@ function setValue(input: HTMLInputElement | HTMLTextAreaElement, value: string) 
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 async function select(label: string) {
+  if (/^[AB]-/.test(label)) {
+    if (!active().querySelector(`[title="${label[0]}"][aria-current="true"]`)) {
+      act(() => active().querySelector<HTMLButtonElement>(`button[title="${label[0]}"]`)!.click()); await flush();
+    }
+    act(() => active().querySelector<HTMLButtonElement>('[aria-label="Switch thread"]')!.click()); await flush();
+  }
   act(() => active().querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!.click());
   await flush();
 }
@@ -150,6 +156,7 @@ it("creates a Bot only after saving its editable draft and creates a named Threa
   await flush();
   expect(rpc.mock.calls.find(([method]) => method === "bots.create")?.[1].patch.name).toBe("New colleague");
   expect(active().textContent).toContain("New colleague");
+  act(() => active().querySelector<HTMLButtonElement>('[aria-label="Switch thread"]')!.click()); await flush();
   const newThread = [...active().querySelectorAll<HTMLButtonElement>('[aria-label="New thread"]')].at(-1)!;
   act(() => newThread.click());
   const field = node.querySelector<HTMLInputElement>('[aria-label="Thread name"]')!;
@@ -165,6 +172,7 @@ it("edits Bot defaults without copying a Thread model override", async () => {
   await render();
   act(() => active().querySelector<HTMLButtonElement>('[aria-label="Bot details"]')!.click());
   await flush();
+  act(() => [...active().querySelectorAll<HTMLButtonElement>('.desktop-bot-settings-links button')].find(button => button.textContent === "Runtime")!.click()); await flush();
   const panel = active().querySelector<HTMLElement>(".desktop-bots-inspector")!;
   const name = [...panel.querySelectorAll("label")].find((label) => label.textContent?.startsWith("Assistant name"))!.querySelector("input")!;
   act(() => setValue(name, "Renamed A"));
@@ -177,7 +185,8 @@ it("edits Bot defaults without copying a Thread model override", async () => {
 it("labels an empty stored default title without mutating it", async () => {
   snapshot.threads[0].title = "";
   await render();
-  const row = active().querySelector<HTMLButtonElement>('.desktop-bots-thread[aria-current="page"]')!;
+  act(() => active().querySelector<HTMLButtonElement>('[aria-label="Switch thread"]')!.click()); await flush();
+  const row = active().querySelector<HTMLButtonElement>('[role="menuitem"][aria-current="page"]')!;
   expect(row.getAttribute("aria-label")).toBe("Main thread");
   expect(row.textContent).toContain("Main thread");
   expect(snapshot.threads[0].title).toBe("");
@@ -189,7 +198,7 @@ it("shares file drafts across a Bot's threads, keeps Bots isolated, and retains 
   expect(rpc.mock.calls.some(([method]) => method.startsWith("botMemory."))).toBe(false);
   const openFiles = async () => {
     act(() => active().querySelector<HTMLButtonElement>('[aria-label="Bot details"]')!.click()); await flush();
-    act(() => [...active().querySelectorAll<HTMLButtonElement>('[role="tab"]')].find((button) => button.textContent === "Memory files")!.click()); await flush();
+    act(() => [...active().querySelectorAll<HTMLButtonElement>('.desktop-bot-settings-links button')].find((button) => button.textContent === "Memory files")!.click()); await flush();
   };
   const contents = () => active().querySelector<HTMLTextAreaElement>('[aria-label="File contents"]')!;
   await openFiles();
@@ -209,6 +218,7 @@ it("shares file drafts across a Bot's threads, keeps Bots isolated, and retains 
 
 async function details() {
   act(() => active().querySelector<HTMLButtonElement>('[aria-label="Bot details"]')!.click()); await flush();
+  act(() => [...active().querySelectorAll<HTMLButtonElement>('.desktop-bot-settings-links button')].find(button => button.textContent === "Thread settings")!.click()); await flush();
   act(() => active().querySelector<HTMLButtonElement>(".desktop-bots-management-toggle")!.click()); await flush();
 }
 function managementButton(text: string) {
@@ -229,7 +239,7 @@ it("protects default scopes and restores an archived Thread with its draft and s
   act(() => { log.scrollTop = 88; log.dispatchEvent(new Event("scroll")); });
   await details();
   act(() => managementButton("Archive thread").click()); await flush();
-  expect(active().querySelector('.desktop-bots-thread[aria-current="page"]')?.textContent).toContain("A-1");
+  expect(active().querySelector('.desktop-bots-thread-trigger')?.textContent).toContain("A-1");
   expect(active().querySelector('[aria-label="A-2"]')).toBeNull();
   const archive = await archives();
   const restore = archive.querySelector<HTMLButtonElement>('[aria-label="Restore thread: A-2"]')!;
@@ -246,7 +256,7 @@ it("protects default scopes and restores an archived Thread with its draft and s
 it("restores an archived Bot and keeps its independent draft and user avatar", async () => {
   snapshot.bots[1].avatar = "🐱";
   await render(); await select("B");
-  expect(active().querySelector('[aria-label="B"] .desktop-bots-avatar')?.textContent).toContain("🐱");
+  expect(active().querySelector('[aria-label="B"] .desktop-bot-avatar')?.textContent).toContain("🐱");
   act(() => setValue(composer(), "Bot B draft"));
   await details();
   act(() => managementButton("Archive bot").click()); await flush();
@@ -269,7 +279,7 @@ it("saves a Thread title and model override, then resets the override to follow 
   act(() => managementButton("Save thread").click()); await flush();
   const saved = rpc.mock.calls.find(([method]) => method === "botThreads.configure")?.[1];
   expect(saved).toMatchObject({ botId: "A", threadId: "A-2", expectedRevision: 1, patch: { title: "Planning title", modelOverride: { harness: "codex", model: "thread-model" } } });
-  expect(active().querySelector('.desktop-bots-thread[aria-current="page"]')?.textContent).toContain("Planning title");
+  expect(active().querySelector('.desktop-bots-thread-trigger')?.textContent).toContain("Planning title");
   expect(snapshot.bots[0].model).toBe("default-model");
   act(() => follow.click());
   // Content remains mounted during closing and AnimatedCollapse owns inertness.
@@ -296,16 +306,17 @@ it("gates new management fields while exposing scoped activity on a Stage 4 Host
   runtimeSupported = true;
   await render(); await details();
   expect(active().querySelector(".desktop-bot-runtime")).toBeNull();
-  expect([...active().querySelectorAll('[role="tab"]')].some(tab => tab.textContent === "Automation")).toBe(false);
-  const activity = [...active().querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(tab => tab.textContent === "Activity")!;
+  expect([...active().querySelectorAll('.desktop-bot-settings-links button')].some(tab => tab.textContent === "Automation")).toBe(false);
+  act(() => active().querySelector<HTMLButtonElement>('[aria-label="Back to settings"]')!.click()); await flush();
+  const activity = [...active().querySelectorAll<HTMLButtonElement>('.desktop-bot-settings-links button')].find(tab => tab.textContent === "Activity")!;
   act(() => activity.click()); await flush();
   expect(rpc.mock.calls.find(([method]) => method === "botThreads.runs")?.[1]).toMatchObject({ botId: "A", threadId: "A-1" });
 });
 it("offers automation on a management-capable Host and returns archive keyboard focus", async () => {
   runtimeSupported = true; managementSupported = true;
   await render(); await details();
-  expect(active().querySelector(".desktop-bot-runtime")).not.toBeNull();
-  expect([...active().querySelectorAll('[role="tab"]')].some(tab => tab.textContent === "Automation")).toBe(true);
+  expect([...active().querySelectorAll(".desktop-bot-settings-links button")].some(button => button.textContent === "Runtime")).toBe(true);
+  expect([...active().querySelectorAll('.desktop-bot-settings-links button')].some(tab => tab.textContent === "Automation")).toBe(true);
   const archive = await archives();
   expect(document.activeElement).toBe(archive.querySelector(".desktop-bots-archive h2"));
   act(() => archive.querySelector(".desktop-bots-archive h2")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
@@ -322,7 +333,7 @@ it("renders scoped delegation messages and opens the target Thread for its indep
   expect(active().querySelector(".desktop-bot-delegation-card")?.textContent).toContain("A → B");
   expect(rpc.mock.calls.find(([method]) => method === "botDelegations.get")?.[1]).toEqual({ botId: "A", threadId: "A-1", delegationId: "d1" });
   act(() => [...active().querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Open target thread")!.click()); await flush();
-  expect(active().querySelector('.desktop-bots-thread[aria-current="page"]')?.textContent).toContain("B-1");
+  expect(active().querySelector('.desktop-bots-thread-trigger')?.textContent).toContain("B-1");
   expect(composer().disabled).toBe(true);
   expect(active().textContent).toContain("Delegation threads accept approvals and questions.");
   expect(rpc.mock.calls.some(([method]) => method === "botThreads.respond")).toBe(false);

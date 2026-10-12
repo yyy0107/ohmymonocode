@@ -200,6 +200,7 @@ it("separates same-ID attachment copies across Bot threads and reuses each threa
   await open(); await open();
   expect(requests("attachments.read")).toHaveLength(1);
   expect(mocks.openFile).toHaveBeenLastCalledWith("/local/A.txt");
+  act(() => active().querySelector<HTMLButtonElement>('[aria-label="Switch thread"]')!.click()); await flush();
   act(() => active().querySelector<HTMLButtonElement>('[aria-label="A-2"]')!.click()); await flush();
   await open();
   expect(mocks.openFile).toHaveBeenLastCalledWith("/local/C.txt");
@@ -211,6 +212,8 @@ it("separates same-ID attachment copies across Bot threads and reuses each threa
     { botId: "B", threadId: "B-1", messageId: "file-message", id: "same-file-id", offset: 0 },
   ]);
   expect(mocks.openFile).toHaveBeenLastCalledWith("/local/B.txt");
+  act(() => active().querySelector<HTMLButtonElement>('[title="A"]')!.click()); await flush();
+  act(() => active().querySelector<HTMLButtonElement>('[aria-label="Switch thread"]')!.click()); await flush();
   act(() => active().querySelector<HTMLButtonElement>('[aria-label="A-1"]')!.click()); await flush();
   await open();
   expect(requests("attachments.read")).toHaveLength(3);

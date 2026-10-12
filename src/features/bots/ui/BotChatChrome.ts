@@ -6,6 +6,8 @@ import type { BotLifecycle, BotMessage } from "../model/botView";
 export type BotHeaderProps = {
   name: string;
   threadTitle?: string;
+  botIdentity?: { id: string; avatar?: string };
+  threadPicker?: ReactNode;
   hostName: string;
   harness?: RemoteProvider;
   /** Optional Host switcher shown in place of the Host name. */
@@ -40,6 +42,7 @@ export type BotDraftAttachment = RemoteAttachment & { previewFile?: File };
 
 export type BotComposerProps = {
   draft: string;
+  placeholder?: string;
   errorNotice?: ReactNode;
   replyText?: string;
   onCancelReply?: () => void;
