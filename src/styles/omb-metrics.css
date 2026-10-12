@@ -256,7 +256,7 @@ html[data-skin] [data-session-group-row] > span:nth-child(2) {
   line-height: 18px;
 }
 
-/* Session rows, as the phone's Home row: one line, round agent avatar,
+/* Session rows, as the phone's Home row: one line, agent icon in an avatar-sized slot,
    title, recency or state at the end. Rows under a project step in by one
    nest and rows inside a session group by two, so sessions never read as
    projects; pinned and chat shortcuts sit at the section edge. */

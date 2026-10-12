@@ -783,12 +783,7 @@ html[data-skin] [data-session-dense][data-session-waiting="true"] {
 }
 
 html[data-skin] [data-session-card] [data-session-avatar] {
-  background: var(--color-raised);
   color: var(--color-ink);
-}
-
-html[data-skin] [data-session-card][data-session-active="true"] [data-session-avatar] {
-  background: var(--color-raised-hover);
 }
 
 html[data-skin] [data-session-dense] [data-session-select] .text-ui-caption {
