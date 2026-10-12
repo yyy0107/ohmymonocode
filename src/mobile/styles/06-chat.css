@@ -105,7 +105,8 @@
   z-index: 10;
   bottom: calc(0px - var(--mobile-keyboard-layout));
   padding: 8px 8px 18px;
-  transform: translateY(calc(0px - var(--mobile-keyboard-offset) - var(--mobile-dock-inset) + 8px));
+  /* Keep keyboard travel independent of Motion's layout projection transform. */
+  translate: 0 calc(0px - var(--mobile-keyboard-offset) - var(--mobile-dock-inset) + 8px);
   pointer-events: none;
   /* Move the safe-area gap with the capsule. Animating padding would resize
      the dock and republish transcript padding on every keyboard frame. */
@@ -165,7 +166,7 @@
    stays at the full viewport bottom behind the keyboard. Keep this layout
    between question fields and buttons, until the composer itself is focused. */
 .mobile-chat:has(> .mobile-shared-question-dock:not([data-fold-state="closed"])) > .mobile-composer-dock:not(:focus-within) {
-  transform: translateY(calc(8px - var(--mobile-dock-inset)));
+  translate: 0 calc(8px - var(--mobile-dock-inset));
 }
 .mobile-chat:not(:has(> .mobile-composer-dock :focus)) > .mobile-shared-question-dock:not([data-fold-state="closed"]) {
   --mobile-question-gap: max(8px, calc(var(--mobile-dock-height, 0px) - var(--mobile-keyboard-layout)));
