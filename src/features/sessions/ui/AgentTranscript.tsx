@@ -110,6 +110,7 @@ import { TranscriptTurnCache } from "../model/transcriptTurnCache";
 import { userTurnStartTimes } from "../model/turnTiming";
 import { liveStatus } from "../model/liveStatus";
 import { Shimmer } from "../../../shared/ui/Shimmer";
+import { TypingDots } from "../../../shared/ui/omb/TypingDots";
 import { RollingClock, rollingClockMotion } from "../../../shared/ui/RollingClock";
 import {
   hasPendingApproval,
@@ -1618,9 +1619,12 @@ function LiveFoldTitle({
       ? `${working} · ${backgroundLabel(background)}`
       : working;
   const label = (
-    <Shimmer className="transcript-live-fold-title min-w-0 truncate font-sans text-sm" duration={1}>
-      {text}
-    </Shimmer>
+    <>
+      {paused ? null : <TypingDots className="transcript-typing mr-2 shrink-0" />}
+      <Shimmer className="transcript-live-fold-title min-w-0 truncate font-sans text-sm" duration={1}>
+        {text}
+      </Shimmer>
+    </>
   );
   return background?.length ? (
     <span className="flex min-w-0" title={background.join("\n")}>

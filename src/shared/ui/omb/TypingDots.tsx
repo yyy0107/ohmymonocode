@@ -1,23 +1,27 @@
 import { cx } from "./cx";
 
-/** Three 6px dots that hop 2px, 0.15s apart. Static under reduced motion. */
+/**
+ * Three 6px dots that hop 2px, 0.15s apart. Static under reduced motion.
+ * Without `label` the dots are decorative (a nearby line already announces
+ * the status).
+ */
 export function TypingDots({
   label,
   className,
 }: {
-  /** Accessible status text, e.g. translated "Working". */
-  label: string;
+  label?: string;
   className?: string;
 }) {
   return (
     <span
-      role="status"
+      role={label ? "status" : undefined}
       aria-label={label}
+      aria-hidden={label ? undefined : true}
       className={cx("omb-typing inline-flex items-center gap-1 text-ink-tertiary", className)}
     >
-      <span aria-hidden />
-      <span aria-hidden />
-      <span aria-hidden />
+      <span />
+      <span />
+      <span />
     </span>
   );
 }

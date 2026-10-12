@@ -992,3 +992,20 @@ html[data-skin] [data-session-card]:not(.omb-session) [data-session-select] .tex
     transition: none;
   }
 }
+
+/* Live turn: OpenMausBot typing dots lead the working line. Classic keeps
+   the shimmer alone. */
+html:not([data-skin]) .transcript-typing {
+  display: none;
+}
+
+/* Stop sits on the composer fill, which equals `raised` in several skins;
+   an ink disc keeps it visible beside the accent send control. */
+html[data-skin] [data-composer-layout="desktop"] .composer-stop {
+  background: var(--color-ink);
+  color: var(--color-app);
+}
+
+html[data-skin] [data-composer-layout="desktop"] .composer-stop:hover {
+  background: color-mix(in srgb, var(--color-ink) 85%, var(--color-app));
+}
