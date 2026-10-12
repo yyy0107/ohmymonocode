@@ -2161,6 +2161,7 @@ const SessionCard = memo(function SessionCard({
             {dense || (compact && !orchestrationExpanded) ? (
               <span
                 role="img"
+                data-session-avatar
                 aria-label={HARNESS_TITLE[session.harness]}
                 title={HARNESS_TITLE[session.harness]}
                 className="flex shrink-0 items-center"

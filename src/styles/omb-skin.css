@@ -939,3 +939,56 @@ html[data-skin] .app-view-dialog.omb-slide-panel .modal-panel {
     transition: none;
   }
 }
+
+/* Sidebar tree. Section labels read as OpenMausBot group captions; dense
+   session rows put the agent icon in a round avatar before the title. */
+html[data-skin] [data-sidebar-section-header] [data-sidebar-section-toggle] > span:first-child {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-tertiary);
+}
+
+html[data-skin] [data-sidebar-section-header]:hover [data-sidebar-section-toggle] > span:first-child {
+  color: var(--color-ink-secondary);
+}
+
+html[data-skin] [data-session-card]:not(.omb-session) {
+  height: var(--row-h-compact);
+  border-radius: var(--radius-row);
+  transition: background-color 150ms ease;
+}
+
+html[data-skin] [data-session-card]:not(.omb-session)[data-session-active="true"]:not([data-session-selected="true"]) {
+  background: var(--color-raised);
+}
+
+html[data-skin] [data-session-card]:not(.omb-session):not([data-session-active="true"]):not([data-session-selected="true"]):not([data-session-waiting="true"]):hover {
+  background: color-mix(in srgb, var(--color-raised) 65%, transparent);
+}
+
+html[data-skin] [data-session-card] [data-session-avatar] {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-raised);
+}
+
+html[data-skin] [data-session-card][data-session-active="true"] [data-session-avatar] {
+  background: var(--color-raised-hover);
+}
+
+html[data-skin] [data-session-card]:not(.omb-session) [data-session-select] .text-ui-caption {
+  font-size: 13px;
+  color: var(--color-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-skin] [data-session-card]:not(.omb-session) {
+    transition: none;
+  }
+}
