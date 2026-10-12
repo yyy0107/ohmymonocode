@@ -47,7 +47,10 @@ export class AssistantClient {
     readonly hostKey: string,
     readonly rpc: AssistantRpc,
     private storage?: Pick<Storage, "getItem" | "setItem" | "removeItem">,
-  ) {}
+    initialRevision = 0,
+  ) {
+    this.revision = initialRevision;
+  }
   get hasOlderHistory() { return this.olderHistory; }
   get historyMessageIds(): ReadonlySet<string> { return this.historyIds; }
   sync({ history = this.historySupported, fresh = false } = {}): Promise<AssistantSync> {

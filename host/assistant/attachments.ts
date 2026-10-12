@@ -299,6 +299,8 @@ async function publish(
         origin: {
           kind: "assistant",
           assistantId: config.id,
+          botId: store.botId,
+          threadId: store.threadId,
           assistantName: config.name,
           actionId,
           wakeupId: wakeup.id,

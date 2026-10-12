@@ -79,6 +79,7 @@ const waitFor = async (pred: () => boolean, label: string) => {
 async function startTurn(
   sessionId: string,
   options: {
+    botContext?: import("../../core/botContext").HarnessBotContext;
     runtimeMode?: RuntimeMode;
     intent?: TurnIntent;
     providerAccountId?: string;
@@ -92,6 +93,7 @@ async function startTurn(
     model: "claude:claude-sonnet-5",
     modelSettings: {},
     runtimeMode: options.runtimeMode ?? "supervised",
+    botContext: options.botContext,
     intent: options.intent,
     providerAccountId: options.providerAccountId,
     claudeHooks: options.claudeHooks,
@@ -301,6 +303,18 @@ describe("claude native context reads", () => {
       const samples = events.filter(e => e.type === "turn.metrics" && e.generationSample !== undefined);
       expect(samples.at(-1)?.generationSample).toMatchObject({ outputTokens: 20, durationMs: 2_000, tokenSource: "provider" });
     } finally { clock.mockRestore(); await stopClaudeSession("claude-rate"); }
+  });
+
+  it("delivers a trusted Bot Soul through the system flag and keeps user messages separate", async () => {
+    const { turn } = await startTurn("bot-native", { botContext: { scope: { botId: "bot", threadId: "thread", runId: "run" }, systemInstructions: "Identity and Soul", contextFingerprint: "stable", agentsMcp: { command: "/host-node", args: ["/host-entry", "agents-mcp"] } } });
+    expect(spawned[0]).toEqual(expect.arrayContaining(["--append-system-prompt", "Identity and Soul"]));
+    expect(JSON.parse(spawned[0][spawned[0].indexOf("--mcp-config") + 1])).toMatchObject({ mcpServers: { mc_agents_thread: { command: "/host-node", args: ["/host-entry", "agents-mcp"] } } });
+    const prompt = JSON.stringify(parse().find(m => m.type === "user"));
+    expect(prompt).toContain("explore the codebase");
+    expect(prompt).not.toContain("Identity and Soul");
+    expect(prompt).not.toContain("/host-entry");
+    emit({ type: "result", subtype: "success", session_id: "sess_1" });
+    await turn;
   });
 
   it("does not query versions that cannot guarantee a local summary", async () => {

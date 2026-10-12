@@ -1,4 +1,5 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { existsSync, realpathSync } from "node:fs";
 import { dirname, basename, resolve } from "node:path";
 import type { HostStore } from "./store";
@@ -34,7 +35,7 @@ export function initCheckoutGuards(store: HostStore): void {
   );`);
 }
 
-function resources(store: HostStore) {
+export function checkoutResources(store: HostStore) {
   initCheckoutGuards(store);
   const rows = store.db
     .prepare("SELECT * FROM checkout_resources")
@@ -73,10 +74,19 @@ function resources(store: HostStore) {
   });
 }
 
+/** The identity comes only from a Host-owned run, never from device RPC input. */
+const checkoutOwner = new AsyncLocalStorage<{ store: HostStore; owner: string }>();
+export function checkoutExecutionPrefix(owner: string): string {
+  return `execution:${createHash("sha256").update(owner).digest("hex")}:`;
+}
+export function withCheckoutOwner<T>(store: HostStore, owner: string, action: () => T): T {
+  return checkoutOwner.run({ store, owner }, action);
+}
+
 export function assertCheckoutAvailable(store: HostStore, path: string): void {
   const key = checkoutPath(path);
   if (
-    resources(store).some(
+    checkoutResources(store).some(
       (row) => row.kind === "removing" && checkoutPathsOverlap(key, row.path),
     )
   )
@@ -94,7 +104,7 @@ export async function waitForProviderDrain(
   const key = checkoutPath(path);
   const deadline = Date.now() + timeoutMs;
   for (;;) {
-    const pending = resources(store).some(
+    const pending = checkoutResources(store).some(
       (row) =>
         (row.id.startsWith("host-guard:") ||
           row.id.startsWith("host-provider:")) &&
@@ -139,12 +149,15 @@ function claimResource(
   kind: "resource" | "writing",
 ): CheckoutResourceRelease {
   const key = checkoutPath(path);
+  const context = checkoutOwner.getStore();
+  const ownPrefix = context?.store === store ? checkoutExecutionPrefix(context.owner) : undefined;
+  if (kind === "writing" && ownPrefix) id = `${ownPrefix}write:${id}`;
   let ownerPid = process.pid;
   store.transaction(() => {
     assertCheckoutAvailable(store, path);
     if (
       kind === "writing" &&
-      resources(store).some(
+      checkoutResources(store).some(
         (row) =>
           row.kind === "integrating" && checkoutPathsOverlap(key, row.path),
       )
@@ -152,6 +165,9 @@ function claimResource(
       throw new Error(
         "This working copy is receiving an accepted result. Retry saving after integration finishes.",
       );
+    if (kind === "writing" && checkoutResources(store).some((row) =>
+      row.kind === "executing" && !(row.owner_pid === process.pid && ownPrefix && row.id.startsWith(ownPrefix)) && checkoutPathsOverlap(key, row.path)))
+      throw new Error("This working copy is in use by another run. Retry when it finishes.");
     store.db
       .prepare(
         "INSERT INTO checkout_resources VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET path=excluded.path, kind=excluded.kind, owner_pid=excluded.owner_pid",
@@ -188,11 +204,14 @@ export async function withCheckoutIntegration<T>(
 ): Promise<T> {
   const keys = [...new Set(paths.map(checkoutPath))];
   const ids = keys.map(() => `integrate:${randomUUID()}`);
+  const context = checkoutOwner.getStore();
+  const ownPrefix = context?.store === store ? checkoutExecutionPrefix(context.owner) : undefined;
   store.transaction(() => {
     if (
-      resources(store).some(
+      checkoutResources(store).some(
         (row) =>
           row.kind !== "resource" &&
+          !(row.kind === "executing" && row.owner_pid === process.pid && ownPrefix && row.id.startsWith(ownPrefix)) &&
           keys.some((key) => checkoutPathsOverlap(key, row.path)),
       )
     )
@@ -225,7 +244,7 @@ export async function withCheckoutRemoval<T>(
   const key = checkoutPath(path);
   const id = `remove:${randomUUID()}`;
   store.transaction(() => {
-    if (resources(store).some((row) => checkoutPathsOverlap(key, row.path)))
+    if (checkoutResources(store).some((row) => checkoutPathsOverlap(key, row.path)))
       throw new Error(
         "Close files and terminals using this worker checkout before cleanup. Its worktree was kept.",
       );

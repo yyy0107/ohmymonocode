@@ -1,3 +1,5 @@
+import type { BotScope } from "./bots";
+
 /** Public IM configuration and delivery status. Credentials stay on the Host. */
 export type ImView = {
   configured: boolean;
@@ -14,6 +16,8 @@ export type ImView = {
     nextRetryAt?: number;
   };
   bindingId?: string;
+  /** Host-owned default Bot/Thread target; distinct from the IM channel thread. */
+  scope?: BotScope;
   pending: number;
   deliveries: Array<{
     id: string;

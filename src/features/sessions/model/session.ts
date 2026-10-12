@@ -270,6 +270,9 @@ export type Attachment = {
 export type TurnOrigin = {
   kind: "assistant";
   assistantId: string;
+  /** Host-signed Bot/Thread origin; absent on older Host records. */
+  botId?: string;
+  threadId?: string;
   assistantName?: string;
   actionId: string;
   wakeupId: string;

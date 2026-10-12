@@ -110,9 +110,17 @@ export type AssistantActivity = {
   sessionTitle?: string;
   at: number;
 };
+export type BotToolConfiguration = {
+  /** Omitted means all Host assistant actions allowed by the current policy. */
+  enabledActions?: string[];
+  /** A run which uses the Host computer must hold its exclusive resource lease. */
+  computer?: boolean;
+};
 export type AssistantView = {
   id: string;
   name: string;
+  /** Optional short avatar text, limited to eight Unicode code points. */
+  avatar?: string;
   persona?: AssistantPersona;
   /** IANA time zone used for the assistant's sense of local time. */
   timezone?: string;
@@ -123,10 +131,19 @@ export type AssistantView = {
   revision: number;
   chatRevision: number;
   enabled: boolean;
+  /** Host-wide Bot scheduling gate, independent of the selected Thread state. */
+  paused?: boolean;
   lifecycle: AssistantLifecycle;
   harness: RemoteProvider;
   model: string;
   modelSettings: Record<string, string>;
+  /** Defaults to three concurrent Threads; each Thread still runs one turn at a time. */
+  maxConcurrentRuns?: number;
+  /** Optional absolute execution directory, separate from the Bot memory workspace. */
+  workingDirectory?: string;
+  tools?: BotToolConfiguration;
+  /** Same-Host Bots this Bot may call; omitted means no delegation targets. */
+  callableBotIds?: string[];
   runtimeMode: RuntimeMode;
   targetRuntimeMode: RuntimeMode;
   policy: AssistantPolicy;
@@ -185,11 +202,15 @@ export type AssistantPatch = Partial<
   Pick<
     AssistantView,
     | "name"
+    | "avatar"
     | "persona"
     | "timezone"
     | "harness"
     | "model"
     | "modelSettings"
+    | "maxConcurrentRuns"
+    | "tools"
+    | "callableBotIds"
     | "runtimeMode"
     | "targetRuntimeMode"
     | "policy"
@@ -199,7 +220,7 @@ export type AssistantPatch = Partial<
     | "maxAutoTurns"
     | "chainWindowMinutes"
   >
->;
+> & { workingDirectory?: string | null };
 type MessageBase = {
   id: string;
   revision: number;
@@ -235,7 +256,7 @@ export type AssistantMessage = MessageBase &
           | "unavailable";
         error?: string;
       }
-    | { kind: "status"; text: string; code?: string }
+    | { kind: "status"; text: string; code?: string; delegationId?: string }
     | {
         kind: "input";
         text: string;

@@ -288,3 +288,36 @@ it("delivers explicitly published files and checks revoked access before later u
   expect(s.send).toHaveBeenCalledOnce();
   expect(s.engine.im.view().deliveries).toMatchObject([{ state: "failed", error: "Permission denied: files.read" }]);
 });
+
+it("upgrades legacy binding scope in place and keeps IM routing on the default Bot and thread", async () => {
+  const s = await setup(); await s.enable();
+  const defaultScope = s.engine.assistant.store.scope;
+  expect(s.engine.im.view().scope).toEqual(defaultScope);
+  const other = s.engine.bots.store.createBot({ name: "Private", harness: "codex", model: "test" });
+  const sibling = s.engine.bots.store.createThread(defaultScope.botId, { title: "Private sibling" });
+  for (const scope of [other, sibling])
+    s.engine.bots.assistant(scope).store.message({ id: "private", kind: "assistant", text: "Do not project another conversation" });
+  await expect(s.engine.im.rpc("im.configure", { ...config, scope: other })).rejects.toThrow(/Unknown input field/);
+  await expect(s.engine.im.rpc("im.control", { action: "enable", ...other })).rejects.toThrow(/Unknown input field/);
+  const message = s.incoming("om_legacy_scope");
+  await s.channels.at(-1)!.receive(message);
+  await s.engine.im.pump();
+  const inbox = s.engine.im.store.inbox(message.conversation.channelId)[0];
+  s.engine.im.store.enqueue({ bindingId: inbox.bindingId, key: "stable-output", text: "Original output", threadId: "oc_private" });
+  await s.engine.im.pump();
+  const outbox = s.engine.im.store.outbox(inbox.bindingId)[0];
+  const { scope: _scope, ...legacy } = s.engine.im.store.settings()!;
+  s.store.db.prepare("UPDATE im_settings SET payload=? WHERE singleton=1").run(JSON.stringify(legacy));
+  await s.restart();
+  expect(s.engine.im.store.settings()).toEqual({ ...legacy, scope: defaultScope });
+  expect(s.engine.im.store.inbox(inbox.bindingId)[0]).toEqual(inbox);
+  expect(s.engine.im.store.outbox(inbox.bindingId)[0]).toEqual(outbox);
+  await s.channels.at(-1)!.receive(message);
+  await s.engine.im.pump();
+  expect(s.engine.assistant.store.latestMessages().filter(entry => entry.kind === "user")).toHaveLength(1);
+  expect(s.send).toHaveBeenCalledOnce();
+  for (const scope of [other, sibling])
+    expect(s.engine.bots.assistant(scope).store.latestMessages().filter(entry => entry.kind === "user")).toHaveLength(0);
+  await s.engine.im.rpc("im.configure", { ...config, appSecret: "new-secret" });
+  expect(s.engine.im.store.settings()).toMatchObject({ bindingId: legacy.bindingId, cursor: legacy.cursor, scope: defaultScope });
+});

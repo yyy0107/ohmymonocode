@@ -205,6 +205,23 @@ describe("Pi-family edit recovery", () => {
 });
 
 describe("OMP command lifecycle over the real RPC multiplexer", () => {
+  it.each([["pi", sendPiTurn, forgetPiSession], ["omp", sendOmpTurn, forgetOmpSession]] as const)(
+    "keeps %s Bot system instructions out of user and attachment content", async (flavor, send, forget) => {
+      const sessionId = `${flavor}-bot-context`;
+      const botContext = { scope: { botId: "bot", threadId: "thread", runId: "run-1" }, systemInstructions: "Identity and Soul", contextFingerprint: "stable" };
+      const turn = send({ ...input(sessionId, "USER REFERENCE"), model: `${flavor}:default`, botContext });
+      await vi.waitFor(() => expect(transport.requests.some(r => r.sessionId === sessionId && r.command.type === "prompt")).toBe(true));
+      const args = transport.spawnChild.mock.calls.find(call => call[0] === sessionId)![2];
+      expect(args).toEqual(expect.arrayContaining(["--append-system-prompt", "Identity and Soul"]));
+      const prompt = transport.requests.find(r => r.sessionId === sessionId && r.command.type === "prompt")!.command;
+      expect(JSON.stringify(prompt)).toContain("USER REFERENCE");
+      expect(JSON.stringify(prompt)).not.toContain("Identity and Soul");
+      frame(sessionId, { type: flavor === "pi" ? "agent_settled" : "agent_end" });
+      await turn;
+      await forget(sessionId);
+    },
+  );
+
   it.each([["pi", sendPiTurn], ["omp", sendOmpTurn]] as const)(
     "forwards %s extension result details into the subagent trail",
     async (flavor, send) => {

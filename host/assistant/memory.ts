@@ -195,15 +195,21 @@ export function archiveMemoryEntries(
   return join([...header, ...moved.map((line) => `${line} · moved ${date}`)]);
 }
 
-/** A topic file's name: letters, numbers, spaces, dots and dashes. */
+/** Portable Markdown basename, shared by file paths and the legacy controls. */
+export function validMemoryName(name: string): boolean {
+  return name.length <= 80 && /^[\p{L}\p{N}_-][\p{L}\p{N} ._-]*$/u.test(name) &&
+    !name.endsWith(".") && !name.endsWith(" ") &&
+    !/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(name);
+}
+
+/** Keep historical ASCII aliases readable; new Unicode names use portable filenames. */
 export function topicName(value: string): string {
   const name = value.trim().replace(/\.md$/i, "");
+  const legacy = /^[A-Za-z0-9 ._-]+$/.test(name);
   if (
-    !name ||
-    name.length > 80 ||
-    name.startsWith(".") ||
-    name.toLowerCase() === "archive" ||
-    !/^[A-Za-z0-9 ._-]+$/.test(name)
+    !name || name.length > 80 || name.startsWith(".") ||
+    (!legacy && (!validMemoryName(name) || /\.md$/i.test(name))) ||
+    name.toLowerCase() === "archive"
   )
     throw new Error(
       "topic must be a short name of letters, numbers, spaces, dots and dashes",

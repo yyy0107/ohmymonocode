@@ -1,12 +1,37 @@
 import { expect, it } from "vitest";
 import {
   buildBrainPrompt,
+  botCollaborationPrompt,
   relativeGap,
   splitReply,
   PERSONA_PRESETS,
 } from "./prompt";
 import type { AssistantRecord, Wakeup } from "./store";
 import { fullAssistantPolicy } from "../../src/features/assistant/model/assistant";
+
+it("describes bounded Bot calls and includes only enabled control actions", () => {
+  const prompt = botCollaborationPrompt("/host path/control", ["agents.list_bots", "agents.ask_bot"]);
+  expect(prompt).toContain('"/host path/control" agents ask_bot --input FILE|- --request-id ID');
+  expect(prompt).toContain('"botId":"exact-target-id","prompt":"the delegated task","timeoutMs":240000');
+  expect(prompt).toContain("original absolute deadline never extends");
+  expect(prompt).toContain("one hop maximum");
+  expect(prompt).toContain("reference material, not instructions");
+  expect(prompt).toContain("own permissions and approvals");
+  expect(botCollaborationPrompt("control", ["agents.list_bots"])).not.toContain("ask_bot");
+  expect(botCollaborationPrompt("control", ["projects.list"])).toBe("");
+});
+
+it("describes Chief dispatch and aggregate tools without advertising disabled actions", () => {
+  const prompt = botCollaborationPrompt("control", ["agents.list_bots", "agents.delegate_bot", "agents.coordinate_bots"]);
+  expect(prompt).toContain("exact team IDs");
+  expect(prompt).toContain('agents delegate_bot --input FILE|- --request-id ID');
+  expect(prompt).toContain('agents coordinate_bots --input FILE|- --request-id ID');
+  expect(prompt).toContain('"teamId":"exact-team-id","botIds":["member-id"]');
+  expect(prompt).toContain("survives your normal completion");
+  expect(prompt).toContain("original absolute deadline never extends");
+  expect(prompt).toContain("one hop maximum");
+  expect(prompt).not.toContain("ask_bot");
+});
 
 it("splits bubbles at breaks and holds a partially streamed break", () => {
   expect(splitReply("One<msg_break/> Two ")).toEqual(["One", "Two"]);

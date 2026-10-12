@@ -5,6 +5,7 @@ import {
   reportGenerationUsage,
   resetGenerationMetrics,
 } from "../../core/generationMetrics";
+import { botContextKey } from "../../core/botContext";
 import { nativeModelId } from "../../../../features/sessions/model/models";
 import { taskListFromToolInput } from "../../../../features/sessions/model/taskList";
 import { normalizeProjectPath } from "../../../../features/projects/model/recents";
@@ -113,6 +114,7 @@ type Live = {
   fastModeEnabled?: boolean;
   fastModeRequested?: boolean;
   planning: boolean;
+  botContextKey: string;
   onEvent: (event: HarnessEvent) => void;
   approvals: Map<number, PendingApproval>;
   questions: Map<
@@ -491,7 +493,8 @@ async function ensureLive(
   if (
     existing &&
     existing.cwd === input.cwd &&
-    existing.planning === wantPlanning
+    existing.planning === wantPlanning &&
+    existing.botContextKey === botContextKey(input.botContext)
   ) {
     existing.onEvent = input.onEvent;
     await applyModel(flavor, existing, input);
@@ -557,6 +560,7 @@ async function startLive(
     fastModeEnabled: undefined,
     fastModeRequested: undefined,
     planning: input.intent === "plan",
+    botContextKey: botContextKey(input.botContext),
     onEvent: input.onEvent,
     approvals: new Map(),
     questions: new Map(),
@@ -615,6 +619,7 @@ async function startLive(
       resume,
       model: modelRef ? native : undefined,
       plan: input.intent === "plan",
+      systemInstructions: input.botContext?.systemInstructions,
     }),
     input.cwd,
     undefined,

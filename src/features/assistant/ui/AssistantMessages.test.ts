@@ -51,6 +51,21 @@ it.each([true, false])("separates the quote above a mobile sent bubble while ret
   } else expect(context).toBeNull();
 });
 
+it.each([true, false])("keeps delegation status compatible with mobile while rendering desktop cards (mobile: %s)", (mobile) => {
+  const renderBotDelegation = vi.fn((id: string, revision: number) => createElement("article", { "data-delegation": id }, `Delegation revision ${revision}`));
+  const message = { id: "delegation-status", kind: "status", code: "delegation", text: "Bot request completed", delegationId: "d-1", revision: 7, createdAt: 1 } as AssistantMessage;
+  act(() => root.render(createElement(AssistantMessages, {
+    messages: [message], mobile, canRead: false, busy: false,
+    onOpen: vi.fn(), onRespond: vi.fn(), bindReply: () => ({}), renderBotDelegation,
+  })));
+  if (mobile) {
+    expect(renderBotDelegation).not.toHaveBeenCalled();
+    expect(node.querySelector(".assistant-message-status")?.textContent).toBe(message.text);
+  } else {
+    expect(renderBotDelegation).toHaveBeenCalledWith("d-1", 7);
+    expect(node.querySelector('[data-delegation="d-1"]')?.textContent).toBe("Delegation revision 7");
+  }
+});
 it("recognizes legacy multiline quotes without consuming the reply's own paragraphs", () => {
   expect(splitAssistantReply("> First\r\n> \r\n> Last\r\n\r\nReply\r\n\r\nDetails")).toEqual({
     quote: "First\n\nLast", text: "Reply\r\n\r\nDetails",

@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
+import type { BotScope } from "../../src/features/assistant/model/bots";
 import type { HostStore } from "../store";
 import type { ImIncomingMessage } from "../im/core/types";
 import type { RemoteAttachment } from "../../src/features/connections/model/protocol";
 
 export type ImSettings = {
   bindingId: string;
+  /** Default Bot/Thread target; journals retain their existing binding identity. */
+  scope: BotScope;
   appId: string;
   appSecret: string;
   ownerOpenId: string;
@@ -45,7 +48,7 @@ export type OutboxEntry = {
 
 /** IM journals share the Host transaction boundary, but contain no brain data. */
 export class ImStore {
-  constructor(readonly host: HostStore) {
+  constructor(readonly host: HostStore, readonly scope: BotScope) {
     host.db.exec(`
       CREATE TABLE IF NOT EXISTS im_settings (singleton INTEGER PRIMARY KEY CHECK(singleton=1), payload TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS im_inbox (id TEXT PRIMARY KEY, binding_id TEXT NOT NULL, message_id TEXT NOT NULL, state TEXT NOT NULL, payload TEXT NOT NULL, UNIQUE(binding_id,message_id));
@@ -53,12 +56,16 @@ export class ImStore {
       CREATE TABLE IF NOT EXISTS im_outbox (id TEXT PRIMARY KEY, binding_id TEXT NOT NULL, item_key TEXT NOT NULL, state TEXT NOT NULL, payload TEXT NOT NULL, UNIQUE(binding_id,item_key));
       CREATE INDEX IF NOT EXISTS im_outbox_state ON im_outbox(binding_id,state);
     `);
+    // Upgrade metadata in place: no new binding, cursor reset or journal rewrite.
+    const settings = this.settings();
+    if (settings && !settings.scope)
+      this.host.db.prepare("UPDATE im_settings SET payload=? WHERE singleton=1").run(JSON.stringify({ ...settings, scope }));
   }
   settings(): ImSettings | undefined {
     const row = this.host.db.prepare("SELECT payload FROM im_settings WHERE singleton=1").get();
     return row ? JSON.parse(String(row.payload)) : undefined;
   }
-  configure(value: ImSettings): void {
+  configure(value: Omit<ImSettings, "scope"> & { scope?: BotScope }): void {
     this.host.transaction(() => {
       const old = this.settings();
       if (old && old.bindingId !== value.bindingId) {
@@ -67,7 +74,7 @@ export class ImStore {
         for (const entry of this.outbox(old.bindingId))
           if (!["sent", "discarded"].includes(entry.state)) this.saveOutbox({ ...entry, state: "discarded" });
       }
-      this.host.db.prepare("INSERT INTO im_settings VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload").run(JSON.stringify(value));
+      this.host.db.prepare("INSERT INTO im_settings VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload").run(JSON.stringify({ ...value, scope: this.scope }));
     });
   }
   receive(bindingId: string, message: ImIncomingMessage): InboxEntry {

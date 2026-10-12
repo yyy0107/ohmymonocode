@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const sent: string[] = [];
+const spawned: string[][] = [];
 let onLine: ((line: string) => void) | undefined;
 let onExit: ((code: number | null, error?: string) => void) | undefined;
 const writeChild = vi.fn(async (_id: string, line: string) => {
@@ -23,7 +24,7 @@ vi.mock("@tauri-apps/api/core", async (importOriginal) => ({
 
 vi.mock("../../core/child", () => ({
   resolveCodexBinary: async () => ({ path: "/fake/codex" }),
-  spawnChild: async () => undefined,
+  spawnChild: async (_id: string, _path: string, args: string[]) => { spawned.push(args); },
   killChild: async () => undefined,
   unwatchChild: () => undefined,
   watchChild: (_id: string, line: (l: string) => void, exit: typeof onExit) => {
@@ -100,6 +101,7 @@ const waitFor = async (pred: () => boolean, label: string) => {
 async function startTurn(
   sessionId: string,
   options: {
+    botContext?: import("../../core/botContext").HarnessBotContext;
     runtimeMode?: RuntimeMode;
     intent?: TurnIntent;
     resume?: boolean;
@@ -127,6 +129,7 @@ async function startTurn(
     modelSettings: {},
     providerAccountId: options.providerAccountId,
     runtimeMode: options.runtimeMode ?? "supervised",
+    botContext: options.botContext,
     controlsAgents: options.controlsAgents,
     intent: options.intent,
     text: "summarize the changelog",
@@ -196,6 +199,18 @@ describe("codex live turn sequence", () => {
       await turn;
       expect(events.filter(e => e.type === "turn.metrics" && e.generationSample !== undefined).at(-1)?.generationSample).toMatchObject({ outputTokens: 76, durationMs: 2_000, tokenSource: "provider" });
     } finally { clock.mockRestore(); }
+  });
+
+  it("delivers a trusted Bot Soul as developer instructions and leaves reference text in turn input", async () => {
+    const { turn } = await startTurn("bot-native", { botContext: { scope: { botId: "bot", threadId: "thread", runId: "run" }, systemInstructions: "Identity and Soul", contextFingerprint: "stable", agentsMcp: { command: "/host-node", args: ["/host-entry", "agents-mcp"] } } });
+    expect(spawned.at(-1)).toContain('mcp_servers."mc_agents_thread".command="/host-node"');
+    expect(parse().find(m => m.method === "thread/start")!.params).toMatchObject({ developerInstructions: "Identity and Soul" });
+    const prompt = JSON.stringify(parse().find(m => m.method === "turn/start")!.params);
+    expect(prompt).toContain("summarize the changelog");
+    expect(prompt).not.toContain("Identity and Soul");
+    expect(prompt).not.toContain("/host-entry");
+    notify("turn/completed", { turn: { id: "turn_1", status: "completed" } });
+    await turn;
   });
 
   it("reads native names without another turn and forwards late name notifications", async () => {

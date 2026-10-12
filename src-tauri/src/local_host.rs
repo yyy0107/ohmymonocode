@@ -405,6 +405,11 @@ fn acquire_resource_kind(
             if requested_kind == "removing" || kind == "removing" {
                 return Err("Close files and terminals using this working copy before cleanup; it may currently be being removed.".into());
             }
+            if kind == "executing"
+                && matches!(requested_kind, "writing" | "integrating" | "executing")
+            {
+                return Err("This working copy is in use by an active Host turn. Retry when that turn finishes.".into());
+            }
             if (requested_kind == "writing" && kind == "integrating")
                 || (requested_kind == "integrating" && (kind == "writing" || kind == "integrating"))
             {
@@ -747,6 +752,30 @@ mod tests {
             "saved after apply"
         );
         drop(conn);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn native_mutations_respect_host_execution_leases_and_leave_other_paths_available() {
+        let root =
+            std::env::temp_dir().join(format!("monocode-bot-resource-{}", uuid::Uuid::new_v4()));
+        let project = root.join("project");
+        let unrelated = root.join("other");
+        std::fs::create_dir_all(project.join("nested")).unwrap();
+        std::fs::create_dir_all(&unrelated).unwrap();
+        let database = root.join("host.db");
+        drop(rusqlite::Connection::open(&database).unwrap());
+        assert!(acquire_resource_kind(&database, "bot:run", &project, "executing").unwrap());
+        for path in [&project, &project.join("nested"), &root] {
+            assert!(acquire_resource_kind(&database, "write:blocked", path, "writing").is_err());
+            assert!(
+                acquire_resource_kind(&database, "integrate:blocked", path, "integrating").is_err()
+            );
+        }
+        assert!(acquire_resource_kind(&database, "editor:read", &project, "resource").unwrap());
+        assert!(acquire_resource_kind(&database, "write:other", &unrelated, "writing").unwrap());
+        release_resource_row(&database, "bot:run").unwrap();
+        assert!(acquire_resource_kind(&database, "write:after", &project, "writing").unwrap());
         std::fs::remove_dir_all(root).unwrap();
     }
 

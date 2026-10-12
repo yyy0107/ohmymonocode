@@ -1,3 +1,5 @@
+import type { HarnessBotCapabilities } from "../src/integrations/harness/core/botContext";
+import { providerBotCapabilities } from "../src/integrations/harness/providers/botCapabilities";
 import type { NativeTitleInput } from "../src/integrations/harness/core/titleCoordinator";
 import { readFamilySessionTitle } from "../src/integrations/harness/providers/pi/piFamily";
 import * as codex from "../src/integrations/harness/providers/codex/codex";
@@ -35,6 +37,7 @@ import {
 import { respondQuestion as respondPiQuestion } from "../src/integrations/harness/providers/pi/piFamily";
 
 export interface HostProvider {
+  botCapabilities?: HarnessBotCapabilities;
   commands?: NativeCommandProvider;
   readSessionTitle?(input: NativeTitleInput): Promise<string | null>;
   send(input: SendTurnInput): Promise<void>;
@@ -56,6 +59,7 @@ export interface HostProvider {
 
 export const hostProviders: Record<RemoteProvider, HostProvider> = {
   codex: {
+    botCapabilities: providerBotCapabilities("codex"),
     readSessionTitle: codex.readCodexSessionTitle,
     send: codex.sendCodexTurn,
     steer: codex.steerCodexTurn,
@@ -68,6 +72,7 @@ export const hostProviders: Record<RemoteProvider, HostProvider> = {
     generateBranchName: generateCodexBranchName,
   },
   claude: {
+    botCapabilities: providerBotCapabilities("claude"),
     readSessionTitle: claude.readClaudeSessionTitle,
     send: claude.sendClaudeTurn,
     steer: claude.steerClaudeTurn,
@@ -80,6 +85,7 @@ export const hostProviders: Record<RemoteProvider, HostProvider> = {
     generateBranchName: generateClaudeBranchName,
   },
   cursor: {
+    botCapabilities: providerBotCapabilities("cursor"),
     generateBranchName: generateCursorBranchName,
     readSessionTitle: cursor.readCursorSessionTitle,
     send: cursor.sendCursorTurn,
@@ -91,6 +97,7 @@ export const hostProviders: Record<RemoteProvider, HostProvider> = {
     answer: cursor.respondCursorQuestion,
   },
   grok: {
+    botCapabilities: providerBotCapabilities("grok"),
     generateBranchName: generateGrokBranchName,
     readSessionTitle: grok.readGrokSessionTitle,
     send: grok.sendGrokTurn,
@@ -102,6 +109,7 @@ export const hostProviders: Record<RemoteProvider, HostProvider> = {
     answer: grok.respondGrokQuestion,
   },
   opencode: {
+    botCapabilities: providerBotCapabilities("opencode"),
     generateBranchName: generateOpenCodeBranchName,
     readSessionTitle: opencode.readOpenCodeSessionTitle,
     send: opencode.sendOpenCodeTurn,
@@ -114,6 +122,7 @@ export const hostProviders: Record<RemoteProvider, HostProvider> = {
     answer: opencode.respondOpenCodeQuestion,
   },
   pi: {
+    botCapabilities: providerBotCapabilities("pi"),
     generateBranchName: (cwd, message) => generateTextBranchName(runPiTextPrompt, cwd, message),
     commands: { rawSlashCommands: true, discover: ({ cwd }) => discoverPiCommands(cwd) },
     readSessionTitle: (input) => readFamilySessionTitle(PI_FLAVOR, input),
@@ -128,6 +137,7 @@ export const hostProviders: Record<RemoteProvider, HostProvider> = {
       respondPiQuestion(PI_FLAVOR, id, request, reply),
   },
   omp: {
+    botCapabilities: providerBotCapabilities("omp"),
     generateBranchName: (cwd, message) => generateTextBranchName(runOmpTextPrompt, cwd, message),
     commands: ompCommandProvider,
     readSessionTitle: (input) => readFamilySessionTitle(OMP_FLAVOR, input),
@@ -142,6 +152,7 @@ export const hostProviders: Record<RemoteProvider, HostProvider> = {
       respondPiQuestion(OMP_FLAVOR, id, request, reply),
   },
   fx: {
+    botCapabilities: providerBotCapabilities("fx"),
     readSessionTitle: fx.readFxSessionTitle,
     send: fx.sendFxTurn,
     cancel: fx.cancelFxTurn,
@@ -151,6 +162,7 @@ export const hostProviders: Record<RemoteProvider, HostProvider> = {
     answer: unsupportedQuestion,
   },
   hermes: {
+    botCapabilities: providerBotCapabilities("hermes"),
     readSessionTitle: hermes.readHermesSessionTitle,
     send: hermes.sendHermesTurn,
     steer: hermes.steerHermesTurn,
@@ -161,6 +173,7 @@ export const hostProviders: Record<RemoteProvider, HostProvider> = {
     answer: unsupportedQuestion,
   },
   antigravity: {
+    botCapabilities: providerBotCapabilities("antigravity"),
     readSessionTitle: antigravity.readAntigravitySessionTitle,
     send: antigravity.sendAntigravityTurn,
     cancel: antigravity.cancelAntigravityTurn,

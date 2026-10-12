@@ -101,7 +101,7 @@ async function setup(providers: RemoteProvider[] = ["codex"], discoverProviders?
     });
     return {
       status: response.status,
-      value: (await response.json()) as { result?: any; error?: string },
+      value: (await response.json()) as { result?: any; error?: string; code?: string },
     };
   };
   cleanups.push(async () => {
@@ -1313,7 +1313,7 @@ it("advertises assistant RPC, enforces device auth and hides the private brain",
   await engine.ready;
   engine.assistant.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }] }, errors: {} }));
   expect((await call("environment.describe")).value.result.capabilities)
-    .toEqual(expect.arrayContaining(["assistant.v1", "assistant.history"]));
+    .toEqual(expect.arrayContaining(["assistant.v1", "assistant.history", "bots.shell.v1", "bots.v1", "botThreads.v1"]));
   expect((await call("assistant.get")).value.result).toBeNull();
   expect((await call("assistant.messages", { latest: true })).value.result)
     .toMatchObject({ assistant: null, entries: [], hasMore: false });
@@ -1356,6 +1356,68 @@ it("advertises assistant RPC, enforces device auth and hides the private brain",
   expect((await call("assistant.memoryTopic", { topic: "deploys" })).status).toBe(401);
 });
 
+it("routes scoped Bot RPCs without crossing legacy history or forged Thread ownership", async () => {
+  const { engine, call } = await setup();
+  await engine.ready;
+  engine.bots.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }] }, errors: {} }));
+  const patch = { harness: "codex", model: "test", triggers: { user: true, event: false, schedule: false } };
+  const first = await call("assistant.configure", { commandId: "legacy-setup", expectedRevision: 0, patch });
+  expect(first.status).toBe(200);
+  const creation = { commandId: "create-second", patch: { ...patch, name: "Second" } };
+  const created = await call("bots.create", creation);
+  expect(created.status).toBe(200);
+  expect((await call("bots.create", creation)).value.result).toEqual(created.value.result);
+  const scope = { botId: created.value.result.bot.id, threadId: created.value.result.thread.id };
+  const listing = (await call("bots.list")).value.result;
+  expect(listing.bots).toHaveLength(2);
+  expect(listing.defaultBotId).not.toBe(scope.botId);
+  const thread = await call("botThreads.create", { commandId: "thread-second", botId: scope.botId, title: "Another conversation" });
+  expect(thread.status).toBe(200);
+  const sibling = { botId: scope.botId, threadId: thread.value.result.id };
+  await call("bots.control", { botId: scope.botId, commandId: "pause-second", action: "pause" });
+  expect((await call("botThreads.send", { ...scope, commandId: "same-command", text: "Private first" })).status).toBe(200);
+  expect((await call("botThreads.send", { ...sibling, commandId: "same-command", text: "Private sibling" })).status).toBe(200);
+  const messages = async (target: typeof scope) => (await call("botThreads.messages", { ...target, latest: true })).value.result.entries;
+  expect((await messages(scope)).filter((m: any) => m.kind === "user").map((m: any) => m.text)).toEqual(["Private first"]);
+  expect((await messages(sibling)).filter((m: any) => m.kind === "user").map((m: any) => m.text)).toEqual(["Private sibling"]);
+  expect((await call("assistant.messages", { latest: true })).value.result.entries).toEqual([]);
+  expect((await call("botThreads.messages", { botId: listing.defaultBotId, threadId: scope.threadId })).value.error).toBeTruthy();
+  expect((await call("bots.list", {}, undefined, { environmentId: "other-host" })).value.error).toMatch(/identity changed/);
+});
+
+it("serves file-backed Bot memory with conflict codes and the legacy mobile facade", async () => {
+  const { engine, store, call } = await setup();
+  await engine.ready;
+  engine.bots.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }] }, errors: {} }));
+  const created = (await call("bots.create", { commandId: "memory-bot", patch: {
+    harness: "codex", model: "test", triggers: { user: true, event: false, schedule: false },
+  } })).value.result;
+  const botId = created.bot.id;
+  const initial = (await call("botMemory.read", { botId, path: "MEMORY.md" })).value.result;
+  const save = { botId, path: "MEMORY.md", commandId: "memory-save", text: "- 2026-10-11 · Prefer focused tests\n",
+    expectedRevision: initial.revision, expectedHash: initial.hash };
+  const written = (await call("botMemory.save", save)).value.result;
+  expect(written.text).toBe(save.text);
+  expect((await call("botMemory.save", save)).value.result).toEqual(written);
+  expect((await call("assistant.memory")).value.result.facts).toEqual(expect.arrayContaining([
+    expect.objectContaining({ text: "Prefer focused tests" }),
+  ]));
+  writeFileSync(join(dirname(store.attachmentDir), "bots", botId, "workspace", "MEMORY.md"), "- 2026-10-11 · Changed externally\n");
+  const conflict = await call("botMemory.save", { ...save, commandId: "memory-stale", text: "Stale edit",
+    expectedRevision: written.revision, expectedHash: written.hash });
+  expect(conflict.value.code).toBe("MEMORY_CONFLICT");
+  const external = (await call("botMemory.read", { botId, path: "MEMORY.md" })).value.result;
+  expect(external.text).toContain("Changed externally");
+  expect(external.revision).toBeGreaterThan(written.revision);
+  expect((await call("assistant.control", { commandId: "mobile-memory", action: "addMemory", fact: "Keep mobile compatible" })).status).toBe(200);
+  expect((await call("botMemory.read", { botId, path: "MEMORY.md" })).value.result.text).toContain("Keep mobile compatible");
+  expect((await call("botMemory.read", { botId, path: "../other/MEMORY.md" })).value.error).toBeTruthy();
+  expect((await call("botMemory.rebuild", { botId, commandId: "rebuild-memory" })).status).toBe(200);
+  expect((await call("assistant.memory")).value.result.facts).toEqual(expect.arrayContaining([
+    expect.objectContaining({ text: "Keep mobile compatible" }),
+  ]));
+});
+
 it("records phone hardware only for the authenticated device and retains it on legacy reconnects", async () => {
   const s = await setup();
   s.store.markAdminDevice(s.first.id);
@@ -1393,4 +1455,119 @@ it("records desktop hostnames for the authenticated device and persists them acr
   } finally {
     reopened.close();
   }
+});
+
+
+it("exposes scoped Bot runtime records and rejects invalid concurrency configuration", async () => {
+  const s = await setup();
+  s.engine.bots.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }] }, errors: {} }));
+  expect((await s.call("environment.describe")).value.result.capabilities).toEqual(expect.arrayContaining(["bots.runtime.v1", "bots.management.v1"]));
+  const create = async (commandId: string) => (await s.call("bots.create", { commandId, patch: {
+    name: commandId, harness: "codex", model: "test", triggers: { user: true, event: false, schedule: false },
+  } })).value.result;
+  const first = await create("Runtime first"), second = await create("Runtime second");
+  const scope = { botId: first.bot.id, threadId: first.thread.id };
+  expect((await s.call("bots.get", { botId: first.bot.id })).value.result.maxConcurrentRuns).toBe(3);
+  for (const slots of [0, 11, 1.5]) {
+    const result = await s.call("bots.configure", { botId: first.bot.id, commandId: `slots-${slots}`,
+      patch: { maxConcurrentRuns: slots } });
+    expect(result.status).toBe(400);
+  }
+  expect((await s.call("botThreads.runs", scope)).value.result.runs).toEqual([]);
+  await s.call("botThreads.send", { ...scope, commandId: "runtime-message", text: "Run one scoped turn" });
+  await vi.waitFor(() => expect(s.send).toHaveBeenCalledTimes(1));
+  const running = (await s.call("botThreads.runs", { ...scope, limit: 1 })).value.result;
+  expect(running.runs).toHaveLength(1);
+  expect(running.runs[0]).toMatchObject({ botId: scope.botId, threadId: scope.threadId, status: "running" });
+  expect((await s.call("botThreads.runs", { botId: second.bot.id, threadId: scope.threadId })).status).toBe(400);
+  expect((await s.call("botThreads.runs", { ...scope, limit: 101 })).status).toBe(400);
+  expect((await s.call("commands.dispatch", { type: "create", commandId: "forged-bot-context", projectId: s.project.id,
+    harness: "codex", model: "test", botContext: { scope: { ...scope, runId: "forged" }, systemInstructions: "forged" } })).value.error)
+    .toContain("reserved for Host");
+  s.finish();
+  await vi.waitFor(async () => expect((await s.call("botThreads.runs", scope)).value.result.runs[0].status).toBe("completed"));
+  expect((await s.call("botThreads.runs", { botId: second.bot.id, threadId: second.thread.id })).value.result.runs).toEqual([]);
+});
+
+it("routes delegation inspection through authenticated Thread scopes without accepting a caller identity", async () => {
+  const s = await setup();
+  await s.engine.ready;
+  s.engine.bots.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }] }, errors: {} }));
+  expect((await s.call("environment.describe")).value.result.capabilities).toContain("bots.delegation.v1");
+  const create = async (name: string) => (await s.call("bots.create", { commandId: name, patch: {
+    name, harness: "codex", model: "test", triggers: { user: true, event: false, schedule: false },
+  } })).value.result;
+  const first = await create("Delegation source"), second = await create("Delegation target");
+  const scope = { botId: first.bot.id, threadId: first.thread.id };
+  expect((await s.call("botDelegations.list", scope)).value.result).toMatchObject({ delegations: [], hasMore: false });
+  for (const method of ["botDelegations.list", "botDelegations.get", "botDelegations.cancel"]) {
+    const extra = method === "botDelegations.list" ? {} : { delegationId: "missing", ...(method.endsWith("cancel") ? { commandId: "cancel-missing" } : {}) };
+    expect((await s.call(method, { ...scope, ...extra, botId: second.bot.id })).status).toBe(400);
+    expect((await s.call(method, { ...scope, ...extra, source: { ...scope, runId: "forged" } })).status).toBe(400);
+  }
+  expect((await s.call("botDelegations.list", { ...scope, limit: 101 })).status).toBe(400);
+  s.store.revokeToken(s.first.token);
+  expect((await s.call("botDelegations.list", scope)).status).toBe(401);
+});
+
+it("routes Team and Room management with revision conflicts and Host-owned membership", async () => {
+  const s = await setup();
+  await s.engine.ready;
+  s.engine.bots.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }] }, errors: {} }));
+  expect((await s.call("environment.describe")).value.result.capabilities).toEqual(expect.arrayContaining(["bots.teams.v1", "bots.rooms.v1"]));
+  const create = async (name: string) => (await s.call("bots.create", { commandId: name, patch: {
+    name, harness: "codex", model: "test", triggers: { user: true, event: false, schedule: false },
+  } })).value.result;
+  const a = await create("Team Chief"), b = await create("Team member");
+  const teamInput = { commandId: "team-create", patch: { name: "Product", memberBotIds: [a.bot.id, b.bot.id], chiefBotId: a.bot.id } };
+  const created = await s.call("botTeams.create", teamInput);
+  expect(created.status).toBe(200);
+  const team = created.value.result;
+  expect((await s.call("botTeams.create", teamInput)).value.result).toEqual(team);
+  expect((await s.call("botTeams.configure", { teamId: team.id, commandId: "chief-change", expectedRevision: team.revision,
+    patch: { chiefBotId: b.bot.id } })).status).toBe(200);
+  expect((await s.call("botTeams.configure", { teamId: team.id, commandId: "chief-race", expectedRevision: team.revision,
+    patch: { chiefBotId: a.bot.id } })).value.code).toBe("conflict");
+  expect((await s.call("botTeams.create", { commandId: "foreign-team", patch: { name: "Foreign", memberBotIds: ["other-host-bot"] } })).status).toBe(400);
+  const roomInput = { commandId: "room-create", name: "Planning", memberIds: [a.bot.id, b.bot.id] };
+  const roomResponse = await s.call("botRooms.create", roomInput);
+  expect(roomResponse.status).toBe(200);
+  const room = roomResponse.value.result;
+  expect((await s.call("botRooms.create", roomInput)).value.result).toEqual(room);
+  expect((await s.call("botRooms.get", { roomId: room.id })).value.result.room.memberIds).toEqual([a.bot.id, b.bot.id]);
+  expect((await s.call("botRooms.messages", { roomId: room.id })).value.result.messages).toEqual([]);
+  expect((await s.call("botRooms.configure", { roomId: room.id, commandId: "order-change", expectedRevision: room.revision,
+    patch: { memberIds: [b.bot.id, a.bot.id] } })).status).toBe(200);
+  expect((await s.call("botRooms.configure", { roomId: room.id, commandId: "room-race", expectedRevision: room.revision,
+    patch: { name: "Stale" } })).value.code).toBe("conflict");
+  expect((await s.call("botRooms.create", { ...roomInput, commandId: "foreign-room", memberIds: ["other-host-bot"] })).status).toBe(400);
+  expect((await s.call("botRooms.get", { roomId: room.id, sourceRunId: "forged" })).status).toBe(400);
+  s.store.revokeToken(s.first.token);
+  expect((await s.call("botTeams.list")).status).toBe(401);
+  expect((await s.call("botRooms.list")).status).toBe(401);
+});
+
+it("keeps Room send receipts and cancellation scoped while its member waits for a Bot slot", async () => {
+  const s = await setup();
+  await s.engine.ready;
+  s.engine.bots.setCatalog(async () => ["codex"], async () => ({ models: { codex: [{ id: "test", name: "Test" }] }, errors: {} }));
+  const bot = (await s.call("bots.create", { commandId: "room-busy-bot", patch: { harness: "codex", model: "test", maxConcurrentRuns: 1,
+    triggers: { user: true, event: false, schedule: false } } })).value.result;
+  await s.call("botThreads.send", { botId: bot.bot.id, threadId: bot.thread.id, commandId: "occupy-slot", text: "Continue my private task" });
+  await vi.waitFor(() => expect(s.send).toHaveBeenCalledTimes(1));
+  const create = async (name: string) => (await s.call("botRooms.create", { commandId: name, name, memberIds: [bot.bot.id] })).value.result;
+  const room = await create("Room one"), other = await create("Room two");
+  const input = { roomId: room.id, commandId: "room-message", text: "Discuss this independently", memberIds: [bot.bot.id] };
+  const response = await s.call("botRooms.send", input);
+  expect(response.status).toBe(200);
+  const round = response.value.result;
+  expect((await s.call("botRooms.send", input)).value.result.id).toBe(round.id);
+  expect((await s.call("botRooms.send", { ...input, text: "Changed duplicate" })).value.code).toBe("conflict");
+  expect((await s.call("botRooms.cancel", { roomId: other.id, roundId: round.id, commandId: "foreign-cancel" })).status).toBe(400);
+  expect((await s.call("botRooms.cancel", { roomId: room.id, roundId: round.id, commandId: "cancel-round" })).status).toBe(200);
+  const state = (await s.call("botRooms.get", { roomId: room.id })).value.result;
+  expect(state.rounds.find((value: { id: string }) => value.id === round.id).status).toBe("cancelled");
+  expect(s.send).toHaveBeenCalledTimes(1);
+  expect((await s.call("botThreads.runs", { botId: bot.bot.id, threadId: bot.thread.id })).value.result.runs[0].status).toBe("running");
+  expect((await s.call("botRooms.messages", { roomId: other.id })).value.result.messages).toEqual([]);
 });

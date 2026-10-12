@@ -405,7 +405,7 @@ it("cleans snapshots and rolls back public messages when the publication transac
   const { engine, store, project, publish, files } = await setup();
   writeFileSync(join(project.cwd, "report.txt"), "Report");
   store.db.exec(
-    "CREATE TRIGGER fail_publication BEFORE INSERT ON assistant_actions BEGIN SELECT RAISE(ABORT, 'storage failed'); END",
+    "CREATE TRIGGER fail_publication BEFORE INSERT ON bot_actions BEGIN SELECT RAISE(ABORT, 'storage failed'); END",
   );
   await expect(
     publish("failed", {

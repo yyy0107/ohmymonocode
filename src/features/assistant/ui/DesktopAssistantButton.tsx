@@ -18,11 +18,15 @@ import {
 import { AssistantClient } from "../model/assistantClient";
 import type { AssistantMessage } from "../model/assistant";
 import {
+  assistantReadRevision,
   subscribeAssistantRead,
   unreadAssistantMessages,
 } from "../model/assistantUnread";
 import { useDesktopAssistantHosts } from "../model/useDesktopAssistantHosts";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
+import { botCacheKey, type BotScope, type BotsSnapshot } from "../model/bots";
+import { scopedBotRpc, migrateDefaultBotCache } from "../model/botClient";
+import { botNotificationTarget, parseBotNotificationTarget, readBotSelection, selectBotThread } from "../model/botSelection";
 import { Bot } from "../../../shared/ui/icons";
 
 export function DesktopAssistantButton({
@@ -42,12 +46,14 @@ export function DesktopAssistantButton({
   current.current = { hosts, visibleHost, onOpen };
   useEffect(() => {
     const unlisten = listen<string>(NOTIFICATION_CLICK_EVENT, ({ payload }) => {
-      const target = parseAssistantNotificationTarget(payload);
+      const botTarget = parseBotNotificationTarget(payload);
+      const target = botTarget ?? parseAssistantNotificationTarget(payload);
       if (!target || target.windowLabel !== getCurrentWindow().label) return;
       const host = current.current.hosts.find((host) => host.environmentId === target.environmentId);
       if (!host) return;
       const win = getCurrentWindow();
       void win.unminimize().then(() => win.setFocus()).catch(() => {});
+      if (botTarget) selectBotThread(host.environmentId, botTarget);
       current.current.onOpen(host.id);
     });
     return () => { void unlisten.then((stop) => stop()).catch(() => {}); };
@@ -58,7 +64,7 @@ export function DesktopAssistantButton({
   const [messages, setMessages] = useState<Record<string, AssistantMessage[]>>(
     {},
   );
-  const [names, setNames] = useState<Record<string, string | undefined>>({});
+  const [botTargets, setBotTargets] = useState<Record<string, { machineId: string; environmentId: string; scope: BotScope }>>({});
   const [, refreshRead] = useReducer((value: number) => value + 1, 0);
   useEffect(() => subscribeAssistantRead(refreshRead), []);
   useEffect(() => {
@@ -72,6 +78,8 @@ export function DesktopAssistantButton({
         (method, params) => remoteRequest(machine.id, method, params),
       );
       let supported: boolean | undefined;
+      let botsSupported = false;
+      const botClients = new Map<string, AssistantClient>();
       const refresh = async () => {
         let delay = 2000;
         try {
@@ -83,16 +91,41 @@ export function DesktopAssistantButton({
                 supportedProviders: REMOTE_PROVIDERS,
               },
             );
-            supported =
-              descriptor.capabilities?.includes("assistant.v1") ?? false;
+            botsSupported = descriptor.capabilities?.includes("bots.v1") ?? false;
+            supported = botsSupported || (descriptor.capabilities?.includes("assistant.v1") ?? false);
           }
           if (disposed || !supported) return;
+          if (botsSupported) {
+            const snapshot = await remoteRequest<BotsSnapshot>(machine.id, "bots.list");
+            if (disposed) return;
+            const targets: typeof botTargets = {};
+            for (const thread of snapshot.threads.filter((thread) => !thread.archivedAt && snapshot.bots.some((bot) => bot.id === thread.botId && !bot.archivedAt))) {
+              const scope = { botId: thread.botId, threadId: thread.id };
+              const key = botCacheKey(machine.environmentId, scope);
+              const isDefault = scope.botId === snapshot.defaultBotId && scope.threadId === snapshot.defaultThreadId;
+              if (isDefault) migrateDefaultBotCache(machine.environmentId, key);
+              targets[key] = { machineId: machine.id, environmentId: machine.environmentId, scope };
+              let scoped = botClients.get(key);
+              if (!scoped) {
+                scoped = new AssistantClient(key, scopedBotRpc((method, params) => remoteRequest(machine.id, method, params), scope, isDefault), undefined, assistantReadRevision(key));
+                botClients.set(key, scoped);
+              }
+              const next = await scoped.sync();
+              if (disposed) return;
+              const activity = assistantNotificationActivity(next.assistant, next.messages);
+              const notice = takeAssistantNotification(key, activity);
+              const selected = readBotSelection(machine.environmentId);
+              if (notice && activity) void notifyApp(botNotificationTarget(machine.environmentId, getCurrentWindow().label, scope), {
+                title: "MonoCode", subtitle: activity.name || translate("Bots"),
+                body: notice.text || translate(notice.kind === "input" ? "This conversation needs your input." : "A new reply is ready."),
+              }, current.current.visibleHost === machine.environmentId && selected?.botId === scope.botId && selected.threadId === scope.threadId);
+              setMessages((current) => ({ ...current, [key]: next.messages }));
+            }
+            setBotTargets((current) => ({ ...Object.fromEntries(Object.entries(current).filter(([, target]) => target.environmentId !== machine.environmentId)), ...targets }));
+            return;
+          }
           const next = await client.sync();
           if (!disposed) {
-            setNames((current) => ({
-              ...current,
-              [machine.environmentId]: next.assistant?.name,
-            }));
             const activity = assistantNotificationActivity(next.assistant, next.messages);
             const notice = takeAssistantNotification(machine.environmentId, activity);
             if (notice && activity)
@@ -127,13 +160,13 @@ export function DesktopAssistantButton({
       for (const timer of timers) clearTimeout(timer);
     };
   }, [targets]);
-  const unread = hosts
+  const unread = [...hosts
     .flatMap((host) =>
       unreadAssistantMessages(
         host.environmentId,
         messages[host.environmentId] ?? [],
-      ).map((message) => ({ machineId: host.id, message })),
-    )
+      ).map((message) => ({ machineId: host.id, message, environmentId: host.environmentId, scope: undefined as BotScope | undefined })),
+    ), ...Object.entries(botTargets).flatMap(([key, target]) => unreadAssistantMessages(key, messages[key] ?? []).map((message) => ({ ...target, message }))) ]
     .sort(
       (a, b) =>
         a.message.createdAt - b.message.createdAt ||
@@ -144,10 +177,7 @@ export function DesktopAssistantButton({
     latest && "text" in latest.message
       ? latest.message.text.replace(/\s+/g, " ").trim().slice(0, 120)
       : "";
-  const targetHost = latest
-    ? hosts.find((host) => host.id === latest.machineId)
-    : selectedHost;
-  const name = (targetHost && names[targetHost.environmentId]) || t("Assistant");
+  const name = t("Bots");
   const label = unread.length
     ? t("{name}, {count} unread messages", { name, count: unread.length })
     : name;
@@ -159,11 +189,15 @@ export function DesktopAssistantButton({
       aria-label={label}
       aria-pressed={active}
       title={preview ? `${label}: ${preview}` : label}
-      onClick={() => onOpen(latest?.machineId)}
+      onClick={() => {
+        if (latest?.scope) selectBotThread(latest.environmentId, latest.scope);
+        onOpen(latest?.machineId);
+      }}
       className={`mx-1 flex h-7 min-w-0 max-w-sm items-center gap-1.5 rounded-lg px-2 text-ui-sm transition-colors ${active ? "bg-selection text-content" : "text-foreground-subtle hover:bg-surface-hover hover:text-content"}`}
     >
       <Bot className="size-4 shrink-0" />
-      <span className="min-w-0 truncate">{preview || name}</span>
+      <span className="shrink-0">{name}</span>
+      {preview && <span className="min-w-0 truncate text-foreground-subtle">{preview}</span>}
       {latest ? (
         <span
           aria-hidden

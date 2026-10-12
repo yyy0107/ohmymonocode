@@ -2,9 +2,10 @@ import { createHash, randomUUID } from "node:crypto";
 import { assistantNotificationActivity } from "../../src/features/assistant/model/assistantNotifications";
 import { followSession } from "../../src/features/assistant/model/assistantSessions";
 import type { HostStore } from "../store";
+import { BotStore } from "../bots/store";
+import { FileMemoryService } from "../bots/memory";
+import type { BotScope } from "../../src/features/assistant/model/bots";
 import {
-  defaultAssistantPersona,
-  fullAssistantPolicy,
   type AssistantAction,
   type AssistantHistory,
   type AssistantHistoryCursor,
@@ -15,7 +16,7 @@ import {
   type AssistantView,
 } from "../../src/features/assistant/model/assistant";
 import { memoryLines } from "./memory";
-import { PLAYBOOK_PREFIX, parsePlaybook, type Playbook } from "./playbooks";
+import { parsePlaybook, type Playbook } from "./playbooks";
 import type { RemoteAttachment } from "../../src/features/connections/model/protocol";
 
 export function signature(value: unknown): string {
@@ -39,7 +40,7 @@ export type AssistantRecord = AssistantView & {
   /** Context a fresh brain of this generation used on its first turn. */
   brainBaseline?: number;
   /** The memory version the brain of this generation last saw in a finished turn. */
-  brainMemory?: { generation: number; revision: number };
+  brainMemory?: { generation: number; revision: number; hash?: string };
   sourceCursor: number;
 };
 export type Wakeup = {
@@ -101,91 +102,44 @@ type NewMessage = AssistantMessage extends infer M
     : never
   : never;
 export class AssistantStore {
-  constructor(readonly host: HostStore) {
-    host.db
-      .exec(`CREATE TABLE IF NOT EXISTS assistants (singleton INTEGER PRIMARY KEY CHECK(singleton=1), payload TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS assistant_messages (revision INTEGER PRIMARY KEY, id TEXT NOT NULL, payload TEXT NOT NULL);
-      CREATE INDEX IF NOT EXISTS assistant_messages_id ON assistant_messages(id, revision);
-      CREATE INDEX IF NOT EXISTS assistant_messages_history ON assistant_messages(json_extract(payload, '$.createdAt'), id, revision);
-      CREATE TABLE IF NOT EXISTS assistant_wakeups (id TEXT PRIMARY KEY, dedupe TEXT UNIQUE NOT NULL, payload TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS assistant_receipts (id TEXT PRIMARY KEY, signature TEXT NOT NULL, payload TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS assistant_actions (request_id TEXT PRIMARY KEY, payload TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS assistant_sources (seq INTEGER PRIMARY KEY AUTOINCREMENT, event_key TEXT UNIQUE NOT NULL, payload TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS assistant_chains (root TEXT PRIMARY KEY, payload TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS assistant_memory (name TEXT PRIMARY KEY, revision INTEGER NOT NULL, text TEXT NOT NULL);`);
+  readonly bots: BotStore;
+  readonly scope: BotScope;
+  readonly botId: string;
+  readonly threadId: string;
+  constructor(readonly host: HostStore, scope?: BotScope) {
+    this.bots = new BotStore(host);
+    const identity = scope ?? this.bots.defaultScope();
+    this.scope = Object.freeze({ botId: identity.botId, threadId: identity.threadId });
+    this.botId = this.scope.botId;
+    this.threadId = this.scope.threadId;
+    if (scope && !this.bots.getThread(scope.botId, scope.threadId))
+      throw new Error("Thread does not belong to this Bot");
   }
   /**
    * A memory document: `memory` (resident), `archive`, or `topic:<name>`.
    * Missing documents read as empty at revision 0.
    */
+  get memory(): FileMemoryService {
+    return FileMemoryService.forBot(this.host, this.botId);
+  }
   memoryDoc(name: string): { text: string; revision: number } {
-    const row = this.host.db
-      .prepare("SELECT revision, text FROM assistant_memory WHERE name=?")
-      .get(name);
-    return row
-      ? { text: String(row.text), revision: Number(row.revision) }
-      : { text: "", revision: 0 };
+    return this.get() ? this.memory.legacyRead(name) : { text: "", revision: 0 };
   }
-  /** Writes a memory document unless another writer changed it since `expected`. */
+  /** Legacy controls retain their revision CAS, redaction and budget handling. */
   writeMemoryDoc(name: string, text: string, expected?: number): number {
-    return this.host.transaction(() => {
-      const current = this.memoryDoc(name).revision;
-      if (expected !== undefined && expected !== current)
-        throw new Error("Memory changed elsewhere. Reload before saving.");
-      this.host.db
-        .prepare(
-          "INSERT INTO assistant_memory VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET revision=excluded.revision, text=excluded.text",
-        )
-        .run(name, current + 1, text);
-      return current + 1;
-    });
+    return this.memory.legacyWrite(name, text, expected);
   }
-  /** Saved playbooks; a deleted one is kept as an empty document. */
   playbooks(): Playbook[] {
-    return this.host.db
-      .prepare(
-        "SELECT name, text FROM assistant_memory WHERE name LIKE 'playbook:%' AND text<>'' ORDER BY name",
-      )
-      .all()
-      .map((row) =>
-        parsePlaybook(
-          String(row.name).slice(PLAYBOOK_PREFIX.length),
-          String(row.text),
-        ),
-      );
+    return this.get() ? this.memory.legacyDocuments("playbook:").filter(doc => doc.text).map(doc => parsePlaybook(doc.name, doc.text)) : [];
   }
-  /** Rises with every playbook write, including deletions. */
   playbookRevision(): number {
-    const row = this.host.db
-      .prepare(
-        "SELECT COALESCE(SUM(revision), 0) AS revision FROM assistant_memory WHERE name LIKE 'playbook:%'",
-      )
-      .get()!;
-    return Number(row.revision);
+    return this.get() ? this.memory.legacyDocuments("playbook:").reduce((sum, doc) => sum + doc.revision, 0) : 0;
   }
   memoryTopics(): string[] {
-    return this.host.db
-      .prepare(
-        "SELECT name FROM assistant_memory WHERE name LIKE 'topic:%' AND text<>'' ORDER BY name",
-      )
-      .all()
-      .map((row) => String(row.name).slice("topic:".length));
+    return this.get() ? this.memory.legacyDocuments("topic:").filter(doc => doc.text).map(doc => doc.name) : [];
   }
   get(): AssistantRecord | null {
-    const row = this.host.db
-      .prepare("SELECT payload FROM assistants WHERE singleton=1")
-      .get();
-    if (!row) return null;
-    const value: AssistantRecord = JSON.parse(String(row.payload));
-    // Records written before persona and reminders existed stay readable.
-    return {
-      ...value,
-      persona: value.persona ?? defaultAssistantPersona(),
-      // The schedule zone was chosen from the user's device before this field existed.
-      timezone: value.timezone ?? value.schedules?.[0]?.timezone ?? "UTC",
-      reminders: value.reminders ?? [],
-      habits: value.habits ?? [],
-    };
+    return this.bots.record(this.scope);
   }
   view(): AssistantView | null {
     const value = this.get();
@@ -199,16 +153,17 @@ export class AssistantStore {
       ...publicValue
     } = value;
     const sources = this.host.db
-      .prepare("SELECT COUNT(*) AS count FROM assistant_sources WHERE seq>?")
-      .get(value.sourceCursor)!;
+      .prepare("SELECT COUNT(*) AS count FROM bot_sources WHERE bot_id=? AND thread_id=? AND seq>?")
+      .get(this.botId, this.threadId, value.sourceCursor)!;
     const inputs = this.host.db
       .prepare(
-        "SELECT COUNT(*) AS count FROM assistant_wakeups WHERE json_extract(payload, '$.state') IN ('pending', 'backoff')",
+        "SELECT COUNT(*) AS count FROM bot_wakeups WHERE bot_id=? AND thread_id=? AND json_extract(payload, '$.state') IN ('pending', 'backoff')",
       )
-      .get()!;
+      .get(this.botId, this.threadId)!;
     const memory = this.memoryDoc("memory");
     return {
       ...publicValue,
+      lifecycle: !value.enabled ? "disabled" : value.paused ? "paused" : value.lifecycle,
       backlog: Number(sources.count) > 100 || Number(inputs.count) > 100,
       memory: {
         revision: memory.revision,
@@ -221,86 +176,22 @@ export class AssistantStore {
     };
   }
   initialize(patch: AssistantPatch): AssistantRecord {
-    if (this.get()) throw new Error("Assistant is already configured");
-    if (!patch.harness || !patch.model)
-      throw new Error("Choose an agent and model");
-    const value: AssistantRecord = {
-      id: randomUUID(),
-      name: "Assistant",
-      persona: defaultAssistantPersona(),
-      timezone: patch.timezone ?? patch.schedules?.[0]?.timezone ?? "UTC",
-      reminders: [],
-      habits: [],
-      revision: 1,
-      chatRevision: 0,
-      enabled: true,
-      lifecycle: "idle",
-      harness: patch.harness,
-      model: patch.model,
-      modelSettings: {},
-      runtimeMode: "full-access",
-      targetRuntimeMode: "full-access",
-      policy: fullAssistantPolicy(),
-      policyVersion: 1,
-      triggers: { user: true, event: true, schedule: true },
-      brainGeneration: 1,
-      sourceCursor: 0,
-      createdSessionWatchesMigrated: true,
-      maxAutoTurns: 8,
-      chainWindowMinutes: 15,
-      schedules: [
-        {
-          id: "hourly",
-          enabled: true,
-          intervalMinutes: 60,
-          prompt:
-            "Check unfinished tasks. Report only meaningful progress or something needing attention.",
-          timezone: "UTC",
-          nextRunAt: Date.now() + 3600000,
-        },
-      ],
-      watches: [
-        {
-          id: "activity",
-          enabled: true,
-          projectIds: [],
-          sessionIds: [],
-          eventKinds: [
-            "completed",
-            "failed",
-            "approval",
-            "question",
-            "interrupted",
-          ],
-          prompt:
-            "Follow up on this activity according to the user's goals. Stay quiet when nothing actionable changed.",
-        },
-      ],
-      ...patch,
-    };
-    this.write(value);
-    return value;
+    const scope = this.bots.defaultScope();
+    if (this.botId !== scope.botId || this.threadId !== scope.threadId)
+      throw new Error("Only the default assistant can be initialized through the compatibility API");
+    return this.bots.initializeDefault(patch);
   }
   write(value: AssistantRecord): void {
-    this.host.db
-      .prepare(
-        "INSERT INTO assistants VALUES (1, ?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload",
-      )
-      .run(JSON.stringify(value));
+    // A full effective Thread snapshot is safe only for runtime persistence.
+    // Shared configuration must use update(patch), never stale projected data.
+    this.bots.writeRuntime(this.scope, value);
   }
-  update(
-    patch: Partial<AssistantRecord>,
-    configuration = false,
-  ): AssistantRecord {
-    const old = this.get();
-    if (!old) throw new Error("Assistant is not configured");
-    const next = {
-      ...old,
-      ...patch,
-      revision: old.revision + (configuration ? 1 : 0),
-    };
-    this.write(next);
-    return next;
+  update(patch: Partial<AssistantRecord>, configuration = false): AssistantRecord {
+    return this.bots.updateRecord(this.scope, patch, configuration);
+  }
+  messageById(id: string): AssistantMessage | undefined {
+    const row = this.host.db.prepare("SELECT payload FROM bot_messages WHERE bot_id=? AND thread_id=? AND id=? ORDER BY revision DESC LIMIT 1").get(this.botId, this.threadId, id);
+    return row ? JSON.parse(String(row.payload)) : undefined;
   }
   message(input: NewMessage): AssistantMessage {
     return this.host.transaction(() => this.saveMessage(input));
@@ -310,9 +201,9 @@ export class AssistantStore {
     if (!config) throw new Error("Assistant is not configured");
     const row = this.host.db
       .prepare(
-        "SELECT payload FROM assistant_messages WHERE id=? ORDER BY revision DESC LIMIT 1",
+        "SELECT payload FROM bot_messages WHERE bot_id=? AND thread_id=? AND id=? ORDER BY revision DESC LIMIT 1",
       )
-      .get(input.id);
+      .get(this.botId, this.threadId, input.id);
     const previous: AssistantMessage | undefined = row
       ? JSON.parse(String(row.payload))
       : undefined;
@@ -325,12 +216,12 @@ export class AssistantStore {
     // without retaining a copy of the growing reply for every stream update.
     if (previous?.kind === "assistant" && previous.streaming)
       this.host.db
-        .prepare("DELETE FROM assistant_messages WHERE revision=?")
-        .run(previous.revision);
+        .prepare("DELETE FROM bot_messages WHERE bot_id=? AND thread_id=? AND revision=?")
+        .run(this.botId, this.threadId, previous.revision);
     this.host.db
-      .prepare("INSERT INTO assistant_messages VALUES (?, ?, ?)")
-      .run(message.revision, message.id, JSON.stringify(message));
-    this.write({ ...config, chatRevision: message.revision });
+      .prepare("INSERT INTO bot_messages VALUES (?, ?, ?, ?, ?)")
+      .run(this.botId, this.threadId, message.revision, message.id, JSON.stringify(message));
+    this.update({ chatRevision: message.revision });
     return message;
   }
   messages(after = 0, limit = 50): AssistantMessages {
@@ -344,9 +235,9 @@ export class AssistantStore {
       throw new Error("Invalid message cursor or limit");
     const rows = this.host.db
       .prepare(
-        "SELECT payload FROM assistant_messages WHERE revision>? ORDER BY revision LIMIT ?",
+        "SELECT payload FROM bot_messages WHERE bot_id=? AND thread_id=? AND revision>? ORDER BY revision LIMIT ?",
       )
-      .all(after, limit + 1);
+      .all(this.botId, this.threadId, after, limit + 1);
     const entries: AssistantMessage[] = rows
       .slice(0, limit)
       .map((row) => JSON.parse(String(row.payload)));
@@ -360,9 +251,9 @@ export class AssistantStore {
   latestMessages(): AssistantMessage[] {
     return this.host.db
       .prepare(
-        "SELECT payload FROM assistant_messages WHERE revision IN (SELECT MAX(revision) FROM assistant_messages GROUP BY id) ORDER BY revision",
+        "SELECT payload FROM bot_messages WHERE bot_id=? AND thread_id=? AND revision IN (SELECT MAX(revision) FROM bot_messages WHERE bot_id=? AND thread_id=? GROUP BY id) ORDER BY revision",
       )
-      .all()
+      .all(this.botId, this.threadId, this.botId, this.threadId)
       .map((row) => JSON.parse(String(row.payload)));
   }
   history(before?: AssistantHistoryCursor, limit = 30): AssistantHistory {
@@ -376,18 +267,18 @@ export class AssistantStore {
     // must neither move it into the newest page nor skip it in older pages.
     // The scalar timestamp bound lets SQLite seek its expression index.
     const query = this.host.db.prepare(`
-      SELECT message.payload FROM assistant_messages AS message
-      WHERE ${before ? "json_extract(message.payload, '$.createdAt') <= ? AND (json_extract(message.payload, '$.createdAt'), message.id) < (?, ?) AND" : ""}
+      SELECT message.payload FROM bot_messages AS message
+      WHERE message.bot_id=? AND message.thread_id=? AND ${before ? "json_extract(message.payload, '$.createdAt') <= ? AND (json_extract(message.payload, '$.createdAt'), message.id) < (?, ?) AND" : ""}
         NOT EXISTS (
-          SELECT 1 FROM assistant_messages AS newer
-          WHERE newer.id = message.id AND newer.revision > message.revision
+          SELECT 1 FROM bot_messages AS newer
+          WHERE newer.bot_id=message.bot_id AND newer.thread_id=message.thread_id AND newer.id = message.id AND newer.revision > message.revision
         )
       ORDER BY json_extract(message.payload, '$.createdAt') DESC, message.id DESC
       LIMIT ?
     `);
     const rows = before
-      ? query.all(before.createdAt, before.createdAt, before.id, limit + 1)
-      : query.all(limit + 1);
+      ? query.all(this.botId, this.threadId, before.createdAt, before.createdAt, before.id, limit + 1)
+      : query.all(this.botId, this.threadId, limit + 1);
     const entries: AssistantMessage[] = rows.slice(0, limit)
       .map((row) => JSON.parse(String(row.payload))).reverse();
     const oldest = entries[0];
@@ -402,10 +293,10 @@ export class AssistantStore {
     const assistant = this.get();
     if (!assistant) return null;
     const row = this.host.db.prepare(`
-      SELECT payload FROM assistant_messages AS message
-      WHERE NOT EXISTS (
-        SELECT 1 FROM assistant_messages AS newer
-        WHERE newer.id = message.id AND newer.revision > message.revision
+      SELECT payload FROM bot_messages AS message
+      WHERE message.bot_id=? AND message.thread_id=? AND NOT EXISTS (
+        SELECT 1 FROM bot_messages AS newer
+        WHERE newer.bot_id=message.bot_id AND newer.thread_id=message.thread_id AND newer.id = message.id AND newer.revision > message.revision
       ) AND (
         (json_extract(payload, '$.kind') = 'assistant'
           AND COALESCE(json_extract(payload, '$.streaming'), 0) = 0
@@ -414,13 +305,13 @@ export class AssistantStore {
         OR (json_extract(payload, '$.kind') = 'input'
           AND COALESCE(json_extract(payload, '$.resolved'), 0) = 0)
       ) ORDER BY revision DESC LIMIT 1
-    `).get();
+    `).get(this.botId, this.threadId);
     return assistantNotificationActivity(assistant, row ? [JSON.parse(String(row.payload))] : []);
   }
   receipt(id: string, sig: string): unknown | undefined {
     const row = this.host.db
-      .prepare("SELECT * FROM assistant_receipts WHERE id=?")
-      .get(id);
+      .prepare("SELECT * FROM bot_receipts WHERE bot_id=? AND thread_id=? AND id=?")
+      .get(this.botId, this.threadId, id);
     if (!row) return undefined;
     if (row.signature !== sig)
       throw new Error("Command ID was already used with different input");
@@ -428,8 +319,8 @@ export class AssistantStore {
   }
   recordReceipt(id: string, sig: string, result: unknown): void {
     this.host.db
-      .prepare("INSERT INTO assistant_receipts VALUES (?, ?, ?)")
-      .run(id, sig, JSON.stringify(result));
+      .prepare("INSERT INTO bot_receipts VALUES (?, ?, ?, ?, ?)")
+      .run(this.botId, this.threadId, id, sig, JSON.stringify(result));
   }
   receive(
     commandId: string,
@@ -486,33 +377,33 @@ export class AssistantStore {
   }
   enqueue(value: Wakeup, dedupe: string): void {
     this.host.db
-      .prepare("INSERT OR IGNORE INTO assistant_wakeups VALUES (?, ?, ?)")
-      .run(value.id, dedupe, JSON.stringify(withSource(value)));
+      .prepare("INSERT OR IGNORE INTO bot_wakeups VALUES (?, ?, ?, ?, ?)")
+      .run(this.botId, this.threadId, value.id, dedupe, JSON.stringify(withSource(value)));
   }
   wakeups(): Wakeup[] {
     return this.host.db
-      .prepare("SELECT payload FROM assistant_wakeups")
-      .all()
+      .prepare("SELECT payload FROM bot_wakeups WHERE bot_id=? AND thread_id=?")
+      .all(this.botId, this.threadId)
       .map((r) => withSource(JSON.parse(String(r.payload))));
   }
   wakeup(id: string): Wakeup | undefined {
     const row = this.host.db
-      .prepare("SELECT payload FROM assistant_wakeups WHERE id=?")
-      .get(id);
+      .prepare("SELECT payload FROM bot_wakeups WHERE bot_id=? AND thread_id=? AND id=?")
+      .get(this.botId, this.threadId, id);
     return row ? withSource(JSON.parse(String(row.payload))) : undefined;
   }
   pending(): Wakeup[] {
     return this.host.db
       .prepare(
-        `SELECT payload FROM assistant_wakeups WHERE json_extract(payload,'$.state')='pending' OR (json_extract(payload,'$.state')='backoff' AND json_extract(payload,'$.retryAt')<=?) ORDER BY CASE json_extract(payload,'$.kind') WHEN 'user' THEN 0 WHEN 'event' THEN 1 ELSE 2 END, json_extract(payload,'$.createdAt') LIMIT 100`,
+        `SELECT payload FROM bot_wakeups WHERE bot_id=? AND thread_id=? AND (json_extract(payload,'$.state')='pending' OR (json_extract(payload,'$.state')='backoff' AND json_extract(payload,'$.retryAt')<=?)) ORDER BY CASE json_extract(payload,'$.kind') WHEN 'user' THEN 0 WHEN 'event' THEN 1 ELSE 2 END, json_extract(payload,'$.createdAt') LIMIT 100`,
       )
-      .all(Date.now())
+      .all(this.botId, this.threadId, Date.now())
       .map((r) => withSource(JSON.parse(String(r.payload))));
   }
   saveWakeup(w: Wakeup): void {
     this.host.db
-      .prepare("UPDATE assistant_wakeups SET payload=? WHERE id=?")
-      .run(JSON.stringify(withSource(w)), w.id);
+      .prepare("UPDATE bot_wakeups SET payload=? WHERE bot_id=? AND thread_id=? AND id=?")
+      .run(JSON.stringify(withSource(w)), this.botId, this.threadId, w.id);
   }
   private markRead(wakeupIds: string[]): void {
     const ids = new Set(wakeupIds);
@@ -592,14 +483,14 @@ export class AssistantStore {
   }
   action(requestId: string): AssistantAction | undefined {
     const row = this.host.db
-      .prepare("SELECT payload FROM assistant_actions WHERE request_id=?")
-      .get(requestId);
+      .prepare("SELECT payload FROM bot_actions WHERE bot_id=? AND thread_id=? AND request_id=?")
+      .get(this.botId, this.threadId, requestId);
     return row ? JSON.parse(String(row.payload)) : undefined;
   }
   actions(): AssistantAction[] {
     return this.host.db
-      .prepare("SELECT payload FROM assistant_actions")
-      .all()
+      .prepare("SELECT payload FROM bot_actions WHERE bot_id=? AND thread_id=?")
+      .all(this.botId, this.threadId)
       .map((r) => JSON.parse(String(r.payload)));
   }
   /** Committed in the same transaction as conversation creation and its ledger. */
@@ -610,44 +501,43 @@ export class AssistantStore {
       policyVersion: config.policyVersion + 1,
     }, true);
   }
-  /** Creation provenance comes from the Host ledger, never client-supplied metadata. */
+  /** Bot-wide permissions use trusted creation provenance; action listings remain Thread-scoped. */
   createdSession(sessionId: string): boolean {
     const assistantId = this.get()?.id;
     return !!assistantId && !!this.host.db.prepare(`
-      SELECT 1 FROM assistant_actions
-      WHERE json_extract(payload, '$.action') = 'sessions.create'
+      SELECT 1 FROM bot_actions
+      WHERE bot_id=? AND json_extract(payload, '$.action') = 'sessions.create'
         AND json_extract(payload, '$.origin.assistantId') = ?
         AND json_extract(payload, '$.targetRef.sessionId') = ?
         AND json_extract(payload, '$.state') IN ('accepted', 'completed')
       LIMIT 1
-    `).get(assistantId, sessionId);
+    `).get(this.botId, assistantId, sessionId);
   }
   putAction(action: AssistantAction): void {
     this.host.db
       .prepare(
-        "INSERT INTO assistant_actions VALUES (?, ?) ON CONFLICT(request_id) DO UPDATE SET payload=excluded.payload",
+        "INSERT INTO bot_actions VALUES (?, ?, ?, ?) ON CONFLICT(bot_id,thread_id,request_id) DO UPDATE SET payload=excluded.payload",
       )
-      .run(action.requestId, JSON.stringify(action));
+      .run(this.botId, this.threadId, action.requestId, JSON.stringify(action));
   }
   source(value: Source): void {
-    this.host.db
-      .prepare(
-        "INSERT OR IGNORE INTO assistant_sources(event_key,payload) VALUES (?,?)",
-      )
-      .run(value.eventKey, JSON.stringify(value));
+    this.host.transaction(() => {
+      this.host.db.prepare("INSERT OR IGNORE INTO bot_sources(bot_id,thread_id,seq,event_key,payload) SELECT ?,?,COALESCE(MAX(seq),0)+1,?,? FROM bot_sources WHERE bot_id=? AND thread_id=?")
+        .run(this.botId, this.threadId, value.eventKey, JSON.stringify(value), this.botId, this.threadId);
+    });
   }
   sources(after: number, limit = 50): (Source & { seq: number })[] {
     return this.host.db
       .prepare(
-        "SELECT seq,payload FROM assistant_sources WHERE seq>? ORDER BY seq LIMIT ?",
+        "SELECT seq,payload FROM bot_sources WHERE bot_id=? AND thread_id=? AND seq>? ORDER BY seq LIMIT ?",
       )
-      .all(after, limit)
+      .all(this.botId, this.threadId, after, limit)
       .map((r) => ({ ...JSON.parse(String(r.payload)), seq: Number(r.seq) }));
   }
   chain(root: string): { count: number; paused: boolean; startedAt: number } {
     const row = this.host.db
-      .prepare("SELECT payload FROM assistant_chains WHERE root=?")
-      .get(root);
+      .prepare("SELECT payload FROM bot_chains WHERE bot_id=? AND thread_id=? AND root=?")
+      .get(this.botId, this.threadId, root);
     return row
       ? JSON.parse(String(row.payload))
       : { count: 0, paused: false, startedAt: Date.now() };
@@ -655,16 +545,16 @@ export class AssistantStore {
   writeChain(root: string, value: ReturnType<AssistantStore["chain"]>): void {
     this.host.db
       .prepare(
-        "INSERT INTO assistant_chains VALUES (?,?) ON CONFLICT(root) DO UPDATE SET payload=excluded.payload",
+        "INSERT INTO bot_chains VALUES (?,?,?,?) ON CONFLICT(bot_id,thread_id,root) DO UPDATE SET payload=excluded.payload",
       )
-      .run(root, JSON.stringify(value));
+      .run(this.botId, this.threadId, root, JSON.stringify(value));
   }
   resumeChains(): void {
     for (const row of this.host.db
       .prepare(
-        "SELECT root,payload FROM assistant_chains WHERE json_extract(payload,'$.paused')=1",
+        "SELECT root,payload FROM bot_chains WHERE bot_id=? AND thread_id=? AND json_extract(payload,'$.paused')=1",
       )
-      .all())
+      .all(this.botId, this.threadId))
       this.writeChain(String(row.root), {
         ...JSON.parse(String(row.payload)),
         count: 0,

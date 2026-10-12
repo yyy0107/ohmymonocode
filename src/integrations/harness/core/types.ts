@@ -187,6 +187,8 @@ export type HarnessEvent =
 export type ApprovalDecision = "allow" | "deny";
 
 export type HarnessSessionInput = {
+  /** Optional trusted Host snapshot; desktop and old callers may omit it. */
+  botContext?: import("./botContext").HarnessBotContext;
   /** Local imported source: recheck external ownership before native writes. */
   nativeSession?: NativeSessionLink;
   sessionId: string;

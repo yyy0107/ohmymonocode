@@ -1,12 +1,16 @@
+import { botContextPrompt, snapshotBotContext, type HarnessBotContext, type HarnessBotCapabilities } from "../src/integrations/harness/core/botContext";
+import { providerBotCapabilities } from "../src/integrations/harness/providers/botCapabilities";
+import { HostResourceGuard } from "./bots/resources";
 import { selectComposerConfiguration } from "../src/features/sessions/model/composerConfiguration";
 import { createHash, randomUUID } from "node:crypto";
 import { HostOrchestration, type HostOrchestrationOptions } from "./orchestration";
-import { HostAssistant } from "./assistant";
+import type { HostAssistant } from "./assistant";
+import { BotManager } from "./bots/manager";
 import { HostImService, type HostImOptions } from "./im-service";
 import { HostWorkflows } from "./workflows/service";
 import type { WorkflowWorkerPort } from "./workflows/driver";
 import type { ControlOutcome, ControlReceiptContext, OrchestrationRun, OrchestrationTask, WorkerPreparation } from "../src/features/orchestration/model/orchestrationRuntime";
-import { assertCheckoutAvailable, claimCheckoutResource, checkoutPath, checkoutPathsOverlap } from "./checkout-guards";
+import { assertCheckoutAvailable, claimCheckoutResource, checkoutPath, checkoutPathsOverlap, withCheckoutOwner } from "./checkout-guards";
 import type { LegacyRetirementManifest } from "./legacy-orchestration";
 import { SessionTitleCoordinator } from "../src/integrations/harness/core/titleCoordinator";
 import { TitleModelApi } from "./title-model";
@@ -325,6 +329,7 @@ export function parseCommand(input: unknown): HostCommand {
 }
 
 export class HostEngine {
+  readonly bots: BotManager;
   readonly assistant: HostAssistant;
   readonly im: HostImService;
   readonly workflows: HostWorkflows;
@@ -341,6 +346,7 @@ export class HostEngine {
     string,
     {
       runId: string;
+      resourceOwner: string;
       done: Promise<void>;
       controls: Promise<void>;
       finishing: boolean;
@@ -505,9 +511,10 @@ export class HostEngine {
       ...(options.entry ? { entry: options.entry } : {}),
       ...(options.node ? { node: options.node } : {}),
     });
-    this.assistant = new HostAssistant(this, Object.keys(providers) as RemoteProvider[], this.orchestration.ready, options);
+    this.bots = new BotManager(this, Object.keys(providers) as RemoteProvider[], this.orchestration.ready, options);
+    this.assistant = this.bots.defaultAssistant;
     this.im = new HostImService(store, this.assistant, options.im);
-    this.ready = this.im.ready;
+    this.ready = Promise.all([this.bots.ready, this.im.ready]).then(() => undefined);
     this.nativeSessions.start();
   }
 
@@ -966,15 +973,33 @@ export class HostEngine {
   command(raw: unknown): CommandReceipt {
     if (raw && typeof raw === "object") {
       const input = raw as Record<string, unknown>;
-      if (["origin", "author", "assistantOwnerId"].some(key => key in input) || String(input.commandId).startsWith("assistant:")) throw new Error("Assistant identity is reserved for Host");
+      if (["origin", "author", "assistantOwnerId", "botContext", "systemInstructions", "contextFingerprint"].some(key => key in input) || String(input.commandId).startsWith("assistant:")) throw new Error("Assistant identity is reserved for Host");
       if (input.projectId && this.store.project(String(input.projectId)).kind === "assistant") throw new Error("Assistant project is private");
       if (input.sessionId && this.store.session(String(input.sessionId)).session.assistantOwnerId) throw new Error("Use the assistant control API");
     }
     return this.applyCommand(raw, false);
   }
 
-  assistantCommand(raw: unknown, origin?: import("../src/features/sessions/model/session").TurnOrigin): CommandReceipt {
-    return this.applyCommand(raw, false, undefined, origin);
+  botCapabilities(harness: string, context?: Pick<HarnessBotContext, "agentsMcp">): HarnessBotCapabilities {
+    const configured = providerBotCapabilities(harness, context);
+    const base = this.provider(harness).botCapabilities;
+    const capability = context?.agentsMcp && base ? { ...base, mcp: configured.mcp, limitations: configured.limitations } : base ?? configured;
+    return { ...capability, limitations: [...capability.limitations] };
+  }
+
+  assistantCommand(raw: unknown, origin?: import("../src/features/sessions/model/session").TurnOrigin, botContext?: HarnessBotContext): CommandReceipt {
+    const snapshot = botContext && snapshotBotContext(botContext);
+    if (snapshot) {
+      const command = parseCommand(raw);
+      if (command.type !== "send") throw new Error("Bot context belongs to a send command");
+      const record = this.bots.store.record(snapshot.scope);
+      const run = this.bots.store.run(snapshot.scope, snapshot.scope.runId);
+      if (record?.brainSessionId !== command.sessionId ||
+          this.store.session(command.sessionId).session.assistantOwnerId !== snapshot.scope.botId ||
+          !run || !["running", "waiting_approval"].includes(run.status))
+        throw new Error("Bot context does not belong to this active Host run");
+    }
+    return this.applyCommand(raw, false, undefined, origin, snapshot);
   }
 
   stopAssistantBrain(id: string): Promise<void> { return this.stopManaged(id); }
@@ -1162,7 +1187,7 @@ export class HostEngine {
     void this.cleanPreviousProviders(sessionId).catch(() => undefined);
   }
 
-  private applyCommand(raw: unknown, managed: boolean, controlReceipt?: ControlReceiptContext, origin?: import("../src/features/sessions/model/session").TurnOrigin): CommandReceipt {
+  private applyCommand(raw: unknown, managed: boolean, controlReceipt?: ControlReceiptContext, origin?: import("../src/features/sessions/model/session").TurnOrigin, botContext?: HarnessBotContext): CommandReceipt {
     if (this.closing) throw new Error("Host is stopping");
     const command = parseCommand(raw);
     if (command.type === "orchestration") {
@@ -1173,7 +1198,7 @@ export class HostEngine {
       return receipt;
     }
     const signature = createHash("sha256")
-      .update(JSON.stringify(origin ? { command, origin } : command))
+      .update(JSON.stringify(botContext ? { command, origin, botContext } : origin ? { command, origin } : command))
       .digest("hex");
     const previous = this.store.receipt(command.commandId, signature);
     if (previous) return previous;
@@ -1522,6 +1547,7 @@ export class HostEngine {
               intent,
               attachments,
               command.type === "send" ? command.retryProposalBlockId : undefined,
+              botContext,
             );
             if (firstTurn && command.type === "send") {
               this.generateFirstTurnNames(saved, prompt, placeholderTitle, command.refreshTitle);
@@ -1963,13 +1989,27 @@ export class HostEngine {
     intent?: "default" | "plan" | "build" | "orchestrate",
     attachments: Session["blocks"][number]["attachments"] = [],
     retryProposalBlockId?: string,
+    botContext?: HarnessBotContext,
   ): void {
     const { session, runId } = value;
     const parked = this.parked.get(session.id);
     if (parked) { clearTimeout(parked.timer); this.parked.delete(session.id); }
     const provider = this.provider(session.harness);
+    const resources = new HostResourceGuard(this.store);
+    // Orchestration already coordinates file scopes between its own workers.
+    const orchestration = this.orchestration.scheduler.run(session.id);
+    const lead = session.orchestrationLeadId ?? (intent === "orchestrate" || orchestration?.status === "active" || orchestration?.status === "paused" ? session.id : undefined);
+    // Workflow lineage is written only by createWorkflowWorker. Children join
+    // their live parent's lease so a parent can await them without deadlocking.
+    const workflowOwner = session.workflowParentId
+      ? this.running.get(session.workflowParentId)?.resourceOwner ?? `workflow:${session.workflowRunId}`
+      : undefined;
+    const resourceOwner = botContext?.scope.runId ?? workflowOwner ?? (lead ? `orchestration:${lead}` : runId!);
+    const capabilities = botContext ? this.botCapabilities(session.harness, botContext) : undefined;
+    const providerText = (text: string) => capabilities?.systemInstructions === "context-block" ? botContextPrompt(text, botContext) : text;
     const active = {
       runId: runId!,
+      resourceOwner,
       done: Promise.resolve(),
       controls: Promise.resolve(),
       finishing: false,
@@ -1980,11 +2020,16 @@ export class HostEngine {
     this.running.set(session.id, active);
     this.live.set(session.id, { value, events: [] });
     active.done = Promise.resolve()
-      .then(async () => {
+      .then(() => withCheckoutOwner(this.store, resourceOwner, async () => {
         let error: string | undefined;
         let checkpointTurn: string | undefined;
         try {
           await this.cleanPreviousProviders(session.id);
+          // Waiting has no provider side effects and remains cancellable. A restart
+          // interrupts this accepted run rather than replaying an uncertain send.
+          while (!this.closing && !active.cancelled && !resources.acquire(resourceOwner, {
+            workingDirectory: session.cwd, computer: botContext?.tools?.computer,
+          })) await new Promise<void>(resolve => setTimeout(resolve, 100));
           if (!this.closing && !active.cancelled) {
             if (!this.boundSessions.has(session.id) && session.providerSessionId)
               this.bindRetainedSession(session);
@@ -1995,6 +2040,8 @@ export class HostEngine {
             const turnPrompt = intent === "orchestrate" ? await this.orchestration.preparePlanning(value, prompt!, retryProposalBlockId) : prompt === null ? null : this.workflows.prompt(session.id, this.orchestration.prompt(session.id, prompt));
             const input: HarnessSessionInput = {
               sessionId: session.id,
+              botContext,
+              controlsAgents: !!botContext?.controlCli,
               cwd: session.cwd,
               model: session.model,
               modelSettings: session.modelSettings,
@@ -2025,7 +2072,7 @@ export class HostEngine {
               const prepared = await this.skills.prepare(turnPrompt!, { harness: session.harness as RemoteProvider, cwd: session.worktreeCwd || session.cwd, sessionId: session.id }, provider);
               if (!this.closing && !active.cancelled) await provider.send({
                 ...input,
-                text: handoff ? wrapHandoffPrompt(handoff.text, handoff.from, prepared, priorRequests) : prepared,
+                text: providerText(handoff ? wrapHandoffPrompt(handoff.text, handoff.from, prepared, priorRequests) : prepared),
                 attachments: attachments?.map((file) =>
                   session.harness !== "codex" &&
                   isVisionImage(file.mimeType) &&
@@ -2040,7 +2087,7 @@ export class HostEngine {
               });
               if (intent === "orchestrate" && !active.cancelled && !active.failed && !this.closing) {
                 const repair = this.orchestration.repairPlanning(session.id);
-                if (repair) await provider.send({ ...input, text: repair, attachments: [] });
+                if (repair) await provider.send({ ...input, text: providerText(repair), attachments: [] });
               }
               // A failed or cancelled delivery keeps the context packet for retry.
               if (handoff && !active.cancelled && !active.failed && !active.persistenceFailed && !this.closing) {
@@ -2061,7 +2108,7 @@ export class HostEngine {
         // A native session's CLI must not stay alive after the turn: the desktop
         // and the user's own CLI would see it as an owner.
         const nativeTurn = !!this.store.sessionIfExists(session.id)?.session.nativeSession;
-        if (error || active.failed || active.cancelled || this.closing || active.persistenceFailed || !!managedRun || !provider.readSessionTitle || nativeTurn) {
+        if (error || active.failed || active.cancelled || this.closing || active.persistenceFailed || !!managedRun || !!botContext || !provider.readSessionTitle || nativeTurn) {
           await provider.stop(session.id);
           this.checkoutReleases.get(session.id)?.(); this.checkoutReleases.delete(session.id);
         }
@@ -2093,6 +2140,9 @@ export class HostEngine {
           await this.nativeSessions.settle(session.id, nativeLease).catch((reason) =>
             console.error("Native settlement failed:", reason instanceof Error ? reason.message : reason));
         this.native.forget(session.id);
+        // The writer is settled. Release before idle callbacks capture or integrate
+        // an orchestration workspace (the outer finally remains the failure guard).
+        resources.close();
         this.flush(session.id);
         this.live.delete(session.id);
         this.checkpointCalls.delete(session.id);
@@ -2146,16 +2196,16 @@ export class HostEngine {
           !this.closing
         )
           this.dispatchQueue(session.id);
-      })
-      .catch((error) => {
+      }))
+      .catch(async (error) => {
         clearTimeout(this.live.get(session.id)?.timer);
         console.error(
           "Session persistence failed; stopping its provider:",
           error instanceof Error ? error.message : "unknown error",
         );
-        void provider.stop(session.id);
+        await provider.stop(session.id).catch(() => undefined);
         this.retrySettlement(session.id, runId!, provider);
-      });
+      }).finally(() => resources.close());
   }
 
   private event(id: string, runId: string, event: HarnessEvent, expectedHarness?: string, expectedAccount?: string): void {
@@ -2291,7 +2341,7 @@ export class HostEngine {
     this.nativeSessions.close();
     await this.im.close();
     await this.workflows.close();
-    await this.assistant.close();
+    await this.bots.close();
     await this.orchestration.close();
     this.titles.close();
     this.skills.close();

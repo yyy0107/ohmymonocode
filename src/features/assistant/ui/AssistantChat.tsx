@@ -36,7 +36,7 @@ import { quoteAssistantReply } from "../model/assistantReply";
 import { REMOTE_PROVIDERS } from "../../connections/model/protocol";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { AssistantSettings } from "./AssistantSettings";
-import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
+import { AnimatedCollapse, useCollapseMotion } from "../../../shared/ui/AnimatedCollapse";
 import { AssistantWorkerDetails } from "./AssistantWorkerDetails";
 import { resolveAssistantTarget, type AssistantTarget } from "../model/assistantNavigation";
 import { assistantActivityLabel } from "../model/assistantActivity";
@@ -64,6 +64,8 @@ import { usePauseOffscreenAnimation } from "../../../shared/hooks/usePauseOffscr
 import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
 import { slidePromptIn } from "../../sessions/ui/promptLaunch";
 import { Loader2, Sparkles } from "../../../shared/ui/icons";
+import { DesktopBotsNavigation, desktopBotsChrome } from "./DesktopBotsChrome";
+import { DesktopBotDetails } from "./DesktopBotDetails";
 
 /** History renders newest-first in slices so opening never blocks the app. */
 const INITIAL_HISTORY_ROWS = 30;
@@ -73,6 +75,7 @@ const HISTORY_LOAD_DISTANCE = 800;
 // A message that takes longer than this to appear no longer animates its send.
 const LAUNCH_TTL_MS = 15_000;
 import "./assistant.css";
+import "./desktop-bots.css";
 
 type ReadingAnchor = { node: Element; offset: number; scrollTop: number };
 const ANCHOR_ROWS = ".assistant-message-row, .assistant-card, .assistant-input";
@@ -167,6 +170,19 @@ export function AssistantChat({
   hostPicker,
   chrome,
   onOpenAttachment,
+  desktopBots = false,
+  cacheKey = hostKey,
+  botNavigation,
+  threadTitle,
+  botSettings,
+  botMemory,
+  botRuntime,
+  botActivity,
+  botAutomation,
+  botManagement,
+  botDelegations,
+  renderBotDelegation,
+  botReadOnlyReason,
 }: {
   hostKey: string;
   rpc: AssistantRpc;
@@ -175,26 +191,44 @@ export function AssistantChat({
   hostName: string;
   hostPicker?: ReactNode;
   chrome?: AssistantChatChrome;
-  /** Opens a sent file in a tab; receives a reader for the file's base64 bytes. */
-  onOpenAttachment?: (file: RemoteAttachment, read: () => Promise<string>) => void;
+  /** Opt into the desktop shell only when the Host advertises its capability. */
+  desktopBots?: boolean;
+  /** Storage identity is separate from the real Host identity used for navigation. */
+  cacheKey?: string;
+  botNavigation?: ReactNode;
+  threadTitle?: string;
+  /** Bot defaults stay separate from a thread's effective model override. */
+  botSettings?: AssistantView;
+  /** File memory is available only in the capable desktop Bot workspace. */
+  botMemory?: ReactNode;
+  botRuntime?: ReactNode;
+  botActivity?: ReactNode;
+  botAutomation?: ReactNode;
+  botManagement?: ReactNode;
+  botDelegations?: ReactNode;
+  renderBotDelegation?: (delegationId: string, revision: number) => ReactNode;
+  /** Desktop-only managed threads still allow approval and question responses. */
+  botReadOnlyReason?: string;
+  /** Opens a sent file with its bytes reader and independent conversation cache scope. */
+  onOpenAttachment?: (file: RemoteAttachment, read: () => Promise<string>, cacheScope?: string) => void;
 }) {
   const { t } = useTranslation();
   const visible = useSurfaceVisibility();
   const client = useMemo(
     () =>
       new AssistantClient(
-        hostKey,
+        cacheKey,
         rpc,
         typeof localStorage === "undefined" ? undefined : localStorage,
       ),
-    [hostKey, rpc],
+    [cacheKey, rpc],
   );
   const readImage = useCallback((messageId: string, file: RemoteAttachment) =>
     client.readImage(messageId, file), [client]);
   const openAttachment = useMemo(() => onOpenAttachment
     ? (messageId: string, file: RemoteAttachment) =>
-        onOpenAttachment(file, () => client.readAttachment(messageId, file))
-    : undefined, [client, onOpenAttachment]);
+        onOpenAttachment(file, () => client.readAttachment(messageId, file), cacheKey)
+    : undefined, [client, onOpenAttachment, cacheKey]);
   // Undefined means the first sync is pending; null confirms setup is needed.
   const [assistant, setAssistant] = useState<AssistantView | null>();
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
@@ -202,12 +236,12 @@ export function AssistantChat({
     if (!visible) return;
     const markRead = () => {
       if (document.visibilityState !== "hidden")
-        markAssistantRead(hostKey, messages);
+        markAssistantRead(cacheKey, messages);
     };
     markRead();
     document.addEventListener("visibilitychange", markRead);
     return () => document.removeEventListener("visibilitychange", markRead);
-  }, [hostKey, messages, visible]);
+  }, [cacheKey, messages, visible]);
   const visibleMessages = useMemo(
     () => chrome ? compactAssistantTimeline(messages) : messages,
     [messages, chrome],
@@ -278,11 +312,17 @@ export function AssistantChat({
   });
   const [projects, setProjects] = useState<HostProject[]>([]);
   const [supported, setSupported] = useState<boolean>();
+  const [botsShellSupported, setBotsShellSupported] = useState(false);
+  const mobile = !!chrome;
+  const botsLayout = desktopBots && !mobile && botsShellSupported;
+  const composerReadOnly = botsLayout ? botReadOnlyReason : undefined;
   // Personality, local time and promised follow-ups need a newer Host.
   const [personaSupported, setPersonaSupported] = useState(false);
   const [imSupported, setImSupported] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsBase, setSettingsBase] = useState<AssistantView | null>(null);
+  const retainedSettingsDraft = useRef(false);
+  const settingsCommand = useRef<{ signature: string; id: string } | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
@@ -298,12 +338,12 @@ export function AssistantChat({
     catalogLoad.disposed = false;
     return () => { catalogLoad.disposed = true; };
   }, [catalogLoad]);
-  const [draft, setDraft] = useAssistantDraft(hostKey);
+  const [draft, setDraft] = useAssistantDraft(cacheKey);
   const [retry, setRetry] = useState(() => client.pending());
   const [replyText, setReplyText] = useState<string | undefined>(() => {
     if (!chrome) return;
     try {
-      return localStorage.getItem(`monocode.assistant-reply:${hostKey}`) ?? undefined;
+      return localStorage.getItem(`monocode.assistant-reply:${cacheKey}`) ?? undefined;
     } catch {
       return undefined;
     }
@@ -371,6 +411,7 @@ export function AssistantChat({
         const available =
           descriptor.capabilities?.includes("assistant.v1") ?? false;
         setSupported(available);
+        setBotsShellSupported(descriptor.capabilities?.includes("bots.shell.v1") ?? false);
         setPersonaSupported(
           descriptor.capabilities?.includes("assistant.persona") ?? false,
         );
@@ -439,13 +480,13 @@ export function AssistantChat({
   useEffect(() => {
     if (!chrome) return;
     try {
-      const key = `monocode.assistant-reply:${hostKey}`;
+      const key = `monocode.assistant-reply:${cacheKey}`;
       if (replyText === undefined) localStorage.removeItem(key);
       else localStorage.setItem(key, replyText);
     } catch {
       /* The reply remains usable without persistent storage. */
     }
-  }, [hostKey, chrome, replyText]);
+  }, [cacheKey, chrome, replyText]);
   // WebKit has no scroll anchoring, and rows outside the viewport only
   // estimate their height. Keep the row the reader is on where they saw it
   // whenever older rows join or anything above it changes size.
@@ -569,8 +610,9 @@ export function AssistantChat({
       setBusy(false);
     }
   }, [sync]);
-  const send = (text: string, files: AssistantDraftAttachment[] = attachments) =>
-    operation(async () => {
+  const send = (text: string, files: AssistantDraftAttachment[] = attachments) => {
+    if (composerReadOnly) return Promise.resolve();
+    return operation(async () => {
       setSending(true);
       try {
         followLog.current = true;
@@ -588,13 +630,17 @@ export function AssistantChat({
         setRetry(client.pending());
       }
     });
+  };
   const save = async (patch: AssistantPatch) =>
     operation(async () => {
       // Failures stay inline in the settings panel, beside Reload settings.
+      const signature = JSON.stringify([cacheKey, settingsBase?.revision ?? 0, patch]);
+      if (botsLayout && settingsCommand.current?.signature !== signature)
+        settingsCommand.current = { signature, id: crypto.randomUUID() };
       await withStatusToast(
         () =>
           rpc("assistant.configure", {
-            commandId: crypto.randomUUID(),
+            commandId: botsLayout ? settingsCommand.current!.id : crypto.randomUUID(),
             expectedRevision: settingsBase?.revision ?? 0,
             patch,
           }),
@@ -606,6 +652,8 @@ export function AssistantChat({
           error: false,
         },
       );
+      settingsCommand.current = undefined;
+      retainedSettingsDraft.current = false;
       setSettingsOpen(false);
     });
   const open = useCallback(async (ref: SessionReference) => {
@@ -666,10 +714,13 @@ export function AssistantChat({
       }
     : undefined;
   const openSettings = () => {
-    setSettingsBase(assistant ?? null);
+    if (!botsLayout || !retainedSettingsDraft.current) {
+      setSettingsBase(botSettings ?? assistant ?? null);
+      retainedSettingsDraft.current = true;
+    }
     setSettingsOpen((v) => !v);
   };
-  const attachDisabled = busy || !!retry || !assistant?.enabled || !assistant.triggers.user;
+  const attachDisabled = !!composerReadOnly || busy || !!retry || !assistant?.enabled || !assistant.triggers.user;
   const attach = (source: File[] | (() => Promise<File[]>)) => {
     if (attachDisabled || uploading.current) return;
     uploading.current = true;
@@ -708,19 +759,19 @@ export function AssistantChat({
   };
   const activity = assistantActivityLabel(assistant?.activity);
   const workingLabel = t(activity.key, activity.params);
-  const ui = chrome ?? desktopAssistantChrome;
-  const mobile = !!chrome;
+  const ui = chrome ?? (botsLayout ? desktopBotsChrome : desktopAssistantChrome);
   const replying = mobile && replyText !== undefined;
   const { Header, SettingsPanel, Controls, Composer, Feedback } = ui;
-  const settingsCovering =
-    supported === true && (settingsOpen || assistant === null);
+  const settingsShown = supported === true && (settingsOpen || assistant === null);
+  const settingsCovering = settingsShown && (!botsLayout || assistant === null);
+  const detailsMotion = useCollapseMotion(botsLayout && settingsShown);
   const replyMenu = useAssistantReplyMenu(
     mobile,
     visible && !!assistant && !settingsCovering && !replying,
   );
   const MessageMenu = ui.MessageMenu ?? DesktopAssistantMessageMenu;
   const replyDisabled =
-    busy || !!retry || !assistant?.enabled || !assistant.triggers.user;
+    !!composerReadOnly || busy || !!retry || !assistant?.enabled || !assistant.triggers.user;
   const reply = (text: string) => {
     if (replyDisabled) return;
     // Let the menu restore its previous focus before opening the mobile keyboard.
@@ -751,7 +802,7 @@ export function AssistantChat({
       actions={settingsOpen ? (
         <ComposerNoticeButton
           onClick={() => {
-            setSettingsBase(assistant ?? null);
+            setSettingsBase(botSettings ?? assistant ?? null);
             setError(undefined);
           }}
         >
@@ -792,10 +843,24 @@ export function AssistantChat({
         busy={assistant?.lifecycle === "running"} scope={hostKey} />}
       <section
         ref={chat}
-        className="assistant-chat bg-background-base text-content"
-        aria-label={t("Assistant")}
+        className={`assistant-chat bg-background-base text-content${botsLayout ? " desktop-bots-workspace animated-collapse-size" : ""}`}
+        aria-label={t(botsLayout ? "Bots" : "Assistant")}
         data-layout={mobile ? "mobile" : "desktop"}
+        data-bot-details={botsLayout ? settingsShown : undefined}
+        data-fold-state={botsLayout ? detailsMotion.foldState : undefined}
+        onTransitionEnd={botsLayout ? (event) => {
+          if (event.target === event.currentTarget && event.propertyName === "grid-template-columns") detailsMotion.finish();
+        } : undefined}
       >
+        {botsLayout && (botNavigation ?? (
+          <DesktopBotsNavigation
+            hostName={hostName}
+            hostPicker={hostPicker}
+            assistant={assistant}
+            messages={messages}
+            onSelect={() => chat.current?.querySelector<HTMLTextAreaElement>(".assistant-conversation textarea")?.focus()}
+          />
+        ))}
         <div
           className="assistant-heading"
           inert={settingsCovering}
@@ -803,6 +868,7 @@ export function AssistantChat({
         >
           <Header
             name={assistant?.name ?? t("Assistant")}
+            threadTitle={threadTitle}
             harness={assistant?.harness}
             hostName={hostName}
             hostPicker={hostPicker}
@@ -867,15 +933,27 @@ export function AssistantChat({
             <span>{t(supported ? "Loading messages…" : "Connecting…")}</span>
           </div>
         ) : (
-          <div className="assistant-body">
+          <div
+            className={`assistant-body${botsLayout ? " animated-collapse-size" : ""}`}
+            data-bot-details={botsLayout ? settingsShown : undefined}
+            data-bot-setup={botsLayout && !assistant || undefined}
+          >
             <SettingsPanel
-              open={settingsCovering}
+              open={settingsShown}
               initialSetup={!assistant}
               onClose={() => (assistant ? setSettingsOpen(false) : onClose?.())}
             >
-              {settingsCovering && errorNotice}
+              {settingsShown && errorNotice}
+              <DesktopBotDetails
+                memory={botsLayout ? botMemory : undefined}
+                runtime={botsLayout ? botRuntime : undefined}
+                activity={botsLayout && (botActivity || botDelegations) ? <>{botActivity}{botDelegations}</> : undefined}
+                automation={botsLayout ? botAutomation : undefined}
+                management={botsLayout ? botManagement : undefined}
+              >
               <AssistantSettings
-                key={`${hostKey}:${settingsBase?.revision ?? "new"}`}
+                key={`${cacheKey}:${settingsBase?.revision ?? "new"}`}
+                panel={botsLayout && botAutomation ? "settings" : "all"}
                 value={settingsBase}
                 catalog={catalog}
                 catalogState={catalogState}
@@ -886,7 +964,7 @@ export function AssistantChat({
                 busy={busy}
                 onSave={save}
                 onCancel={
-                  mobile || !assistant
+                  mobile || !assistant || botsLayout
                     ? undefined
                     : () => setSettingsOpen(false)
                 }
@@ -898,7 +976,7 @@ export function AssistantChat({
                 im={{
                   rpc,
                   supported: imSupported,
-                  active: settingsCovering && visible,
+                  active: settingsShown && visible,
                   assistantEnabled: assistant?.enabled ?? false,
                 }}
                 reminders={assistant?.reminders}
@@ -932,6 +1010,7 @@ export function AssistantChat({
                     : undefined
                 }
               />
+              </DesktopBotDetails>
             </SettingsPanel>
             {assistant && controls && (
               <div
@@ -1002,6 +1081,7 @@ export function AssistantChat({
                     </div>
                   )}
                   <AssistantMessages
+                    renderBotDelegation={botsLayout ? renderBotDelegation : undefined}
                     readImage={readImage}
                     onOpenAttachment={openAttachment}
                     messages={renderedMessages}
@@ -1038,25 +1118,28 @@ export function AssistantChat({
                 )}
                 <Composer
                   draft={draft}
-                  errorNotice={!settingsCovering ? errorNotice : undefined}
+                  errorNotice={composerReadOnly ? <>
+                    <ComposerNotice tone="info" role="status" className="desktop-bot-read-only">{t(composerReadOnly)}</ComposerNotice>
+                    {!settingsShown ? errorNotice : undefined}
+                  </> : !settingsShown ? errorNotice : undefined}
                   replyText={mobile ? replyText : undefined}
                   onCancelReply={cancelReply}
                   onDraftChange={setDraft}
                   attachments={attachments}
                   busy={busy}
                   sending={sending}
-                  inputDisabled={!assistant.enabled || !assistant.triggers.user}
+                  inputDisabled={!!composerReadOnly || !assistant.enabled || !assistant.triggers.user}
                   attachDisabled={attachDisabled}
                   sendDisabled={
-                    busy ||
+                    !!composerReadOnly || busy ||
                     (!draft.trim() && !attachments.length) ||
                     !assistant.enabled ||
                     !assistant.triggers.user ||
                     !!retry
                   }
-                  retry={!!retry}
+                  retry={!composerReadOnly && !!retry}
                   onStop={
-                    assistant.lifecycle === "running"
+                    !composerReadOnly && assistant.lifecycle === "running"
                       ? () =>
                           void operation(() =>
                             rpc("assistant.control", {

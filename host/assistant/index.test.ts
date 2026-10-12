@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
@@ -16,8 +16,9 @@ afterEach(async () => {
   for (const fn of cleanup.splice(0)) await fn();
 });
 async function setup(options: { steer?: boolean } = {}) {
-  const directory = mkdtempSync(join(tmpdir(), "assistant-runtime-")),
-    store = new HostStore(join(directory, "host.db"));
+  const dataDirectory = mkdtempSync(join(tmpdir(), "assistant-runtime-")), directory = join(dataDirectory, "project"),
+    store = new HostStore(join(dataDirectory, "host.db"));
+  mkdirSync(directory);
   const project = store.addProject(directory, "Test project");
   const turns: { input: SendTurnInput; finish: () => void }[] = [];
   const provider: HostProvider = {
@@ -39,7 +40,7 @@ async function setup(options: { steer?: boolean } = {}) {
   cleanup.push(async () => {
     await engine.close();
     store.close();
-    rmSync(directory, { recursive: true, force: true });
+    rmSync(dataDirectory, { recursive: true, force: true });
   });
   await engine.ready;
   engine.assistant.setCatalog(
@@ -478,10 +479,12 @@ it("denies every declared action before effects when its permission is off", asy
   engine.assistant.store.update({ policy });
   // Reminders and habits are governed by the scheduled-check trigger and
   // memory and chat are the assistant's own records; none reaches project data.
+  // Bot delegation has an independent callable-Bot allowlist and run identity.
   for (const action of ASSISTANT_ACTIONS.filter(
     (a) =>
       a !== "actions.get" &&
       a !== "chat.search" &&
+      a !== "agents.list_bots" && a !== "agents.ask_bot" && a !== "agents.delegate_bot" && a !== "agents.coordinate_bots" &&
       !a.startsWith("playbooks.") &&
       !a.startsWith("reminders.") &&
       !a.startsWith("habits.") &&
@@ -547,7 +550,7 @@ it("rolls back pure database effects when the assistant acceptance or card canno
   follow(engine, project.id, target.sessionId);
   const original = store.session(target.sessionId);
   store.db.exec(
-    "CREATE TRIGGER fail_acceptance BEFORE UPDATE ON assistant_actions WHEN json_extract(NEW.payload, '$.state')='completed' BEGIN SELECT RAISE(ABORT, 'acceptance failure'); END",
+    "CREATE TRIGGER fail_acceptance BEFORE UPDATE ON bot_actions WHEN json_extract(NEW.payload, '$.state')='completed' BEGIN SELECT RAISE(ABORT, 'acceptance failure'); END",
   );
   await expect(
     executeAssistantAction(
@@ -560,7 +563,7 @@ it("rolls back pure database effects when the assistant acceptance or card canno
   ).rejects.toThrow(/acceptance failure/);
   expect(store.session(target.sessionId)).toEqual(original);
   store.db.exec(
-    "DROP TRIGGER fail_acceptance; CREATE TRIGGER fail_card BEFORE INSERT ON assistant_messages WHEN json_extract(NEW.payload, '$.kind')='session-card' BEGIN SELECT RAISE(ABORT, 'card failure'); END",
+    "DROP TRIGGER fail_acceptance; CREATE TRIGGER fail_card BEFORE INSERT ON bot_messages WHEN json_extract(NEW.payload, '$.kind')='session-card' BEGIN SELECT RAISE(ABORT, 'card failure'); END",
   );
   const count = store.sessions().length;
   await expect(
@@ -723,6 +726,9 @@ it("preserves public history and creates a different brain when switching agents
     commandId: "after-switch",
     text: "Continue in the new agent",
   });
+  expect(engine.assistant.store.get()!.brainSessionId).toBe(brain);
+  expect(engine.assistant.store.get()!.lifecycle).toBe("running");
+  turns[0].finish();
   await vi.waitFor(() => expect(turns).toHaveLength(2));
   expect(engine.assistant.store.get()!.brainSessionId).not.toBe(brain);
   expect(turns[1].input.text).toContain("Continue in the new agent");
@@ -1231,13 +1237,8 @@ it("validates personality settings and reads older records with defaults", async
     persona: { preset: "partner", userName: "Wy" },
     timezone: "Asia/Shanghai",
   });
-  const {
-    persona: _p,
-    timezone: _t,
-    reminders: _r,
-    ...legacy
-  } = engine.assistant.store.get()!;
-  engine.assistant.store.write(legacy as never);
+  engine.store.db.prepare("UPDATE bots SET config=json_remove(config,'$.persona','$.timezone','$.reminders') WHERE id=?")
+    .run(engine.assistant.store.botId);
   expect(engine.assistant.store.get()).toMatchObject({
     persona: { preset: "secretary", style: "" },
     timezone: "UTC",
@@ -1278,7 +1279,7 @@ it("rotates an oversized brain into a fresh generation briefed from the chat", a
   expect(turns[1].input.text).toContain("Inspect the projects");
   expect(turns[0].input.text).not.toContain("<previous_conversation>");
 });
-it("keeps memory across turns and shows it to the brain only when it changes", async () => {
+it("rereads resident memory every turn and replaces the native cache after memory changes", async () => {
   const { engine, store, turns } = await setup();
   const act = (requestId: string, action: string, input: Record<string, unknown>) =>
     executeAssistantAction(engine.assistant, requestId, action, input, () => true);
@@ -1296,8 +1297,9 @@ it("keeps memory across turns and shows it to the brain only when it changes", a
   ]);
   const brainId = engine.assistant.store.get()!.brainSessionId!;
   const nextTurn = async (text: string, count: number) => {
+    const currentBrainId = turns.at(-1)!.input.sessionId;
     turns.at(-1)!.finish();
-    await vi.waitFor(() => expect(store.session(brainId).status).toBe("idle"));
+    await vi.waitFor(() => expect(store.session(currentBrainId).status).toBe("idle"));
     await engine.assistant.tick();
     await engine.assistant.rpc("assistant.send", { commandId: text, text });
     await vi.waitFor(() => expect(turns).toHaveLength(count));
@@ -1306,7 +1308,9 @@ it("keeps memory across turns and shows it to the brain only when it changes", a
   const second = await nextTurn("What do I prefer?", 2);
   expect(second).toContain("Prefers pnpm");
   expect(second).toContain("Topic notes: deploys");
-  expect(await nextTurn("Thanks", 3)).not.toContain("Your memory (current version");
+  expect(turns[1].input.sessionId).not.toBe(brainId);
+  expect(await nextTurn("Thanks", 3)).toContain("Your memory (current version");
+  expect(turns[2].input.sessionId).toBe(turns[1].input.sessionId);
 });
 it("searches Chinese memory through controls across resident, topic and archived facts", async () => {
   const { engine } = await setup();
@@ -1338,6 +1342,31 @@ it("searches Chinese memory through controls across resident, topic and archived
   expect(await act("search-default", "memory.search", { query: "ordinary" })).toHaveLength(20);
   expect(await act("search-max", "memory.search", { query: "ordinary", limit: 50 })).toHaveLength(50);
   await expect(act("search-invalid", "memory.search", { query: "发布", limit: 51 })).rejects.toThrow("limit");
+});
+it("reads desktop-authored Unicode topics through the legacy Bot controls", async () => {
+  const { engine } = await setup(), store = engine.assistant.store;
+  const memory = store.memory, path = "memory/发布流程.md", original = memory.read(path);
+  memory.save(path, "发布前检查 staging", { expectedRevision: original.revision, expectedHash: original.hash });
+  const act = (requestId: string, action: string, input: Record<string, unknown>) =>
+    executeAssistantAction(engine.assistant, requestId, action, input, () => true);
+  expect(await act("read-unicode", "memory.read", { topic: "发布流程" })).toEqual({ text: "发布前检查 staging" });
+  await act("append-unicode", "memory.add", { topic: "发布流程.md", fact: "发布后检查 health" });
+  expect(memory.read(path).text).toContain("发布后检查 health");
+  expect(await engine.assistant.rpc("assistant.memoryTopic", { topic: "发布流程" })).toMatchObject({ text: expect.stringContaining("发布后检查 health") });
+  await expect(act("reserved-topic", "memory.read", { topic: "archive" })).rejects.toThrow("topic");
+  // Existing diary automation still reaches its virtual log aggregate.
+  expect(await act("legacy-diary", "memory.read", { topic: "chat-days" })).toEqual({ text: "" });
+});
+it("keeps historical topic aliases reachable without changing their spelling or diary identity", async () => {
+  const { engine } = await setup(), store = engine.assistant.store;
+  for (const [index, name] of ["CON", "foo.", "foo.md", "CHAT-DAYS"].entries()) {
+    store.writeMemoryDoc(`topic:${name}`, `Original topic ${index}`);
+    const input = { topic: `${name}.md` };
+    expect(await executeAssistantAction(engine.assistant, `alias-${index}`, "memory.read", input, () => true))
+      .toEqual({ text: `Original topic ${index}` });
+    expect(await engine.assistant.rpc("assistant.memoryTopic", input)).toMatchObject({ name, text: `Original topic ${index}` });
+  }
+  expect(store.memoryDoc("topic:chat-days").text).toBe("");
 });
 it("lets the user read, add, edit and forget memory without overwriting newer writes", async () => {
   const { engine } = await setup();

@@ -60,6 +60,27 @@ const NAMESPACE_ENV = {
 } as const;
 type ControlNamespace = keyof typeof NAMESPACE_ENV;
 
+/** One short authenticated socket request. Longer operations poll with the same receipt ID. */
+export async function requestControl(namespace: ControlNamespace, action: string, input: Record<string, unknown>, requestId: string, signal?: AbortSignal): Promise<Record<string, unknown>> {
+  const endpoint = process.env[NAMESPACE_ENV[namespace].endpoint]?.match(/^127\.0\.0\.1:(\d+)$/);
+  const token = process.env[NAMESPACE_ENV[namespace].token];
+  if (!endpoint || !token) throw new Error("Host control access is unavailable for this process");
+  if (signal?.aborted) throw new Error("Control request interrupted; retry the same request ID");
+  return new Promise((resolve, reject) => {
+    const socket = connect(Number(endpoint[1]), "127.0.0.1");
+    let data = "";
+    const abort = () => socket.destroy(new Error("Control request interrupted; retry the same request ID"));
+    signal?.addEventListener("abort", abort, { once: true });
+    socket.once("close", () => signal?.removeEventListener("abort", abort));
+    socket.setTimeout(32_000, () => socket.destroy(new Error("Control request timed out; retry the same request ID")));
+    socket.on("error", reject);
+    socket.setEncoding("utf8");
+    socket.on("connect", () => socket.write(`${JSON.stringify({ namespace, token, requestId, action, input })}\n`));
+    socket.on("data", (part) => { data += part; if (data.length > 8_000_000) socket.destroy(new Error("Control response is too large")); });
+    socket.on("end", () => { try { resolve(JSON.parse(data)); } catch { reject(new Error("Invalid Host control response")); } });
+  });
+}
+
 /** Credentials are ephemeral, lead-scoped and never accepted by device RPC. */
 export class HostControl {
   private grants = new Map<string, string>();
@@ -149,24 +170,12 @@ export async function runControlCli(args: string[], namespace: ControlNamespace 
     const option = (key: string) => { const i = args.indexOf(key); if (i < 0) return undefined; if (!args[i + 1]) throw new Error(`Missing ${key} value`); return args[i + 1]; };
     requestId = option("--request-id") ?? requestId;
     if (!requestId || requestId.length > 128 || requestId.includes("\0")) throw new Error("Invalid request ID");
-    if (namespace === "control" ? !ACTIONS.includes(args[0]) : namespace === "workflow" ? !WORKFLOW_ACTIONS.includes(args[0]) : !/^[a-z]+\.[a-zA-Z]+$/.test(args[0])) throw new Error(`Unknown ${namespace} action; run ${namespace} --help`);
+    if (namespace === "control" ? !ACTIONS.includes(args[0]) : namespace === "workflow" ? !WORKFLOW_ACTIONS.includes(args[0]) : !/^[a-z]+\.[a-zA-Z_]+$/.test(args[0])) throw new Error(`Unknown ${namespace} action; run ${namespace} --help`);
     const json = option("--json"), file = option("--input");
     if (json && file) throw new Error("Use either --json or --input");
     const input = JSON.parse(json ?? (file ? readFileSync(file === "-" ? 0 : file, "utf8") : "{}"));
     if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Control input must be an object");
-    const endpoint = process.env[NAMESPACE_ENV[namespace].endpoint]?.match(/^127\.0\.0\.1:(\d+)$/);
-    const token = process.env[NAMESPACE_ENV[namespace].token];
-    if (!endpoint || !token) throw new Error("Host control access is unavailable for this process");
-    const reply = await new Promise<Record<string, unknown>>((resolve, reject) => {
-      const socket = connect(Number(endpoint[1]), "127.0.0.1");
-      let data = "";
-      socket.setTimeout(32_000, () => socket.destroy(new Error("Control request timed out; retry the same request ID")));
-      socket.on("error", reject);
-      socket.setEncoding("utf8");
-      socket.on("connect", () => socket.write(`${JSON.stringify({ namespace, token, requestId, action: args[0], input })}\n`));
-      socket.on("data", (part) => { data += part; if (data.length > 8_000_000) socket.destroy(new Error("Control response is too large")); });
-      socket.on("end", () => { try { resolve(JSON.parse(data)); } catch { reject(new Error("Invalid Host control response")); } });
-    });
+    const reply = await requestControl(namespace, args[0], input, requestId);
     process.stdout.write(`${JSON.stringify({ ...reply, requestId })}\n`);
     return reply.ok ? 0 : 1;
   } catch (error) {

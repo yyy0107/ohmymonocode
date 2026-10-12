@@ -37,6 +37,7 @@ import {
 import { WorkspaceCommands } from "../workspace-commands";
 import { hostWorktrees } from "../git-worktrees";
 import { summary } from "../store";
+import { HOST_RESOURCE_BUSY_MESSAGE, withHostResources } from "../bots/resources";
 import type {
   AssistantAction,
   AssistantPermission,
@@ -46,61 +47,8 @@ import type {
   HostSession,
 } from "../../src/features/connections/model/protocol";
 
-export const ASSISTANT_ACTIONS = [
-  "agents.list",
-  "models.list",
-  "projects.list",
-  "projects.open",
-  "sessions.list",
-  "sessions.get",
-  "sessions.activity",
-  "sessions.create",
-  "sessions.send",
-  "sessions.steer",
-  "sessions.configure",
-  "sessions.compact",
-  "sessions.cancel",
-  "sessions.approve",
-  "sessions.answer",
-  "sessions.queue",
-  "sessions.update",
-  "sessions.delete",
-  "orchestration.get",
-  "orchestration.command",
-  "orchestration.worker",
-  "files.list",
-  "files.read",
-  "files.search",
-  "files.create",
-  "files.write",
-  "files.move",
-  "files.copy",
-  "files.rename",
-  "files.delete",
-  "git.read",
-  "git.action",
-  "git.publish",
-  "workspace.run",
-  "reminders.create",
-  "reminders.list",
-  "reminders.cancel",
-  "memory.read",
-  "memory.search",
-  "memory.add",
-  "memory.replace",
-  "memory.remove",
-  "chat.search",
-  "playbooks.list",
-  "playbooks.read",
-  "playbooks.save",
-  "playbooks.delete",
-  "habits.list",
-  "habits.create",
-  "habits.update",
-  "habits.delete",
-  "actions.get",
-  "reply.attachments",
-] as const;
+import { ASSISTANT_ACTIONS } from "../../src/features/assistant/model/assistantActions";
+export { ASSISTANT_ACTIONS } from "../../src/features/assistant/model/assistantActions";
 export const MAX_PENDING_REMINDERS = 50;
 const MAX_REMINDER_DELAY = 10080;
 const aliases: Record<string, string> = {
@@ -301,6 +249,8 @@ function reminderAction(
       origin: {
         kind: "assistant",
         assistantId: config.id,
+        botId: store.botId,
+        threadId: store.threadId,
         assistantName: config.name,
         actionId,
         wakeupId: wakeup.id,
@@ -352,6 +302,8 @@ function recordOwnAction(
       origin: {
         kind: "assistant",
         assistantId: config.id,
+        botId: store.botId,
+        threadId: store.threadId,
         assistantName: config.name,
         actionId,
         wakeupId: wakeup.id,
@@ -604,10 +556,29 @@ export async function executeAssistantAction(
 ): Promise<unknown> {
   id(requestId, "request ID");
   object(input);
+  assistant.assertActionEnabled(action);
   const engine = assistant.engine,
     store = assistant.store;
   const config = store.get()!;
   let permission: AssistantPermission;
+  // Delegations own their durable receipts. Caching a running response in the
+  // ordinary action ledger would prevent subsequent short polls from settling.
+  if (action === "agents.list_bots") {
+    fields(input, []);
+    return assistant.agentBots(authorized);
+  }
+  if (action === "agents.ask_bot") {
+    fields(input, ["botId", "prompt", "timeoutMs"]);
+    return assistant.askBot(requestId, input, authorized);
+  }
+  if (action === "agents.delegate_bot" || action === "agents.coordinate_bots") {
+    if (!authorized()) throw new Error("Assistant control is inactive");
+    const result = action === "agents.delegate_bot"
+      ? await engine.bots.teams.delegate(assistant, requestId, input)
+      : await engine.bots.teams.coordinate(assistant, requestId, input);
+    if (!authorized()) throw new Error("Assistant control is inactive");
+    return result;
+  }
   if (
     action === "workspace.run" ||
     action.startsWith("git.") ||
@@ -727,11 +698,14 @@ export async function executeAssistantAction(
       throw new Error(
         "unknown-outcome: inspect the existing effect before continuing",
       );
-    if (previous.state === "failed")
+    // Resource refusal happened before effects. Retrying the same control
+    // request is safe after the other run releases its lease.
+    if (previous.state === "failed" && previous.error !== HOST_RESOURCE_BUSY_MESSAGE)
       throw new Error(previous.error ?? "The previous operation failed");
-    return readableResult(assistant, previous);
+    if (previous.state !== "failed") return readableResult(assistant, previous);
   }
   const wakeup = assistant.currentWakeup();
+  const resourceOwner = assistant.currentRun?.id ?? `assistant-action:${randomUUID()}`;
   const record: AssistantAction = {
     id: randomUUID(),
     requestId,
@@ -742,6 +716,8 @@ export async function executeAssistantAction(
     origin: {
       kind: "assistant",
       assistantId: config.id,
+      botId: store.botId,
+      threadId: store.threadId,
       assistantName: config.name,
       actionId: "",
       wakeupId: wakeup.id,
@@ -1137,8 +1113,24 @@ export async function executeAssistantAction(
           throw new Error("Workspace path belongs to another project");
       }
       requireAccess();
-      external = !permission.endsWith(".read");
-      result = await workspace.run(command, args);
+      if (permission.endsWith(".read")) result = await workspace.run(command, args);
+      else {
+        // A copy only mutates its destination. Git operations reserve their
+        // checkout root because changing the index/branch affects every file.
+        const inputs = command === "copy_path" ? [args.destParent]
+          : command === "move_path" ? [args.from, args.destParent]
+          : command === "create_path" ? [args.parent]
+          : command === "rename_path" ? [args.path]
+          : [args.cwd ?? args.path];
+        const writes = await Promise.all(inputs.map((path) => workspace.resourcePath(path)));
+        const reserved = command.startsWith("git_") ? writes.map((path) =>
+          roots.filter((root) => inRoot(path, root)).sort((a, b) => b.length - a.length)[0] ?? path) : writes;
+        result = await withHostResources(engine.store, resourceOwner, { paths: reserved }, async () => {
+          requireAccess();
+          external = true;
+          return workspace.run(command, args);
+        });
+      }
     }
     if (!recorded) persistResult(result);
     if (action === "sessions.delete") assistant.refreshCards();

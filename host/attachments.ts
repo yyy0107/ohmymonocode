@@ -13,7 +13,7 @@ import { decodeGeneratedPng } from "../src/integrations/harness/core/generatedIm
 import { join } from "node:path";
 import type { Attachment } from "../src/features/sessions/model/session";
 import type { RemoteAttachment } from "../src/features/connections/model/protocol";
-import type { AssistantMessage } from "../src/features/assistant/model/assistant";
+import { AssistantStore } from "./assistant/store";
 import type { HostStore } from "./store";
 
 export const MAX_REMOTE_ATTACHMENT_BYTES = 20 * 1024 * 1024;
@@ -147,13 +147,16 @@ export function readAttachmentChunk(store: HostStore, input: Record<string, unkn
   if (input.messageId !== undefined) {
     if (typeof input.messageId !== "string" || input.sessionId !== undefined)
       throw new Error("Invalid attachment message");
-    const row = store.db.prepare(
-      "SELECT payload FROM assistant_messages WHERE id=? ORDER BY revision DESC LIMIT 1",
-    ).get(input.messageId);
-    const message: AssistantMessage | undefined = row ? JSON.parse(String(row.payload)) : undefined;
+    const hasScope = input.botId !== undefined || input.threadId !== undefined;
+    if (hasScope && (typeof input.botId !== "string" || typeof input.threadId !== "string"))
+      throw new Error("Invalid attachment scope");
+    const scope = hasScope ? { botId: input.botId as string, threadId: input.threadId as string } : undefined;
+    const message = new AssistantStore(store, scope).messageById(input.messageId);
     files = message?.kind === "user" || message?.kind === "assistant"
       ? message.attachments ?? [] : [];
   } else {
+    if (input.botId !== undefined || input.threadId !== undefined)
+      throw new Error("Invalid attachment scope");
     const session = store.session(String(input.sessionId ?? ""));
     files = [...[...walkTranscript(session.session.blocks)].flatMap((block) => block.attachments ?? []), ...session.session.queuedMessages?.flatMap((row) => row.attachments) ?? []];
   }

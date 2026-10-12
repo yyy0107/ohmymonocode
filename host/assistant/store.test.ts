@@ -64,7 +64,7 @@ it("keeps legacy receipt retries compatible while binding IM receipts to their t
   expect(() => assistant.receive("im", "hello", [])).toThrow(/different/);
   for (const kind of ["user", "event", "schedule"] as const) {
     const old = { id: kind, kind, text: "old", state: "pending", rootCauseId: kind, createdAt: 1, attempts: 0 };
-    store.db.prepare("INSERT INTO assistant_wakeups VALUES (?, ?, ?)").run(kind, kind, JSON.stringify(old));
+    store.db.prepare("INSERT INTO bot_wakeups VALUES (?, ?, ?, ?, ?)").run(assistant.botId, assistant.threadId, kind, kind, JSON.stringify(old));
     const source = { kind: kind === "user" ? "client" : "automatic" };
     expect(assistant.wakeup(kind)?.source).toEqual(source);
     expect(assistant.pending().find((wakeup) => wakeup.id === kind)?.source).toEqual(source);
@@ -108,7 +108,7 @@ it("rolls back the claim if its read receipt cannot be saved", () => {
   assistant.initialize({ harness: "codex", model: "test" });
   const received = assistant.receive("read-fail", "Pending", []);
   store.db.exec(
-    "CREATE TRIGGER fail_read BEFORE INSERT ON assistant_messages BEGIN SELECT RAISE(ABORT, 'storage failure'); END",
+    "CREATE TRIGGER fail_read BEFORE INSERT ON bot_messages BEGIN SELECT RAISE(ABORT, 'storage failure'); END",
   );
   expect(() => assistant.claim(received.wakeupId!)).toThrow(/storage failure/);
   expect(assistant.wakeup(received.wakeupId!)?.state).toBe("pending");
@@ -118,7 +118,7 @@ it("rolls back a message and wakeup when persistence fails", () => {
   const { assistant, store } = setup();
   assistant.initialize({ harness: "codex", model: "test" });
   store.db.exec(
-    "CREATE TRIGGER fail_wakeup BEFORE INSERT ON assistant_wakeups BEGIN SELECT RAISE(ABORT, 'storage failure'); END",
+    "CREATE TRIGGER fail_wakeup BEFORE INSERT ON bot_wakeups BEGIN SELECT RAISE(ABORT, 'storage failure'); END",
   );
   expect(() => assistant.receive("send-1", "hello", [])).toThrow(
     /storage failure/,
@@ -336,7 +336,7 @@ it("rolls back the Host revision when its source journal cannot be saved", () =>
       createdAt: 1,
     });
   store.db.exec(
-    "CREATE TRIGGER fail_source BEFORE INSERT ON assistant_sources BEGIN SELECT RAISE(ABORT, 'source failure'); END",
+    "CREATE TRIGGER fail_source BEFORE INSERT ON bot_sources BEGIN SELECT RAISE(ABORT, 'source failure'); END",
   );
   expect(() =>
     store.save(

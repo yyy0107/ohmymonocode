@@ -7,6 +7,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { connect } from "node:net";
 import { expect, it, vi } from "vitest";
 import {
   acquireHarnessBridge,
@@ -57,11 +58,14 @@ require('node:readline').createInterface({input:process.stdin}).on('line', line 
     configureChildBackend(backend);
     const releaseBridge = await acquireHarnessBridge();
     const engine = new HostEngine(store, { [harness]: hostProviders[harness] });
+    const issued: Record<string, string>[] = [];
     try {
       await engine.ready;
-      backend.configureSessionEnvironment((id) =>
-        engine.assistant.environment(id),
-      );
+      backend.configureSessionEnvironment((id) => {
+        const environment = engine.assistant.environment(id);
+        if (environment.MONOCODE_CONTROL_TOKEN) issued.push(environment);
+        return environment;
+      });
       engine.assistant.setCatalog(
         async () => [harness],
         async () => ({
@@ -101,6 +105,18 @@ require('node:readline').createInterface({input:process.stdin}).on('line', line 
       expect(turns[1].pid).not.toBe(turns[0].pid);
       expect(turns[1].grant).not.toBe(turns[0].grant);
       expect(turns[1].args).toContain("retained-brain");
+      for (const environment of issued) {
+        const reply = await new Promise<{ ok: boolean; error?: string }>((resolve, reject) => {
+          const socket = connect(Number(environment.MONOCODE_CONTROL_ENDPOINT.split(":")[1]), "127.0.0.1");
+          let data = "";
+          socket.setEncoding("utf8");
+          socket.on("error", reject);
+          socket.on("connect", () => socket.write(JSON.stringify({ namespace: "assistant", token: environment.MONOCODE_CONTROL_TOKEN, requestId: "revoked-probe", action: "projects.list", input: {} }) + "\n"));
+          socket.on("data", chunk => { data += chunk; });
+          socket.on("end", () => resolve(JSON.parse(data)));
+        });
+        expect(reply).toMatchObject({ ok: false, error: "Connection revoked or unauthorized" });
+      }
       const brain = store.session(
         engine.assistant.store.get()!.brainSessionId!,
       );

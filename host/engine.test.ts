@@ -10,6 +10,8 @@ import { HostEngine, parseCommand } from "./engine";
 import { HostStore } from "./store";
 import { HostClientState } from "./client-state";
 import { readAttachmentChunk, writeAttachmentChunk } from "./attachments";
+import type { HarnessBotContext } from "../src/integrations/harness/core/botContext";
+import { providerBotCapabilities } from "../src/integrations/harness/providers/botCapabilities";
 
 const cleanups: Array<() => Promise<void> | void> = [];
 afterEach(async () => {
@@ -71,6 +73,53 @@ function setup(harness: "codex" | "claude" | "pi" | "omp" = "codex") {
 }
 
 describe("headless session ownership", () => {
+  it("rejects public Bot context and snapshots trusted context separately from user references", async () => {
+    const { engine, store, provider, turns, id } = setup();
+    await engine.ready;
+    const record = engine.assistant.store.initialize({ enabled: false, harness: "codex", model: "test" });
+    engine.assistant.store.update({ brainSessionId: id });
+    const current = store.session(id);
+    store.save({ ...current, revision: current.revision + 1, session: { ...current.session, assistantOwnerId: record.id } }, { type: "test" });
+    const scope = engine.assistant.store.scope;
+    const run = engine.bots.store.queuedRun(scope, { id: "wake", attempts: 0, createdAt: Date.now() });
+    engine.bots.store.updateRun(scope, run.id, { status: "running" });
+    const context: HarnessBotContext = { scope: { ...scope, runId: run.id }, systemInstructions: "Identity and Soul", contextFingerprint: "v1", tools: { enabledActions: ["memory.read"] }, controlCli: { command: "monocode-control" } };
+    const command = { type: "send", commandId: "context-send", sessionId: id, text: "USER AND RECALL REFERENCE" };
+    expect(() => engine.command({ ...command, botContext: context })).toThrow("reserved");
+    expect(() => engine.assistantCommand(command, undefined, { ...context, scope: { ...context.scope, threadId: "forged" } })).toThrow("does not belong");
+    provider.botCapabilities = providerBotCapabilities("codex");
+    engine.assistantCommand(command, undefined, context);
+    context.systemInstructions = "changed later";
+    context.tools!.enabledActions!.push("sessions.send");
+    await vi.waitFor(() => expect(turns).toHaveLength(1));
+    expect(turns[0].input).toMatchObject({ text: "USER AND RECALL REFERENCE", controlsAgents: true, botContext: { systemInstructions: "Identity and Soul", tools: { enabledActions: ["memory.read"] } } });
+    turns[0].finish();
+    await vi.waitFor(() => expect(store.session(id).status).toBe("idle"));
+    provider.botCapabilities = providerBotCapabilities("cursor");
+    engine.assistantCommand({ ...command, commandId: "fallback-send" }, undefined, context);
+    await vi.waitFor(() => expect(turns).toHaveLength(2));
+    expect(turns[1].input.text).toContain('delivery="user-message-fallback"');
+    expect(turns[1].input.text).toContain("USER AND RECALL REFERENCE");
+    expect(engine.botCapabilities("codex").mcp).toBe("unavailable");
+    turns[1].finish();
+  });
+
+  it("waits for another active run on the same checkout, then dispatches exactly once", async () => {
+    const { engine, store, project, id, turns } = setup();
+    const second = engine.command({ type: "create", commandId: "second", projectId: project.id, harness: "codex", model: "codex:test", runtimeMode: "supervised" }).sessionId;
+    engine.command({ type: "send", commandId: "first-run", sessionId: id, text: "First" });
+    await vi.waitFor(() => expect(turns).toHaveLength(1));
+    engine.command({ type: "send", commandId: "second-run", sessionId: second, text: "Second" });
+    await new Promise(resolve => setTimeout(resolve, 150));
+    expect(turns).toHaveLength(1);
+    expect(store.session(second).status).toBe("running");
+    turns[0].finish();
+    await vi.waitFor(() => expect(turns).toHaveLength(2));
+    expect(turns[1].input.sessionId).toBe(second);
+    turns[1].finish();
+    await vi.waitFor(() => expect(store.session(second).status).toBe("idle"));
+  });
+
   it("reads Claude hooks from the execution Host for each new turn", async () => {
     const { store, engine, turns, id } = setup("claude");
     const preferences = new HostClientState(store);

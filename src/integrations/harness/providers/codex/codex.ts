@@ -5,6 +5,7 @@ import {
   reportGenerationUsage,
   resetGenerationMetrics,
 } from "../../core/generationMetrics";
+import { botContextKey } from "../../core/botContext";
 import type { NativeTitleInput } from "../../core/titleCoordinator";
 import { nativeModelId } from "../../../../features/sessions/model/models";
 import { sameProviderAccountId } from "../../../../features/providers/model/providerAccounts";
@@ -23,6 +24,7 @@ import {
 } from "../../core/child";
 import {
   asRecord,
+  buildCodexAppServerArgs,
   buildThreadStartParams,
   buildTurnStartParams,
   buildTurnSteerParams,
@@ -90,6 +92,7 @@ type Live = {
   providerAccountId?: string;
   /** Thread-level network policy used when this app-server opened the thread. */
   controlsAgents: boolean;
+  botContextKey: string;
   runtimeMode: RuntimeMode;
   planning: boolean;
   onEvent: (event: HarnessEvent) => void;
@@ -480,7 +483,8 @@ async function ensureLive(input: HarnessSessionInput): Promise<Live> {
     existing &&
     existing.cwd === input.cwd &&
     sameProviderAccountId(existing.providerAccountId, input.providerAccountId) &&
-    existing.controlsAgents === controlsAgents
+    existing.controlsAgents === controlsAgents &&
+    existing.botContextKey === botContextKey(input.botContext)
   ) {
     existing.onEvent = input.onEvent;
     return existing;
@@ -594,7 +598,7 @@ async function ensureLive(input: HarnessSessionInput): Promise<Live> {
   await spawnChild(
     input.sessionId,
     path,
-    ["app-server"],
+    buildCodexAppServerArgs(input.botContext),
     input.cwd,
     {
       provider: "codex",
@@ -637,6 +641,7 @@ async function ensureLive(input: HarnessSessionInput): Promise<Live> {
               controlsAgents: input.controlsAgents,
               model,
               serviceTier,
+              systemInstructions: input.botContext?.systemInstructions,
             }),
           },
         );
@@ -657,6 +662,7 @@ async function ensureLive(input: HarnessSessionInput): Promise<Live> {
           controlsAgents: input.controlsAgents,
           model,
           serviceTier,
+          systemInstructions: input.botContext?.systemInstructions,
         }),
       );
       threadId = opened.thread?.id?.trim();
@@ -673,6 +679,7 @@ async function ensureLive(input: HarnessSessionInput): Promise<Live> {
       cwd: input.cwd,
       providerAccountId: input.providerAccountId,
       controlsAgents,
+      botContextKey: botContextKey(input.botContext),
       runtimeMode: input.runtimeMode,
       planning: input.intent === "plan",
       onEvent: input.onEvent,

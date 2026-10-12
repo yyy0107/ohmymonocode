@@ -5,6 +5,7 @@ import {
   generationRequestStarted,
   reportGenerationUsage,
 } from "../../core/generationMetrics";
+import { botContextKey } from "../../core/botContext";
 import { readClaudeNativeTitle } from "../../core/child";
 import type { NativeTitleInput } from "../../core/titleCoordinator";
 import type { NativeSessionLink } from "../../../../features/sessions/model/session";
@@ -1985,7 +1986,7 @@ function writeJson(
 }
 
 function settingsKeyFor(input: HarnessSessionInput): string {
-  return `${input.providerAccountId ?? "default"}:${claudeSettingsKey({
+  return `${botContextKey(input.botContext)}:${input.providerAccountId ?? "default"}:${claudeSettingsKey({
     model: nativeModelId(input.model),
     effort: input.modelSettings?.effort,
     fast: input.modelSettings?.fast,
@@ -2001,6 +2002,8 @@ function launchOptions(
   resume: string | undefined,
   sessionId: string,
 ): {
+  botContext?: import("../../core/botContext").HarnessBotContext;
+  systemInstructions?: string;
   model?: string;
   effort?: string;
   permissionMode?: ReturnType<typeof runtimeModeToPermission>;
@@ -2025,6 +2028,8 @@ function launchOptions(
     settings.disableAllHooks = true;
   }
   return {
+    botContext: input.botContext,
+    systemInstructions: input.botContext?.systemInstructions,
     model: resolveClaudeApiModelId(native, context),
     effort: normalizeClaudeCliEffort(effortRaw, native),
     permissionMode:
