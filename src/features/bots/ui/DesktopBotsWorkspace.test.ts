@@ -413,19 +413,25 @@ async function key(field: HTMLElement, value: string) {
 }
 async function finishMotion() { await act(async () => { await vi.advanceTimersByTimeAsync(360); }); await flush(); }
 
-it("pins from the row menu, persists order, hides pins during search and drops an archived Bot", async () => {
+it("pins without duplicate rows, keeps pins searchable and drops an archived Bot", async () => {
   await render();
   act(() => active().querySelector<HTMLElement>('[title="B"]')!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 10, clientY: 20 }))); await flush();
   const pin = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button => button.textContent?.includes("Pin Bot"))!;
   act(() => pin.click()); await flush();
   expect(JSON.parse(localStorage.getItem("monocode.bot-pins:host")!)).toEqual(["B"]);
   expect(active().querySelector('.desktop-bots-pinned')?.textContent).toBe("B");
+  expect(active().querySelector('.desktop-bots-contacts [title="B"]')).toBeNull();
   await select("B");
   act(() => active().querySelector<HTMLButtonElement>('[aria-label="Bot details"]')!.click()); await flush();
   expect(active().querySelector<HTMLButtonElement>('.desktop-bot-identity [aria-pressed]')?.getAttribute('aria-pressed')).toBe('true');
   const search = active().querySelector<HTMLInputElement>('[aria-label="Search bots"]')!;
   act(() => setValue(search, "B")); await finishMotion();
+  expect(active().querySelector('.desktop-bots-pinned [title="B"]')?.getAttribute('aria-current')).toBe('true');
+  expect(active().querySelector('.desktop-bots-contacts [title="B"]')).toBeNull();
+  expect(active().querySelector('.desktop-bots-no-results')).toBeNull();
+  act(() => setValue(search, "missing")); await finishMotion();
   expect(active().querySelector('.desktop-bots-pinned')).toBeNull();
+  expect(active().querySelector('.desktop-bots-no-results')).not.toBeNull();
   act(() => setValue(search, "")); await flush();
   snapshot = { ...snapshot, bots: snapshot.bots.map(bot => bot.id === "B" ? { ...bot, archivedAt: 1 } : bot) };
   await act(async () => { await vi.advanceTimersByTimeAsync(2100); }); await flush();
@@ -482,4 +488,35 @@ it("creates an ordered room from Tab recipients and retries a failed send withou
   expect(sends).toHaveLength(2); expect(sends[1][1]).toEqual(sends[0][1]);
   expect(sends[1][1]).toMatchObject({ roomId: "new-room", text: "Review together" });
   expect(node.querySelector('.desktop-bots-room-surface:not([aria-hidden])')).not.toBeNull();
+});
+
+it("clamps and shares the sidebar width across retained thread surfaces", async () => {
+  await render();
+  const separator = () => active().querySelector<HTMLElement>('[aria-label="Resize sidebar"]')!;
+  act(() => separator().dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true })));
+  await flush();
+  expect(localStorage.getItem("monocode.bots-sidebar-width")).toBe("400");
+  await select("B");
+  expect(separator().getAttribute("aria-valuenow")).toBe("400");
+  act(() => separator().dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
+  await flush();
+  expect(separator().getAttribute("aria-valuenow")).toBe("400");
+  act(() => separator().dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true })));
+  await flush();
+  await select("A-1");
+  expect(separator().getAttribute("aria-valuenow")).toBe("240");
+  expect(active().querySelector<HTMLElement>(".desktop-bots-workspace")!.style.getPropertyValue("--bots-sidebar-preference")).toBe("240px");
+});
+
+
+it("unpins from the pinned card keyboard menu and restores the ordinary row", async () => {
+  localStorage.setItem("monocode.bot-pins:host", JSON.stringify(["B"]));
+  await render();
+  const card = active().querySelector<HTMLButtonElement>('.desktop-bots-pinned [title="B"]')!;
+  await key(card, "ContextMenu");
+  const unpin = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button => button.textContent?.includes("Unpin Bot"))!;
+  act(() => unpin.click()); await finishMotion();
+  expect(active().querySelector('.desktop-bots-pinned')).toBeNull();
+  expect(active().querySelectorAll('.desktop-bots-contacts [title="B"]')).toHaveLength(1);
+  expect(JSON.parse(localStorage.getItem("monocode.bot-pins:host")!)).toEqual([]);
 });

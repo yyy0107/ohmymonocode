@@ -30,7 +30,6 @@
   font-size: var(--text-ui-caption);
   font-weight: 600;
 }
-.assistant-chat.desktop-bots-workspace .assistant-host-select,
 .assistant-chat.desktop-bots-workspace .desktop-bots-host-name {
   min-width: 0;
   max-width: 145px;
@@ -430,9 +429,6 @@ html.is-resizing .assistant-chat.desktop-bots-workspace .assistant-body {
   .assistant-chat.desktop-bots-workspace[data-bot-details="true"] .desktop-bots-thread-toggle {
     right: -3px;
   }
-}
-.assistant-chat.desktop-bots-workspace .assistant-host-select {
-  max-width: 100%;
 }
 .assistant-chat.desktop-bots-workspace .desktop-bots-no-results {
   overflow-wrap: anywhere;

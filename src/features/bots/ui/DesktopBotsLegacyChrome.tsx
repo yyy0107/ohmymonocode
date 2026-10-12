@@ -53,7 +53,6 @@ export function DesktopBotsMessageMenu({
 function DesktopBotsLegacyHeader({
   name,
   hostName,
-  hostPicker,
   status,
   lifecycle,
   settingsOpen,
@@ -73,7 +72,7 @@ function DesktopBotsLegacyHeader({
         <div className="assistant-identity">
           <strong>{name}</strong>
           <span>
-            {hostPicker ?? <span title={hostName}>{hostName}</span>}
+            <span title={hostName}>{hostName}</span>
             <span className="assistant-status" data-lifecycle={lifecycle}>
               {status}
             </span>
@@ -216,7 +215,8 @@ function DesktopBotsLegacySettingsPanel({
   );
 }
 
-function DesktopBotsComposer({
+export function DesktopBotsComposer({
+  compact = false,
   draft,
   placeholder,
   errorNotice,
@@ -235,7 +235,7 @@ function DesktopBotsComposer({
   sendDisabled,
   retry,
   onRetry,
-}: BotComposerProps) {
+}: BotComposerProps & { compact?: boolean }) {
   const { t } = useTranslation();
   const input = useRef<HTMLTextAreaElement>(null);
   const files = useRef<HTMLInputElement>(null);
@@ -245,12 +245,28 @@ function DesktopBotsComposer({
   useLayoutEffect(() => {
     if (attachments.length) setRenderedAttachments(attachments);
   }, [attachments]);
+  const [multiline, setMultiline] = useState(false);
   useLayoutEffect(() => {
     const field = input.current;
     if (!field) return;
-    field.style.height = "0px";
-    field.style.height = `${Math.min(Math.max(field.scrollHeight, 24), 200)}px`;
-  }, [draft]);
+    const measure = () => {
+      field.style.height = "0px";
+      const height = field.scrollHeight;
+      field.style.height = `${Math.min(Math.max(height, compact ? 20 : 24), compact ? 120 : 200)}px`;
+      if (compact) setMultiline(height > 39);
+    };
+    measure();
+    if (!compact || typeof ResizeObserver === "undefined") return;
+    let width = field.clientWidth;
+    const observer = new ResizeObserver(() => {
+      // Only width changes need another measurement; ignore our own height write.
+      if (field.clientWidth === width) return;
+      width = field.clientWidth;
+      measure();
+    });
+    observer.observe(field);
+    return () => observer.disconnect();
+  }, [draft, compact]);
   return (
     <div className="assistant-compose-dock">
       {errorNotice}
@@ -269,6 +285,7 @@ function DesktopBotsComposer({
       </AnimatedCollapse>
       <form
         className="assistant-compose"
+        data-multiline={compact && multiline || undefined}
         onDrop={onDrop}
         onDragOver={(e) => {
           if (Array.from(e.dataTransfer.types).includes("Files")) {

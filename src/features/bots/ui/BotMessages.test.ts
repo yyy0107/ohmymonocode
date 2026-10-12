@@ -164,3 +164,16 @@ it("shows image-only history without an empty bubble and falls back to its filen
   expect(node.querySelector(".assistant-message-media")?.textContent).toBe("photo.png");
   expect(node.querySelector(".attachment-chip-thumbnail")).toBeNull();
 });
+
+it("connects adjacent desktop bubbles without connecting across senders or long gaps", () => {
+  const messages: BotMessage[] = [
+    { id: "a", kind: "assistant", text: "One", revision: 1, createdAt: 1 },
+    { id: "b", kind: "assistant", text: "Two", revision: 2, createdAt: 2 },
+    { id: "c", kind: "user", text: "Three", revision: 3, createdAt: 3 },
+    { id: "d", kind: "user", text: "Four", revision: 4, createdAt: 60004 },
+  ];
+  act(() => root.render(createElement(BotMessages, { messages, botsLayout: true, canRead: true, mobile: false, busy: false, bindReply: () => ({}), onOpen: () => {}, onRespond: () => {} })));
+  expect(node.querySelector('[data-message-id="b"]')?.getAttribute("data-connected")).toBe("true");
+  expect(node.querySelector('[data-message-id="c"]')?.hasAttribute("data-connected")).toBe(false);
+  expect(node.querySelector('[data-message-id="d"]')?.hasAttribute("data-connected")).toBe(false);
+});

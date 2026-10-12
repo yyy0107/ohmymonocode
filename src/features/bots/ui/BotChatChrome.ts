@@ -10,8 +10,6 @@ export type BotHeaderProps = {
   threadPicker?: ReactNode;
   hostName: string;
   harness?: RemoteProvider;
-  /** Optional Host switcher shown in place of the Host name. */
-  hostPicker?: ReactNode;
   status: string;
   /** Current activity shown inside the mobile header while the assistant runs. */
   activity?: string;

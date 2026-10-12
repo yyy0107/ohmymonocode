@@ -13,7 +13,7 @@ export function botAvatarSeed(id: string) {
   return { color: palette[hash % palette.length], shape: shapes[(hash >>> 8) % shapes.length], eyes: 43 + (hash % 7) };
 }
 
-export function BotAvatar({ bot, size = 40 }: { bot: Identity; size?: 24 | 40 | 72 | 96 }) {
+export function BotAvatar({ bot, size = 40 }: { bot: Identity; size?: 22 | 24 | 28 | 36 | 40 | 72 | 96 }) {
   const seed = botAvatarSeed(bot.id);
   return <span className="desktop-bot-avatar" aria-hidden="true" style={{ width: size, height: size, fontSize: size * .46 }}>
     {bot.avatar ? <span>{bot.avatar}</span> : <svg viewBox="0 0 100 100" width={size} height={size} focusable="false">

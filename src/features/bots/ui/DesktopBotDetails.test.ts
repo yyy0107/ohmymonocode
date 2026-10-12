@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DesktopBotRuntimeSettings } from "./DesktopBotRuntimeSettings";
 import { DesktopBotActivity } from "./DesktopBotActivity";
+import { BotIdentitySettings } from "./BotIdentitySettings";
 import { DesktopBotDetails } from "./DesktopBotDetails";
 import { DesktopBotAutomation } from "./DesktopBotAutomation";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
@@ -121,4 +122,61 @@ it("omits delegation configuration and discovery when the Host lacks the capabil
   act(() => button("Save runtime settings").click()); await flush();
   expect(rpc).toHaveBeenCalledTimes(1);
   expect(rpc.mock.calls[0][1].patch).not.toHaveProperty("callableBotIds");
+});
+
+
+it("opens avatar editing from the avatar, cancels drafts and applies changes through Save", async () => {
+  const save = vi.fn().mockResolvedValue(undefined);
+  act(() => root.render(createElement(BotIdentitySettings, { bot: bot(), busy: false, avatarSupported: true, onSave: save })));
+  expect(node.querySelectorAll("input")).toHaveLength(1);
+  const trigger = node.querySelector<HTMLButtonElement>('[aria-label="Edit avatar"]')!;
+  act(() => trigger.click()); await flush();
+  expect(document.activeElement).toBe(field("Avatar"));
+  act(() => input(field("Avatar"), "🐱"));
+  act(() => field("Avatar").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }))); await flush();
+  expect(document.activeElement).toBe(trigger);
+  expect(node.querySelector('[role="group"]')).toBeNull();
+  expect(save).not.toHaveBeenCalled();
+  act(() => trigger.click()); await flush();
+  expect(field("Avatar").value).toBe("");
+  act(() => input(field("Avatar"), "🐱"));
+  act(() => button("Apply").click()); await flush();
+  expect(node.querySelector('.desktop-bot-avatar')?.textContent).toBe("🐱");
+  act(() => node.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))); await flush();
+  expect(save).toHaveBeenCalledWith({ name: "Test Bot", avatar: "🐱" });
+});
+
+it("rejects oversized avatar drafts and keeps unsupported Hosts read-only", async () => {
+  const save = vi.fn();
+  act(() => root.render(createElement(BotIdentitySettings, { bot: bot(), busy: false, avatarSupported: true, onSave: save })));
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Edit avatar"]')!.click()); await flush();
+  act(() => input(field("Avatar"), "123456789"));
+  expect(button("Apply").disabled).toBe(true);
+  act(() => field("Avatar").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
+  expect(save).not.toHaveBeenCalled();
+  expect(field("Avatar").getAttribute("aria-invalid")).toBe("true");
+  act(() => root.render(createElement(BotIdentitySettings, { bot: bot(), busy: false, avatarSupported: false, onSave: save })));
+  expect(node.querySelector('[aria-label="Edit avatar"]')).toBeNull();
+  expect(node.querySelectorAll("input")).toHaveLength(1);
+});
+
+it("preserves the generation prompt across avatar tabs without submitting or pretending to generate", async () => {
+  const save = vi.fn();
+  act(() => root.render(createElement(BotIdentitySettings, { bot: bot(), busy: false, avatarSupported: true, onSave: save })));
+  act(() => node.querySelector<HTMLButtonElement>('[aria-label="Edit avatar"]')!.click()); await flush();
+  const tabs = [...node.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+  act(() => tabs[1].click());
+  const prompt = node.querySelector<HTMLTextAreaElement>('textarea')!;
+  act(() => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(prompt, "A friendly orange cat");
+    prompt.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  expect(node.querySelector<HTMLButtonElement>('.desktop-bot-avatar-generate')!.disabled).toBe(true);
+  act(() => tabs[1].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true })));
+  expect(tabs[2].getAttribute("aria-selected")).toBe("true");
+  expect(document.activeElement).toBe(tabs[2]);
+  act(() => tabs[1].click());
+  expect(prompt.value).toBe("A friendly orange cat");
+  expect(node.querySelector('[role="tabpanel"]:not([hidden])')?.textContent).toContain("Avatar image generation is not available yet.");
+  expect(save).not.toHaveBeenCalled();
 });

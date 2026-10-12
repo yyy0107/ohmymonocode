@@ -29,6 +29,7 @@ export function BotMemoryDialog({
       title={t("Memory")}
       description={meta}
       size="sm"
+      className="desktop-bot-memory-modal"
       layer={OVERLAY_DIALOG_LAYER}
       onClose={onClose}
     >

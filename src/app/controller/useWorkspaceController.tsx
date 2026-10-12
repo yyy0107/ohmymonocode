@@ -11257,7 +11257,6 @@ export function useWorkspaceController({
         return (
           <DesktopBots
             selectedMachineId={assistantMachineId}
-            onSelectMachine={setAssistantMachineId}
             onLocalSession={onSelectHistorySession}
             onRemoteSession={onSelectRemoteSession}
           />

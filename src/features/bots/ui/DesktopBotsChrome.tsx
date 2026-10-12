@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { BotMessage, BotConfiguration } from "../model/botView";
 import type { BotChatChrome, BotHeaderProps, BotSettingsPanelProps } from "./BotChatChrome";
-import { desktopBotsLegacyChrome } from "./DesktopBotsLegacyChrome";
+import { desktopBotsLegacyChrome, DesktopBotsComposer } from "./DesktopBotsLegacyChrome";
 import { AnimatedCollapse, useCollapseMotion } from "../../../shared/ui/AnimatedCollapse";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
@@ -13,9 +13,8 @@ import { BotAvatar } from "./BotAvatar";
 import type { BotThread, BotView } from "../model/bots";
 
 /** The first shell shows only the Host's existing assistant and its real chat. */
-export function DesktopBotsNavigation({ hostName, hostPicker, assistant, messages, onSelect }: {
+export function DesktopBotsNavigation({ hostName, assistant, messages, onSelect }: {
   hostName: string;
-  hostPicker?: ReactNode;
   assistant?: BotConfiguration | null;
   messages: BotMessage[];
   onSelect: () => void;
@@ -35,7 +34,7 @@ export function DesktopBotsNavigation({ hostName, hostPicker, assistant, message
     <nav className="desktop-bots-navigation" aria-label={t("Bots")}>
       <header className="desktop-bots-navigation-header">
         <strong>{t("Bots")}</strong>
-        {hostPicker ?? <span className="desktop-bots-host-name" title={hostName}>{hostName}</span>}
+        <span className="desktop-bots-host-name" title={hostName}>{hostName}</span>
       </header>
       <label className="desktop-bots-search">
         <Search size={15} aria-hidden="true" />
@@ -129,7 +128,7 @@ function DesktopBotsHeader({ name, botIdentity, threadPicker, threadTitle, harne
   const { t } = useTranslation();
   const title = threadTitle && harness ? sessionDisplayTitle(threadTitle, harness) : threadTitle;
   return <header className="assistant-header desktop-bots-header">
-    <BotAvatar bot={botIdentity ?? { id: name }} size={40} />
+    <BotAvatar bot={botIdentity ?? { id: name }} size={28} />
     <div className="desktop-bots-header-title"><strong>{name}</strong>{threadPicker ?? <span>{title?.trim() ? title : t("Main thread")}</span>}</div>
     {lifecycle && lifecycle !== "idle" && <span className="assistant-status desktop-bots-run-status" data-lifecycle={lifecycle}>{status}</span>}
     <div className="assistant-header-actions">
@@ -192,5 +191,6 @@ function DesktopBotsSettingsPanel({ open, initialSetup, onClose, children }: Bot
 export const desktopBotsChrome: BotChatChrome = {
   ...desktopBotsLegacyChrome,
   Header: DesktopBotsHeader,
+  Composer: (props) => <DesktopBotsComposer {...props} compact />,
   SettingsPanel: DesktopBotsSettingsPanel,
 };

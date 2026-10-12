@@ -39,6 +39,8 @@ type MessageActions = {
 const BotMessageRow = memo(function BotMessageRow({
   message,
   previousCreatedAt,
+  connected,
+  connectNext,
   accessible,
   mobile,
   busy,
@@ -54,6 +56,8 @@ const BotMessageRow = memo(function BotMessageRow({
 }: MessageActions & {
   message: BotMessage;
   previousCreatedAt?: number;
+  connected?: boolean;
+  connectNext?: boolean;
   accessible: boolean;
   mobile: boolean;
   busy: boolean;
@@ -142,6 +146,8 @@ const BotMessageRow = memo(function BotMessageRow({
         <div
           key={message.id}
           data-message-id={botsLayout ? message.id : undefined}
+          data-connected={connected || undefined}
+          data-connect-next={connectNext || undefined}
           className={`assistant-message-row assistant-message-row-${message.kind}`}
           data-reply-id={
             mobile && message.kind === "assistant" ? message.id : undefined
@@ -240,6 +246,8 @@ export const BotMessages = memo(function BotMessages({
       key={message.id}
       message={message}
       previousCreatedAt={messages[index - 1]?.createdAt}
+      connected={actions.botsLayout && messages[index - 1]?.kind === message.kind && message.createdAt - messages[index - 1].createdAt < 60_000}
+      connectNext={actions.botsLayout && messages[index + 1]?.kind === message.kind && messages[index + 1].createdAt - message.createdAt < 60_000}
       accessible={
         message.kind === "session-card" &&
         canRead &&

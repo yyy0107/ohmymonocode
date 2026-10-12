@@ -1,0 +1,36 @@
+/* Grok 0.30.0 static REA definitions; see docs/bots-rea-mapping.md.
+   Dark colors and motion are MonoCode adaptations, not measured Grok values. */
+.desktop-bots-workspace.assistant-chat {
+  --bots-navigation-width: var(--bots-sidebar-preference, 280px); /* S077: expanded 240–400, collapsed 88 */
+  --bots-inspector-width: 320px; /* S078 */
+  --bots-row-height: 54px;
+  --bots-row-radius: 10px;
+  --bots-card-radius: 12px;
+  --bots-bubble-radius: 18px;
+  --bots-composer-radius: 22px;
+  --bots-control-size: 28px;
+  --bots-page-inset: 16px;
+  --bots-dark-fill: var(--color-brand-foreground);
+  --bots-light-ink: var(--color-brand);
+  --bots-agent-fill: var(--color-surface-hover);
+  --bots-hover: var(--color-surface-hover);
+  --bots-selected: color-mix(in srgb, var(--color-content) 14%, transparent);
+  font-size: 14px; /* S064; existing font-scale pipeline remains active */
+  line-height: 1.428571;
+  font-weight: var(--ui-font-weight, 400);
+}
+/* css-tokens.csv :root,.sand-1wuigm2, index-BrN-auUU.css UTF16@356614.
+   Explicit light theme only: root defaults do not establish the dark cascade. */
+html.theme-light .desktop-bots-workspace.assistant-chat {
+  --color-background-base: #fcfcfc;
+  --color-content: #141414;
+  --color-foreground-subtle: #14141499;
+  --color-stroke: #14141426;
+  --color-surface: #f7f7f7;
+  --color-surface-hover: #77777717;
+  --bots-dark-fill: #070707;
+  --bots-light-ink: #fcfcfc;
+  --bots-agent-fill: #eeeeee;
+  --bots-hover: #77777717;
+  --bots-selected: #7777772b;
+}

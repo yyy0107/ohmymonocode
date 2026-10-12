@@ -78,6 +78,7 @@ const HISTORY_LOAD_DISTANCE = 800;
 const LAUNCH_TTL_MS = 15_000;
 import "./bots.css";
 import "./desktop-bots.css";
+import "./desktop-bot-tokens.css";
 import "./desktop-bot-messenger.css";
 
 type ReadingAnchor = { node: Element; offset: number; scrollTop: number };
@@ -170,7 +171,6 @@ export function BotChat({
   onOpen,
   onClose,
   hostName,
-  hostPicker,
   chrome,
   onOpenAttachment,
   desktopBots = false,
@@ -195,7 +195,6 @@ export function BotChat({
   onOpen: (ref: SessionReference, target: BotTarget) => Promise<void> | void;
   onClose?: () => void;
   hostName: string;
-  hostPicker?: ReactNode;
   chrome?: BotChatChrome;
   /** Opt into the desktop shell only when the Host advertises its capability. */
   desktopBots?: boolean;
@@ -889,7 +888,6 @@ export function BotChat({
         {botsLayout && (botNavigation ?? (
           <DesktopBotsNavigation
             hostName={hostName}
-            hostPicker={hostPicker}
             assistant={assistant}
             messages={messages}
             onSelect={() => chat.current?.querySelector<HTMLTextAreaElement>(".assistant-conversation textarea")?.focus()}
@@ -907,7 +905,6 @@ export function BotChat({
             threadPicker={botsLayout ? botThreadPicker : undefined}
             harness={assistant?.harness}
             hostName={hostName}
-            hostPicker={hostPicker}
             status={
               assistant
                 ? t(labels[assistant.lifecycle])

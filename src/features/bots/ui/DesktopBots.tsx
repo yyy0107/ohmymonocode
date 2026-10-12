@@ -17,19 +17,16 @@ import { sharedSessionBackend } from "../../sessions/data/sharedSessionBackend";
 import type { SessionReference } from "../model/botView";
 import type { BotTarget } from "../model/botNavigation";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
-import { SearchableSelect } from "../../../shared/ui/SearchableSelect";
 import { useDesktopBotsHosts } from "../model/useDesktopBotsHosts";
 import { GradientBlurBackground } from "../../settings/ui/GradientBlurBackground";
 function DesktopBotsHost({
   selectedMachineId,
-  onSelectMachine,
   onLocalSession,
   onRemoteSession,
   sourceMachine,
 }: {
   selectedMachineId?: string;
   sourceMachine?: ReturnType<typeof useDesktopBotsHosts>[number];
-  onSelectMachine: (id: string) => void;
   onLocalSession: (id: string, project: string) => Promise<void> | void;
   onRemoteSession: (project: string, id: string) => void;
 }) {
@@ -85,19 +82,6 @@ function DesktopBotsHost({
     }
     refreshRemoteProjectSessions();
   };
-  const hostPicker =
-    choices.length > 1 ? (
-      <div className="assistant-host-select">
-        <SearchableSelect
-          label={t("Host")}
-          value={machine?.id ?? ""}
-          options={choices.map((host) => ({ value: host.id, label: host.name }))}
-          onChange={onSelectMachine}
-          variant="pill"
-          searchable={false}
-        />
-      </div>
-    ) : undefined;
   return (
     // Shares the chat pane's background layer: an assistant conversation always
     // has messages, so it shows at session visibility (none when the
@@ -115,7 +99,6 @@ function DesktopBotsHost({
           key={machine.environmentId}
           hostKey={machine.environmentId}
           hostName={machine.name}
-          hostPicker={hostPicker}
           rpc={rpc}
           onOpen={open}
           onOpenAttachment={openAttachment}

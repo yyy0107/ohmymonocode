@@ -87,7 +87,7 @@ async function flush() {
 }
 async function render() {
   const props = {
-    onSelectMachine: () => {}, onLocalSession: local, onRemoteSession: remote,
+    onLocalSession: local, onRemoteSession: remote,
   };
   act(() => root.render(createElement(DesktopBots, props)));
   await flush();
