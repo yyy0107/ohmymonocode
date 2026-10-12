@@ -780,14 +780,6 @@ html[data-skin]:not(.has-user-accent) :where(.user-message-row:not(.mobile-deskt
   border-color: transparent;
 }
 
-html[data-skin] .omb-bot-message {
-  width: fit-content;
-  max-width: min(80%, 46rem);
-  border-radius: var(--radius-xl, 0.75rem);
-  background: var(--color-card);
-  color: var(--color-ink);
-}
-
 html[data-skin] [data-question-card] {
   background: var(--color-card);
   border-color: var(--color-hairline);
