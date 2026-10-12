@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { AssistantStore, signature } from "../assistant/store";
-import { fields, id, object } from "../assistant/policy";
+import { BotThreadStore, signature } from "./thread/store";
+import { fields, id, object } from "./thread/policy";
 import type { BotManager } from "./manager";
-import type { BotRun, BotScope } from "../../src/features/assistant/model/bots";
-import type { BotRoom, BotRoomMessage, BotRoomMessages, BotRoomRound, BotRoomSpeaker, BotRoomState, BotRooms } from "../../src/features/assistant/model/botRooms";
+import type { BotRun, BotScope } from "../../src/features/bots/model/bots";
+import type { BotRoom, BotRoomMessage, BotRoomMessages, BotRoomRound, BotRoomSpeaker, BotRoomState, BotRooms } from "../../src/features/bots/model/botRooms";
 
 const terminal = new Set(["completed", "failed", "timed_out", "cancelled", "interrupted"]);
 const active = (round: BotRoomRound) => round.status === "queued" || round.status === "running";
@@ -242,7 +242,7 @@ export class RoomService {
     if ((run.endedAt ?? run.updatedAt) > (speaker.deadlineAt ?? Infinity)) {
       this.finishSpeaker(round, speaker, "timed_out", "Room member completed after its deadline"); return;
     }
-    const store = new AssistantStore(this.manager.engine.store, { botId: run.botId, threadId: run.threadId });
+    const store = new BotThreadStore(this.manager.engine.store, { botId: run.botId, threadId: run.threadId });
     const text = store.latestMessages().filter(message => message.kind === "assistant" && message.wakeupId === run.wakeupId && !message.streaming)
       .map(message => message.kind === "assistant" ? message.text : "").join("\n\n");
     const points = Array.from(text); speaker.result = points.slice(0, 60000).join("");
@@ -254,7 +254,7 @@ export class RoomService {
     const scope = { botId: speaker.botId, threadId: speaker.threadId }, key = speaker.threadId;
     const run = this.manager.store.run(scope, speaker.runId);
     if (!run || !["queued", "running", "waiting_approval"].includes(run.status)) return;
-    const store = new AssistantStore(this.manager.engine.store, scope), wakeup = store.wakeup(run.wakeupId);
+    const store = new BotThreadStore(this.manager.engine.store, scope), wakeup = store.wakeup(run.wakeupId);
     if (wakeup) store.saveWakeup({ ...wakeup, state: "interrupted" });
     if (run.status === "queued") this.manager.store.updateRun(scope, run.id, { status: "cancelled", endedAt: Date.now() });
     this.stopping.add(key);
@@ -321,7 +321,7 @@ export class RoomService {
         if (speaker.status === "pending") {
           const scope = this.memberScope(roomId, speaker.botId), thread = this.manager.store.getThread(scope.botId, scope.threadId);
           if (!thread || thread.archivedAt !== undefined) { this.finishSpeaker(round, speaker, "failed", "Room member thread is unavailable or archived"); continue; }
-          const store = new AssistantStore(this.manager.engine.store, scope);
+          const store = new BotThreadStore(this.manager.engine.store, scope);
           if (["failed", "interrupted", "paused"].includes(store.get()!.lifecycle)) store.update({ lifecycle: "idle", error: undefined, nextRetryAt: undefined });
           const receipt = store.receive(`room:${round.id}:${speaker.botId}`, this.prompt(round), [], { kind: "automatic" });
           const run = this.manager.store.queuedRun(scope, store.wakeup(receipt.wakeupId!)!);
@@ -363,7 +363,7 @@ export class RoomService {
           if (run?.status === "completed") { this.collect(round, speaker, run); continue; }
           interrupted = true;
           if (scope && run) {
-            const store = new AssistantStore(this.manager.engine.store, scope), wakeup = store.wakeup(run.wakeupId);
+            const store = new BotThreadStore(this.manager.engine.store, scope), wakeup = store.wakeup(run.wakeupId);
             if (wakeup && ["pending", "backoff", "running"].includes(wakeup.state)) store.saveWakeup({ ...wakeup, state: "interrupted" });
             if (["queued", "running", "waiting_approval"].includes(run.status)) this.manager.store.updateRun(scope, run.id, { status: "interrupted", error: reason, endedAt: Date.now() });
             store.update({ lifecycle: "interrupted" });

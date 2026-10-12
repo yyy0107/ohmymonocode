@@ -3,7 +3,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir, writeFile, chmod } from "node:fs/promises";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
-import { assistantErrorCode } from "./assistant/errors";
+import { botErrorCode } from "./bots/thread/errors";
 
 const ACTIONS = ["list", "delegate", "get", "message", "retry", "cancel", "wait", "review", "finish", "steer", "respond", "answer"];
 export const CONTROL_HELP = `MonoCode Host control — supervise this orchestration run.
@@ -128,7 +128,7 @@ export class HostControl {
       if (this.options.namespace === "assistant" && !authorize()) throw new Error("Connection revoked or unauthorized");
       if (request.action === "wait" && !authorize()) throw new Error("Connection revoked or unauthorized");
       return { ok: true, result };
-    } catch (error) { return { ok: false, error: error instanceof Error ? error.message : String(error), ...(this.options.namespace === "assistant" ? { code: assistantErrorCode(error) } : {}) }; }
+    } catch (error) { return { ok: false, error: error instanceof Error ? error.message : String(error), ...(this.options.namespace === "assistant" ? { code: botErrorCode(error) } : {}) }; }
   }
   enable(id: string) { this.grants.set(id, randomBytes(32).toString("base64url")); }
   disable(id: string) { this.grants.delete(id); }

@@ -143,7 +143,7 @@ queue revocation and stable request-ID replay still apply.
 **Continue** explicitly resumes interrupted reasoning and inspects durable action
 receipts. Changing the brain's provider creates a separate native conversation
 while keeping the public chat. Unknown external operations require verification
-before retry. The separate [assistant evaluation guide](../host/assistant/eval/README.md)
+before retry. The separate [assistant evaluation guide](../host/bots/eval/README.md)
 explains the scope of simulated and model-based evaluations.
 
 ## Shared default provider account

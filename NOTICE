@@ -24,4 +24,4 @@ See licenses/Lucide-LICENSE.txt for the complete notices.
 Assistant memory search adapts Pi's BM25 ranker and English stemming
 (https://github.com/earendil-works/pi), licensed under MIT.
 Copyright (c) 2025 Mario Zechner. The complete license is retained in
-host/assistant/memorySearch.ts and the bundled Host.
+host/bots/thread/memorySearch.ts and the bundled Host.

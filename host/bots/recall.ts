@@ -1,7 +1,7 @@
 import type { HostStore } from "../store";
-import type { BotScope, BotThread } from "../../src/features/assistant/model/bots";
-import type { AssistantMessage } from "../../src/features/assistant/model/assistant";
-import { bm25Scores, tokenizeMemorySearch } from "../assistant/memorySearch";
+import type { BotScope, BotThread } from "../../src/features/bots/model/bots";
+import type { BotMessage } from "../../src/features/bots/model/botView";
+import { bm25Scores, tokenizeMemorySearch } from "./thread/memorySearch";
 
 export type TopicDocument = { path: string; text: string; revision: number; hash: string };
 export type RecallHit = {
@@ -54,7 +54,7 @@ function conversations(host: HostStore, scope: BotScope): RecallHit[] {
         AND newer.thread_id=message.thread_id AND newer.id=message.id AND newer.revision>message.revision)
     ORDER BY json_extract(message.payload, '$.createdAt') DESC, message.id
   `).all(scope.botId, scope.threadId).map(row => {
-    const message = JSON.parse(String(row.payload)) as Extract<AssistantMessage, { kind: "user" | "assistant" }>;
+    const message = JSON.parse(String(row.payload)) as Extract<BotMessage, { kind: "user" | "assistant" }>;
     return { source: { kind: "conversation", threadId: String(row.thread_id), messageId: message.id,
       role: message.kind, at: message.createdAt }, text: message.text };
   });

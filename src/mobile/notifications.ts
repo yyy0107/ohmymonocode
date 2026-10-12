@@ -6,7 +6,7 @@ import {
 import type { HostSessionSummary } from "../features/connections/model/protocol";
 import type { Connection } from "./client";
 import { translate } from "../shared/i18n/language";
-import type { AssistantNotificationActivity } from "../features/assistant/model/assistantNotifications";
+import type { BotNotificationActivity as AssistantNotificationActivity } from "../features/bots/model/botNotifications";
 import { sessionDisplayTitle } from "../features/sessions/model/session";
 import { HARNESS_ICONS } from "../features/sessions/ui/HarnessIcon";
 import { notificationText } from "./notificationText";

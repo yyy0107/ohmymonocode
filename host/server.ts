@@ -22,7 +22,7 @@ import { HostPreferenceAssets } from "./preference-assets";
 import { HostAccountManagement } from "./account-management";
 import { HOST_CLIENT_STATE_CAPABILITY } from "../src/features/connections/model/hostState";
 import { pairingCode } from "./store";
-import { assistantErrorCode } from "./assistant/errors";
+import { botErrorCode } from "./bots/thread/errors";
 import { writeAttachmentChunk, readAttachmentChunk } from "./attachments";
 import type { LinkedWorkItem } from "../src/features/sessions/model/session";
 import { parseGithubWorkItemUrl } from "../src/features/sessions/model/sessionWorkItem";
@@ -1004,7 +1004,7 @@ export function createHostServer(
             JSON.stringify({
               error:
                 error instanceof Error ? error.message : "Host request failed",
-              ...(assistantRequest ? { code: assistantErrorCode(error) } : {}),
+              ...(assistantRequest ? { code: botErrorCode(error) } : {}),
             }),
           );
       }

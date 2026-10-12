@@ -274,7 +274,7 @@ Migration recovery and rollback:
 
 Stage 2 checks:
 
-- `host/bots/store.test.ts` and `host/assistant/store.test.ts`: 28 passed;
+- `host/bots/store.test.ts` and `host/bots/thread/store.test.ts`: 28 passed;
   a later targeted public-state projection check passed.
 - Host attachment scope tests: 2 passed. RPC/IM focused selection: 8 passed
   after fixing initial empty-Host default runtime initialization. Additional
@@ -699,7 +699,7 @@ BotRun records, and unfinished Room rounds remain interrupted.
 Reproducible final migration selection:
 
 ```sh
-./node_modules/.bin/vitest run --config host/vitest.config.ts host/bots/store.test.ts host/assistant/store.test.ts host/im-service/service.test.ts host/bots/manager.test.ts host/attachments.test.ts -t 'reserves stable|first desktop|migrates legacy|migration checkpoint|failed copy|legacy Bot pause|legacy receipt|legacy binding|legacy stop|pauses a whole|owning Bot'
+./node_modules/.bin/vitest run --config host/vitest.config.ts host/bots/store.test.ts host/bots/thread/store.test.ts host/im-service/service.test.ts host/bots/manager.test.ts host/attachments.test.ts -t 'reserves stable|first desktop|migrates legacy|migration checkpoint|failed copy|legacy Bot pause|legacy receipt|legacy binding|legacy stop|pauses a whole|owning Bot'
 ./node_modules/.bin/vitest run --config host/vitest.config.ts host/bots/store.test.ts -t 'checks metadata revisions'
 ./node_modules/.bin/vitest run --config host/vitest.config.ts host/server.test.ts -t 'advertises assistant RPC|routes scoped Bot RPCs|serves file-backed Bot memory'
 ```
@@ -707,9 +707,9 @@ Reproducible final migration selection:
 Reproducible final desktop selection:
 
 ```sh
-./node_modules/.bin/vitest run src/features/assistant/ui/AssistantChat.test.ts src/features/assistant/ui/AssistantMessages.test.ts src/features/assistant/ui/AssistantChat.attachments.test.ts src/shared/ui/AnimatedCollapse.test.ts src/features/assistant/ui/DesktopAssistantButton.test.ts -t 'capability|Bots shell|detail drafts|paged chat|legacy Hosts|necessary input|question responses|read-only reason|delegation status|persisted.*attachments|image-only|multiple photos|rapid reversal|reduced motion|reverses from|unseen replies|pending questions|isolates Bot thread unread'
-./node_modules/.bin/vitest run src/features/assistant/ui/DesktopAssistant.test.ts
-./node_modules/.bin/vitest run src/features/assistant/ui/AssistantChat.test.ts -t 'frozen mobile client'
+./node_modules/.bin/vitest run src/features/bots/ui/BotChat.test.ts src/features/bots/ui/BotMessages.test.ts src/features/bots/ui/BotChat.attachments.test.ts src/shared/ui/AnimatedCollapse.test.ts src/features/bots/ui/DesktopBotsButton.test.ts -t 'capability|Bots shell|detail drafts|paged chat|legacy Hosts|necessary input|question responses|read-only reason|delegation status|persisted.*attachments|image-only|multiple photos|rapid reversal|reduced motion|reverses from|unseen replies|pending questions|isolates Bot thread unread'
+./node_modules/.bin/vitest run src/features/bots/ui/DesktopBots.test.ts
+./node_modules/.bin/vitest run src/features/bots/ui/BotChat.test.ts -t 'frozen mobile client'
 ```
 
 The initial new mobile test used a desktop-only selector; correcting the fixture
@@ -737,7 +737,7 @@ real attachment filesystem integration were not exercised in these UI mocks.
 ```sh
 ./node_modules/.bin/vitest run --config host/vitest.config.ts host/bots/rooms.test.ts host/bots/memory.test.ts -t 'recovers an entirely settled|recovers a confirmed response|loads exactly 200|synchronizes external|recovers a durable file journal|rebuilds missing SQL indexes'
 ./node_modules/.bin/vitest run --config host/vitest.config.ts host/bots/rooms.test.ts -t 'revokes queued Room actions|recovers an entirely settled|recovers a confirmed response'
-./node_modules/.bin/vitest run --config host/vitest.config.ts host/bots/rooms.test.ts host/assistant/index.test.ts -t 'allows accepted project tasks|dispatches a single playbook'
+./node_modules/.bin/vitest run --config host/vitest.config.ts host/bots/rooms.test.ts host/bots/thread/index.test.ts -t 'allows accepted project tasks|dispatches a single playbook'
 ```
 
 - Directly stopping a Room member Thread also revokes queued project authority

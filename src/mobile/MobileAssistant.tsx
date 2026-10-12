@@ -1,10 +1,10 @@
 import { lightImpact, attentionHaptic } from "./haptics";
 import { useTranscriptHaptics } from "./useTranscriptHaptics";
-import type { AssistantFeedbackProps } from "../features/assistant/ui/AssistantChatChrome";
+import type { BotFeedbackProps as AssistantFeedbackProps } from "../features/bots/ui/BotChatChrome";
 import type { Block } from "../features/sessions/model/session";
 import { MobileSpinner } from "./MobileSpinner";
 import { AttachmentList } from "../features/sessions/ui/AttachmentList";
-import { AssistantAttachmentPreview } from "../features/assistant/ui/AssistantAttachmentPreview";
+import { BotAttachmentPreview as AssistantAttachmentPreview } from "../features/bots/ui/BotAttachmentPreview";
 import {
   createContext,
   useContext,
@@ -18,19 +18,19 @@ import {
   type Ref,
   type ReactNode,
 } from "react";
-import { AssistantChat } from "../features/assistant/ui/AssistantChat";
+import { BotChat as AssistantChat } from "../features/bots/ui/BotChat";
 import { TranscriptPlatformContext } from "../features/sessions/ui/TranscriptPlatform";
 import { mobileTranscriptPlatform } from "./transcriptPlatform";
 import type {
-  AssistantChatChrome,
-  AssistantComposerProps,
-  AssistantControlsProps,
-  AssistantHeaderProps,
-  AssistantMemoryDetailProps,
-  AssistantMessageMenuProps,
-  AssistantSelectProps,
-  AssistantSettingsPanelProps,
-} from "../features/assistant/ui/AssistantChatChrome";
+  BotChatChrome as AssistantChatChrome,
+  BotComposerProps as AssistantComposerProps,
+  BotControlsProps as AssistantControlsProps,
+  BotHeaderProps as AssistantHeaderProps,
+  BotMemoryDetailProps as AssistantMemoryDetailProps,
+  BotMessageMenuProps as AssistantMessageMenuProps,
+  BotSelectProps as AssistantSelectProps,
+  BotSettingsPanelProps as AssistantSettingsPanelProps,
+} from "../features/bots/ui/BotChatChrome";
 import { AnimatedCollapse } from "../shared/ui/AnimatedCollapse";
 import { Shimmer } from "../shared/ui/Shimmer";
 import { useTranslation } from "../shared/i18n/useTranslation";

@@ -4,7 +4,7 @@ import { HostResourceGuard } from "./bots/resources";
 import { selectComposerConfiguration } from "../src/features/sessions/model/composerConfiguration";
 import { createHash, randomUUID } from "node:crypto";
 import { HostOrchestration, type HostOrchestrationOptions } from "./orchestration";
-import type { HostAssistant } from "./assistant";
+import type { BotThreadRuntime } from "./bots/thread";
 import { BotManager } from "./bots/manager";
 import { HostImService, type HostImOptions } from "./im-service";
 import { HostWorkflows } from "./workflows/service";
@@ -330,7 +330,7 @@ export function parseCommand(input: unknown): HostCommand {
 
 export class HostEngine {
   readonly bots: BotManager;
-  readonly assistant: HostAssistant;
+  readonly assistant: BotThreadRuntime;
   readonly im: HostImService;
   readonly workflows: HostWorkflows;
   authorizeAssistantQueued?: (origin: import("../src/features/sessions/model/session").TurnOrigin, projectId: string, sessionId: string) => boolean;

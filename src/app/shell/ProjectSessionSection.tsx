@@ -1,6 +1,6 @@
 import { usePreferenceState } from "../../features/settings/model/usePreferenceState";
 import { useSidebarListPreview } from "./useSidebarListPreview";
-import { delegateDesktopSession } from "../../features/assistant/model/delegateDesktopSession";
+import { delegateDesktopSession } from "../../features/bots/model/delegateDesktopSession";
 import {
   SidebarEntryReorderContext,
   sidebarDragPreview,

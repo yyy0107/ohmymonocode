@@ -2,21 +2,21 @@ import { randomUUID } from "node:crypto";
 import { chmodSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { HostStore } from "../store";
-import type { AssistantRecord } from "../assistant/store";
-import { defaultAssistantPersona, fullAssistantPolicy, type AssistantPatch } from "../../src/features/assistant/model/assistant";
-import type { BotModelOverride, BotRun, BotRunCursor, BotRuns, BotScope, BotThread, BotThreadKind, BotView } from "../../src/features/assistant/model/bots";
-import { memoryLines } from "../assistant/memory";
+import type { BotThreadRecord } from "./thread/store";
+import { defaultBotPersona, fullBotPolicy, type BotPatch } from "../../src/features/bots/model/botView";
+import type { BotModelOverride, BotRun, BotRunCursor, BotRuns, BotScope, BotThread, BotThreadKind, BotView } from "../../src/features/bots/model/bots";
+import { memoryLines } from "./thread/memory";
 
-const RUNTIME_FIELDS = new Set<keyof AssistantRecord>([
+const RUNTIME_FIELDS = new Set<keyof BotThreadRecord>([
   "chatRevision", "lifecycle", "brainGeneration", "brainSessionId", "brainBaseline",
   "brainMemory", "sourceCursor", "activity", "nextRetryAt", "error",
 ]);
 const DERIVED_FIELDS = new Set(["backlog", "memory", "playbooks"]);
-function split(value: Partial<AssistantRecord>) {
+function split(value: Partial<BotThreadRecord>) {
   const config: Record<string, unknown> = {}, runtime: Record<string, unknown> = {};
   for (const [key, entry] of Object.entries(value)) {
     if (DERIVED_FIELDS.has(key)) continue;
-    (RUNTIME_FIELDS.has(key as keyof AssistantRecord) ? runtime : config)[key] = entry;
+    (RUNTIME_FIELDS.has(key as keyof BotThreadRecord) ? runtime : config)[key] = entry;
   }
   return { config, runtime };
 }
@@ -74,7 +74,7 @@ export class BotStore {
     if (this.metadata("migration") === "complete") return;
     const hasTable = (name: string) => !!this.host.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name);
     const legacy = hasTable("assistants") ? this.host.db.prepare("SELECT payload FROM assistants WHERE singleton=1").get() : undefined;
-    const record = legacy ? JSON.parse(String(legacy.payload)) as AssistantRecord : undefined;
+    const record = legacy ? JSON.parse(String(legacy.payload)) as BotThreadRecord : undefined;
     if (!this.metadata("defaultScope")) {
       this.setMetadata("defaultScope", JSON.stringify({ botId: record?.id ?? randomUUID(), threadId: randomUUID() }));
       this.setMetadata("revision", "0");
@@ -141,20 +141,20 @@ export class BotStore {
     this.changed();
   }
 
-  record(scope: BotScope): AssistantRecord | null {
+  record(scope: BotScope): BotThreadRecord | null {
     const row = this.host.db.prepare("SELECT bots.config,bot_threads.runtime,bot_threads.model_override FROM bots JOIN bot_threads ON bot_threads.bot_id=bots.id WHERE bots.id=? AND bot_threads.id=?").get(scope.botId, scope.threadId);
     if (!row) return null;
     const override = row.model_override ? parse(row.model_override) : undefined;
-    const value = { ...parse(row.config), ...parse(row.runtime), ...(override ? { ...override, modelSettings: override.modelSettings ?? {} } : {}) } as AssistantRecord;
-    return { ...value, maxConcurrentRuns: value.maxConcurrentRuns ?? 3, callableBotIds: value.callableBotIds ?? [], persona: value.persona ?? defaultAssistantPersona(), timezone: value.timezone ?? value.schedules?.[0]?.timezone ?? "UTC", reminders: value.reminders ?? [], habits: value.habits ?? [] };
+    const value = { ...parse(row.config), ...parse(row.runtime), ...(override ? { ...override, modelSettings: override.modelSettings ?? {} } : {}) } as BotThreadRecord;
+    return { ...value, maxConcurrentRuns: value.maxConcurrentRuns ?? 3, callableBotIds: value.callableBotIds ?? [], persona: value.persona ?? defaultBotPersona(), timezone: value.timezone ?? value.schedules?.[0]?.timezone ?? "UTC", reminders: value.reminders ?? [], habits: value.habits ?? [] };
   }
-  private insertBot(scope: BotScope, value: AssistantRecord): void {
+  private insertBot(scope: BotScope, value: BotThreadRecord): void {
     const now = Date.now(), parts = split(value);
     this.host.db.prepare("INSERT INTO bots VALUES (?,?,NULL,?,?,?)").run(scope.botId, scope.threadId, now, now, JSON.stringify(parts.config));
     this.host.db.prepare("INSERT INTO bot_threads VALUES (?,?,'direct','',NULL,?,?,1,NULL,?)").run(scope.threadId, scope.botId, now, now, JSON.stringify(parts.runtime));
     this.changed();
   }
-  initializeDefault(patch: AssistantPatch): AssistantRecord {
+  initializeDefault(patch: BotPatch): BotThreadRecord {
     const scope = this.defaultScope();
     return this.host.transaction(() => {
       if (this.record(scope)) throw new Error("Assistant is already configured");
@@ -162,7 +162,7 @@ export class BotStore {
       return this.record(scope)!;
     });
   }
-  createBot(patch: AssistantPatch): BotScope {
+  createBot(patch: BotPatch): BotScope {
     return this.host.transaction(() => {
       const defaultScope = this.defaultScope();
       if (!this.record(defaultScope) && this.listBots(true).length === 0) {
@@ -184,7 +184,7 @@ export class BotStore {
     });
   }
   /** Only supplied fields are written: effective Thread model defaults never leak into Bot configuration. */
-  updateRecord(scope: BotScope, patch: Partial<AssistantRecord>, configuration = false): AssistantRecord {
+  updateRecord(scope: BotScope, patch: Partial<BotThreadRecord>, configuration = false): BotThreadRecord {
     return this.host.transaction(() => {
       const row = this.host.db.prepare("SELECT bots.config,bot_threads.runtime FROM bots JOIN bot_threads ON bot_threads.bot_id=bots.id WHERE bots.id=? AND bot_threads.id=?").get(scope.botId, scope.threadId);
       if (!row) throw new Error("Assistant is not configured");
@@ -197,7 +197,7 @@ export class BotStore {
       return this.record(scope)!;
     });
   }
-  writeRuntime(scope: BotScope, value: AssistantRecord): void {
+  writeRuntime(scope: BotScope, value: BotThreadRecord): void {
     this.updateRecord(scope, split(value).runtime);
   }
   getBot(botId: string): BotView | null {
@@ -226,7 +226,7 @@ export class BotStore {
   listThreads(botId: string, includeArchived = false): BotThread[] {
     return this.host.db.prepare("SELECT id FROM bot_threads WHERE bot_id=? AND (? OR archived_at IS NULL) ORDER BY created_at,id").all(botId, includeArchived ? 1 : 0).map(row => this.getThread(botId, String(row.id))!);
   }
-  updateBot(botId: string, patch: Partial<AssistantRecord> & { archivedAt?: number }, expectedRevision?: number): BotView {
+  updateBot(botId: string, patch: Partial<BotThreadRecord> & { archivedAt?: number }, expectedRevision?: number): BotView {
     return this.host.transaction(() => {
       const old = this.getBot(botId);
       if (!old) throw new Error("Bot does not exist");
@@ -303,12 +303,12 @@ export class BotStore {
   }
 }
 
-function initialAssistantRecord(id: string, patch: AssistantPatch): AssistantRecord {
+function initialAssistantRecord(id: string, patch: BotPatch): BotThreadRecord {
   if (!patch.harness || !patch.model) throw new Error("Choose an agent and model");
-    const value: AssistantRecord = {
+    const value: BotThreadRecord = {
       id,
       name: "Assistant",
-      persona: defaultAssistantPersona(),
+      persona: defaultBotPersona(),
       timezone: patch.timezone ?? patch.schedules?.[0]?.timezone ?? "UTC",
       reminders: [],
       habits: [],
@@ -322,7 +322,7 @@ function initialAssistantRecord(id: string, patch: AssistantPatch): AssistantRec
       maxConcurrentRuns: 3,
       runtimeMode: "full-access",
       targetRuntimeMode: "full-access",
-      policy: fullAssistantPolicy(),
+      policy: fullBotPolicy(),
       policyVersion: 1,
       triggers: { user: true, event: true, schedule: true },
       brainGeneration: 1,
