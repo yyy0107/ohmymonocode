@@ -1,20 +1,20 @@
 import { createHash, randomUUID } from "node:crypto";
-import { assistantNotificationActivity } from "../../../src/features/bots/model/assistantNotifications";
-import { followSession } from "../../../src/features/bots/model/assistantSessions";
+import { botNotificationActivity } from "../../../src/features/bots/model/botNotifications";
+import { followSession } from "../../../src/features/bots/model/botSessions";
 import type { HostStore } from "../../store";
 import { BotStore } from "../store";
 import { FileMemoryService } from "../memory";
 import type { BotScope } from "../../../src/features/bots/model/bots";
 import {
-  type AssistantAction,
-  type AssistantHistory,
-  type AssistantHistoryCursor,
-  type AssistantMessage,
-  type AssistantMessages,
-  type AssistantPatch,
-  type AssistantReceipt,
-  type AssistantView,
-} from "../../../src/features/bots/model/assistant";
+  type BotAction,
+  type BotHistory,
+  type BotHistoryCursor,
+  type BotMessage,
+  type BotMessages,
+  type BotPatch,
+  type BotReceipt,
+  type BotConfiguration,
+} from "../../../src/features/bots/model/botView";
 import { memoryLines } from "./memory";
 import { parsePlaybook, type Playbook } from "./playbooks";
 import type { RemoteAttachment } from "../../../src/features/connections/model/protocol";
@@ -34,7 +34,7 @@ export function signature(value: unknown): string {
     .update(JSON.stringify(canonical(value)))
     .digest("hex");
 }
-export type AssistantRecord = AssistantView & {
+export type BotThreadRecord = BotConfiguration & {
   createdSessionWatchesMigrated?: boolean;
   brainSessionId?: string;
   /** Context a fresh brain of this generation used on its first turn. */
@@ -96,12 +96,12 @@ export type Source = {
   rootCauseId: string;
   createdAt: number;
 };
-type NewMessage = AssistantMessage extends infer M
-  ? M extends AssistantMessage
+type NewMessage = BotMessage extends infer M
+  ? M extends BotMessage
     ? Omit<M, "revision" | "createdAt"> & { createdAt?: number }
     : never
   : never;
-export class AssistantStore {
+export class BotThreadStore {
   readonly bots: BotStore;
   readonly scope: BotScope;
   readonly botId: string;
@@ -138,10 +138,10 @@ export class AssistantStore {
   memoryTopics(): string[] {
     return this.get() ? this.memory.legacyDocuments("topic:").filter(doc => doc.text).map(doc => doc.name) : [];
   }
-  get(): AssistantRecord | null {
+  get(): BotThreadRecord | null {
     return this.bots.record(this.scope);
   }
-  view(): AssistantView | null {
+  view(): BotConfiguration | null {
     const value = this.get();
     if (!value) return null;
     const {
@@ -175,28 +175,28 @@ export class AssistantStore {
       },
     };
   }
-  initialize(patch: AssistantPatch): AssistantRecord {
+  initialize(patch: BotPatch): BotThreadRecord {
     const scope = this.bots.defaultScope();
     if (this.botId !== scope.botId || this.threadId !== scope.threadId)
       throw new Error("Only the default assistant can be initialized through the compatibility API");
     return this.bots.initializeDefault(patch);
   }
-  write(value: AssistantRecord): void {
+  write(value: BotThreadRecord): void {
     // A full effective Thread snapshot is safe only for runtime persistence.
     // Shared configuration must use update(patch), never stale projected data.
     this.bots.writeRuntime(this.scope, value);
   }
-  update(patch: Partial<AssistantRecord>, configuration = false): AssistantRecord {
+  update(patch: Partial<BotThreadRecord>, configuration = false): BotThreadRecord {
     return this.bots.updateRecord(this.scope, patch, configuration);
   }
-  messageById(id: string): AssistantMessage | undefined {
+  messageById(id: string): BotMessage | undefined {
     const row = this.host.db.prepare("SELECT payload FROM bot_messages WHERE bot_id=? AND thread_id=? AND id=? ORDER BY revision DESC LIMIT 1").get(this.botId, this.threadId, id);
     return row ? JSON.parse(String(row.payload)) : undefined;
   }
-  message(input: NewMessage): AssistantMessage {
+  message(input: NewMessage): BotMessage {
     return this.host.transaction(() => this.saveMessage(input));
   }
-  private saveMessage(input: NewMessage): AssistantMessage {
+  private saveMessage(input: NewMessage): BotMessage {
     const config = this.get();
     if (!config) throw new Error("Assistant is not configured");
     const row = this.host.db
@@ -204,14 +204,14 @@ export class AssistantStore {
         "SELECT payload FROM bot_messages WHERE bot_id=? AND thread_id=? AND id=? ORDER BY revision DESC LIMIT 1",
       )
       .get(this.botId, this.threadId, input.id);
-    const previous: AssistantMessage | undefined = row
+    const previous: BotMessage | undefined = row
       ? JSON.parse(String(row.payload))
       : undefined;
     const message = {
       ...input,
       revision: config.chatRevision + 1,
       createdAt: previous?.createdAt ?? input.createdAt ?? Date.now(),
-    } as AssistantMessage;
+    } as BotMessage;
     // A newer full snapshot supersedes a partial one. Keep monotonic cursors
     // without retaining a copy of the growing reply for every stream update.
     if (previous?.kind === "assistant" && previous.streaming)
@@ -224,7 +224,7 @@ export class AssistantStore {
     this.update({ chatRevision: message.revision });
     return message;
   }
-  messages(after = 0, limit = 50): AssistantMessages {
+  messages(after = 0, limit = 50): BotMessages {
     if (
       !Number.isSafeInteger(after) ||
       after < 0 ||
@@ -238,7 +238,7 @@ export class AssistantStore {
         "SELECT payload FROM bot_messages WHERE bot_id=? AND thread_id=? AND revision>? ORDER BY revision LIMIT ?",
       )
       .all(this.botId, this.threadId, after, limit + 1);
-    const entries: AssistantMessage[] = rows
+    const entries: BotMessage[] = rows
       .slice(0, limit)
       .map((row) => JSON.parse(String(row.payload)));
     return {
@@ -248,7 +248,7 @@ export class AssistantStore {
       nextRevision: entries.at(-1)?.revision ?? after,
     };
   }
-  latestMessages(): AssistantMessage[] {
+  latestMessages(): BotMessage[] {
     return this.host.db
       .prepare(
         "SELECT payload FROM bot_messages WHERE bot_id=? AND thread_id=? AND revision IN (SELECT MAX(revision) FROM bot_messages WHERE bot_id=? AND thread_id=? GROUP BY id) ORDER BY revision",
@@ -256,7 +256,7 @@ export class AssistantStore {
       .all(this.botId, this.threadId, this.botId, this.threadId)
       .map((row) => JSON.parse(String(row.payload)));
   }
-  history(before?: AssistantHistoryCursor, limit = 30): AssistantHistory {
+  history(before?: BotHistoryCursor, limit = 30): BotHistory {
     if (
       !Number.isSafeInteger(limit) || limit < 1 || limit > 100 ||
       (before && (!Number.isSafeInteger(before.createdAt) || before.createdAt < 0 ||
@@ -279,7 +279,7 @@ export class AssistantStore {
     const rows = before
       ? query.all(this.botId, this.threadId, before.createdAt, before.createdAt, before.id, limit + 1)
       : query.all(this.botId, this.threadId, limit + 1);
-    const entries: AssistantMessage[] = rows.slice(0, limit)
+    const entries: BotMessage[] = rows.slice(0, limit)
       .map((row) => JSON.parse(String(row.payload))).reverse();
     const oldest = entries[0];
     return {
@@ -306,7 +306,7 @@ export class AssistantStore {
           AND COALESCE(json_extract(payload, '$.resolved'), 0) = 0)
       ) ORDER BY revision DESC LIMIT 1
     `).get(this.botId, this.threadId);
-    return assistantNotificationActivity(assistant, row ? [JSON.parse(String(row.payload))] : []);
+    return botNotificationActivity(assistant, row ? [JSON.parse(String(row.payload))] : []);
   }
   receipt(id: string, sig: string): unknown | undefined {
     const row = this.host.db
@@ -328,11 +328,11 @@ export class AssistantStore {
     attachments: RemoteAttachment[],
     source: WakeupSource = { kind: "client" },
     { enqueue = true }: { enqueue?: boolean } = {},
-  ): AssistantReceipt {
+  ): BotReceipt {
     return this.host.transaction(() => {
       const sig = receiveSignature(text, attachments, source),
         existing = this.receipt(commandId, sig);
-      if (existing) return existing as AssistantReceipt;
+      if (existing) return existing as BotReceipt;
       const id = randomUUID();
       if (!enqueue) {
         // A control input (such as a stop command) is read immediately and never starts a turn.
@@ -481,13 +481,13 @@ export class AssistantStore {
     });
     return next;
   }
-  action(requestId: string): AssistantAction | undefined {
+  action(requestId: string): BotAction | undefined {
     const row = this.host.db
       .prepare("SELECT payload FROM bot_actions WHERE bot_id=? AND thread_id=? AND request_id=?")
       .get(this.botId, this.threadId, requestId);
     return row ? JSON.parse(String(row.payload)) : undefined;
   }
-  actions(): AssistantAction[] {
+  actions(): BotAction[] {
     return this.host.db
       .prepare("SELECT payload FROM bot_actions WHERE bot_id=? AND thread_id=?")
       .all(this.botId, this.threadId)
@@ -513,7 +513,7 @@ export class AssistantStore {
       LIMIT 1
     `).get(this.botId, assistantId, sessionId);
   }
-  putAction(action: AssistantAction): void {
+  putAction(action: BotAction): void {
     this.host.db
       .prepare(
         "INSERT INTO bot_actions VALUES (?, ?, ?, ?) ON CONFLICT(bot_id,thread_id,request_id) DO UPDATE SET payload=excluded.payload",
@@ -542,7 +542,7 @@ export class AssistantStore {
       ? JSON.parse(String(row.payload))
       : { count: 0, paused: false, startedAt: Date.now() };
   }
-  writeChain(root: string, value: ReturnType<AssistantStore["chain"]>): void {
+  writeChain(root: string, value: ReturnType<BotThreadStore["chain"]>): void {
     this.host.db
       .prepare(
         "INSERT INTO bot_chains VALUES (?,?,?,?) ON CONFLICT(bot_id,thread_id,root) DO UPDATE SET payload=excluded.payload",

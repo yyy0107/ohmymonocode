@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
-import type { HostAssistant } from "../bots/thread";
+import type { BotThreadRuntime } from "../bots/thread";
 import type { HostStore } from "../store";
 import { fields, id } from "../bots/thread/policy";
 import { assertReplyAttachmentAccess } from "../bots/thread/attachments";
@@ -9,7 +9,7 @@ import { attachmentPath, MAX_REMOTE_ATTACHMENT_BYTES } from "../attachments";
 import { ImRuntime } from "../im/core/runtime";
 import type { ImAttachmentDescriptor, ImChannel, ImOutgoingMessage } from "../im/core/types";
 import type { ImView } from "../../src/features/bots/model/im";
-import type { AssistantMessage, AssistantReceipt } from "../../src/features/bots/model/assistant";
+import type { BotMessage, BotReceipt } from "../../src/features/bots/model/botView";
 import { translate } from "../../src/shared/i18n/language";
 import { ImStore, type ImSettings, type InboxEntry, type OutboxEntry } from "./store";
 import { messageText, splitImText } from "./projection";
@@ -44,7 +44,7 @@ export class HostImService {
   private nextSendAt = 0;
   private connectionRetryAt?: number;
   private connectionAttempts = 0;
-  constructor(readonly host: HostStore, readonly assistant: HostAssistant, private options: HostImOptions = {}) {
+  constructor(readonly host: HostStore, readonly assistant: BotThreadRuntime, private options: HostImOptions = {}) {
     const scope = assistant.store.scope, defaultScope = assistant.store.bots.defaultScope();
     if (scope.botId !== defaultScope.botId || scope.threadId !== defaultScope.threadId)
       throw new Error("IM is bound to the default Bot and thread");
@@ -271,7 +271,7 @@ export class HostImService {
     // A crash can leave the assistant receipt committed while the inbox is
     // still pending. Recognize acceptance even if messaging was since disabled.
     const previous = this.assistant.store.receipt(entry.id,
-      receiveSignature(entry.message.text, entry.attachments, { kind: "im", bindingId: config.bindingId })) as AssistantReceipt | undefined;
+      receiveSignature(entry.message.text, entry.attachments, { kind: "im", bindingId: config.bindingId })) as BotReceipt | undefined;
     if (previous) {
       this.store.saveInbox({ ...entry, state: "accepted", wakeupId: previous.wakeupId, error: undefined });
       return;
@@ -301,7 +301,7 @@ export class HostImService {
         this.store.saveInbox(entry);
       }
       if (!this.active(config.bindingId, generation)) return;
-      const receipt = await this.assistant.receiveImMessage({ commandId: entry.id, text: entry.message.text, attachments: entry.attachments, bindingId: config.bindingId }) as AssistantReceipt;
+      const receipt = await this.assistant.receiveImMessage({ commandId: entry.id, text: entry.message.text, attachments: entry.attachments, bindingId: config.bindingId }) as BotReceipt;
       this.store.saveInbox({ ...entry, state: "accepted", wakeupId: receipt.wakeupId, error: undefined });
     } catch (error) {
       if (!this.active(config.bindingId, generation)) return;
@@ -352,7 +352,7 @@ export class HostImService {
     if (!action) throw new Error("Attachment publication not found");
     assertReplyAttachmentAccess(this.assistant, action.input);
   }
-  private publicMessage(messageId: string): AssistantMessage | undefined {
+  private publicMessage(messageId: string): BotMessage | undefined {
     return this.assistant.store.messageById(messageId);
   }
   private inputStillPending(messageId: string): boolean {

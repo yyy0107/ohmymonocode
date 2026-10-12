@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { AssistantMessage, AssistantView } from "../model/assistant";
-import type { AssistantChatChrome, AssistantHeaderProps, AssistantSettingsPanelProps } from "./AssistantChatChrome";
-import { desktopAssistantChrome } from "./DesktopAssistantChrome";
+import type { BotMessage, BotConfiguration } from "../model/botView";
+import type { BotChatChrome, BotHeaderProps, BotSettingsPanelProps } from "./BotChatChrome";
+import { desktopBotsLegacyChrome } from "./DesktopBotsLegacyChrome";
 import { AnimatedCollapse, useCollapseMotion } from "../../../shared/ui/AnimatedCollapse";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
@@ -13,8 +13,8 @@ import { HARNESS_TITLE, sessionDisplayTitle } from "../../sessions/model/session
 export function DesktopBotsNavigation({ hostName, hostPicker, assistant, messages, onSelect }: {
   hostName: string;
   hostPicker?: ReactNode;
-  assistant?: AssistantView | null;
-  messages: AssistantMessage[];
+  assistant?: BotConfiguration | null;
+  messages: BotMessage[];
   onSelect: () => void;
 }) {
   const { t } = useTranslation();
@@ -79,7 +79,7 @@ export function DesktopBotsNavigation({ hostName, hostPicker, assistant, message
   );
 }
 
-function DesktopBotsHeader({ name, threadTitle, harness, status, lifecycle, busy, settingsOpen, onSettings, controls }: AssistantHeaderProps) {
+function DesktopBotsHeader({ name, threadTitle, harness, status, lifecycle, busy, settingsOpen, onSettings, controls }: BotHeaderProps) {
   const { t } = useTranslation();
   const title = threadTitle && harness ? sessionDisplayTitle(threadTitle, harness) : threadTitle;
   return <header className="assistant-header desktop-bots-header">
@@ -116,7 +116,7 @@ function DesktopBotsHeader({ name, threadTitle, harness, status, lifecycle, busy
   </header>;
 }
 
-function DesktopBotsSettingsPanel({ open, initialSetup, onClose, children }: AssistantSettingsPanelProps) {
+function DesktopBotsSettingsPanel({ open, initialSetup, onClose, children }: BotSettingsPanelProps) {
   const { t } = useTranslation();
   const visible = useSurfaceVisibility();
   const { foldState } = useCollapseMotion(open);
@@ -163,8 +163,8 @@ function DesktopBotsSettingsPanel({ open, initialSetup, onClose, children }: Ass
   </aside>;
 }
 
-export const desktopBotsChrome: AssistantChatChrome = {
-  ...desktopAssistantChrome,
+export const desktopBotsChrome: BotChatChrome = {
+  ...desktopBotsLegacyChrome,
   Header: DesktopBotsHeader,
   SettingsPanel: DesktopBotsSettingsPanel,
 };

@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import type { AssistantMessage } from "../../../src/features/bots/model/assistant";
+import type { BotMessage } from "../../../src/features/bots/model/botView";
 import type { Session } from "../../../src/features/sessions/model/session";
 import {
   conversationBrief,
@@ -39,7 +39,7 @@ it("rotates on context growth, a filled window, or a long break with real growth
 it("briefs recent exchanges word for word and earlier ones as single lines", () => {
   let revision = 0;
   const message = (kind: "user" | "assistant", text: string) =>
-    ({ id: String(revision), kind, text, revision: ++revision, createdAt: revision }) as AssistantMessage;
+    ({ id: String(revision), kind, text, revision: ++revision, createdAt: revision }) as BotMessage;
   const messages = [
     message("user", "First question\nwith detail"),
     message("assistant", "First answer"),

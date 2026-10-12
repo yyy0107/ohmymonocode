@@ -19,8 +19,8 @@ import { translate } from "../shared/i18n/language";
 import { useTranslation } from "../shared/i18n/useTranslation";
 import { useSurfaceVisibility } from "../shared/ui/SurfaceVisibility";
 import { AgentMarkdown } from "../features/sessions/ui/AgentMarkdown";
-import { AssistantTopicNote } from "../features/bots/ui/AssistantTopicNote";
-import { useAssistantTopicNotes } from "../features/bots/model/useAssistantTopicNotes";
+import { BotTopicNote as AssistantTopicNote } from "../features/bots/ui/BotTopicNote";
+import { useBotTopicNotes as useAssistantTopicNotes } from "../features/bots/model/useBotTopicNotes";
 import { TranscriptPlatformContext } from "../features/sessions/ui/TranscriptPlatform";
 import {
   notePreview,

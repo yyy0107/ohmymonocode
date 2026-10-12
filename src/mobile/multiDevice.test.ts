@@ -6,7 +6,7 @@ import { Capacitor } from "@capacitor/core";
 import { MobileApp } from "./MobileApp";
 import type { Connection, MobileClient } from "./client";
 import { setUiLanguage } from "../shared/i18n/language";
-import { fullAssistantPolicy, type AssistantMessage, type AssistantView } from "../features/bots/model/assistant";
+import { fullBotPolicy as fullAssistantPolicy, type BotMessage as AssistantMessage, type BotConfiguration as AssistantView } from "../features/bots/model/botView";
 
 const fixture = vi.hoisted(() => ({
   values: new Map<string, string>(),

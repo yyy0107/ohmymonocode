@@ -7,7 +7,7 @@ import { HostControl } from "../../control";
 import { HostStore } from "../../store";
 import { HostEngine } from "../../engine";
 import { HostResourceGuard } from "../resources";
-import { executeAssistantAction } from "./control";
+import { executeBotAction } from "./control";
 import type { HostProvider } from "../../providers";
 
 const resourceCleanups: Array<() => Promise<void>> = [];
@@ -119,19 +119,19 @@ it("suppresses a read result when its grant is revoked during an await", async (
 it("allows control reads but refuses writes and Git changes until a competing turn releases the checkout", async () => {
   const f = await resourceFixture();
   expect(f.guard.acquire("other-run", { workingDirectory: f.cwd })).toBe(true);
-  expect(await executeAssistantAction(f.engine.assistant, "read-busy", "files.read", {
+  expect(await executeBotAction(f.engine.assistant, "read-busy", "files.read", {
     projectId: f.project.id, args: { path: f.path },
   }, () => true)).toBe("before");
   const input = { projectId: f.project.id, args: { path: f.path, content: "after" } };
-  await expect(executeAssistantAction(f.engine.assistant, "write-busy", "files.write", input, () => true)).rejects.toMatchObject({ code: "RESOURCE_BUSY" });
+  await expect(executeBotAction(f.engine.assistant, "write-busy", "files.write", input, () => true)).rejects.toMatchObject({ code: "RESOURCE_BUSY" });
   expect(f.engine.assistant.store.action("write-busy")?.state).toBe("failed");
-  await expect(executeAssistantAction(f.engine.assistant, "git-busy", "git.action", {
+  await expect(executeBotAction(f.engine.assistant, "git-busy", "git.action", {
     projectId: f.project.id, command: "git_stage_all", args: { cwd: f.cwd },
   }, () => true)).rejects.toMatchObject({ code: "RESOURCE_BUSY" });
   expect(readFileSync(f.path, "utf8")).toBe("before");
   f.guard.release("other-run");
   // Refusal had no side effect, so the stable request can be retried safely.
-  await executeAssistantAction(f.engine.assistant, "write-busy", "files.write", input, () => true);
+  await executeBotAction(f.engine.assistant, "write-busy", "files.write", input, () => true);
   expect(readFileSync(f.path, "utf8")).toBe("after");
 });
 
@@ -140,7 +140,7 @@ it("reenters a trusted Bot turn lease and retains withIdleProject plus the outer
   const runId = f.engine.assistant.currentRun!.id;
   expect(f.guard.acquire(runId, { workingDirectory: f.cwd })).toBe(true);
   const idle = vi.spyOn(f.engine, "withIdleProject");
-  await executeAssistantAction(f.engine.assistant, "own-write", "files.write", {
+  await executeBotAction(f.engine.assistant, "own-write", "files.write", {
     projectId: f.project.id, args: { path: f.path, content: "same run" },
   }, () => true);
   expect(readFileSync(f.path, "utf8")).toBe("same run");

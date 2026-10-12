@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { HostStore } from "../../../store";
 import { HostEngine } from "../../../engine";
 import type { HostProvider } from "../../../providers";
-import { executeAssistantAction } from "../../thread/control";
+import { executeBotAction } from "../../thread/control";
 import { brain } from "../native/brain";
 import { toolSchemas, MUTATIONS } from "./tools";
 import { CallSchema, EvalError, type Call, type Scenario } from "./schema";
@@ -279,7 +279,7 @@ export class NativeHostFixtureAdapter {
             args.path,
           );
       }
-      result = await executeAssistantAction(
+      result = await executeBotAction(
         this.engine.assistant,
         call.requestId,
         call.action,

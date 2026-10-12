@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { mkdir, open, realpath, unlink } from "node:fs/promises";
 import { basename, isAbsolute, win32 } from "node:path";
-import type { HostAssistant } from "./index";
+import type { BotThreadRuntime } from "./index";
 import { signature } from "./store";
 import { checkPolicy, fields, id, object } from "./policy";
 import { attachmentPath, MAX_REMOTE_ATTACHMENT_BYTES } from "../../attachments";
@@ -81,7 +81,7 @@ function parseInput(input: Record<string, unknown>): ReplyAttachmentInput {
 
 /** Recheck queued publication against current policy without reading source paths. */
 export function assertReplyAttachmentAccess(
-  assistant: HostAssistant,
+  assistant: BotThreadRuntime,
   input: Record<string, unknown>,
   authorized: () => boolean = () => true,
 ): void {
@@ -105,7 +105,7 @@ export function assertReplyAttachmentAccess(
 }
 
 async function sourceFile(
-  assistant: HostAssistant,
+  assistant: BotThreadRuntime,
   source: ReplyAttachmentSource,
 ) {
   const store = assistant.engine.store,
@@ -175,9 +175,9 @@ async function boundedBytes(path: string): Promise<Buffer> {
 }
 
 // Bound memory and make concurrent retries observe the first committed publication.
-const publications = new WeakMap<HostAssistant, Promise<unknown>>();
+const publications = new WeakMap<BotThreadRuntime, Promise<unknown>>();
 export function publishReplyAttachments(
-  assistant: HostAssistant,
+  assistant: BotThreadRuntime,
   requestId: string,
   input: Record<string, unknown>,
   authorized: () => boolean,
@@ -193,7 +193,7 @@ export function publishReplyAttachments(
 }
 
 async function publish(
-  assistant: HostAssistant,
+  assistant: BotThreadRuntime,
   requestId: string,
   input: Record<string, unknown>,
   authorized: () => boolean,

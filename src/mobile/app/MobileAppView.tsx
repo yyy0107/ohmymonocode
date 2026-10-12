@@ -1,6 +1,6 @@
 import { MobileSpinner } from "../MobileSpinner";
 import { saveConnectionAppearance } from "../connectionAppearance";
-import { resolveAssistantTarget } from "../../features/bots/model/assistantNavigation";
+import { resolveBotTarget as resolveAssistantTarget } from "../../features/bots/model/botNavigation";
 import { delegateSession } from "../../features/bots/model/delegateSession";
 import { type ReactNode, type MouseEvent, type RefObject } from "react";
 import {

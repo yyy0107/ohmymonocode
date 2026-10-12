@@ -1,11 +1,11 @@
 import type {
-  AssistantMessage,
-  AssistantPersona,
-  AssistantPersonaPreset,
-  AssistantReminder,
-} from "../../../src/features/bots/model/assistant";
-import type { AssistantRecord, Wakeup } from "./store";
-import type { AssistantHabit } from "../../../src/features/bots/model/assistantHabits";
+  BotMessage,
+  BotPersona,
+  BotPersonaPreset,
+  BotReminder,
+} from "../../../src/features/bots/model/botView";
+import type { BotThreadRecord, Wakeup } from "./store";
+import type { BotHabit } from "../../../src/features/bots/model/botHabits";
 import { conversationBrief } from "./rotation";
 import { MEMORY_MAX_LINES } from "./memory";
 import type { BotMemoryContext } from "../../../src/features/bots/model/botMemory";
@@ -31,7 +31,7 @@ export function botCollaborationPrompt(launcher: string, actions: readonly strin
 }
 
 export const PERSONA_PRESETS: Record<
-  Exclude<AssistantPersonaPreset, "custom">,
+  Exclude<BotPersonaPreset, "custom">,
   string
 > = {
   secretary:
@@ -107,7 +107,7 @@ export function localTime(at: number, timeZone: string): string {
   }
 }
 
-function personaText(persona: AssistantPersona | undefined): string {
+function personaText(persona: BotPersona | undefined): string {
   const value = persona ?? { preset: "secretary", style: "" };
   const lines = [
     value.preset === "custom"
@@ -124,11 +124,11 @@ function personaText(persona: AssistantPersona | undefined): string {
 }
 
 export type BrainPromptInput = {
-  config: AssistantRecord;
+  config: BotThreadRecord;
   launcher: string;
   actions: readonly string[];
   wakeup: Wakeup;
-  messages: AssistantMessage[];
+  messages: BotMessage[];
   ledger: unknown[];
   now: number;
   /** The brain's first turn in this generation: brief it on the chat so far. */
@@ -162,7 +162,7 @@ export function buildBrainPrompt({
 }: BrainPromptInput): string {
   const timeZone = config.timezone ?? "UTC";
   const chat = messages.filter(
-    (m): m is Extract<AssistantMessage, { kind: "user" | "assistant" }> =>
+    (m): m is Extract<BotMessage, { kind: "user" | "assistant" }> =>
       m.kind === "user" || m.kind === "assistant",
   );
   const earlier = chat.filter(
@@ -171,7 +171,7 @@ export function buildBrainPrompt({
   const lastExchange = earlier.at(-1);
   const cards = new Map<
     string,
-    Extract<AssistantMessage, { kind: "session-card" }>
+    Extract<BotMessage, { kind: "session-card" }>
   >();
   for (const m of messages) if (m.kind === "session-card") cards.set(m.id, m);
   const running = [...cards.values()].filter(
@@ -181,7 +181,7 @@ export function buildBrainPrompt({
     (c) => c.status === "queued",
   ).length;
   const reminders = (config.reminders ?? [])
-    .filter((r: AssistantReminder) => r.state === "pending")
+    .filter((r: BotReminder) => r.state === "pending")
     .slice(0, 10)
     .map((r) => `- ${r.id} at ${localTime(r.dueAt, timeZone)}: ${r.prompt}`);
   const habits = (config.habits ?? []).map(
@@ -266,7 +266,7 @@ ${wakeup.text}${recall.length ? `\n\n${formatRecall(recall)}` : ""}`;
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 /** The schedule in plain English, for the brain. */
-export function describeHabitSchedule(schedule: AssistantHabit["schedule"]): string {
+export function describeHabitSchedule(schedule: BotHabit["schedule"]): string {
   if (schedule.scheduleKind === "hourly")
     return `hourly at :${String(schedule.minute).padStart(2, "0")}`;
   if (schedule.scheduleKind === "daily") return `daily at ${schedule.time}`;

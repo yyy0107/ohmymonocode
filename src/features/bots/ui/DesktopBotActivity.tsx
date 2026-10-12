@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AssistantRpc } from "../model/assistantClient";
+import type { BotRpc } from "../model/botRpc";
 import type { BotRun, BotRuns, BotScope } from "../model/bots";
-import { assistantErrorMessage } from "../model/assistantErrors";
+import { botErrorMessage } from "../model/botErrors";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
@@ -10,10 +10,10 @@ import "./desktop-bot-details.css";
 
 const statuses = { queued: "Queued", running: "Running", waiting_approval: "Approval needed", completed: "Completed", cancelled: "Cancelled", failed: "Failed", interrupted: "Interrupted" } as const;
 const merge = (older: BotRun[], newer: BotRun[]) => [...new Map([...older, ...newer].map(run => [run.id, run])).values()].sort((a, b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id));
-export function DesktopBotActivity({ scope, rpc }: { scope: BotScope; rpc: AssistantRpc }) {
+export function DesktopBotActivity({ scope, rpc }: { scope: BotScope; rpc: BotRpc }) {
   return <Activity key={JSON.stringify(scope)} scope={scope} rpc={rpc} />;
 }
-function Activity({ scope, rpc }: { scope: BotScope; rpc: AssistantRpc }) {
+function Activity({ scope, rpc }: { scope: BotScope; rpc: BotRpc }) {
   const { t } = useTranslation(), visible = useSurfaceVisibility();
   const [runs, setRuns] = useState<BotRun[]>([]), [page, setPage] = useState<BotRuns>();
   const [error, setError] = useState<string>(), [loading, setLoading] = useState(false);
@@ -38,7 +38,7 @@ function Activity({ scope, rpc }: { scope: BotScope; rpc: AssistantRpc }) {
         (before.createdAt > boundary.createdAt || (before.createdAt === boundary.createdAt && before.id > boundary.id)));
       const last = rows.at(-1);
       oldest.current = last ? { createdAt: last.createdAt, id: last.id } : undefined; setRuns(rows); setPage(result); setError(undefined);
-    } catch (cause) { if (alive.current && sequence === request.current) setError(assistantErrorMessage(cause)); }
+    } catch (cause) { if (alive.current && sequence === request.current) setError(botErrorMessage(cause)); }
     finally { inFlight.current = false; }
   }, [rpc, scope.botId, scope.threadId]);
   useEffect(() => {
@@ -59,7 +59,7 @@ function Activity({ scope, rpc }: { scope: BotScope; rpc: AssistantRpc }) {
         if (last) oldest.current = { createdAt: last.createdAt, id: last.id };
         setRuns(current => merge(current, result.runs)); setPage(result); setError(undefined);
       }
-    } catch (cause) { if (alive.current && sequence === request.current) setError(assistantErrorMessage(cause)); }
+    } catch (cause) { if (alive.current && sequence === request.current) setError(botErrorMessage(cause)); }
     finally { inFlight.current = false; if (alive.current) setLoading(false); }
   };
   return <section className="desktop-bot-activity" aria-label={t("Bot activity")}>

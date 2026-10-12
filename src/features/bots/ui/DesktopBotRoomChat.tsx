@@ -1,20 +1,20 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { AssistantRpc } from "../model/assistantClient";
+import type { BotRpc } from "../model/botRpc";
 import type { BotScope, BotView } from "../model/bots";
 import type { BotRoom, BotRoomMessage, BotRoomMessages, BotRoomRound, BotRoomState, BotRoomSpeakerStatus } from "../model/botRooms";
-import { assistantErrorMessage } from "../model/assistantErrors";
+import { botErrorMessage } from "../model/botErrors";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import { AgentMarkdown } from "../../sessions/ui/AgentMarkdown";
 import { HarnessIcon } from "../../sessions/ui/HarnessIcon";
-import { AssistantDateSeparator } from "./AssistantDateSeparator";
+import { BotDateSeparator } from "./BotDateSeparator";
 import { DesktopBotMembers } from "./DesktopBotMembers";
 import { DesktopRoomEditor } from "./DesktopBotRooms";
 import { Bot, Settings, ArrowUp } from "../../../shared/ui/icons";
 import "./desktop-bot-collaboration.css";
 
-type Props = { environmentId: string; room: BotRoom; bots: BotView[]; rpc: AssistantRpc; onSaved: () => Promise<unknown>; onOpenThread: (scope: BotScope) => void };
+type Props = { environmentId: string; room: BotRoom; bots: BotView[]; rpc: BotRpc; onSaved: () => Promise<unknown>; onOpenThread: (scope: BotScope) => void };
 const statuses: Record<BotRoomSpeakerStatus, string> = { pending: "Pending", queued: "Queued", running: "Running", waiting_approval: "Approval needed", completed: "Completed", failed: "Failed", timed_out: "Timed out", cancelled: "Cancelled", interrupted: "Interrupted" };
 const merge = (left: BotRoomMessage[], right: BotRoomMessage[]) => [...new Map([...left, ...right].map(message => [message.id, message])).values()].sort((a, b) => a.sequence - b.sequence);
 const draftKey = (environmentId: string, roomId: string) => `monocode.bot-room-draft:${JSON.stringify([environmentId, roomId])}`;
@@ -55,7 +55,7 @@ function RoomChat({ environmentId, room, bots, rpc, onSaved, onOpenThread }: Pro
         setPage(current => current && known !== undefined ? current : result);
       }
       setPollError(undefined);
-    } catch (cause) { if (alive.current && sequence === request.current) setPollError(assistantErrorMessage(cause)); }
+    } catch (cause) { if (alive.current && sequence === request.current) setPollError(botErrorMessage(cause)); }
     finally { inFlight.current = false; }
   }, [rpc, room.id]);
   useEffect(() => {
@@ -80,7 +80,7 @@ function RoomChat({ environmentId, room, bots, rpc, onSaved, onOpenThread }: Pro
       if (!alive.current || sequence !== request.current) return;
       if (log.current) prepend.current = { height: log.current.scrollHeight, top: log.current.scrollTop };
       rows.current = merge(result.messages.filter(message => message.roomId === room.id), rows.current); setMessages(rows.current); setPage(result); setError(undefined);
-    } catch (cause) { if (alive.current && sequence === request.current) setError(assistantErrorMessage(cause)); }
+    } catch (cause) { if (alive.current && sequence === request.current) setError(botErrorMessage(cause)); }
     finally { inFlight.current = false; if (alive.current) setLoadingOlder(false); }
   };
   const send = async () => {
@@ -90,7 +90,7 @@ function RoomChat({ environmentId, room, bots, rpc, onSaved, onOpenThread }: Pro
     if (command.current?.signature !== signature) command.current = { signature, id: crypto.randomUUID() };
     setSending(true); setError(undefined);
     try { await rpc("botRooms.send", { ...params, commandId: command.current.id }); command.current = undefined; setDraft(""); follow.current = true; await refresh(); }
-    catch (cause) { setError(assistantErrorMessage(cause)); }
+    catch (cause) { setError(botErrorMessage(cause)); }
     finally { setSending(false); }
   };
   const cancel = async (round: BotRoomRound) => {
@@ -98,7 +98,7 @@ function RoomChat({ environmentId, room, bots, rpc, onSaved, onOpenThread }: Pro
     const commandId = cancellations.current.get(round.id) ?? crypto.randomUUID(); cancellations.current.set(round.id, commandId);
     setCancelling(current => new Set([...current, round.id])); setError(undefined);
     try { await rpc("botRooms.cancel", { roomId: room.id, roundId: round.id, commandId }); cancellations.current.delete(round.id); await refresh(); }
-    catch (cause) { setError(assistantErrorMessage(cause)); }
+    catch (cause) { setError(botErrorMessage(cause)); }
     finally { setCancelling(current => { const next = new Set(current); next.delete(round.id); return next; }); }
   };
   const saved = async () => { await onSaved(); await refresh(); };
@@ -117,7 +117,7 @@ function RoomChat({ environmentId, room, bots, rpc, onSaved, onOpenThread }: Pro
       {page?.hasMore && <button type="button" disabled={loadingOlder} onClick={() => void older()}>{t(loadingOlder ? "Loading…" : "Load older messages")}</button>}
       {messages.map((message, index) => {
         const bot = bots.find(bot => bot.id === message.botId);
-        return <Fragment key={message.id}><AssistantDateSeparator createdAt={message.createdAt} previousCreatedAt={messages[index - 1]?.createdAt} />
+        return <Fragment key={message.id}><BotDateSeparator createdAt={message.createdAt} previousCreatedAt={messages[index - 1]?.createdAt} />
           <article className="desktop-bot-room-message" data-kind={message.kind}>
             <header>{message.botId && <span className="desktop-bots-avatar" aria-hidden="true">{bot?.avatar || <Bot size={16} />}</span>}<strong>{message.botId ? name(message.botId) : t("You")}</strong>{bot && <HarnessIcon harness={bot.harness} className="size-3.5" />}{message.status && <small>{t(statuses[message.status])}</small>}</header>
             {message.kind === "assistant" ? <AgentMarkdown text={message.text} className="assistant-markdown" hardBreaks /> : <p>{message.kind === "status" ? t(message.text) : message.text}</p>}

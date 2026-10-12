@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { HostStore } from "../store";
-import { AssistantStore } from "./thread/store";
+import { BotThreadStore } from "./thread/store";
 import { BotStore } from "./store";
 import type { BotMemoryDocument } from "../../src/features/bots/model/botMemory";
 
@@ -13,7 +13,7 @@ const expected = (doc: BotMemoryDocument) => ({ expectedRevision: doc.revision, 
 function setup() {
   const directory = mkdtempSync(join(tmpdir(), "bot-memory-")), host = new HostStore(join(directory, "host.db"));
   const bots = new BotStore(host), scope = bots.createBot({ harness: "codex", model: "test" });
-  const assistant = new AssistantStore(host, scope);
+  const assistant = new BotThreadStore(host, scope);
   cleanups.push(() => { host.close(); rmSync(directory, { recursive: true, force: true }); });
   return { directory, host, bots, scope, assistant, memory: assistant.memory };
 }
@@ -56,15 +56,15 @@ it("preserves unsafe historical names and case-colliding topics through durable 
   memory.rebuildIndex();
   const reopened = new HostStore(join(directory, "host.db"));
   try {
-    const restored = new AssistantStore(reopened, scope);
+    const restored = new BotThreadStore(reopened, scope);
     for (const name of names) expect(restored.memoryDoc(`topic:${name}`).text).toBe(`body for ${name}`);
   } finally { reopened.close(); }
 });
 
 it("enforces revision and hash CAS across sibling Threads, isolates Bots and redacts saved credentials", () => {
   const { host, bots, scope, memory } = setup();
-  const sibling = new AssistantStore(host, bots.createThread(scope.botId));
-  const other = new AssistantStore(host, bots.createBot({ harness: "codex", model: "other" }));
+  const sibling = new BotThreadStore(host, bots.createThread(scope.botId));
+  const other = new BotThreadStore(host, bots.createBot({ harness: "codex", model: "other" }));
   expect(sibling.memory).toBe(memory);
   const original = memory.read("memory/项目.md");
   const saved = memory.save(original.path, "remember this token=unsafe-value", expected(original));

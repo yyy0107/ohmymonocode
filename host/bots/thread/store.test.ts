@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, expect, it } from "vitest";
 import { HostStore } from "../../store";
-import { AssistantStore, signature } from "./store";
-import { fullAssistantPolicy } from "../../../src/features/bots/model/assistant";
+import { BotThreadStore, signature } from "./store";
+import { fullBotPolicy } from "../../../src/features/bots/model/botView";
 
 const cleanup: (() => void)[] = [];
 afterEach(() => cleanup.splice(0).forEach((fn) => fn()));
@@ -16,7 +16,7 @@ function setup() {
     store.close();
     rmSync(dir, { recursive: true, force: true });
   });
-  return { store, assistant: new AssistantStore(store) };
+  return { store, assistant: new BotThreadStore(store) };
 }
 it("adds assistant storage to a legacy Host database without changing ordinary projects", () => {
   const directory = mkdtempSync(join(tmpdir(), "assistant-legacy-")),
@@ -28,7 +28,7 @@ it("adds assistant storage to a legacy Host database without changing ordinary p
   legacy.close();
   const host = new HostStore(path);
   try {
-    const assistant = new AssistantStore(host);
+    const assistant = new BotThreadStore(host);
     expect(host.projects()).toEqual([
       { id: "ordinary", cwd: "/tmp/legacy", name: "Legacy", kind: undefined },
     ]);
@@ -45,7 +45,7 @@ it("receives input and its public message atomically, deduplicating retries", ()
   assistant.initialize({
     harness: "codex",
     model: "test",
-    policy: fullAssistantPolicy(),
+    policy: fullBotPolicy(),
   });
   const first = assistant.receive("send-1", "hello", []);
   expect(assistant.receive("send-1", "hello", [])).toEqual(first);
@@ -94,7 +94,7 @@ it("persists user read receipts only when claimed and preserves send time across
     assistant.latestMessages().find((m) => m.id === second.messageId),
   ).toMatchObject({ readAt: null });
   expect(assistant.receive("read-one", "First", [])).toEqual(first);
-  const restored = new AssistantStore(store);
+  const restored = new BotThreadStore(store);
   restored.recover();
   expect(
     restored.latestMessages().find((m) => m.id === first.messageId),
@@ -145,7 +145,7 @@ it("recovers started work as interrupted and never retries unknown actions", () 
     },
     state: "executing",
   });
-  const restored = new AssistantStore(store);
+  const restored = new BotThreadStore(store);
   restored.recover();
   expect(restored.pending()).toHaveLength(0);
   expect(restored.action("req")?.state).toBe("unknown");
@@ -186,7 +186,7 @@ it("compacts partial snapshots while preserving cursors, order and interrupted o
   expect(page.hasMore).toBe(true);
   expect(assistant.messages(page.nextRevision).entries).toEqual([second]);
   expect(assistant.messages().entries).toHaveLength(2);
-  const restored = new AssistantStore(store);
+  const restored = new BotThreadStore(store);
   restored.recover();
   expect(restored.messages(second.revision).entries).toEqual([
     expect.objectContaining({

@@ -6,9 +6,9 @@ import { HostStore } from "../store";
 import { HostEngine } from "../engine";
 import type { HostProvider } from "../providers";
 import type { SendTurnInput } from "../../src/integrations/harness/core/types";
-import type { AssistantPatch } from "../../src/features/bots/model/assistant";
+import type { BotPatch } from "../../src/features/bots/model/botView";
 import type { BotDelegation, BotScope, BotThread, BotView } from "../../src/features/bots/model/bots";
-import { executeAssistantAction } from "./thread/control";
+import { executeBotAction } from "./thread/control";
 import type { BotTeam, BotTeamPatch } from "../../src/features/bots/model/botTeams";
 
 const cleanup: Array<() => Promise<void>> = [];
@@ -30,12 +30,12 @@ async function setup() {
   };
   await start();
   cleanup.push(async () => { await engine.close(); store.close(); rmSync(directory, { recursive: true, force: true }); });
-  const bot = async (name: string, patch: AssistantPatch = {}): Promise<BotScope> => {
+  const bot = async (name: string, patch: BotPatch = {}): Promise<BotScope> => {
     const result = await engine.bots.rpc("bots.create", { commandId: `bot-${name}`, patch: { name, harness: "codex", model: "test",
       triggers: { user: true, event: false, schedule: false }, ...patch } }) as { bot: BotView; thread: BotThread };
     return { botId: result.bot.id, threadId: result.thread.id };
   };
-  const configure = (scope: BotScope, patch: AssistantPatch, commandId = String(Math.random())) => engine.bots.rpc("bots.configure", {
+  const configure = (scope: BotScope, patch: BotPatch, commandId = String(Math.random())) => engine.bots.rpc("bots.configure", {
     botId: scope.botId, commandId, expectedRevision: engine.bots.store.getBot(scope.botId)!.revision, patch,
   });
   const send = async (scope: BotScope) => {
@@ -89,8 +89,8 @@ it("discovers team IDs and rejects non-Chief, foreign members, forged identity a
   await expect(s.engine.bots.teams.delegate(nonChief, "nonchief", input)).rejects.toThrow("current Chief");
   await expect(s.engine.bots.teams.delegate(source, "outside", { ...input, botId: c.botId })).rejects.toThrow("team members");
   await expect(s.engine.bots.teams.delegate(source, "self", { ...input, botId: a.botId })).rejects.toThrow("team members");
-  await expect(executeAssistantAction(source, "forged", "agents.delegate_bot", { ...input, sourceRunId: "forged" }, () => true)).rejects.toThrow("Unknown input field");
-  const delegated = await executeAssistantAction(source, "onehop", "agents.delegate_bot", input, () => true) as BotDelegation;
+  await expect(executeBotAction(source, "forged", "agents.delegate_bot", { ...input, sourceRunId: "forged" }, () => true)).rejects.toThrow("Unknown input field");
+  const delegated = await executeBotAction(source, "onehop", "agents.delegate_bot", input, () => true) as BotDelegation;
   expect(delegated).toMatchObject({ status: "running", mode: "background", teamId: value.id });
   const target = s.engine.bots.assistant({ botId: b.botId, threadId: delegated.target.threadId! });
   await vi.waitFor(() => expect(target.currentRun?.status).toBe("running"));
@@ -136,7 +136,7 @@ it("coordinates only selected members, aggregates partial outcomes, and retries 
   await s.configure(a, { callableBotIds: [b.botId, busy.botId, unselected.botId] });
   const value = await team(s, [a, b, busy, denied, unselected]), source = await s.send(a); await s.send(busy);
   const input = { teamId: value.id, botIds: [b.botId, busy.botId, denied.botId], prompt: "Coordinate this task" };
-  const pending = executeAssistantAction(source, "aggregate", "agents.coordinate_bots", input, () => true);
+  const pending = executeBotAction(source, "aggregate", "agents.coordinate_bots", input, () => true);
   await vi.waitFor(() => expect(s.engine.bots.store.listThreads(b.botId).filter(thread => thread.kind === "delegation")).toHaveLength(1));
   const target = s.engine.bots.store.listThreads(b.botId).find(thread => thread.kind === "delegation")!, scope = { botId: b.botId, threadId: target.id };
   await vi.waitFor(() => expect(s.engine.bots.assistant(scope).currentRun?.status).toBe("running")); complete(s, scope, "Useful answer");
@@ -146,7 +146,7 @@ it("coordinates only selected members, aggregates partial outcomes, and retries 
   ] });
   expect(s.engine.bots.store.listThreads(unselected.botId)).toHaveLength(1);
   const before = s.turns.length;
-  expect(await executeAssistantAction(source, "aggregate", "agents.coordinate_bots", input, () => true)).toEqual(result);
+  expect(await executeBotAction(source, "aggregate", "agents.coordinate_bots", input, () => true)).toEqual(result);
   expect(s.turns).toHaveLength(before);
   await expect(s.engine.bots.teams.coordinate(source, "aggregate", { ...input, botIds: [b.botId] })).rejects.toThrow("different input");
   await expect(s.engine.bots.teams.coordinate(source, "empty", { ...input, botIds: [] })).rejects.toThrow("1 and 10");

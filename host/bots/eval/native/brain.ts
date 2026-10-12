@@ -1,5 +1,5 @@
 import { buildBrainPrompt } from "../../thread/prompt";
-import { fullAssistantPolicy } from "../../../../src/features/bots/model/assistant";
+import { fullBotPolicy } from "../../../../src/features/bots/model/botView";
 export function brain(actions: string[], text: string) {
   const now = Date.parse("2026-10-09T09:00:00Z");
   return buildBrainPrompt({
@@ -7,7 +7,7 @@ export function brain(actions: string[], text: string) {
       id: "eval-assistant",
       name: "MonoCode Eval",
       timezone: "UTC",
-      policy: fullAssistantPolicy(),
+      policy: fullBotPolicy(),
       watches: [],
       reminders: [],
       habits: [],

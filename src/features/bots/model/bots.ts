@@ -1,5 +1,5 @@
 import type { RemoteProvider } from "../../connections/model/protocol";
-import type { AssistantLifecycle, AssistantView, BotToolConfiguration } from "./assistant";
+import type { BotLifecycle, BotConfiguration, BotToolConfiguration } from "./botView";
 import type { RuntimeMode } from "../../sessions/model/session";
 
 /** Host identity is supplied by the connection, never by a client-owned field. */
@@ -10,7 +10,7 @@ export type BotModelOverride = {
   model: string;
   modelSettings?: Record<string, string>;
 };
-export type BotView = AssistantView & {
+export type BotView = BotConfiguration & {
   defaultThreadId: string;
   archivedAt?: number;
   createdAt: number;
@@ -26,11 +26,11 @@ export type BotThread = {
   updatedAt: number;
   revision: number;
   modelOverride?: BotModelOverride;
-  lifecycle: AssistantLifecycle;
+  lifecycle: BotLifecycle;
   chatRevision: number;
 };
 /** Existing chat consumers retain the AssistantView shape. */
-export type BotThreadView = AssistantView & BotScope & {
+export type BotThreadView = BotConfiguration & BotScope & {
   title: string;
   archivedAt?: number;
 };

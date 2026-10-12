@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import type { AssistantMessage } from "../../../src/features/bots/model/assistant";
+import type { BotMessage } from "../../../src/features/bots/model/botView";
 import { chatStamp } from "./chatSearch";
 import { memoryDate } from "./memory";
 import { QUIET_MARKER } from "./prompt";
-import type { AssistantStore } from "./store";
+import type { BotThreadStore } from "./store";
 
 /**
  * Once a day ends, the brain writes a short diary entry about that day's chat
@@ -30,7 +30,7 @@ export function dueDiaryDays(now: number, timeZone: string): string[] {
 
 /** The day's chat as the brain reads it, clipped from the middle if long. */
 export function diaryTranscript(
-  messages: readonly AssistantMessage[],
+  messages: readonly BotMessage[],
   day: string,
   timeZone: string,
 ): string {
@@ -65,7 +65,7 @@ ${transcript}`;
  * Queues each finished day's diary once; days without user messages are
  * skipped. Returns false when scheduled work is off, so the caller checks again.
  */
-export function enqueueDiaries(store: AssistantStore, now = Date.now()): boolean {
+export function enqueueDiaries(store: BotThreadStore, now = Date.now()): boolean {
   const config = store.get();
   if (
     !config?.enabled ||

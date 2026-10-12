@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
-import type { AssistantStore } from "./store";
+import type { BotThreadStore } from "./store";
 import { localTime } from "./prompt";
 import { habitWakeupText } from "./habits";
 import {
   MISSED_RUN_GRACE_MS,
   nextHabitRunAt,
-} from "../../../src/features/bots/model/assistantHabits";
+} from "../../../src/features/bots/model/botHabits";
 export function nextInterval(
   previous: number,
   intervalMinutes: number,
@@ -20,7 +20,7 @@ export function retryDelay(attempts: number): number {
   return Math.min(900000, 30000 * 2 ** Math.min(Math.max(0, attempts - 1), 5));
 }
 export function enqueueSchedules(
-  store: AssistantStore,
+  store: BotThreadStore,
   now = Date.now(),
 ): void {
   store.host.transaction(() => {

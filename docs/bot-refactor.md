@@ -707,9 +707,9 @@ Reproducible final migration selection:
 Reproducible final desktop selection:
 
 ```sh
-./node_modules/.bin/vitest run src/features/bots/ui/AssistantChat.test.ts src/features/bots/ui/AssistantMessages.test.ts src/features/bots/ui/AssistantChat.attachments.test.ts src/shared/ui/AnimatedCollapse.test.ts src/features/bots/ui/DesktopAssistantButton.test.ts -t 'capability|Bots shell|detail drafts|paged chat|legacy Hosts|necessary input|question responses|read-only reason|delegation status|persisted.*attachments|image-only|multiple photos|rapid reversal|reduced motion|reverses from|unseen replies|pending questions|isolates Bot thread unread'
-./node_modules/.bin/vitest run src/features/bots/ui/DesktopAssistant.test.ts
-./node_modules/.bin/vitest run src/features/bots/ui/AssistantChat.test.ts -t 'frozen mobile client'
+./node_modules/.bin/vitest run src/features/bots/ui/BotChat.test.ts src/features/bots/ui/BotMessages.test.ts src/features/bots/ui/BotChat.attachments.test.ts src/shared/ui/AnimatedCollapse.test.ts src/features/bots/ui/DesktopBotsButton.test.ts -t 'capability|Bots shell|detail drafts|paged chat|legacy Hosts|necessary input|question responses|read-only reason|delegation status|persisted.*attachments|image-only|multiple photos|rapid reversal|reduced motion|reverses from|unseen replies|pending questions|isolates Bot thread unread'
+./node_modules/.bin/vitest run src/features/bots/ui/DesktopBots.test.ts
+./node_modules/.bin/vitest run src/features/bots/ui/BotChat.test.ts -t 'frozen mobile client'
 ```
 
 The initial new mobile test used a desktop-only selector; correcting the fixture

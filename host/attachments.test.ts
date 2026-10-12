@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HostStore } from "./store";
-import { AssistantStore } from "./bots/thread/store";
+import { BotThreadStore } from "./bots/thread/store";
 import { BotStore } from "./bots/store";
 import { writeAttachmentChunk, saveGeneratedImageAttachment, readAttachmentChunk } from "./attachments";
 
@@ -16,14 +16,14 @@ it("requires the owning Bot and Thread for new message attachments and keeps leg
   const directory = mkdtempSync(join(tmpdir(), "bot-attachment-test-"));
   const host = new HostStore(join(directory, "host.db"));
   cleanups.push(() => { host.close(); rmSync(directory, { recursive: true, force: true }); });
-  const legacy = new AssistantStore(host);
+  const legacy = new BotThreadStore(host);
   legacy.initialize({ harness: "codex", model: "test" });
   const bots = new BotStore(host);
   const second = bots.createBot({ harness: "codex", model: "test", name: "Second" });
   const thread = bots.createThread(second.botId, { title: "Separate" });
   const file = saveGeneratedImageAttachment(host,
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==", "image.png");
-  const owned = new AssistantStore(host, second);
+  const owned = new BotThreadStore(host, second);
   owned.message({ id: "same-message", kind: "assistant", text: "", attachments: [file] });
   legacy.message({ id: "same-message", kind: "assistant", text: "No attachment" });
   const input = { messageId: "same-message", id: file.id, offset: 0 };

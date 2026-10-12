@@ -4,13 +4,13 @@ import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import { HostStore } from "../../store";
 import { HostEngine } from "../../engine";
-import { executeAssistantAction } from "./control";
+import { executeBotAction } from "./control";
 import { MEMORY_MAX_LINES } from "./memory";
 import { enqueueDiaries } from "./diary";
 import type { HostProvider } from "../../providers";
 import type { SendTurnInput } from "../../../src/integrations/harness/core/types";
-import { removeWatchedSession } from "../../../src/features/bots/model/assistantSessions";
-import { fullAssistantPolicy } from "../../../src/features/bots/model/assistant";
+import { removeWatchedSession } from "../../../src/features/bots/model/botSessions";
+import { fullBotPolicy } from "../../../src/features/bots/model/botView";
 const cleanup: (() => Promise<void>)[] = [];
 afterEach(async () => {
   for (const fn of cleanup.splice(0)) await fn();
@@ -88,7 +88,7 @@ it("keeps queued user messages unread until the assistant starts their turn", as
 it("creates real target cards and sends trusted messages idempotently", async () => {
   const { engine, project, store } = await setup();
   const create = { projectId: project.id, harness: "codex", model: "test" };
-  const receipt = (await executeAssistantAction(
+  const receipt = (await executeBotAction(
     engine.assistant,
     "new-task",
     "sessions.create",
@@ -96,7 +96,7 @@ it("creates real target cards and sends trusted messages idempotently", async ()
     () => true,
   )) as { sessionId: string };
   expect(
-    await executeAssistantAction(
+    await executeBotAction(
       engine.assistant,
       "new-task",
       "sessions.create",
@@ -105,7 +105,7 @@ it("creates real target cards and sends trusted messages idempotently", async ()
     ),
   ).toEqual(receipt);
   for (let i = 0; i < 10; i++)
-    await executeAssistantAction(
+    await executeBotAction(
       engine.assistant,
       "send-task",
       "sessions.send",
@@ -138,11 +138,11 @@ it("uses the configured nickname and refreshes existing and queued origins witho
     commandId: `name:${name}`, expectedRevision: engine.assistant.store.get()!.revision, patch: { name },
   });
   await rename("小团");
-  const target = await executeAssistantAction(engine.assistant, "named-target", "sessions.create", {
+  const target = await executeBotAction(engine.assistant, "named-target", "sessions.create", {
     projectId: project.id, harness: "codex", model: "test",
   }, () => true) as { sessionId: string };
   for (const requestId of ["named-first", "named-queued"]) {
-    await executeAssistantAction(engine.assistant, requestId, "sessions.send", {
+    await executeBotAction(engine.assistant, requestId, "sessions.send", {
       projectId: project.id, sessionId: target.sessionId, text: requestId,
     }, () => true);
   }
@@ -178,7 +178,7 @@ it("retains trusted assistant provenance when steering a running target", async 
     text: "Work",
   });
   await vi.waitFor(() => expect(turns).toHaveLength(2));
-  await executeAssistantAction(
+  await executeBotAction(
     engine.assistant,
     "guide-target",
     "sessions.steer",
@@ -219,7 +219,7 @@ it("revokes queued assistant sends without holding later human messages", async 
     text: "Start",
   });
   await vi.waitFor(() => expect(turns).toHaveLength(2));
-  await executeAssistantAction(
+  await executeBotAction(
     engine.assistant,
     "queued",
     "sessions.send",
@@ -236,7 +236,7 @@ it("revokes queued assistant sends without holding later human messages", async 
     sessionId: created.sessionId,
     text: "Human next",
   });
-  const policy = fullAssistantPolicy();
+  const policy = fullBotPolicy();
   policy.permissions["sessions.send"] = false;
   engine.assistant.store.update({ policy });
   turns[1].finish();
@@ -273,7 +273,7 @@ it("blocks forged authors, private brains, wrong projects and revoked permission
   ).toThrow(/reserved/);
   const brain = engine.assistant.store.get()!.brainSessionId!;
   await expect(
-    executeAssistantAction(
+    executeBotAction(
       engine.assistant,
       "private",
       "sessions.get",
@@ -281,11 +281,11 @@ it("blocks forged authors, private brains, wrong projects and revoked permission
       () => true,
     ),
   ).rejects.toThrow(/private/);
-  const policy = fullAssistantPolicy();
+  const policy = fullBotPolicy();
   policy.permissions["sessions.create"] = false;
   engine.assistant.store.update({ policy });
   await expect(
-    executeAssistantAction(
+    executeBotAction(
       engine.assistant,
       "denied",
       "sessions.create",
@@ -399,14 +399,14 @@ it("does not broadcast unchanged scheduled checks", async () => {
 });
 it("persists pause and stops the brain without cancelling delegated sessions", async () => {
   const { engine, project, store, turns } = await setup();
-  const target = (await executeAssistantAction(
+  const target = (await executeBotAction(
     engine.assistant,
     "target",
     "sessions.create",
     { projectId: project.id, harness: "codex", model: "test" },
     () => true,
   )) as { sessionId: string };
-  await executeAssistantAction(
+  await executeBotAction(
     engine.assistant,
     "target-send",
     "sessions.send",
@@ -472,15 +472,15 @@ it("buffers automatic progress and discards the entire unchanged check", async (
 
 it("denies every declared action before effects when its permission is off", async () => {
   const { engine, project, provider } = await setup();
-  const { ASSISTANT_ACTIONS } = await import("./control");
-  const policy = fullAssistantPolicy();
+  const { BOT_ACTIONS } = await import("./control");
+  const policy = fullBotPolicy();
   for (const key of Object.keys(policy.permissions))
     policy.permissions[key as keyof typeof policy.permissions] = false;
   engine.assistant.store.update({ policy });
   // Reminders and habits are governed by the scheduled-check trigger and
   // memory and chat are the assistant's own records; none reaches project data.
   // Bot delegation has an independent callable-Bot allowlist and run identity.
-  for (const action of ASSISTANT_ACTIONS.filter(
+  for (const action of BOT_ACTIONS.filter(
     (a) =>
       a !== "actions.get" &&
       a !== "chat.search" &&
@@ -499,7 +499,7 @@ it("denies every declared action before effects when its permission is off", asy
             ? "git_push"
             : "read_text_file";
     await expect(
-      executeAssistantAction(
+      executeBotAction(
         engine.assistant,
         `deny-${action}`,
         action,
@@ -517,18 +517,18 @@ it("does not expose a saved file result after files.read is revoked", async () =
   const { engine, project, directory } = await setup();
   const { writeFileSync } = await import("node:fs");
   writeFileSync(join(directory, "note.txt"), "PRIVATE FILE DATA");
-  await executeAssistantAction(
+  await executeBotAction(
     engine.assistant,
     "read",
     "files.read",
     { projectId: project.id, args: { path: join(directory, "note.txt") } },
     () => true,
   );
-  const policy = fullAssistantPolicy();
+  const policy = fullBotPolicy();
   policy.permissions["files.read"] = false;
   engine.assistant.store.update({ policy });
   await expect(
-    executeAssistantAction(
+    executeBotAction(
       engine.assistant,
       "inspect-read",
       "actions.get",
@@ -553,7 +553,7 @@ it("rolls back pure database effects when the assistant acceptance or card canno
     "CREATE TRIGGER fail_acceptance BEFORE UPDATE ON bot_actions WHEN json_extract(NEW.payload, '$.state')='completed' BEGIN SELECT RAISE(ABORT, 'acceptance failure'); END",
   );
   await expect(
-    executeAssistantAction(
+    executeBotAction(
       engine.assistant,
       "rename-failed",
       "sessions.update",
@@ -567,7 +567,7 @@ it("rolls back pure database effects when the assistant acceptance or card canno
   );
   const count = store.sessions().length;
   await expect(
-    executeAssistantAction(
+    executeBotAction(
       engine.assistant,
       "create-failed",
       "sessions.create",
@@ -612,7 +612,7 @@ it("respects an external native owner and rejects stale target approvals already
     holder: { provider: "codex", pid: 1234 },
   } as any);
   await expect(
-    executeAssistantAction(
+    executeBotAction(
       engine.assistant,
       "native-send",
       "sessions.send",
@@ -659,7 +659,7 @@ it("respects an external native owner and rejects stale target approvals already
     decision: "allow",
   });
   await expect(
-    executeAssistantAction(
+    executeBotAction(
       engine.assistant,
       "assistant-too-late",
       "sessions.approve",
@@ -960,7 +960,7 @@ it("retries a known usage rejection with a new attempt receipt and clears the ol
 });
 it("does not automatically replay a usage rejection after partial execution", async () => {
   const { engine, turns, project } = await setup();
-  await executeAssistantAction(
+  await executeBotAction(
     engine.assistant,
     "partial",
     "sessions.create",
@@ -997,7 +997,7 @@ it("keeps a durably accepted target queue running when only the brain is paused"
     text: "First turn",
   });
   await vi.waitFor(() => expect(turns).toHaveLength(2));
-  await executeAssistantAction(
+  await executeBotAction(
     engine.assistant,
     "accepted-queue",
     "sessions.send",
@@ -1062,7 +1062,7 @@ it("keeps promised follow-ups idempotent and fires each due reminder once", asyn
   const { engine } = await setup();
   const create = { delayMinutes: 30, prompt: "Check the login fix" };
   await expect(
-    executeAssistantAction(
+    executeBotAction(
       engine.assistant,
       "remind",
       "reminders.create",
@@ -1073,7 +1073,7 @@ it("keeps promised follow-ups idempotent and fires each due reminder once", asyn
   engine.assistant.store.update({
     triggers: { user: true, event: false, schedule: true },
   });
-  const first = await executeAssistantAction(
+  const first = await executeBotAction(
     engine.assistant,
     "remind",
     "reminders.create",
@@ -1081,7 +1081,7 @@ it("keeps promised follow-ups idempotent and fires each due reminder once", asyn
     () => true,
   );
   expect(
-    await executeAssistantAction(
+    await executeBotAction(
       engine.assistant,
       "remind",
       "reminders.create",
@@ -1106,7 +1106,7 @@ it("lets the user cancel a pending reminder", async () => {
   engine.assistant.store.update({
     triggers: { user: true, event: false, schedule: true },
   });
-  const { reminderId } = (await executeAssistantAction(
+  const { reminderId } = (await executeBotAction(
     engine.assistant,
     "remind",
     "reminders.create",
@@ -1201,7 +1201,7 @@ it("attributes automatic replies and input requests and preserves their source w
 });
 it("shows the current action as activity and clears it when the turn ends", async () => {
   const { engine, turns } = await setup();
-  await executeAssistantAction(
+  await executeBotAction(
     engine.assistant,
     "look-all",
     "projects.list",
@@ -1282,7 +1282,7 @@ it("rotates an oversized brain into a fresh generation briefed from the chat", a
 it("rereads resident memory every turn and replaces the native cache after memory changes", async () => {
   const { engine, store, turns } = await setup();
   const act = (requestId: string, action: string, input: Record<string, unknown>) =>
-    executeAssistantAction(engine.assistant, requestId, action, input, () => true);
+    executeBotAction(engine.assistant, requestId, action, input, () => true);
   expect(turns[0].input.text).toContain("(Empty. Nothing has been remembered yet.)");
   const fact = { fact: "Prefers pnpm; token=abc123secret" };
   const first = await act("remember", "memory.add", fact);
@@ -1316,7 +1316,7 @@ it("searches Chinese memory through controls across resident, topic and archived
   const { engine } = await setup();
   const store = engine.assistant.store;
   const act = (requestId: string, action: string, input: Record<string, unknown>) =>
-    executeAssistantAction(engine.assistant, requestId, action, input, () => true);
+    executeBotAction(engine.assistant, requestId, action, input, () => true);
   const historical = "- ~~2020-01-01 · 发布流程使用 Travis~~ · superseded 2021-01-01";
   store.writeMemoryDoc("memory", [
     historical,
@@ -1348,7 +1348,7 @@ it("reads desktop-authored Unicode topics through the legacy Bot controls", asyn
   const memory = store.memory, path = "memory/发布流程.md", original = memory.read(path);
   memory.save(path, "发布前检查 staging", { expectedRevision: original.revision, expectedHash: original.hash });
   const act = (requestId: string, action: string, input: Record<string, unknown>) =>
-    executeAssistantAction(engine.assistant, requestId, action, input, () => true);
+    executeBotAction(engine.assistant, requestId, action, input, () => true);
   expect(await act("read-unicode", "memory.read", { topic: "发布流程" })).toEqual({ text: "发布前检查 staging" });
   await act("append-unicode", "memory.add", { topic: "发布流程.md", fact: "发布后检查 health" });
   expect(memory.read(path).text).toContain("发布后检查 health");
@@ -1362,7 +1362,7 @@ it("keeps historical topic aliases reachable without changing their spelling or 
   for (const [index, name] of ["CON", "foo.", "foo.md", "CHAT-DAYS"].entries()) {
     store.writeMemoryDoc(`topic:${name}`, `Original topic ${index}`);
     const input = { topic: `${name}.md` };
-    expect(await executeAssistantAction(engine.assistant, `alias-${index}`, "memory.read", input, () => true))
+    expect(await executeBotAction(engine.assistant, `alias-${index}`, "memory.read", input, () => true))
       .toEqual({ text: `Original topic ${index}` });
     expect(await engine.assistant.rpc("assistant.memoryTopic", input)).toMatchObject({ name, text: `Original topic ${index}` });
   }
@@ -1413,7 +1413,7 @@ it("keeps habits from the assistant and the user and records each run's outcome"
   const { engine, store, turns, project } = await setup();
   const assistant = engine.assistant;
   assistant.store.update({ triggers: { user: true, event: false, schedule: true } });
-  const created = (await executeAssistantAction(
+  const created = (await executeBotAction(
     assistant,
     "habit",
     "habits.create",
@@ -1426,7 +1426,7 @@ it("keeps habits from the assistant and the user and records each run's outcome"
   )) as { habitId: string; nextRunAt: number };
   expect(created.nextRunAt).toBeGreaterThan(Date.now());
   await expect(
-    executeAssistantAction(
+    executeBotAction(
       assistant,
       "habit-bad",
       "habits.create",
@@ -1467,7 +1467,7 @@ it("keeps habits from the assistant and the user and records each run's outcome"
   });
   await vi.waitFor(() => expect(turns).toHaveLength(3));
   writeFileSync(join(project.cwd, "report.txt"), "A report worth sharing");
-  const publication = await executeAssistantAction(assistant, "habit-report", "reply.attachments", {
+  const publication = await executeBotAction(assistant, "habit-report", "reply.attachments", {
     sources: [{ kind: "project-file", projectId: project.id, relativePath: "report.txt" }],
   }, () => true) as { messageId: string };
   const message = assistant.store.latestMessages().find((entry) => entry.id === publication.messageId)!;
@@ -1521,7 +1521,7 @@ it("searches the chat and writes each finished day into the diary once", async (
   assistant.store.message({ id: "u1", kind: "user", text: "放一首读心术", createdAt: at });
   assistant.store.message({ id: "a1", kind: "assistant", text: "好，正在播放。", createdAt: at + 60_000 });
   expect(
-    await executeAssistantAction(assistant, "chat", "chat.search", { query: "读心术" }, () => true),
+    await executeBotAction(assistant, "chat", "chat.search", { query: "读心术" }, () => true),
   ).toEqual([
     {
       at: "2026-10-07 21:00",
@@ -1543,7 +1543,7 @@ it("searches the chat and writes each finished day into the diary once", async (
     assistant.store.wakeups().filter((w) => w.rootCauseId.startsWith("diary:")),
   ).toHaveLength(1);
   assistant.store.message({ id: "u2", kind: "user", text: "关闭显示器", createdAt: at + 86_400_000 });
-  await executeAssistantAction(
+  await executeBotAction(
     assistant,
     "diary-8",
     "memory.add",
@@ -1561,7 +1561,7 @@ it("keeps playbooks the brain can list, follow and refine", async () => {
   const { engine, turns } = await setup();
   const assistant = engine.assistant;
   const act = (requestId: string, action: string, input: Record<string, unknown>) =>
-    executeAssistantAction(assistant, requestId, action, input, () => true);
+    executeBotAction(assistant, requestId, action, input, () => true);
   const save = {
     name: "mobile-release",
     description: "发布手机端 APK 到局域网时使用",
@@ -1591,7 +1591,7 @@ it("keeps playbooks the brain can list, follow and refine", async () => {
 it("dispatches a single playbook and snapshots ordered playbooks in the queue across edits and retries", async () => {
   const { engine, project, store, turns } = await setup();
   const act = (requestId: string, action: string, input: Record<string, unknown>) =>
-    executeAssistantAction(engine.assistant, requestId, action, input, () => true);
+    executeBotAction(engine.assistant, requestId, action, input, () => true);
   const release = { name: "release", description: "Ship a release", body: "Run the release checks" };
   const verify = { name: "verify", description: "Verify a release", body: "Check the installed version" };
   await act("save-release", "playbooks.save", release);
@@ -1627,7 +1627,7 @@ it("dispatches a single playbook and snapshots ordered playbooks in the queue ac
 it("rejects invalid playbook assignments and enforces dispatch permissions before resolving names", async () => {
   const { engine, project, store, turns } = await setup();
   const act = (requestId: string, action: string, input: Record<string, unknown>, authorized = true) =>
-    executeAssistantAction(engine.assistant, requestId, action, input, () => authorized);
+    executeBotAction(engine.assistant, requestId, action, input, () => authorized);
   await act("save", "playbooks.save", { name: "release", description: "Release", body: "Run checks" });
   const target = await act("target", "sessions.create", {
     projectId: project.id, harness: "codex", model: "test",
@@ -1639,7 +1639,7 @@ it("rejects invalid playbook assignments and enforces dispatch permissions befor
   }
   await expect(act("too-long", "sessions.send", { ...input, text: "a".repeat(256_000), playbooks: "release" })).rejects.toThrow("too long");
   await expect(act("revoked", "sessions.send", { ...input, playbooks: "release" }, false)).rejects.toThrow("revoked");
-  const policy = fullAssistantPolicy();
+  const policy = fullBotPolicy();
   policy.permissions["sessions.send"] = false;
   engine.assistant.store.update({ policy });
   await expect(act("denied", "sessions.send", { ...input, playbooks: "missing" })).rejects.toThrow("Permission denied: sessions.send");
@@ -1651,7 +1651,7 @@ it("rejects invalid playbook assignments and enforces dispatch permissions befor
 it("attaches playbooks to steering and queue edits without changing ordinary messages", async () => {
   const { engine, project, store, provider, turns } = await setup({ steer: true });
   const act = (requestId: string, action: string, input: Record<string, unknown>) =>
-    executeAssistantAction(engine.assistant, requestId, action, input, () => true);
+    executeBotAction(engine.assistant, requestId, action, input, () => true);
   const playbook = { name: "review", description: "Review work", body: "Inspect the failing test first" };
   await act("save", "playbooks.save", playbook);
   const target = await act("target", "sessions.create", {
@@ -1684,7 +1684,7 @@ it("attaches playbooks to steering and queue edits without changing ordinary mes
 it("routes assigned playbooks to worker messages, steering and retries after checking permissions", async () => {
   const { engine, project, store } = await setup();
   const act = (requestId: string, action: string, input: Record<string, unknown>) =>
-    executeAssistantAction(engine.assistant, requestId, action, input, () => true);
+    executeBotAction(engine.assistant, requestId, action, input, () => true);
   const playbook = { name: "review", description: "Review work", body: "Inspect the failing test first" };
   await act("save", "playbooks.save", playbook);
   const lead = await act("lead", "sessions.create", { projectId: project.id, harness: "codex", model: "test" }) as { sessionId: string };
@@ -1707,7 +1707,7 @@ it("routes assigned playbooks to worker messages, steering and retries after che
       ...input, action: "message", input: { text: "a".repeat(30_000) },
     })).rejects.toThrow("too long");
     expect(engine.assistant.store.action("oversized-worker")?.state).toBe("failed");
-    const policy = fullAssistantPolicy();
+    const policy = fullBotPolicy();
     policy.permissions["sessions.send"] = false;
     engine.assistant.store.update({ policy });
     await expect(act("denied-worker", "orchestration.worker", { ...input, action: "message", playbooks: "missing" })).rejects.toThrow("Permission denied: sessions.send");
@@ -1738,15 +1738,15 @@ it("pages a transcript from its latest blocks backwards", async () => {
   await vi.waitFor(() => expect(store.session(target.sessionId).status).toBe("idle"));
   const total = store.session(target.sessionId).session.blocks.length;
   const input = { projectId: project.id, sessionId: target.sessionId };
-  const latest = await executeAssistantAction(engine.assistant, "page-latest", "sessions.get",
+  const latest = await executeBotAction(engine.assistant, "page-latest", "sessions.get",
     { ...input, latest: true, limit: 1 }, () => true) as { blocks: { text: string }[]; offset: number; total: number; hasMore: boolean };
   expect(latest).toMatchObject({ offset: total - 1, total, hasMore: false });
   expect(latest.blocks.map((b) => b.text)).toEqual(["Newest reply"]);
-  const earlier = await executeAssistantAction(engine.assistant, "page-earlier", "sessions.get",
+  const earlier = await executeBotAction(engine.assistant, "page-earlier", "sessions.get",
     { ...input, offset: 0, limit: total - 1 }, () => true) as { blocks: { text: string }[]; hasMore: boolean };
   expect(earlier.blocks[0].text).toBe("Work");
   expect(earlier.hasMore).toBe(true);
-  await expect(executeAssistantAction(engine.assistant, "page-both", "sessions.get",
+  await expect(executeBotAction(engine.assistant, "page-both", "sessions.get",
     { ...input, latest: true, offset: 0 }, () => true)).rejects.toThrow(/Invalid transcript page/);
 });
 it("keeps ordinary conversations read-only even with every permission enabled", async () => {
@@ -1754,10 +1754,10 @@ it("keeps ordinary conversations read-only even with every permission enabled", 
   const target = engine.command({ type: "create", commandId: "human-read-only", projectId: project.id,
     harness: "codex", model: "test", runtimeMode: "supervised" });
   const input = { projectId: project.id, sessionId: target.sessionId };
-  expect(await executeAssistantAction(engine.assistant, "read-ordinary", "sessions.get", input, () => true)).toBeTruthy();
+  expect(await executeBotAction(engine.assistant, "read-ordinary", "sessions.get", input, () => true)).toBeTruthy();
   const original = store.session(target.sessionId);
   for (const action of ["send", "steer", "configure", "compact", "cancel", "approve", "answer", "queue", "update", "delete"])
-    await expect(executeAssistantAction(engine.assistant, `deny-unfollowed-${action}`, `sessions.${action}`, input, () => true)).rejects.toThrow(/read-only/);
+    await expect(executeBotAction(engine.assistant, `deny-unfollowed-${action}`, `sessions.${action}`, input, () => true)).rejects.toThrow(/read-only/);
   expect(store.session(target.sessionId)).toEqual(original);
   expect(engine.assistant.store.get()!.policy.followedSessions).toBeUndefined();
 });
@@ -1767,7 +1767,7 @@ it("hands over only the chosen conversation idempotently and preserves permissio
   const create = (commandId: string) => engine.command({ type: "create", commandId, projectId: project.id,
     harness: "codex", model: "test", runtimeMode: "supervised" });
   const target = create("human-handoff"), sibling = create("human-sibling");
-  const policy = fullAssistantPolicy();
+  const policy = fullBotPolicy();
   policy.permissions["sessions.send"] = false;
   engine.assistant.store.update({ policy });
   const command = { action: "delegateSession", commandId: "handoff", environmentId: store.environmentId,
@@ -1777,30 +1777,30 @@ it("hands over only the chosen conversation idempotently and preserves permissio
   expect(await engine.assistant.rpc("assistant.control", command)).toEqual(receipt);
   expect(engine.assistant.store.wakeups()).toHaveLength(before + 1);
   expect(engine.assistant.store.get()!.policy).toEqual({ ...policy, followedSessions: [{ projectId: project.id, sessionId: target.sessionId }] });
-  await expect(executeAssistantAction(engine.assistant, "still-denied", "sessions.send", {
+  await expect(executeBotAction(engine.assistant, "still-denied", "sessions.send", {
     projectId: project.id, sessionId: target.sessionId, text: "Work",
   }, () => true)).rejects.toThrow(/Permission denied/);
-  await executeAssistantAction(engine.assistant, "allowed-rename", "sessions.update", {
+  await executeBotAction(engine.assistant, "allowed-rename", "sessions.update", {
     projectId: project.id, sessionId: target.sessionId, title: "Followed task",
   }, () => true);
-  await expect(executeAssistantAction(engine.assistant, "sibling-rename", "sessions.update", {
+  await expect(executeBotAction(engine.assistant, "sibling-rename", "sessions.update", {
     projectId: project.id, sessionId: sibling.sessionId, title: "Must not change",
   }, () => true)).rejects.toThrow(/read-only/);
   expect(store.session(target.sessionId).session.title).toBe("Followed task");
   const config = engine.assistant.store.get()!;
   await engine.assistant.rpc("assistant.configure", { commandId: "remove-follow", expectedRevision: config.revision,
     patch: removeWatchedSession(config.policy, config.watches, target.sessionId) });
-  await expect(executeAssistantAction(engine.assistant, "removed-rename", "sessions.update", {
+  await expect(executeBotAction(engine.assistant, "removed-rename", "sessions.update", {
     projectId: project.id, sessionId: target.sessionId, title: "Must not change",
   }, () => true)).rejects.toThrow(/read-only/);
-  expect(await executeAssistantAction(engine.assistant, "read-removed", "sessions.get", {
+  expect(await executeBotAction(engine.assistant, "read-removed", "sessions.get", {
     projectId: project.id, sessionId: target.sessionId,
   }, () => true)).toBeTruthy();
 });
 
 it("exempts assistant-created conversations using durable creation provenance", async () => {
   const { engine, project } = await setup();
-  const created = await executeAssistantAction(engine.assistant, "assistant-owned", "sessions.create", {
+  const created = await executeBotAction(engine.assistant, "assistant-owned", "sessions.create", {
     projectId: project.id, harness: "codex", model: "test",
   }, () => true) as { sessionId: string };
   const config = engine.assistant.store.get()!;
@@ -1808,13 +1808,13 @@ it("exempts assistant-created conversations using durable creation provenance", 
     patch: removeWatchedSession(config.policy, config.watches, created.sessionId) });
   expect(engine.assistant.store.createdSession(created.sessionId)).toBe(true);
   expect(engine.assistant.store.get()!.policy.followedSessions ?? []).toEqual([]);
-  await executeAssistantAction(engine.assistant, "owned-rename", "sessions.update", {
+  await executeBotAction(engine.assistant, "owned-rename", "sessions.update", {
     projectId: project.id, sessionId: created.sessionId, title: "Still manageable",
   }, () => true);
-  const policy = fullAssistantPolicy();
+  const policy = fullBotPolicy();
   policy.permissions["sessions.metadata"] = false;
   engine.assistant.store.update({ policy });
-  await expect(executeAssistantAction(engine.assistant, "owned-denied", "sessions.update", {
+  await expect(executeBotAction(engine.assistant, "owned-denied", "sessions.update", {
     projectId: project.id, sessionId: created.sessionId, title: "Forbidden",
   }, () => true)).rejects.toThrow(/Permission denied/);
 });
@@ -1826,7 +1826,7 @@ it("blocks queued assistant messages after unfollowing while letting human messa
   follow(engine, project.id, target.sessionId);
   engine.command({ type: "send", commandId: "begin-human", sessionId: target.sessionId, text: "Human first" });
   await vi.waitFor(() => expect(turns).toHaveLength(2));
-  await executeAssistantAction(engine.assistant, "pending-assistant", "sessions.send", {
+  await executeBotAction(engine.assistant, "pending-assistant", "sessions.send", {
     projectId: project.id, sessionId: target.sessionId, text: "Assistant queued",
   }, () => true);
   engine.command({ type: "send", commandId: "later-human", sessionId: target.sessionId, text: "Human next" });
@@ -1857,7 +1857,7 @@ it("observes only managed conversations and respects configured event kinds", as
     harness: "codex", model: "test", runtimeMode: "supervised" });
   const ordinary = human("ordinary-event"), watched = human("watched-event");
   follow(engine, project.id, watched.sessionId);
-  const owned = await executeAssistantAction(engine.assistant, "owned-event", "sessions.create", {
+  const owned = await executeBotAction(engine.assistant, "owned-event", "sessions.create", {
     projectId: project.id, harness: "codex", model: "test",
   }, () => true) as { sessionId: string };
   turns[0].finish();
@@ -1887,24 +1887,24 @@ it("observes only managed conversations and respects configured event kinds", as
 it("applies ongoing project follows to future conversations without changing configured permissions", async () => {
   const { engine, project, store } = await setup();
   const other = store.addProject(join(project.cwd, "other"), "Other");
-  const policy = { ...fullAssistantPolicy(), followedProjects: [project.id] };
+  const policy = { ...fullBotPolicy(), followedProjects: [project.id] };
   policy.permissions["sessions.send"] = false;
   await engine.assistant.rpc("assistant.configure", { commandId: "follow-project", expectedRevision: engine.assistant.store.get()!.revision, patch: { policy } });
   const create = (commandId: string, projectId: string) => engine.command({ type: "create", commandId, projectId,
     harness: "codex", model: "test", runtimeMode: "supervised" });
   const followed = create("future-followed", project.id), unfollowed = create("future-unfollowed", other.id);
-  await executeAssistantAction(engine.assistant, "future-rename", "sessions.update", { projectId: project.id, sessionId: followed.sessionId, title: "Allowed" }, () => true);
-  await expect(executeAssistantAction(engine.assistant, "future-send", "sessions.send", { projectId: project.id, sessionId: followed.sessionId, text: "Still disabled" }, () => true)).rejects.toThrow(/Permission/);
-  await expect(executeAssistantAction(engine.assistant, "outside-rename", "sessions.update", { projectId: other.id, sessionId: unfollowed.sessionId, title: "Denied" }, () => true)).rejects.toThrow(/read-only/);
+  await executeBotAction(engine.assistant, "future-rename", "sessions.update", { projectId: project.id, sessionId: followed.sessionId, title: "Allowed" }, () => true);
+  await expect(executeBotAction(engine.assistant, "future-send", "sessions.send", { projectId: project.id, sessionId: followed.sessionId, text: "Still disabled" }, () => true)).rejects.toThrow(/Permission/);
+  await expect(executeBotAction(engine.assistant, "outside-rename", "sessions.update", { projectId: other.id, sessionId: unfollowed.sessionId, title: "Denied" }, () => true)).rejects.toThrow(/read-only/);
   let config = engine.assistant.store.get()!;
   await engine.assistant.rpc("assistant.configure", { commandId: "exclude-followed", expectedRevision: config.revision,
     patch: removeWatchedSession(config.policy, config.watches, followed.sessionId) });
-  await expect(executeAssistantAction(engine.assistant, "excluded-rename", "sessions.update", { projectId: project.id, sessionId: followed.sessionId, title: "Denied" }, () => true)).rejects.toThrow(/read-only/);
+  await expect(executeBotAction(engine.assistant, "excluded-rename", "sessions.update", { projectId: project.id, sessionId: followed.sessionId, title: "Denied" }, () => true)).rejects.toThrow(/read-only/);
   config = engine.assistant.store.get()!;
   await engine.assistant.rpc("assistant.configure", { commandId: "follow-all", expectedRevision: config.revision,
     patch: { policy: { ...config.policy, followedProjects: "all" } } });
-  await executeAssistantAction(engine.assistant, "all-rename", "sessions.update", { projectId: other.id, sessionId: unfollowed.sessionId, title: "Allowed now" }, () => true);
-  await expect(executeAssistantAction(engine.assistant, "still-excluded", "sessions.update", { projectId: project.id, sessionId: followed.sessionId, title: "Denied" }, () => true)).rejects.toThrow(/read-only/);
+  await executeBotAction(engine.assistant, "all-rename", "sessions.update", { projectId: other.id, sessionId: unfollowed.sessionId, title: "Allowed now" }, () => true);
+  await expect(executeBotAction(engine.assistant, "still-excluded", "sessions.update", { projectId: project.id, sessionId: followed.sessionId, title: "Denied" }, () => true)).rejects.toThrow(/read-only/);
   const lead = create("followed-lead", project.id);
   const child = store.session(followed.sessionId);
   store.save({ ...child, revision: child.revision + 1, session: { ...child.session, orchestrationLeadId: lead.sessionId } }, {});
@@ -1913,10 +1913,10 @@ it("applies ongoing project follows to future conversations without changing con
 
 it("migrates previous assistant creations once and preserves subsequent unfollows across recovery", async () => {
   const { engine, project } = await setup();
-  const created = await executeAssistantAction(engine.assistant, "legacy-created", "sessions.create", {
+  const created = await executeBotAction(engine.assistant, "legacy-created", "sessions.create", {
     projectId: project.id, harness: "codex", model: "test",
   }, () => true) as { sessionId: string };
-  engine.assistant.store.update({ policy: fullAssistantPolicy(), createdSessionWatchesMigrated: undefined });
+  engine.assistant.store.update({ policy: fullBotPolicy(), createdSessionWatchesMigrated: undefined });
   engine.assistant.store.recover();
   expect(engine.assistant.store.view()!.policy.followedSessions).toEqual([{ projectId: project.id, sessionId: created.sessionId }]);
   expect(engine.assistant.store.view()).not.toHaveProperty("createdSessionWatchesMigrated");
@@ -1928,11 +1928,11 @@ it("migrates previous assistant creations once and preserves subsequent unfollow
 });
 it("stops the conversations a stopped task delegated", async () => {
   const { engine, project, turns, provider } = await setup();
-  const { sessionId } = (await executeAssistantAction(engine.assistant, "delegate", "sessions.create", {
+  const { sessionId } = (await executeBotAction(engine.assistant, "delegate", "sessions.create", {
     projectId: project.id, harness: "codex", model: "test",
   }, () => true)) as { sessionId: string };
   for (const requestId of ["delegate-run", "delegate-queued"])
-    await executeAssistantAction(engine.assistant, requestId, "sessions.send", {
+    await executeBotAction(engine.assistant, requestId, "sessions.send", {
       projectId: project.id, sessionId, text: "Investigate",
     }, () => true);
   await vi.waitFor(() => expect(turns.some((t) => t.input.sessionId === sessionId)).toBe(true));

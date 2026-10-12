@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import type { AssistantRpc } from "../model/assistantClient";
+import type { BotRpc } from "../model/botRpc";
 import type { BotView } from "../model/bots";
 import type { BotTeam } from "../model/botTeams";
-import { assistantErrorMessage } from "../model/assistantErrors";
+import { botErrorMessage } from "../model/botErrors";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { DesktopBotMembers } from "./DesktopBotMembers";
 import "./desktop-bot-collaboration.css";
 
-type Props = { teams: BotTeam[]; bots: BotView[]; rpc: AssistantRpc; onSaved: () => Promise<unknown> };
+type Props = { teams: BotTeam[]; bots: BotView[]; rpc: BotRpc; onSaved: () => Promise<unknown> };
 export function DesktopBotTeams({ teams, bots, rpc, onSaved }: Props) {
   const { t } = useTranslation(), visible = useSurfaceVisibility();
   const [selected, setSelected] = useState<string>(), [visited, setVisited] = useState<string[]>([]), [version, setVersion] = useState(0);
@@ -28,7 +28,7 @@ export function DesktopBotTeams({ teams, bots, rpc, onSaved }: Props) {
     </div>
   </section>;
 }
-function TeamEditor({ team, bots, rpc, onSaved }: { team?: BotTeam; bots: BotView[]; rpc: AssistantRpc; onSaved: (team: BotTeam) => Promise<void> }) {
+function TeamEditor({ team, bots, rpc, onSaved }: { team?: BotTeam; bots: BotView[]; rpc: BotRpc; onSaved: (team: BotTeam) => Promise<void> }) {
   const { t } = useTranslation();
   const [base, setBase] = useState(team), [name, setName] = useState(team?.name ?? ""), [members, setMembers] = useState(team?.memberBotIds ?? []), [chief, setChief] = useState(team?.chiefBotId ?? "");
   const [busy, setBusy] = useState(false), [error, setError] = useState<string>();
@@ -44,14 +44,14 @@ function TeamEditor({ team, bots, rpc, onSaved }: { team?: BotTeam; bots: BotVie
     if (command.current?.signature !== signature) command.current = { signature, id: crypto.randomUUID() };
     setBusy(true); setError(undefined);
     try { const result = await rpc<BotTeam>(method, { ...params, commandId: command.current.id }); await onSaved(result); adopt(result); command.current = undefined; }
-    catch (cause) { setError(assistantErrorMessage(cause)); }
+    catch (cause) { setError(botErrorMessage(cause)); }
     finally { setBusy(false); }
   };
   const reload = async () => {
     if (!base || busy) return;
     setBusy(true);
     try { adopt(await rpc<BotTeam>("botTeams.get", { teamId: base.id })); command.current = undefined; setError(undefined); }
-    catch (cause) { setError(assistantErrorMessage(cause)); }
+    catch (cause) { setError(botErrorMessage(cause)); }
     finally { setBusy(false); }
   };
   return <form className="desktop-bot-group-editor" aria-label={t(base ? "Team settings" : "New team")} onSubmit={event => { event.preventDefault(); void mutate("save"); }}>

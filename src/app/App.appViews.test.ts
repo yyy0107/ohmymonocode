@@ -585,10 +585,10 @@ vi.mock("../features/source-control/ui/SessionChangesDiff", async () => {
       el("div", { "data-session-diff-path": focusPath }),
   };
 });
-vi.mock("../features/bots/ui/DesktopAssistant", async () => {
+vi.mock("../features/bots/ui/DesktopBots", async () => {
   const { createElement: el } = await import("react");
   return {
-    DesktopAssistant: () =>
+    DesktopBots: () =>
       el(
         "section",
         { "data-app-view": "assistant" },

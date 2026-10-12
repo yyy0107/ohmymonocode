@@ -6,8 +6,8 @@ import {
   splitReply,
   PERSONA_PRESETS,
 } from "./prompt";
-import type { AssistantRecord, Wakeup } from "./store";
-import { fullAssistantPolicy } from "../../../src/features/bots/model/assistant";
+import type { BotThreadRecord, Wakeup } from "./store";
+import { fullBotPolicy } from "../../../src/features/bots/model/botView";
 
 it("describes bounded Bot calls and includes only enabled control actions", () => {
   const prompt = botCollaborationPrompt("/host path/control", ["agents.list_bots", "agents.ask_bot"]);
@@ -65,7 +65,7 @@ it("gives the brain local time, conversation gap, personality and promises", () 
         userName: "Wy",
       },
       timezone: "Asia/Shanghai",
-      policy: fullAssistantPolicy(),
+      policy: fullBotPolicy(),
       reminders: [
         {
           id: "r1",
@@ -77,7 +77,7 @@ it("gives the brain local time, conversation gap, personality and promises", () 
           state: "pending",
         },
       ],
-    } as unknown as AssistantRecord,
+    } as unknown as BotThreadRecord,
     launcher: "monocode-host",
     actions: ["projects.list"],
     wakeup,

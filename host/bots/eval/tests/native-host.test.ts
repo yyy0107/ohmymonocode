@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { afterEach, it, expect, vi } from "vitest";
 import { HostStore } from "../../../store";
 import { HostEngine } from "../../../engine";
-import { executeAssistantAction, ASSISTANT_ACTIONS } from "../../thread/control";
+import { executeBotAction, BOT_ACTIONS } from "../../thread/control";
 import { buildBrainPrompt } from "../../thread/prompt";
 import type { HostProvider } from "../../../providers";
 const cleanup: (() => Promise<void>)[] = [];
@@ -62,7 +62,7 @@ async function setup() {
     input: Record<string, unknown> = {},
     authorized = () => true,
   ) =>
-    executeAssistantAction(
+    executeBotAction(
       engine.assistant,
       requestId,
       action,
@@ -73,12 +73,12 @@ async function setup() {
 }
 it("native action registry and prompt expose actual recovery and trust boundaries", async () => {
   const { engine } = await setup();
-  expect(ASSISTANT_ACTIONS).toContain("sessions.steer");
-  expect(ASSISTANT_ACTIONS).not.toContain("mail.send");
+  expect(BOT_ACTIONS).toContain("sessions.steer");
+  expect(BOT_ACTIONS).not.toContain("mail.send");
   const prompt = buildBrainPrompt({
     config: engine.assistant.store.get()!,
     launcher: "isolated-control",
-    actions: ASSISTANT_ACTIONS,
+    actions: BOT_ACTIONS,
     wakeup: engine.assistant.currentWakeup(),
     messages: [],
     ledger: [],

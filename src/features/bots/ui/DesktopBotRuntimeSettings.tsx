@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import type { AssistantRpc } from "../model/assistantClient";
+import type { BotRpc } from "../model/botRpc";
 import type { BotView, BotsSnapshot } from "../model/bots";
-import { ASSISTANT_ACTIONS } from "../model/assistantActions";
-import { assistantErrorMessage } from "../model/assistantErrors";
+import { BOT_ACTIONS } from "../model/botActions";
+import { botErrorMessage } from "../model/botErrors";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import "./desktop-bot-details.css";
 
 type Fields = { avatar: string; workingDirectory: string; slots: string; custom: boolean; actions: string[]; computer: boolean; callableBotIds: string[] };
-const fields = (bot: BotView): Fields => ({ avatar: bot.avatar ?? "", workingDirectory: bot.workingDirectory ?? "", slots: String(bot.maxConcurrentRuns ?? 3), custom: bot.tools?.enabledActions !== undefined, actions: [...(bot.tools?.enabledActions ?? ASSISTANT_ACTIONS)], computer: bot.tools?.computer ?? false, callableBotIds: [...(bot.callableBotIds ?? [])].filter(id => id !== bot.id) });
+const fields = (bot: BotView): Fields => ({ avatar: bot.avatar ?? "", workingDirectory: bot.workingDirectory ?? "", slots: String(bot.maxConcurrentRuns ?? 3), custom: bot.tools?.enabledActions !== undefined, actions: [...(bot.tools?.enabledActions ?? BOT_ACTIONS)], computer: bot.tools?.computer ?? false, callableBotIds: [...(bot.callableBotIds ?? [])].filter(id => id !== bot.id) });
 
-type Props = { bot: BotView; rpc: AssistantRpc; onSaved: () => void; delegationSupported?: boolean };
+type Props = { bot: BotView; rpc: BotRpc; onSaved: () => void; delegationSupported?: boolean };
 export function DesktopBotRuntimeSettings(props: Props) {
   return <RuntimeSettings key={props.bot.id} {...props} />;
 }
@@ -35,7 +35,7 @@ function RuntimeSettings({ bot, rpc, onSaved, delegationSupported = false }: Pro
     setBotsLoading(true);
     void rpc<BotsSnapshot>("bots.list").then(snapshot => {
       if (!stopped) { setCallableBots(snapshot.bots.filter(item => item.id !== bot.id && !item.archivedAt)); setBotsError(undefined); }
-    }, cause => { if (!stopped) setBotsError(assistantErrorMessage(cause)); }).finally(() => { if (!stopped) setBotsLoading(false); });
+    }, cause => { if (!stopped) setBotsError(botErrorMessage(cause)); }).finally(() => { if (!stopped) setBotsLoading(false); });
     return () => { stopped = true; };
   }, [visible, open, delegationSupported, bot.id, rpc, botsAttempt]);
   const command = useRef<{ signature: string; id: string } | undefined>(undefined);
@@ -60,7 +60,7 @@ function RuntimeSettings({ bot, rpc, onSaved, delegationSupported = false }: Pro
       const receipt = await rpc<{ revision: number }>("bots.configure", { botId: bot.id, commandId: command.current.id, expectedRevision: base.revision, patch });
       setBase({ revision: receipt.revision, fields: draft }); command.current = undefined; onSaved();
     } catch (cause) {
-      const message = assistantErrorMessage(cause); setError(message); setConflict(/changed elsewhere/i.test(message));
+      const message = botErrorMessage(cause); setError(message); setConflict(/changed elsewhere/i.test(message));
     } finally { setBusy(false); }
   };
   const reload = async () => {
@@ -68,7 +68,7 @@ function RuntimeSettings({ bot, rpc, onSaved, delegationSupported = false }: Pro
     try {
       const latest = await rpc<BotView>("bots.get", { botId: bot.id });
       const next = fields(latest); setBase({ revision: latest.revision, fields: next }); setDraft(next); setConflict(false); command.current = undefined;
-    } catch (cause) { setError(assistantErrorMessage(cause)); }
+    } catch (cause) { setError(botErrorMessage(cause)); }
     finally { setBusy(false); }
   };
   return <form className="desktop-bot-runtime" aria-label={t("Bot runtime settings")} onSubmit={event => { event.preventDefault(); void save(); }}>
@@ -98,7 +98,7 @@ function RuntimeSettings({ bot, rpc, onSaved, delegationSupported = false }: Pro
       <AnimatedCollapse expanded={toolsOpen}><div className="desktop-bot-tool-options">
         <p>{t("These choices restrict Host control actions. Provider tools and user MCP servers keep their own permissions.")}</p>
         <label className="desktop-bot-check"><input type="checkbox" checked={!draft.custom} onChange={event => update({ custom: !event.target.checked })} />{t("All permitted Host actions")}</label>
-        <AnimatedCollapse expanded={draft.custom}><div className="desktop-bot-action-list">{[...new Set([...ASSISTANT_ACTIONS, ...draft.actions])].map(action => <label className="desktop-bot-check" key={action}><input type="checkbox" checked={draft.actions.includes(action)} onChange={event => update({ actions: event.target.checked ? [...draft.actions, action] : draft.actions.filter(item => item !== action) })} /><span>{action}</span></label>)}</div></AnimatedCollapse>
+        <AnimatedCollapse expanded={draft.custom}><div className="desktop-bot-action-list">{[...new Set([...BOT_ACTIONS, ...draft.actions])].map(action => <label className="desktop-bot-check" key={action}><input type="checkbox" checked={draft.actions.includes(action)} onChange={event => update({ actions: event.target.checked ? [...draft.actions, action] : draft.actions.filter(item => item !== action) })} /><span>{action}</span></label>)}</div></AnimatedCollapse>
       </div></AnimatedCollapse>
     </fieldset>
     {error && <p role="alert">{t(error)}</p>}

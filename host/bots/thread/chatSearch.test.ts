@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import type { AssistantMessage } from "../../../src/features/bots/model/assistant";
+import type { BotMessage } from "../../../src/features/bots/model/botView";
 import { searchChat } from "./chatSearch";
 import { buildBrainPrompt } from "./prompt";
 
@@ -8,7 +8,7 @@ const chat = (
   kind: "user" | "assistant",
   text: string,
   createdAt: number,
-): AssistantMessage => ({
+): BotMessage => ({
   id: `${kind}:${createdAt}`,
   kind,
   text,

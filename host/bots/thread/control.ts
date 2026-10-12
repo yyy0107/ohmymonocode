@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { realpath } from "node:fs/promises";
 import { isAbsolute, relative } from "node:path";
-import type { HostAssistant } from "./index";
+import type { BotThreadRuntime } from "./index";
 import { signature } from "./store";
 import { createHabit, deleteHabit, updateHabit } from "./habits";
 import { assertReplyAttachmentAccess, publishReplyAttachments } from "./attachments";
@@ -39,16 +39,16 @@ import { hostWorktrees } from "../../git-worktrees";
 import { summary } from "../../store";
 import { HOST_RESOURCE_BUSY_MESSAGE, withHostResources } from "../resources";
 import type {
-  AssistantAction,
-  AssistantPermission,
-} from "../../../src/features/bots/model/assistant";
+  BotAction,
+  BotPermission,
+} from "../../../src/features/bots/model/botView";
 import type {
   HostCommand,
   HostSession,
 } from "../../../src/features/connections/model/protocol";
 
-import { ASSISTANT_ACTIONS } from "../../../src/features/bots/model/assistantActions";
-export { ASSISTANT_ACTIONS } from "../../../src/features/bots/model/assistantActions";
+import { BOT_ACTIONS } from "../../../src/features/bots/model/botActions";
+export { BOT_ACTIONS } from "../../../src/features/bots/model/botActions";
 export const MAX_PENDING_REMINDERS = 50;
 const MAX_REMINDER_DELAY = 10080;
 const aliases: Record<string, string> = {
@@ -110,8 +110,8 @@ const inRoot = (path: string, root: string) => {
   );
 };
 function readableResult(
-  assistant: HostAssistant,
-  old: AssistantAction,
+  assistant: BotThreadRuntime,
+  old: BotAction,
 ): unknown {
   if (old.action === "reply.attachments") {
     assertReplyAttachmentAccess(assistant, old.input);
@@ -124,7 +124,7 @@ function readableResult(
     Object.hasOwn(aliases, old.action)
       ? workspacePermission(aliases[old.action] ?? String(old.input.command))
       : undefined;
-  const read: AssistantPermission = actionPermissionKey?.startsWith("files.")
+  const read: BotPermission = actionPermissionKey?.startsWith("files.")
     ? "files.read"
     : actionPermissionKey?.startsWith("git.")
       ? "git.read"
@@ -161,7 +161,7 @@ function readableResult(
 }
 /** One-shot follow-ups the assistant promises; governed by the scheduled-check trigger. */
 function reminderAction(
-  assistant: HostAssistant,
+  assistant: BotThreadRuntime,
   requestId: string,
   action: string,
   input: Record<string, unknown>,
@@ -263,7 +263,7 @@ function reminderAction(
 }
 /** The recorded result of an own action, or undefined when the request is new. */
 function replayed(
-  assistant: HostAssistant,
+  assistant: BotThreadRuntime,
   requestId: string,
   sig: string,
 ): { result: unknown } | undefined {
@@ -277,7 +277,7 @@ function replayed(
 }
 /** Applies an action on the assistant's own state and logs it in one transaction. */
 function recordOwnAction(
-  assistant: HostAssistant,
+  assistant: BotThreadRuntime,
   requestId: string,
   sig: string,
   action: string,
@@ -321,7 +321,7 @@ const MAX_TOPIC_BYTES = 64 * 1024;
  * governed by assistant control rather than a project permission.
  */
 function memoryAction(
-  assistant: HostAssistant,
+  assistant: BotThreadRuntime,
   requestId: string,
   action: string,
   input: Record<string, unknown>,
@@ -438,7 +438,7 @@ function memoryAction(
 }
 /** Procedures the assistant keeps, governed like memory by assistant control. */
 function playbookAction(
-  assistant: HostAssistant,
+  assistant: BotThreadRuntime,
   requestId: string,
   action: string,
   input: Record<string, unknown>,
@@ -509,7 +509,7 @@ function playbookAction(
  * reminders by the scheduled-check trigger.
  */
 function habitAction(
-  assistant: HostAssistant,
+  assistant: BotThreadRuntime,
   requestId: string,
   action: string,
   input: Record<string, unknown>,
@@ -547,8 +547,8 @@ function habitAction(
     store.update({ habits: next }),
   );
 }
-export async function executeAssistantAction(
-  assistant: HostAssistant,
+export async function executeBotAction(
+  assistant: BotThreadRuntime,
   requestId: string,
   action: string,
   input: Record<string, unknown>,
@@ -560,7 +560,7 @@ export async function executeAssistantAction(
   const engine = assistant.engine,
     store = assistant.store;
   const config = store.get()!;
-  let permission: AssistantPermission;
+  let permission: BotPermission;
   // Delegations own their durable receipts. Caching a running response in the
   // ordinary action ledger would prevent subsequent short polls from settling.
   if (action === "agents.list_bots") {
@@ -665,7 +665,7 @@ export async function executeAssistantAction(
     throw new Error("Wrong Host environment");
   if (projectId && engine.store.project(projectId).kind)
     throw new Error("Internal project is private");
-  const additional = new Set<AssistantPermission>();
+  const additional = new Set<BotPermission>();
   const requireAccess = () => {
     if (!authorized()) throw new Error("Assistant control was revoked");
     const targetId = session?.session.id ?? (action === "orchestration.worker" && typeof input.leadId === "string" ? id(input.leadId) : undefined);
@@ -706,7 +706,7 @@ export async function executeAssistantAction(
   }
   const wakeup = assistant.currentWakeup();
   const resourceOwner = assistant.currentRun?.id ?? `assistant-action:${randomUUID()}`;
-  const record: AssistantAction = {
+  const record: BotAction = {
     id: randomUUID(),
     requestId,
     signature: sig,
@@ -748,7 +748,7 @@ export async function executeAssistantAction(
   let external = false;
   let recorded = false;
   const persistResult = (result: unknown) => {
-    const completed: AssistantAction = {
+    const completed: BotAction = {
       ...record,
       state: external ? "accepted" : "completed",
       result: result ?? null,
@@ -797,7 +797,7 @@ export async function executeAssistantAction(
           ? await assistant.models(projectId)
           : {
               providers: await assistant.providers(),
-              capabilities: ASSISTANT_ACTIONS,
+              capabilities: BOT_ACTIONS,
             };
     } else if (action === "projects.list") {
       fields(input, []);
@@ -970,7 +970,7 @@ export async function executeAssistantAction(
             : workerAction === "cancel"
               ? ["sessions.cancel"]
               : [])
-        additional.add(extra as AssistantPermission);
+        additional.add(extra as BotPermission);
       requireAccess();
       const params = object(input.input ?? {});
       if ("taskId" in params && params.taskId !== input.taskId)

@@ -8,11 +8,11 @@ import { DesktopBotDetails } from "./DesktopBotDetails";
 import { DesktopBotAutomation } from "./DesktopBotAutomation";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { setUiLanguage } from "../../../shared/i18n/language";
-import { fullAssistantPolicy } from "../model/assistant";
+import { fullBotPolicy } from "../model/botView";
 import type { BotRun, BotView } from "../model/bots";
 
 let node: HTMLDivElement, root: Root;
-const bot = (): BotView => ({ id: "bot-a", name: "Test Bot", revision: 5, chatRevision: 0, enabled: true, lifecycle: "idle", harness: "codex", model: "codex:test", modelSettings: {}, runtimeMode: "supervised", targetRuntimeMode: "supervised", policy: fullAssistantPolicy(), policyVersion: 1, brainGeneration: 1, maxAutoTurns: 8, chainWindowMinutes: 15, triggers: { user: true, event: true, schedule: true }, schedules: [{ id: "hourly", enabled: true, intervalMinutes: 60, prompt: "Review", timezone: "UTC", nextRunAt: 1 }], watches: [], defaultThreadId: "thread-a", createdAt: 1, updatedAt: 1, workingDirectory: "/project", maxConcurrentRuns: 3 });
+const bot = (): BotView => ({ id: "bot-a", name: "Test Bot", revision: 5, chatRevision: 0, enabled: true, lifecycle: "idle", harness: "codex", model: "codex:test", modelSettings: {}, runtimeMode: "supervised", targetRuntimeMode: "supervised", policy: fullBotPolicy(), policyVersion: 1, brainGeneration: 1, maxAutoTurns: 8, chainWindowMinutes: 15, triggers: { user: true, event: true, schedule: true }, schedules: [{ id: "hourly", enabled: true, intervalMinutes: 60, prompt: "Review", timezone: "UTC", nextRunAt: 1 }], watches: [], defaultThreadId: "thread-a", createdAt: 1, updatedAt: 1, workingDirectory: "/project", maxConcurrentRuns: 3 });
 const button = (text: string) => [...node.querySelectorAll<HTMLButtonElement>("button")].find(item => item.textContent === text)!;
 const input = (field: HTMLInputElement, value: string) => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, value); field.dispatchEvent(new Event("input", { bubbles: true })); };
 const field = (text: string) => [...node.querySelectorAll<HTMLLabelElement>("label")].find(item => item.textContent === text)!.querySelector<HTMLInputElement>("input")!;

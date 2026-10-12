@@ -4,20 +4,20 @@ import { dirname, isAbsolute, join } from "node:path";
 import type { HostEngine } from "../../engine";
 import { HostControl } from "../../control";
 import {
-  AssistantStore,
+  BotThreadStore,
   EVENT_FOOTER,
   receiveSignature,
   signature,
   wakeupSource,
-  type AssistantRecord,
+  type BotThreadRecord,
   type Wakeup,
   type WakeupSource,
 } from "./store";
 import { eventBriefs, importantSources } from "./events";
 import { enqueueSchedules, retryDelay } from "./scheduler";
 import { checkPolicy, fields, id, object, validatePolicy } from "./policy";
-import { followSession, hasAssistantPermission, isExplicitlyWatchedSession, isWatchedSession, watchIncludesSession } from "../../../src/features/bots/model/assistantSessions";
-import { executeAssistantAction, ASSISTANT_ACTIONS } from "./control";
+import { followSession, hasBotPermission, isExplicitlyWatchedSession, isWatchedSession, watchIncludesSession } from "../../../src/features/bots/model/botSessions";
+import { executeBotAction, BOT_ACTIONS } from "./control";
 import { modelsFor } from "../../../src/features/sessions/model/models";
 import { RUNTIME_MODES, type TurnOrigin } from "../../../src/features/sessions/model/session";
 import {
@@ -28,13 +28,13 @@ import {
   type RemoteAttachment,
 } from "../../../src/features/connections/model/protocol";
 import {
-  ASSISTANT_PERSONA_PRESETS,
-  type AssistantEventKind,
-  type AssistantPermission,
-  type AssistantPatch,
-  type AssistantMessage,
-  type AssistantReceipt,
-} from "../../../src/features/bots/model/assistant";
+  BOT_PERSONA_PRESETS,
+  type BotEventKind,
+  type BotPermission,
+  type BotPatch,
+  type BotMessage,
+  type BotReceipt,
+} from "../../../src/features/bots/model/botView";
 import { parseRemoteAttachments, resolveAttachments } from "../../attachments";
 import { rotationReason } from "./rotation";
 import { recallBotMemory } from "../recall";
@@ -76,12 +76,12 @@ const STOP_COMMANDS = new Set(["停止", "停", "stop", "/stop"]);
 export function isStopCommand(text: string): boolean {
   return STOP_COMMANDS.has(text.trim().toLowerCase());
 }
-export type AssistantRuntimeOptions = {
+export type BotThreadRuntimeOptions = {
   entry?: string;
   node?: string;
-  store?: AssistantStore;
+  store?: BotThreadStore;
   managed?: {
-    acquire: (run: BotRun, config: AssistantRecord) => boolean;
+    acquire: (run: BotRun, config: BotThreadRecord) => boolean;
     release: () => void;
     automatic: () => boolean;
     authorizeRun?: (run: BotRun) => boolean;
@@ -91,11 +91,11 @@ export type AssistantRuntimeOptions = {
 function providerConfiguration(value: { harness: string; model: string; runtimeMode?: string; modelSettings?: Record<string, string> }): string {
   return signature([value.harness, value.model, value.runtimeMode, value.modelSettings ?? {}]);
 }
-function runtimeConfiguration(value: AssistantRecord): string {
+function runtimeConfiguration(value: BotThreadRecord): string {
   return signature([providerConfiguration(value), value.workingDirectory, value.tools]);
 }
-export class HostAssistant {
-  readonly store: AssistantStore;
+export class BotThreadRuntime {
+  readonly store: BotThreadStore;
   readonly control: HostControl;
   readonly ready: Promise<void>;
   private timer?: ReturnType<typeof setInterval>;
@@ -125,10 +125,10 @@ export class HostAssistant {
     readonly engine: HostEngine,
     providers: RemoteProvider[],
     parentReady: Promise<void>,
-    private readonly options: AssistantRuntimeOptions,
+    private readonly options: BotThreadRuntimeOptions,
   ) {
     this.entry = options.entry;
-    this.store = options.store ?? new AssistantStore(engine.store);
+    this.store = options.store ?? new BotThreadStore(engine.store);
     this.available = async () => providers;
     this.catalog = async () => ({
       models: Object.fromEntries(providers.map((p) => [p, modelsFor(p)])),
@@ -148,7 +148,7 @@ export class HostAssistant {
         )
           throw new Error("Assistant control is inactive");
         this.assertActionEnabled(action);
-        return executeAssistantAction(this, request, action, input, () => {
+        return executeBotAction(this, request, action, input, () => {
           const current = this.store.get();
           return (
             !this.closing &&
@@ -161,7 +161,7 @@ export class HostAssistant {
           );
         });
       },
-      { namespace: "assistant", actions: ASSISTANT_ACTIONS },
+      { namespace: "assistant", actions: BOT_ACTIONS },
     );
     if (!options.managed) engine.authorizeAssistantQueued = (origin, project, sessionId) => {
       const current = this.store.get();
@@ -299,7 +299,7 @@ export class HostAssistant {
     text: string;
     attachments?: RemoteAttachment[];
     bindingId: string;
-  }): Promise<AssistantReceipt> {
+  }): Promise<BotReceipt> {
     await this.ready;
     fields(input, ["commandId", "text", "attachments", "bindingId"]);
     const { bindingId, ...message } = input;
@@ -309,7 +309,7 @@ export class HostAssistant {
   private async receiveMessage(
     raw: Record<string, unknown>,
     source: WakeupSource,
-  ): Promise<AssistantReceipt> {
+  ): Promise<BotReceipt> {
     fields(raw, ["commandId", "text", "attachments"]);
     const text =
       typeof raw.text === "string" &&
@@ -324,7 +324,7 @@ export class HostAssistant {
       id(raw.commandId),
       receiveSignature(text, attachments, source),
     );
-    if (previous) return previous as AssistantReceipt;
+    if (previous) return previous as BotReceipt;
     const config = this.store.get();
     if (this.closing || !config?.enabled || !config.triggers.user)
       throw new Error("Assistant messaging is disabled");
@@ -625,7 +625,7 @@ export class HostAssistant {
     return !!leadId && (this.store.createdSession(leadId) ||
       (!config.policy.excludedSessionIds?.includes(sessionId) && isWatchedSession(config.policy, config.watches, projectId, leadId)));
   }
-  checkSessionAccess(permission: AssistantPermission, projectId?: string, sessionId?: string): void {
+  checkSessionAccess(permission: BotPermission, projectId?: string, sessionId?: string): void {
     checkPolicy(this.store.get()!.policy, permission, projectId);
     if (projectId && sessionId &&
         ((permission.startsWith("sessions.") && !["sessions.read", "sessions.create"].includes(permission)) || permission === "orchestration.control") &&
@@ -671,7 +671,7 @@ export class HostAssistant {
     void this.tick().catch((error) => this.fail(error));
     return result;
   }
-  async validatePatch(rawPatch: unknown, current: AssistantRecord | null = this.store.get()): Promise<AssistantPatch> {
+  async validatePatch(rawPatch: unknown, current: BotThreadRecord | null = this.store.get()): Promise<BotPatch> {
     const patch = { ...object(rawPatch) };
     fields(patch, [
       "name",
@@ -716,14 +716,14 @@ export class HostAssistant {
       fields(tools, ["enabledActions", "computer"]);
       if ((tools.computer !== undefined && typeof tools.computer !== "boolean") ||
           (tools.enabledActions !== undefined && (!Array.isArray(tools.enabledActions) ||
-            tools.enabledActions.some(action => !ASSISTANT_ACTIONS.includes(action as never)) ||
+            tools.enabledActions.some(action => !BOT_ACTIONS.includes(action as never)) ||
             new Set(tools.enabledActions).size !== tools.enabledActions.length))) throw new Error("Invalid Bot tools configuration");
     }
     if (patch.persona !== undefined) {
       const persona = object(patch.persona);
       fields(persona, ["preset", "style", "userName"]);
       if (
-        !ASSISTANT_PERSONA_PRESETS.includes(persona.preset as never) ||
+        !BOT_PERSONA_PRESETS.includes(persona.preset as never) ||
         typeof persona.style !== "string" ||
         persona.style.length > 4000 ||
         persona.style.includes("\0") ||
@@ -773,16 +773,16 @@ export class HostAssistant {
     }
     if (patch.policy !== undefined) {
       patch.policy = validatePolicy(patch.policy);
-      const scope = (patch.policy as AssistantPatch["policy"])!.allowedProjects;
+      const scope = (patch.policy as BotPatch["policy"])!.allowedProjects;
       if (scope !== "all")
         for (const project of scope)
           if (this.engine.store.project(project).kind)
             throw new Error("Invalid project scope");
-      const followedProjects = (patch.policy as AssistantPatch["policy"])!.followedProjects;
+      const followedProjects = (patch.policy as BotPatch["policy"])!.followedProjects;
       if (followedProjects && followedProjects !== "all")
         for (const project of followedProjects)
           if (this.engine.store.project(project).kind) throw new Error("Invalid followed projects");
-      for (const ref of (patch.policy as AssistantPatch["policy"])!.followedSessions ?? []) {
+      for (const ref of (patch.policy as BotPatch["policy"])!.followedSessions ?? []) {
         if (current && isExplicitlyWatchedSession(current.policy, ref.projectId, ref.sessionId)) continue;
         const target = this.engine.store.session(ref.sessionId);
         if (target.projectId !== ref.projectId || target.session.assistantOwnerId || this.engine.store.project(ref.projectId).kind)
@@ -877,7 +877,7 @@ export class HostAssistant {
           this.engine.store.session(id(session));
       }
     }
-    return patch as AssistantPatch;
+    return patch as BotPatch;
   }
   private async configure(raw: Record<string, unknown>): Promise<unknown> {
     fields(raw, ["commandId", "expectedRevision", "patch"]);
@@ -914,7 +914,7 @@ export class HostAssistant {
     }
     return this.engine.store.transaction(() => {
       const { workingDirectory, ...configuration } = patch;
-      if (!current) this.store.initialize(patch as AssistantPatch);
+      if (!current) this.store.initialize(patch as BotPatch);
       else
         this.store.update(
           {
@@ -1008,7 +1008,7 @@ export class HostAssistant {
       }
     });
   }
-  private updateRun(patch: Parameters<AssistantStore["bots"]["updateRun"]>[2]): void {
+  private updateRun(patch: Parameters<BotThreadStore["bots"]["updateRun"]>[2]): void {
     if (this.activeRun) this.activeRun = this.store.bots.updateRun(this.store.scope, this.activeRun.id, patch);
   }
   private finishRun(status: BotRunStatus, error?: string): void {
@@ -1162,9 +1162,9 @@ export class HostAssistant {
             if (config!.policy.excludedSessionIds?.includes(source.sessionId)) continue;
             const managed = isWatchedSession(config!.policy, config!.watches, source.projectId, source.sessionId);
             const watches = config!.watches.filter((w) =>
-              w.eventKinds.includes(source.kind as AssistantEventKind) &&
+              w.eventKinds.includes(source.kind as BotEventKind) &&
               watchIncludesSession(w, source.projectId, source.sessionId, managed));
-            if (!hasAssistantPermission(config!.policy, "sessions.read", source.projectId) ||
+            if (!hasBotPermission(config!.policy, "sessions.read", source.projectId) ||
                 !watches.length) continue;
             const group = groups.get(source.rootCauseId) ?? [];
             group.push(source);
@@ -1179,7 +1179,7 @@ export class HostAssistant {
                     w.enabled &&
                     group.some(
                       (s) =>
-                        w.eventKinds.includes(s.kind as AssistantEventKind) &&
+                        w.eventKinds.includes(s.kind as BotEventKind) &&
                         watchIncludesSession(w, s.projectId, s.sessionId, isWatchedSession(config!.policy, config!.watches, s.projectId, s.sessionId)),
                     ),
                 )
@@ -1337,7 +1337,7 @@ export class HostAssistant {
       const prompt = buildBrainPrompt({
         config,
         launcher,
-        actions: config.tools?.enabledActions ?? ASSISTANT_ACTIONS,
+        actions: config.tools?.enabledActions ?? BOT_ACTIONS,
         // The claimed wakeup also carries queued messages merged into it.
         wakeup: this.active.kind === "event" ? this.withEventBriefs(this.active, config) : this.active,
         messages,
@@ -1383,8 +1383,8 @@ export class HostAssistant {
   }
   private liveChain(
     root: string,
-    config: AssistantRecord,
-  ): ReturnType<AssistantStore["chain"]> {
+    config: BotThreadRecord,
+  ): ReturnType<BotThreadStore["chain"]> {
     const chain = this.store.chain(root);
     return !chain.paused &&
       Date.now() - chain.startedAt >= config.chainWindowMinutes * 60000
@@ -1394,10 +1394,10 @@ export class HostAssistant {
   /** Other pending events that may share this turn without exceeding their own task limits. */
   private joiningEvents(
     wakeup: Wakeup,
-    config: AssistantRecord,
-  ): Map<string, { rootCauseId: string; chain: ReturnType<AssistantStore["chain"]> }> {
-    const joining = new Map<string, { rootCauseId: string; chain: ReturnType<AssistantStore["chain"]> }>();
-    const chains = new Map<string, ReturnType<AssistantStore["chain"]>>();
+    config: BotThreadRecord,
+  ): Map<string, { rootCauseId: string; chain: ReturnType<BotThreadStore["chain"]> }> {
+    const joining = new Map<string, { rootCauseId: string; chain: ReturnType<BotThreadStore["chain"]> }>();
+    const chains = new Map<string, ReturnType<BotThreadStore["chain"]>>();
     let refs = wakeup.refs?.length ?? 0;
     for (const other of this.store.pending()) {
       if (joining.size >= MAX_JOINED_EVENTS) break;
@@ -1421,7 +1421,7 @@ export class HostAssistant {
     return joining;
   }
   /** Adds the followed conversations' current outcome; not persisted, so retries read fresh state. */
-  private withEventBriefs(wakeup: Wakeup, config: AssistantRecord): Wakeup {
+  private withEventBriefs(wakeup: Wakeup, config: BotThreadRecord): Wakeup {
     const sessions: HostSession[] = [];
     for (const sessionId of (wakeup.refs ?? []).slice(0, MAX_EVENT_BRIEFS)) {
       try {
@@ -1429,7 +1429,7 @@ export class HostAssistant {
         if (
           !target.session.assistantOwnerId &&
           !config.policy.excludedSessionIds?.includes(sessionId) &&
-          hasAssistantPermission(config.policy, "sessions.read", target.projectId)
+          hasBotPermission(config.policy, "sessions.read", target.projectId)
         )
           sessions.push(target);
       } catch {
@@ -1495,7 +1495,7 @@ export class HostAssistant {
       const inputs = this.store
         .latestMessages()
         .filter(
-          (m): m is Extract<AssistantMessage, { kind: "input" }> =>
+          (m): m is Extract<BotMessage, { kind: "input" }> =>
             m.kind === "input" && !m.resolved,
         );
       for (const input of inputs)

@@ -11,14 +11,14 @@ it("backs off exponentially and bounds retry time", () => {
 });
 it("claims a missed schedule once and does not run while paused", async () => {
   const { HostStore } = await import("../../store");
-  const { AssistantStore } = await import("./store");
+  const { BotThreadStore } = await import("./store");
   const { enqueueSchedules } = await import("./scheduler");
   const { mkdtempSync, rmSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
   const dir = mkdtempSync(join(tmpdir(), "schedule-"));
   const host = new HostStore(join(dir, "host.db"));
-  const store = new AssistantStore(host);
+  const store = new BotThreadStore(host);
   try {
     store.initialize({
       harness: "codex",
@@ -50,14 +50,14 @@ it("claims a missed schedule once and does not run while paused", async () => {
 });
 it("runs a due habit once in its time zone and skips runs missed past the grace", async () => {
   const { HostStore } = await import("../../store");
-  const { AssistantStore } = await import("./store");
+  const { BotThreadStore } = await import("./store");
   const { enqueueSchedules } = await import("./scheduler");
   const { mkdtempSync, rmSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
   const dir = mkdtempSync(join(tmpdir(), "habit-"));
   const host = new HostStore(join(dir, "host.db"));
-  const store = new AssistantStore(host);
+  const store = new BotThreadStore(host);
   try {
     store.initialize({ harness: "codex", model: "test", timezone: "Asia/Shanghai" });
     // Weekdays at 09:00 Shanghai; Monday 2026-10-05 09:00 is 01:00 UTC.

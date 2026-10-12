@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { AssistantRpc } from "../model/assistantClient";
-import { assistantErrorMessage } from "../model/assistantErrors";
+import type { BotRpc } from "../model/botRpc";
+import { botErrorMessage } from "../model/botErrors";
 import type { BotModelOverride, BotThread, BotView } from "../model/bots";
 import type { HostModelCatalog, RemoteProvider } from "../../connections/model/protocol";
 import { carryModelSettings, findRemoteModel, remoteModelControls } from "../../connections/model/remoteModels";
@@ -12,7 +12,7 @@ import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 
 type Props = {
-  bot: BotView; thread: BotThread; defaultBotId?: string; rpc: AssistantRpc;
+  bot: BotView; thread: BotThread; defaultBotId?: string; rpc: BotRpc;
   onSaved: () => Promise<unknown>; onArchiveBot: () => Promise<void>; onArchiveThread: () => Promise<void>;
 };
 const signature = (title: string, override?: BotModelOverride) => JSON.stringify([title, override ?? null]);
@@ -38,7 +38,7 @@ export function DesktopBotThreadSettings({ bot, thread, defaultBotId, rpc, onSav
   }, [thread, dirty, busy]);
   const loadModels = async () => {
     try { setCatalog(await rpc<HostModelCatalog>("models.list")); setCatalogError(undefined); }
-    catch (cause) { setCatalogError(assistantErrorMessage(cause)); }
+    catch (cause) { setCatalogError(botErrorMessage(cause)); }
   };
   useEffect(() => { if (visible && open && override && !catalog && !catalogError) void loadModels(); }, [visible, open, !!override, rpc]);
   const save = async () => {
@@ -51,12 +51,12 @@ export function DesktopBotThreadSettings({ bot, thread, defaultBotId, rpc, onSav
       const saved = await rpc<BotThread>("botThreads.configure", { botId: bot.id, threadId: thread.id, commandId: command.current.id, expectedRevision: base.revision, patch });
       await onSaved();
       setBase(saved); setTitle(saved.title); setOverride(saved.modelOverride); command.current = undefined;
-    } catch (cause) { setError(assistantErrorMessage(cause)); }
+    } catch (cause) { setError(botErrorMessage(cause)); }
     finally { setBusy(false); }
   };
   const archive = async (action: () => Promise<void>) => {
     setBusy(true); setError(undefined);
-    try { await action(); } catch (cause) { setError(assistantErrorMessage(cause)); }
+    try { await action(); } catch (cause) { setError(botErrorMessage(cause)); }
     finally { setBusy(false); }
   };
   const selectModel = (harness: RemoteProvider, model: string) => {

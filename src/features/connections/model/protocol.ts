@@ -198,7 +198,7 @@ export type HostSessionActivity = {
   environmentId: string;
   sessions: HostSessionSummary[];
   /** Public assistant messages; absent on older Hosts. */
-  assistant?: import("../../bots/model/assistantNotifications").AssistantNotificationActivity | null;
+  assistant?: import("../../bots/model/botNotifications").BotNotificationActivity | null;
 };
 
 export type RemoteAttachment = {

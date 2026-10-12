@@ -18,7 +18,7 @@ import { HostEngine } from "../../engine";
 import { attachmentPath, writeAttachmentChunk } from "../../attachments";
 import * as worktrees from "../../git-worktrees";
 import type { HostProvider } from "../../providers";
-import { executeAssistantAction } from "./control";
+import { executeBotAction } from "./control";
 import { assertReplyAttachmentAccess } from "./attachments";
 import type { RemoteAttachment } from "../../../src/features/connections/model/protocol";
 
@@ -78,7 +78,7 @@ async function setup() {
   });
   await vi.waitFor(() => expect(provider.send).toHaveBeenCalledOnce());
   const publish = (requestId: string, input: Record<string, unknown>) =>
-    executeAssistantAction(
+    executeBotAction(
       engine.assistant,
       requestId,
       "reply.attachments",
@@ -391,7 +391,7 @@ it("rechecks file access after async resolution and when inspecting a queued pub
     /Permission denied/,
   );
   await expect(
-    executeAssistantAction(
+    executeBotAction(
       engine.assistant,
       "inspect",
       "actions.get",

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AssistantRpc } from "../model/assistantClient";
+import type { BotRpc } from "../model/botRpc";
 import type { BotDelegation, BotDelegations, BotScope, BotsSnapshot } from "../model/bots";
-import { assistantErrorMessage } from "../model/assistantErrors";
+import { botErrorMessage } from "../model/botErrors";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
@@ -9,13 +9,13 @@ import { Bot, ChevronRight } from "../../../shared/ui/icons";
 import "./desktop-bot-delegations.css";
 
 type Names = Readonly<Record<string, string>>;
-type ScopedProps = { scope: BotScope; rpc: AssistantRpc; botNames?: Names; onOpenThread?: (scope: BotScope) => void };
+type ScopedProps = { scope: BotScope; rpc: BotRpc; botNames?: Names; onOpenThread?: (scope: BotScope) => void };
 const labels: Record<BotDelegation["status"], string> = { running: "Running", completed: "Completed", busy: "Bot busy", failed: "Failed", cancelled: "Cancelled", timed_out: "Timed out", interrupted: "Interrupted" };
 const matches = (a: { botId: string; threadId?: string }, b: BotScope) => a.botId === b.botId && a.threadId === b.threadId;
 const belongs = (value: BotDelegation, scope: BotScope) => matches(value.source, scope) || matches(value.target, scope);
 const merge = (rows: BotDelegation[], next: BotDelegation[]) => [...new Map([...rows, ...next].map(value => [value.id, value])).values()].sort((a, b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id));
 
-function useBotNames(rpc: AssistantRpc, supplied?: Names): Names {
+function useBotNames(rpc: BotRpc, supplied?: Names): Names {
   const visible = useSurfaceVisibility(), [names, setNames] = useState<Names>({});
   useEffect(() => {
     if (!visible || supplied) return;
@@ -54,7 +54,7 @@ function Delegations({ scope, rpc, botNames, onOpenThread }: ScopedProps) {
       } while (oldest && result.hasMore && before && (before.createdAt > oldest.createdAt || (before.createdAt === oldest.createdAt && before.id > oldest.id)));
       const last = collected.at(-1);
       boundary.current = last ? { createdAt: last.createdAt, id: last.id } : undefined; setRows(collected); setPage(result); setError(undefined);
-    } catch (cause) { if (alive.current && request === sequence.current) setError(assistantErrorMessage(cause)); }
+    } catch (cause) { if (alive.current && request === sequence.current) setError(botErrorMessage(cause)); }
     finally { inFlight.current = false; }
   }, [rpc, scope.botId, scope.threadId]);
   useEffect(() => {
@@ -75,7 +75,7 @@ function Delegations({ scope, rpc, botNames, onOpenThread }: ScopedProps) {
         if (last) boundary.current = { createdAt: last.createdAt, id: last.id };
         setRows(current => merge(current, incoming)); setPage(result); setError(undefined);
       }
-    } catch (cause) { if (alive.current && request === sequence.current) setError(assistantErrorMessage(cause)); }
+    } catch (cause) { if (alive.current && request === sequence.current) setError(botErrorMessage(cause)); }
     finally { inFlight.current = false; if (alive.current) setLoading(false); }
   };
   return <section className="desktop-bot-delegations" aria-label={t("Delegations")}>
@@ -102,7 +102,7 @@ function Card({ scope, rpc, delegationId, revision, botNames, onOpenThread }: Sc
       if (!alive.current || request !== sequence.current) return;
       if (next.id !== delegationId || !belongs(next, scope)) { setValue(undefined); setError("Delegation unavailable in this thread"); return; }
       setValue(next); setError(undefined);
-    } catch (cause) { if (alive.current && request === sequence.current) setError(assistantErrorMessage(cause)); }
+    } catch (cause) { if (alive.current && request === sequence.current) setError(botErrorMessage(cause)); }
   }, [rpc, scope.botId, scope.threadId, delegationId]);
   useEffect(() => {
     if (!visible) return;
@@ -116,7 +116,7 @@ function Card({ scope, rpc, delegationId, revision, botNames, onOpenThread }: Sc
 }
 
 function Delegation({ value, scope, rpc, names, onRefresh, onOpenThread }: {
-  value: BotDelegation; scope: BotScope; rpc: AssistantRpc; names: Names; onRefresh: () => Promise<void>; onOpenThread?: (scope: BotScope) => void;
+  value: BotDelegation; scope: BotScope; rpc: BotRpc; names: Names; onRefresh: () => Promise<void>; onOpenThread?: (scope: BotScope) => void;
 }) {
   const { t } = useTranslation(), visible = useSurfaceVisibility();
   const [expanded, setExpanded] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState<string>();
@@ -127,7 +127,7 @@ function Delegation({ value, scope, rpc, names, onRefresh, onOpenThread }: {
     try {
       await rpc("botDelegations.cancel", { botId: scope.botId, threadId: scope.threadId, delegationId: value.id, commandId: command.current });
       await onRefresh(); command.current = undefined;
-    } catch (cause) { setError(assistantErrorMessage(cause)); }
+    } catch (cause) { setError(botErrorMessage(cause)); }
     finally { setBusy(false); }
   };
   if (!belongs(value, scope)) return null;

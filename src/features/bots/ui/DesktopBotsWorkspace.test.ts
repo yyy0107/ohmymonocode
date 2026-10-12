@@ -3,7 +3,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { DesktopBotsWorkspace } from "./DesktopBotsWorkspace";
-import { fullAssistantPolicy, type AssistantMessage } from "../model/assistant";
+import { fullBotPolicy, type BotMessage } from "../model/botView";
 import { botCacheKey, type BotView, type BotThread, type BotsSnapshot } from "../model/bots";
 import type { BotTeam } from "../model/botTeams";
 import type { BotRoom, BotRoomRound } from "../model/botRooms";
@@ -13,12 +13,12 @@ let node: HTMLDivElement, root: Root;
 const bot = (id: string): BotView => ({
   id, name: id, defaultThreadId: `${id}-1`, createdAt: 1, updatedAt: 1, revision: 1, chatRevision: 0,
   lifecycle: "idle", enabled: true, harness: "codex", model: "default-model", modelSettings: {},
-  runtimeMode: "full-access", targetRuntimeMode: "full-access", policy: fullAssistantPolicy(), policyVersion: 1,
+  runtimeMode: "full-access", targetRuntimeMode: "full-access", policy: fullBotPolicy(), policyVersion: 1,
   triggers: { user: true, event: false, schedule: false }, schedules: [], watches: [], maxAutoTurns: 8, chainWindowMinutes: 15, brainGeneration: 1,
 });
 const thread = (botId: string, id: string): BotThread => ({ botId, id, title: id, kind: "direct", createdAt: 1, updatedAt: 1, revision: 1, lifecycle: "idle", chatRevision: 0 });
 let snapshot: BotsSnapshot;
-let messages: Record<string, AssistantMessage[]>;
+let messages: Record<string, BotMessage[]>;
 let rpc: ReturnType<typeof vi.fn>;
 let memorySupported: boolean;
 let runtimeSupported: boolean;

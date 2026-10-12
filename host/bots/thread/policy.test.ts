@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { fullAssistantPolicy } from "../../../src/features/bots/model/assistant";
+import { fullBotPolicy } from "../../../src/features/bots/model/botView";
 import {
   checkPolicy,
   workspacePermission,
@@ -14,7 +14,7 @@ it("maps every workspace action and fails closed on future commands", () => {
   expect(workspacePermission("delete_path")).toBe("files.write");
 });
 it("blocks revoked permissions and project scope", () => {
-  const policy = fullAssistantPolicy();
+  const policy = fullBotPolicy();
   checkPolicy(policy, "sessions.send", "project");
   policy.permissions["sessions.send"] = false;
   expect(() => checkPolicy(policy, "sessions.send", "project")).toThrow(
@@ -25,7 +25,7 @@ it("blocks revoked permissions and project scope", () => {
 });
 it("rejects unknown policy fields and disabled missing permissions", () => {
   expect(() =>
-    validatePolicy({ ...fullAssistantPolicy(), secret: true }),
+    validatePolicy({ ...fullBotPolicy(), secret: true }),
   ).toThrow();
   const policy = validatePolicy({ permissions: {}, allowedProjects: [] });
   expect(policy.permissions["sessions.send"]).toBe(false);
@@ -36,7 +36,7 @@ it("validates ongoing project follows and individual exclusions without enabling
   expect(policy.followedProjects).toEqual(["p1", "p2"]);
   expect(policy.excludedSessionIds).toEqual(["s"]);
   expect(() => checkPolicy(policy, "sessions.send", "p1")).toThrow(/Permission/);
-  expect(validatePolicy({ ...fullAssistantPolicy(), followedProjects: "all" }).followedProjects).toBe("all");
+  expect(validatePolicy({ ...fullBotPolicy(), followedProjects: "all" }).followedProjects).toBe("all");
   for (const patch of [{ followedProjects: true }, { followedProjects: [""] }, { excludedSessionIds: "all" }, { excludedSessionIds: [false] }])
-    expect(() => validatePolicy({ ...fullAssistantPolicy(), ...patch })).toThrow();
+    expect(() => validatePolicy({ ...fullBotPolicy(), ...patch })).toThrow();
 });

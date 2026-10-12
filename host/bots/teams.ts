@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { HostAssistant } from "./thread";
+import type { BotThreadRuntime } from "./thread";
 import { signature } from "./thread/store";
 import { fields, id, object } from "./thread/policy";
 import type { BotManager } from "./manager";
@@ -81,7 +81,7 @@ export class TeamService {
     this.manager.delegations.reconcile();
     return result;
   }
-  private chief(runtime: HostAssistant, teamId: string, botIds: string[]): void {
+  private chief(runtime: BotThreadRuntime, teamId: string, botIds: string[]): void {
     const run = runtime.currentRun, team = this.get(teamId);
     if (this.manager.assistant(runtime.store.scope) !== runtime || !run || !["running", "waiting_approval"].includes(run.status) ||
         this.manager.store.getThread(run.botId, run.threadId)?.kind === "delegation")
@@ -91,13 +91,13 @@ export class TeamService {
     if (botIds.some(botId => botId === run.botId || !team.memberBotIds.includes(botId)))
       throw new Error("Choose team members other than the Chief");
   }
-  async delegate(runtime: HostAssistant, requestId: string, raw: Record<string, unknown>): Promise<BotDelegation> {
+  async delegate(runtime: BotThreadRuntime, requestId: string, raw: Record<string, unknown>): Promise<BotDelegation> {
     fields(raw, ["teamId", "botId", "prompt", "timeoutMs"]);
     const teamId = id(raw.teamId, "team"), botId = id(raw.botId, "Bot"); this.chief(runtime, teamId, [botId]);
     const { teamId: _team, ...input } = raw;
     return this.manager.delegations.submit(runtime, requestId, input, { teamId, mode: "background" });
   }
-  async coordinate(runtime: HostAssistant, requestId: string, raw: Record<string, unknown>): Promise<BotCoordination> {
+  async coordinate(runtime: BotThreadRuntime, requestId: string, raw: Record<string, unknown>): Promise<BotCoordination> {
     fields(raw, ["teamId", "botIds", "prompt", "timeoutMs"]);
     const teamId = id(raw.teamId, "team"), botIds = raw.botIds, prompt = id(raw.prompt, "delegation prompt", 100_000);
     if (!Array.isArray(botIds) || !botIds.length || botIds.length > 10 || new Set(botIds).size !== botIds.length || botIds.some(botId => typeof botId !== "string"))

@@ -115,7 +115,7 @@ if (command === "list") {
     "native/brain.ts",
     "bin/public_eval.mjs",
     "../thread/prompt.ts",
-    "../../../src/features/bots/model/assistant.ts",
+    "../../../src/features/bots/model/botView.ts",
   ])
     implementationFiles[path] = createHash("sha256")
       .update(await readFile(join(root, path)))

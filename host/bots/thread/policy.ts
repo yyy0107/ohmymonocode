@@ -1,8 +1,8 @@
 import {
-  ASSISTANT_PERMISSIONS,
-  type AssistantPermission,
-  type AssistantPolicy,
-} from "../../../src/features/bots/model/assistant";
+  BOT_PERMISSIONS,
+  type BotPermission,
+  type BotPolicy,
+} from "../../../src/features/bots/model/botView";
 export function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new Error("Expected an object");
@@ -25,7 +25,7 @@ export function id(value: unknown, label = "ID", max = 128): string {
     throw new Error(`Invalid ${label}`);
   return value;
 }
-export function validatePolicy(value: unknown): AssistantPolicy {
+export function validatePolicy(value: unknown): BotPolicy {
   const v = object(value);
   fields(v, [
     "permissions",
@@ -35,7 +35,7 @@ export function validatePolicy(value: unknown): AssistantPolicy {
     "excludedSessionIds",
   ]);
   const permissions = object(v.permissions);
-  fields(permissions, [...ASSISTANT_PERMISSIONS]);
+  fields(permissions, [...BOT_PERMISSIONS]);
   for (const setting of Object.values(permissions))
     if (typeof setting !== "boolean") throw new Error("Invalid permission");
   if (
@@ -93,8 +93,8 @@ export function validatePolicy(value: unknown): AssistantPolicy {
           }),
         }),
     permissions: Object.fromEntries(
-      ASSISTANT_PERMISSIONS.map((key) => [key, permissions[key] === true]),
-    ) as AssistantPolicy["permissions"],
+      BOT_PERMISSIONS.map((key) => [key, permissions[key] === true]),
+    ) as BotPolicy["permissions"],
     allowedProjects:
       v.allowedProjects === "all"
         ? "all"
@@ -102,8 +102,8 @@ export function validatePolicy(value: unknown): AssistantPolicy {
   };
 }
 export function checkPolicy(
-  policy: AssistantPolicy,
-  permission: AssistantPermission,
+  policy: BotPolicy,
+  permission: BotPermission,
   projectId?: string,
 ): void {
   if (!policy.permissions[permission])
@@ -115,7 +115,7 @@ export function checkPolicy(
   )
     throw new Error("Project scope denied");
 }
-const commands: Record<string, AssistantPermission> = {};
+const commands: Record<string, BotPermission> = {};
 for (const key of [
   "list_dir",
   "list_project_files",
@@ -169,12 +169,12 @@ for (const key of [
   commands[key] = "git.write";
 for (const key of ["git_push", "git_pull", "git_sync", "git_pr_create"])
   commands[key] = "git.publish";
-export function workspacePermission(command: string): AssistantPermission {
+export function workspacePermission(command: string): BotPermission {
   if (!Object.hasOwn(commands, command))
     throw new Error("Unsupported workspace command");
   return commands[command];
 }
-export function actionPermission(action: string): AssistantPermission {
+export function actionPermission(action: string): BotPermission {
   if (["agents.list", "models.list"].includes(action)) return "catalog.read";
   if (action === "projects.list") return "projects.read";
   if (action === "projects.open") return "projects.open";
@@ -192,7 +192,7 @@ export function actionPermission(action: string): AssistantPermission {
   if (action === "sessions.compact") return "sessions.configure";
   if (action === "sessions.update") return "sessions.metadata";
   if (action.startsWith("orchestration.")) return "orchestration.control";
-  if ((ASSISTANT_PERMISSIONS as readonly string[]).includes(action))
-    return action as AssistantPermission;
+  if ((BOT_PERMISSIONS as readonly string[]).includes(action))
+    return action as BotPermission;
   throw new Error("Unsupported assistant action");
 }

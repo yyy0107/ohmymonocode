@@ -21,9 +21,9 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { useMarkdownMode } from "../../sessions/ui/MarkdownModeToggle";
-import { useDesktopAssistantHosts } from "../../bots/model/useDesktopAssistantHosts";
-import { useAssistantTopicNotes } from "../../bots/model/useAssistantTopicNotes";
-import { AssistantTopicNote } from "../../bots/ui/AssistantTopicNote";
+import { useDesktopBotsHosts } from "../../bots/model/useDesktopBotsHosts";
+import { useBotTopicNotes } from "../../bots/model/useBotTopicNotes";
+import { BotTopicNote } from "../../bots/ui/BotTopicNote";
 import { remoteRequest } from "../../connections/model/connections";
 import { ProjectLogoIcon } from "../../projects/ui/ProjectLogoIcon";
 import { ProjectMascot } from "../../projects/ui/ProjectMascot";
@@ -141,13 +141,13 @@ export function NotesView({
     );
   });
   const [creating, setCreating] = useState(false);
-  const hosts = useDesktopAssistantHosts();
+  const hosts = useDesktopBotsHosts();
   const topicSources = useMemo(() => hosts.map((host) => ({
     key: host.environmentId,
     name: host.name,
     rpc: <T,>(method: string, params?: object) => remoteRequest<T>(host.id, method, params),
   })), [hosts]);
-  const topics = useAssistantTopicNotes(topicSources, active);
+  const topics = useBotTopicNotes(topicSources, active);
   const [selectedTopicKey, setSelectedTopicKey] = useState<string>();
   const selectedTopic = topics.notes.find((note) => note.key === selectedTopicKey);
   const visibleTopics = topics.notes.filter((note) =>
@@ -402,7 +402,7 @@ export function NotesView({
         {list}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col pl-4">
           {selectedTopic ? (
-            <AssistantTopicNote key={selectedTopic.key} note={selectedTopic} active={active} />
+            <BotTopicNote key={selectedTopic.key} note={selectedTopic} active={active} />
           ) : <NoteDetail
             note={selected}
             recents={recents}

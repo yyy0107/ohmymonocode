@@ -1,4 +1,4 @@
-import type { AssistantMessage } from "../../../src/features/bots/model/assistant";
+import type { BotMessage } from "../../../src/features/bots/model/botView";
 import type { Session } from "../../../src/features/sessions/model/session";
 
 /**
@@ -70,7 +70,7 @@ export function rotationReason(
 type Exchange = { at: number; user: string; reply: string };
 
 /** User messages and what the assistant finally said after each. */
-function exchanges(messages: readonly AssistantMessage[]): Exchange[] {
+function exchanges(messages: readonly BotMessage[]): Exchange[] {
   const out: Exchange[] = [];
   for (const message of messages) {
     if (message.kind === "user") {
@@ -114,7 +114,7 @@ function newestWithin(lines: string[], budget: number): string[] {
  * chat without the current input. Empty when there is nothing to carry.
  */
 export function conversationBrief(
-  messages: readonly AssistantMessage[],
+  messages: readonly BotMessage[],
   when: (at: number) => string,
 ): string {
   const all = exchanges(messages);

@@ -7,7 +7,7 @@ import { HostEngine } from "../engine";
 import type { HostProvider } from "../providers";
 import type { SendTurnInput } from "../../src/integrations/harness/core/types";
 import type { BotRuns, BotScope, BotThread, BotView, BotsSnapshot } from "../../src/features/bots/model/bots";
-import { AssistantStore } from "./thread/store";
+import { BotThreadStore } from "./thread/store";
 import { BotStore } from "./store";
 import type { BotMemoryChange, BotMemoryDocument } from "../../src/features/bots/model/botMemory";
 
@@ -200,7 +200,7 @@ it("queues a shared execution directory without occupying another Bot's unrelate
 it("recovers queued inputs after restart while interrupting prior runs and preserving unknown side effects", async () => {
   const directory = mkdtempSync(join(tmpdir(), "bot-restart-")), store = new HostStore(join(directory, "host.db"));
   const bots = new BotStore(store), scope = bots.createBot({ harness: "codex", model: "test", triggers: { user: true, event: false, schedule: false } });
-  const assistant = new AssistantStore(store, scope);
+  const assistant = new BotThreadStore(store, scope);
   const old = assistant.receive("old", "Previously running task", []);
   const oldWakeup = assistant.wakeup(old.wakeupId!)!, run = bots.queuedRun(scope, oldWakeup);
   assistant.claim(oldWakeup.id);

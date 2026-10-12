@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import type { AssistantRpc } from "../model/assistantClient";
+import type { BotRpc } from "../model/botRpc";
 import type { BotView } from "../model/bots";
 import type { BotRoom } from "../model/botRooms";
-import { assistantErrorMessage } from "../model/assistantErrors";
+import { botErrorMessage } from "../model/botErrors";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { DesktopBotMembers } from "./DesktopBotMembers";
 import "./desktop-bot-collaboration.css";
 
-type Props = { rooms: BotRoom[]; bots: BotView[]; rpc: AssistantRpc; onSaved: () => Promise<unknown>; onOpenRoom: (id: string) => void };
+type Props = { rooms: BotRoom[]; bots: BotView[]; rpc: BotRpc; onSaved: () => Promise<unknown>; onOpenRoom: (id: string) => void };
 export function DesktopBotRooms({ rooms, bots, rpc, onSaved, onOpenRoom }: Props) {
   const { t } = useTranslation(), visible = useSurfaceVisibility();
   const [selected, setSelected] = useState<string>(), [visited, setVisited] = useState<string[]>([]), [version, setVersion] = useState(0);
@@ -29,7 +29,7 @@ export function DesktopBotRooms({ rooms, bots, rpc, onSaved, onOpenRoom }: Props
   </section>;
 }
 
-export function DesktopRoomEditor({ room, bots, rpc, onSaved }: { room?: BotRoom; bots: BotView[]; rpc: AssistantRpc; onSaved: (room: BotRoom) => Promise<unknown> }) {
+export function DesktopRoomEditor({ room, bots, rpc, onSaved }: { room?: BotRoom; bots: BotView[]; rpc: BotRpc; onSaved: (room: BotRoom) => Promise<unknown> }) {
   const { t } = useTranslation();
   const [base, setBase] = useState(room), [name, setName] = useState(room?.name ?? ""), [members, setMembers] = useState(room?.memberIds ?? []), [timeout, setMemberTimeout] = useState(String((room?.memberTimeoutMs ?? 240000) / 1000));
   const [busy, setBusy] = useState(false), [error, setError] = useState<string>();
@@ -47,14 +47,14 @@ export function DesktopRoomEditor({ room, bots, rpc, onSaved }: { room?: BotRoom
     if (command.current?.signature !== signature) command.current = { signature, id: crypto.randomUUID() };
     setBusy(true); setError(undefined);
     try { const result = await rpc<BotRoom>(method, { ...params, commandId: command.current.id }); await onSaved(result); adopt(result); command.current = undefined; }
-    catch (cause) { setError(assistantErrorMessage(cause)); }
+    catch (cause) { setError(botErrorMessage(cause)); }
     finally { setBusy(false); }
   };
   const reload = async () => {
     if (!base || busy) return;
     setBusy(true);
     try { const next = await rpc<{ room: BotRoom }>("botRooms.get", { roomId: base.id }); adopt(next.room); command.current = undefined; setError(undefined); }
-    catch (cause) { setError(assistantErrorMessage(cause)); }
+    catch (cause) { setError(botErrorMessage(cause)); }
     finally { setBusy(false); }
   };
   return <form className="desktop-bot-group-editor" aria-label={t(base ? "Room settings" : "New room")} onSubmit={event => { event.preventDefault(); void mutate("save"); }}>

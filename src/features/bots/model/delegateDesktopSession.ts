@@ -8,7 +8,7 @@ import {
   sharedHostMachineId,
 } from "../../connections/model/remoteProjects";
 import { delegateSession } from "./delegateSession";
-import { assistantErrorMessage } from "./assistantErrors";
+import { botErrorMessage } from "./botErrors";
 import { translate } from "../../../shared/i18n/language";
 import { showStatusToast } from "../../../shared/ui/StatusToast";
 
@@ -29,7 +29,7 @@ export async function delegateDesktopSession(
     if (!machineId)
       throw new Error("Cannot reach the Host. Check the connection and retry.");
   } catch (error) {
-    showStatusToast(translate(assistantErrorMessage(error)), "error");
+    showStatusToast(translate(botErrorMessage(error)), "error");
     return;
   }
   await delegateSession(

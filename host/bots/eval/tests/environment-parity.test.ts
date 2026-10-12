@@ -7,7 +7,7 @@ import { toolErrorRecovery, toolDefinitions } from "../src/tools";
 import { searchMemory } from "../../thread/memory";
 import { HostStore } from "../../../store";
 import { HostEngine } from "../../../engine";
-import { executeAssistantAction } from "../../thread/control";
+import { executeBotAction } from "../../thread/control";
 import { DecisionSchema, type Scenario, type Decision } from "../src/schema";
 import { emptyUsage, type CompletionAdapter } from "../src/adapters";
 import { evaluate } from "../src/scoring";
@@ -78,7 +78,7 @@ it("reproduces whole-query mismatch against searchMemory and temporary native Ho
   engine.assistant.store.initialize({ harness: "codex", model: "test" });
   for (const doc of files)
     engine.assistant.store.writeMemoryDoc(doc.file, doc.text);
-  const native = await executeAssistantAction(
+  const native = await executeBotAction(
     engine.assistant,
     "native-search",
     "memory.search",
@@ -97,7 +97,7 @@ it("reproduces whole-query mismatch against searchMemory and temporary native Ho
     { query: "editor", since: "2026-10-08" },
   ].entries()) {
     expect(env().call(call("memory.search", input))).toEqual(
-      await executeAssistantAction(
+      await executeBotAction(
         engine.assistant,
         `native-${index}`,
         "memory.search",

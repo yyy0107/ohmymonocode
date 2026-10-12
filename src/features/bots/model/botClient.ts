@@ -1,9 +1,9 @@
-import type { AssistantRpc } from "./assistantClient";
+import type { BotRpc } from "./botRpc";
 import type { BotScope } from "./bots";
 import type { HostDescriptor } from "../../connections/model/protocol";
 
 /** Adapt the existing chat renderer without changing the Host connection identity. */
-export function scopedBotRpc(rpc: AssistantRpc, scope: BotScope, defaultScope: boolean): AssistantRpc {
+export function scopedBotRpc(rpc: BotRpc, scope: BotScope, defaultScope: boolean): BotRpc {
   return async <T,>(method: string, params?: object): Promise<T> => {
     if (method === "environment.describe") {
       const descriptor = await rpc<HostDescriptor>(method, params);

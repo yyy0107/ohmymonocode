@@ -1,4 +1,4 @@
-import type { AssistantPlaybook } from "../../../src/features/bots/model/assistant";
+import type { BotPlaybook } from "../../../src/features/bots/model/botView";
 import { redactSecrets } from "./memory";
 import { bm25Scores, tokenizeMemorySearch } from "./memorySearch";
 
@@ -13,7 +13,7 @@ export const MAX_PLAYBOOKS = 50;
 const MAX_DESCRIPTION_CHARS = 300;
 export const MAX_PLAYBOOK_BYTES = 32 * 1024;
 
-export type Playbook = AssistantPlaybook;
+export type Playbook = BotPlaybook;
 export type PlaybookSummary = Omit<Playbook, "body">;
 
 export function playbookName(value: unknown): string {

@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { AssistantRpc } from "../model/assistantClient";
+import type { BotRpc } from "../model/botRpc";
 import type { BotMemoryChange, BotMemoryDocument, BotMemoryKind, BotMemoryList } from "../model/botMemory";
 import { BotMemoryDrafts } from "../model/botMemoryDrafts";
-import { assistantErrorMessage } from "../model/assistantErrors";
+import { botErrorMessage } from "../model/botErrors";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 
 const kinds: [BotMemoryKind, string][] = [["soul", "Identity"], ["resident", "Resident memory"], ["topic", "Topics"], ["archive", "Archive"], ["log", "Logs"], ["playbook", "Playbooks"]];
 const isConflict = (error: unknown) => (error as { code?: string })?.code === "MEMORY_CONFLICT"
-  || /MEMORY_CONFLICT|changed elsewhere/i.test(assistantErrorMessage(error));
+  || /MEMORY_CONFLICT|changed elsewhere/i.test(botErrorMessage(error));
 
-export function DesktopBotMemory({ botId, rpc, drafts }: { botId: string; rpc: AssistantRpc; drafts: BotMemoryDrafts }) {
+export function DesktopBotMemory({ botId, rpc, drafts }: { botId: string; rpc: BotRpc; drafts: BotMemoryDrafts }) {
   const { t } = useTranslation();
   const visible = useSurfaceVisibility();
   const state = useSyncExternalStore(drafts.subscribe, () => drafts.get(botId));
@@ -44,7 +44,7 @@ export function DesktopBotMemory({ botId, rpc, drafts }: { botId: string; rpc: A
   const load = useCallback(async () => {
     setLoading(true); setError(undefined);
     try { await Promise.all([list(), read(path)]); }
-    catch (cause) { setError(assistantErrorMessage(cause)); }
+    catch (cause) { setError(botErrorMessage(cause)); }
     finally { setLoading(false); }
   }, [list, read, path]);
   useEffect(() => { if (visible) void load(); }, [visible, load]);
@@ -55,7 +55,7 @@ export function DesktopBotMemory({ botId, rpc, drafts }: { botId: string; rpc: A
       const result = await rpc<BotMemoryChange[]>("botMemory.log", { botId, path, limit: 30 });
       if (currentPath.current === path && historyRequest.current === request) setHistory(result);
     } catch (cause) {
-      if (currentPath.current === path && historyRequest.current === request) setHistoryError(assistantErrorMessage(cause));
+      if (currentPath.current === path && historyRequest.current === request) setHistoryError(botErrorMessage(cause));
     }
   }, [botId, path, rpc]);
   useEffect(() => {
@@ -79,13 +79,13 @@ export function DesktopBotMemory({ botId, rpc, drafts }: { botId: string; rpc: A
       if (historyOpen) void loadHistory();
     } catch (cause) {
       const conflict = isConflict(cause);
-      drafts.draft(botId, path, (value) => ({ ...value!, busy: false, conflict, error: conflict ? undefined : assistantErrorMessage(cause) }));
+      drafts.draft(botId, path, (value) => ({ ...value!, busy: false, conflict, error: conflict ? undefined : botErrorMessage(cause) }));
       if (conflict) {
         // Loading the competing version never replaces the local text.
         try {
           const latest = await rpc<BotMemoryDocument>("botMemory.read", { botId, path });
           drafts.draft(botId, path, (value) => ({ ...value!, latest }));
-        } catch (error) { setError(assistantErrorMessage(error)); }
+        } catch (error) { setError(botErrorMessage(error)); }
       }
     }
   };
@@ -97,7 +97,7 @@ export function DesktopBotMemory({ botId, rpc, drafts }: { botId: string; rpc: A
       await read(next);
       drafts.update(botId, (value) => ({ ...value, path: next }));
       setNewTopic(false); setTopic("");
-    } catch (cause) { setError(assistantErrorMessage(cause)); }
+    } catch (cause) { setError(botErrorMessage(cause)); }
     finally { setLoading(false); }
   };
   return <section className="desktop-bots-memory" aria-label={t("Memory files")}>

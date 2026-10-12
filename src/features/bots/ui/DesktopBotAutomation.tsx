@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AssistantRpc } from "../model/assistantClient";
-import type { AssistantPatch } from "../model/assistant";
+import type { BotRpc } from "../model/botRpc";
+import type { BotPatch } from "../model/botView";
 import type { BotView } from "../model/bots";
 import type { HostModelCatalog, HostProject, HostSessionSummary } from "../../connections/model/protocol";
-import { assistantErrorMessage } from "../model/assistantErrors";
-import { AssistantSettings } from "./AssistantSettings";
+import { botErrorMessage } from "../model/botErrors";
+import { BotSettings } from "./BotSettings";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import "./desktop-bot-details.css";
 
 /** A separate revisioned draft for schedules/follow rules, with existing live habit controls. */
-type Props = { bot: BotView; rpc: AssistantRpc; onSaved: () => void };
+type Props = { bot: BotView; rpc: BotRpc; onSaved: () => void };
 export function DesktopBotAutomation(props: Props) {
   return <Automation key={props.bot.id} {...props} />;
 }
@@ -28,10 +28,10 @@ function Automation({ bot, rpc, onSaved }: Props) {
     try {
       const [nextCatalog, nextProjects] = await Promise.all([rpc<HostModelCatalog>("models.list"), rpc<HostProject[]>("projects.list")]);
       if (alive.current) { setCatalog(nextCatalog); setProjects(nextProjects); setCatalogState("ready"); }
-    } catch (cause) { if (alive.current) { setCatalogState("failed"); setError(assistantErrorMessage(cause)); } }
+    } catch (cause) { if (alive.current) { setCatalogState("failed"); setError(botErrorMessage(cause)); } }
   }, [rpc]);
   useEffect(() => { if (visible && catalogState === "loading") void load(); }, [visible, load]);
-  const save = async (patch: AssistantPatch) => {
+  const save = async (patch: BotPatch) => {
     if (busy) return;
     const signature = JSON.stringify([bot.id, base.revision, patch]);
     if (command.current?.signature !== signature) command.current = { signature, id: crypto.randomUUID() };
@@ -40,7 +40,7 @@ function Automation({ bot, rpc, onSaved }: Props) {
       const receipt = await rpc<{ revision: number }>("bots.configure", { botId: bot.id, commandId: command.current.id, expectedRevision: base.revision, patch });
       setBase(current => ({ ...current, ...patch, workingDirectory: current.workingDirectory, revision: receipt.revision }));
       setVersion(value => value + 1); command.current = undefined; onSaved();
-    } catch (cause) { setError(assistantErrorMessage(cause)); }
+    } catch (cause) { setError(botErrorMessage(cause)); }
     finally { setBusy(false); }
   };
   const reload = async () => {
@@ -48,7 +48,7 @@ function Automation({ bot, rpc, onSaved }: Props) {
     setBusy(true); setError(undefined);
     try {
       const latest = await rpc<BotView>("bots.get", { botId: bot.id }); setBase(latest); setVersion(value => value + 1); command.current = undefined;
-    } catch (cause) { setError(assistantErrorMessage(cause)); }
+    } catch (cause) { setError(botErrorMessage(cause)); }
     finally { setBusy(false); }
   };
   const control = async (input: Record<string, unknown>) => {
@@ -63,7 +63,7 @@ function Automation({ bot, rpc, onSaved }: Props) {
   return <section className="desktop-bot-automation" aria-label={t("Bot automation")}>
     <header><button type="button" disabled={busy} onClick={() => void reload()}>{t("Reload saved configuration")}</button></header>
     {error && <p role="alert">{t(error)}</p>}
-    <AssistantSettings key={`${bot.id}:${version}`} panel="automation" value={base} catalog={catalog} catalogState={catalogState} onRetryCatalog={() => void load()} projects={projects} loadSessions={loadSessions} busy={busy}
+    <BotSettings key={`${bot.id}:${version}`} panel="automation" value={base} catalog={catalog} catalogState={catalogState} onRetryCatalog={() => void load()} projects={projects} loadSessions={loadSessions} busy={busy}
       onSave={save} reminders={bot.reminders} onCancelReminder={reminderId => control({ action: "cancelReminder", reminderId })}
       habits={{ items: bot.habits ?? [], timeZone: bot.timezone ?? "UTC", control: input => control(input) }} />
   </section>;

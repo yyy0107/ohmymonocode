@@ -1,5 +1,5 @@
 /** Optional v1 codes supplement the existing human-readable Host error. */
-export function assistantErrorCode(error: unknown): string {
+export function botErrorCode(error: unknown): string {
   if (error instanceof Error && "code" in error && error.code === "MEMORY_CONFLICT")
     return "MEMORY_CONFLICT";
   const message = error instanceof Error ? error.message : String(error);

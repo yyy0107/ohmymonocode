@@ -1,14 +1,14 @@
 import { dirname, join } from "node:path";
 import type { HostEngine } from "../engine";
-import { HostAssistant, type AssistantRuntimeOptions } from "./thread";
-import { AssistantStore, signature } from "./thread/store";
+import { BotThreadRuntime, type BotThreadRuntimeOptions } from "./thread";
+import { BotThreadStore, signature } from "./thread/store";
 import { fields, id, object } from "./thread/policy";
 import { BotStore } from "./store";
 import { HostResourceGuard } from "./resources";
 import { DelegationService } from "./delegations";
 import { RoomService } from "./rooms";
 import { TeamService } from "./teams";
-import type { AssistantRecord } from "./thread/store";
+import type { BotThreadRecord } from "./thread/store";
 import type { BotRun, BotScope, BotsSnapshot } from "../../src/features/bots/model/bots";
 import type { HostModelCatalog, HostSession, RemoteProvider } from "../../src/features/connections/model/protocol";
 import type { TurnOrigin } from "../../src/features/sessions/model/session";
@@ -18,12 +18,12 @@ const BOT_CONTROLS = new Set(["pause", "resume", "disable", "enable"]);
 /** Owns Host callbacks and routes every runtime through its durable Bot/Thread scope. */
 export class BotManager {
   readonly store: BotStore;
-  readonly defaultAssistant: HostAssistant;
+  readonly defaultAssistant: BotThreadRuntime;
   readonly delegations: DelegationService;
   readonly rooms: RoomService;
   readonly teams: TeamService;
   readonly ready: Promise<void>;
-  private readonly runtimes = new Map<string, HostAssistant>();
+  private readonly runtimes = new Map<string, BotThreadRuntime>();
   private readonly leases = new Map<string, Map<string, string>>();
   private readonly resources: HostResourceGuard;
   private readonly blocked = new Set<string>();
@@ -65,7 +65,7 @@ export class BotManager {
     readonly engine: HostEngine,
     private readonly providers: RemoteProvider[],
     private readonly parentReady: Promise<void>,
-    private readonly options: Pick<AssistantRuntimeOptions, "entry" | "node"> = {},
+    private readonly options: Pick<BotThreadRuntimeOptions, "entry" | "node"> = {},
   ) {
     this.store = new BotStore(engine.store);
     this.resources = new HostResourceGuard(engine.store);
@@ -90,13 +90,13 @@ export class BotManager {
 
   private key(scope: BotScope): string { return JSON.stringify([scope.botId, scope.threadId]); }
 
-  private createRuntime(scope: BotScope): HostAssistant {
+  private createRuntime(scope: BotScope): BotThreadRuntime {
     const key = this.key(scope);
     const existing = this.runtimes.get(key);
     if (existing) return existing;
-    const runtime = new HostAssistant(this.engine, this.providers, this.parentReady, {
+    const runtime = new BotThreadRuntime(this.engine, this.providers, this.parentReady, {
       ...this.options,
-      store: new AssistantStore(this.engine.store, this.store.getThread(scope.botId, scope.threadId) ? scope : undefined),
+      store: new BotThreadStore(this.engine.store, this.store.getThread(scope.botId, scope.threadId) ? scope : undefined),
       managed: {
         automatic: () => this.store.getBot(scope.botId)?.defaultThreadId === scope.threadId,
         acquire: (run, config) => this.acquire(scope, run, config),
@@ -120,7 +120,7 @@ export class BotManager {
     return runtime;
   }
 
-  private acquire(scope: BotScope, run: BotRun, config: AssistantRecord, admitting = false): boolean {
+  private acquire(scope: BotScope, run: BotRun, config: BotThreadRecord, admitting = false): boolean {
     const bot = this.store.getBot(scope.botId), thread = this.store.getThread(scope.botId, scope.threadId);
     if (this.closing || this.blocked.has(scope.botId) || this.blockedThreads.has(this.key(scope)) || !bot?.enabled || bot.paused ||
         !thread || bot.archivedAt !== undefined || thread.archivedAt !== undefined ||
@@ -148,7 +148,7 @@ export class BotManager {
     try {
       return this.engine.store.transaction(() => {
         const scope = this.store.createThread(botId, { kind: "delegation", title: `From ${sourceName}` });
-        const assistant = new AssistantStore(this.engine.store, scope);
+        const assistant = new BotThreadStore(this.engine.store, scope);
         const receipt = assistant.receive(`delegation:${delegationId}`, prompt, [], { kind: "automatic" });
         const run = this.store.queuedRun(scope, assistant.wakeup(receipt.wakeupId!)!);
         if (!this.acquire(scope, run, assistant.get()!, true)) throw busy;
@@ -168,7 +168,7 @@ export class BotManager {
   }
   startDelegation(scope: BotScope): void { void this.assistant(scope).managedTick(); }
 
-  assistant(scope: BotScope): HostAssistant {
+  assistant(scope: BotScope): BotThreadRuntime {
     if (!this.store.getThread(scope.botId, scope.threadId)) throw new Error("Thread does not belong to this Bot");
     return this.createRuntime({ botId: scope.botId, threadId: scope.threadId });
   }

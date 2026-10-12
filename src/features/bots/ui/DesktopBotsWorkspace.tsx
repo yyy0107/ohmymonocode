@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
-import { AssistantChat } from "./AssistantChat";
-import { AssistantSettings } from "./AssistantSettings";
-import { type AssistantRpc } from "../model/assistantClient";
-import type { AssistantPatch } from "../model/assistant";
+import { BotChat } from "./BotChat";
+import { BotSettings } from "./BotSettings";
+import { type BotRpc } from "../model/botRpc";
+import type { BotPatch } from "../model/botView";
 import { botCacheKey, type BotScope, type BotsSnapshot, type BotThread, type BotView } from "../model/bots";
 import { migrateDefaultBotCache, scopedBotRpc } from "../model/botClient";
 import { BOT_SELECTION_EVENT, readBotSelection, selectBotThread } from "../model/botSelection";
@@ -19,7 +19,7 @@ import { DesktopBotRooms } from "./DesktopBotRooms";
 import { DesktopBotRoomChat } from "./DesktopBotRoomChat";
 import type { BotTeam, BotTeams } from "../model/botTeams";
 import type { BotRoom, BotRooms } from "../model/botRooms";
-import { assistantErrorMessage } from "../model/assistantErrors";
+import { botErrorMessage } from "../model/botErrors";
 import { REMOTE_PROVIDERS, type HostDescriptor, type HostModelCatalog, type HostProject } from "../../connections/model/protocol";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
@@ -28,7 +28,7 @@ import { HarnessIcon } from "../../sessions/ui/HarnessIcon";
 import { sessionDisplayTitle } from "../../sessions/model/session";
 import { Archive, Bot, ChevronRight, Loader2, Plus, Search, MessageSquare, X } from "../../../shared/ui/icons";
 
-type Props = ComponentProps<typeof AssistantChat>;
+type Props = ComponentProps<typeof BotChat>;
 const EMPTY_THREADS: BotThread[] = [];
 
 /** Capability boundary: old Hosts keep the unchanged assistant controller. */
@@ -42,10 +42,10 @@ export function DesktopBotsWorkspace(props: Props) {
     let disposed = false;
     void props.rpc<HostDescriptor>("environment.describe", { supportedProviders: REMOTE_PROVIDERS }).then((value) => {
       if (!disposed) { setDescriptor(value); setFailure(undefined); }
-    }, (error) => { if (!disposed) setFailure(assistantErrorMessage(error)); });
+    }, (error) => { if (!disposed) setFailure(botErrorMessage(error)); });
     return () => { disposed = true; };
   }, [props.rpc, visible, attempt]);
-  const rpc = useMemo<AssistantRpc>(() => (method, params) => method === "environment.describe" && descriptor
+  const rpc = useMemo<BotRpc>(() => (method, params) => method === "environment.describe" && descriptor
     ? Promise.resolve(descriptor as never) : props.rpc(method, params), [props.rpc, descriptor]);
   const { t } = useTranslation();
   if (failure && !descriptor) return <div className="assistant-availability" role="alert">
@@ -54,7 +54,7 @@ export function DesktopBotsWorkspace(props: Props) {
   if (!descriptor) return <div className="assistant-availability assistant-loading" role="status">
     <Loader2 size={20} className="animate-spin motion-reduce:animate-none" /><span>{t("Connecting…")}</span>
   </div>;
-  if (!descriptor.capabilities?.includes("bots.v1")) return <AssistantChat {...props} rpc={rpc} />;
+  if (!descriptor.capabilities?.includes("bots.v1")) return <BotChat {...props} rpc={rpc} />;
   return <MultiBotWorkspace {...props} rpc={rpc} memorySupported={descriptor.capabilities.includes("botMemory.v1")} runtimeSupported={descriptor.capabilities.includes("bots.runtime.v1")} managementSupported={descriptor.capabilities.includes("bots.management.v1")} delegationSupported={descriptor.capabilities.includes("bots.delegation.v1")} teamsSupported={descriptor.capabilities.includes("bots.teams.v1")} roomsSupported={descriptor.capabilities.includes("bots.rooms.v1")} />;
 }
 
@@ -122,7 +122,7 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSup
   useEffect(() => {
     if (!visible || (!props.teamsSupported && !props.roomsSupported)) return;
     let disposed = false, timer: ReturnType<typeof setTimeout>;
-    const poll = async () => { try { await refreshCollaboration(); } catch (cause) { if (!disposed) setCollaborationError(assistantErrorMessage(cause)); } finally { if (!disposed) timer = setTimeout(poll, 2000); } };
+    const poll = async () => { try { await refreshCollaboration(); } catch (cause) { if (!disposed) setCollaborationError(botErrorMessage(cause)); } finally { if (!disposed) timer = setTimeout(poll, 2000); } };
     void poll();
     return () => { disposed = true; clearTimeout(timer); };
   }, [visible, refreshCollaboration]);
@@ -139,7 +139,7 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSup
       try {
         const next = await props.rpc<BotsSnapshot>("bots.list", { includeArchived: true });
         if (!disposed) { setSnapshot(next); setConnectionError(undefined); }
-      } catch (error) { if (!disposed) setConnectionError(assistantErrorMessage(error)); }
+      } catch (error) { if (!disposed) setConnectionError(botErrorMessage(error)); }
       finally { if (!disposed) timer = setTimeout(poll, 2000); }
     };
     void poll();
@@ -165,10 +165,10 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSup
     try {
       const [models, projects] = await Promise.all([props.rpc<HostModelCatalog>("models.list"), props.rpc<HostProject[]>("projects.list")]);
       setCatalog(models); setProjects(projects); setCatalogState("ready");
-    } catch (cause) { setError(assistantErrorMessage(cause)); setCatalogState("failed"); }
+    } catch (cause) { setError(botErrorMessage(cause)); setCatalogState("failed"); }
   }, [props.rpc]);
   useEffect(() => { if (creatingBot && visible && catalogState === "loading") void loadCatalog(); }, [creatingBot, visible, loadCatalog]);
-  const createBot = async (patch: AssistantPatch) => {
+  const createBot = async (patch: BotPatch) => {
     if (busy) return;
     setBusy(true); setError(undefined);
     const text = JSON.stringify(patch);
@@ -185,7 +185,7 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSup
       setDraftVersion((value) => value + 1);
       select({ botId: result.bot.id, threadId: result.thread.id });
       void refresh().catch(() => {});
-    } catch (cause) { setError(assistantErrorMessage(cause)); }
+    } catch (cause) { setError(botErrorMessage(cause)); }
     finally { setBusy(false); }
   };
   const threadCommand = useRef<{ text: string; id: string } | undefined>(undefined);
@@ -202,7 +202,7 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSup
       setThreadName("");
       select({ botId, threadId: thread.id });
       void refresh().catch(() => {});
-    } catch (cause) { setError(assistantErrorMessage(cause)); }
+    } catch (cause) { setError(botErrorMessage(cause)); }
     finally { setBusy(false); }
   };
   const archiveCommands = useRef(new Map<string, string>());
@@ -223,14 +223,14 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSup
     if (busy) return;
     setBusy(true); setError(undefined);
     try { await changeArchive(thread ? "botThreads.restore" : "bots.restore", bot, thread); }
-    catch (cause) { setError(assistantErrorMessage(cause)); }
+    catch (cause) { setError(botErrorMessage(cause)); }
     finally { setBusy(false); }
   };
   const openDelegationThread = useCallback((scope: BotScope) => {
     void refresh().then(next => {
       if (next.threads.some(thread => thread.id === scope.threadId && thread.botId === scope.botId && !thread.archivedAt) && next.bots.some(bot => bot.id === scope.botId && !bot.archivedAt)) select(scope);
       else setError("Thread not available");
-    }, cause => setError(assistantErrorMessage(cause)));
+    }, cause => setError(botErrorMessage(cause)));
   }, [refresh, select]);
   const navigation = <BotNavigation hostName={props.hostName} hostPicker={props.hostPicker}
     teams={teams} rooms={rooms} teamsSupported={props.teamsSupported} roomsSupported={props.roomsSupported} roomSelection={roomSelection} onOpenRoom={openRoom} onManage={openManagement}
@@ -261,10 +261,10 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSup
             botMemory={props.memorySupported ? <DesktopBotMemory botId={scope.botId} rpc={props.rpc} drafts={memoryDrafts} /> : undefined}
             botSettings={bot}
             botReadOnlyReason={thread?.kind === "delegation" ? "Delegation threads accept approvals and questions. Start a direct thread for a new message." : thread?.kind === "room" ? "Room member threads accept approvals and questions. Send new messages in the room." : undefined}
-            botRuntime={bot && props.managementSupported ? <DesktopBotRuntimeSettings bot={bot} rpc={props.rpc} delegationSupported={props.delegationSupported} onSaved={() => void refresh().catch((cause) => setError(assistantErrorMessage(cause)))} /> : undefined}
+            botRuntime={bot && props.managementSupported ? <DesktopBotRuntimeSettings bot={bot} rpc={props.rpc} delegationSupported={props.delegationSupported} onSaved={() => void refresh().catch((cause) => setError(botErrorMessage(cause)))} /> : undefined}
             botDelegations={props.delegationSupported ? <DesktopBotDelegations scope={scope} rpc={props.rpc} botNames={botNames} onOpenThread={openDelegationThread} /> : undefined}
             botActivity={props.runtimeSupported ? <DesktopBotActivity scope={scope} rpc={props.rpc} /> : undefined}
-            botAutomation={bot && props.managementSupported ? <DesktopBotAutomation bot={bot} rpc={props.rpc} onSaved={() => void refresh().catch((cause) => setError(assistantErrorMessage(cause)))} /> : undefined}
+            botAutomation={bot && props.managementSupported ? <DesktopBotAutomation bot={bot} rpc={props.rpc} onSaved={() => void refresh().catch((cause) => setError(botErrorMessage(cause)))} /> : undefined}
             botManagement={bot && thread ? <DesktopBotThreadSettings bot={bot} thread={thread} defaultBotId={snapshot?.defaultBotId} rpc={props.rpc} onSaved={refresh}
               onArchiveBot={() => changeArchive("bots.archive", bot)} onArchiveThread={() => changeArchive("botThreads.archive", bot, thread)} /> : undefined}
             defaultScope={scope.botId === snapshot?.defaultBotId && scope.threadId === snapshot.defaultThreadId} />
@@ -285,7 +285,7 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSup
           {props.roomsSupported && <div className="desktop-bot-management-surface" hidden={managementPanel !== "rooms"} inert={managementPanel !== "rooms"}><SurfaceVisibilityContext.Provider value={visible && draftShown && managementPanel === "rooms"}><DesktopBotRooms rooms={rooms} bots={snapshot?.bots ?? []} rpc={props.rpc} onSaved={refreshCollaboration} onOpenRoom={openRoom} /></SurfaceVisibilityContext.Provider></div>}
           {managementPanel ? null : showArchive ? <BotArchive snapshot={snapshot} busy={busy} onRestore={restore} onClose={closeArchive} /> : creatingBot ? <>
             <header><strong>{t("New bot")}</strong><button type="button" disabled={busy} onClick={() => { setCreatingBot(false); setDraftVersion((value) => value + 1); createCommand.current = undefined; }}>{t("Cancel")}</button></header>
-            <AssistantSettings key={draftVersion} value={null} submitLabel="Create bot" catalog={catalog} catalogState={catalogState}
+            <BotSettings key={draftVersion} value={null} submitLabel="Create bot" catalog={catalog} catalogState={catalogState}
               projects={projects} busy={busy} onSave={createBot} onRetryCatalog={() => void loadCatalog()} />
           </> : <div className="desktop-bots-empty">
             <Bot size={30} aria-hidden="true" />
@@ -309,7 +309,7 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSup
 function ScopedBotChat({ scope, defaultScope, delegationSupported, botNames, onOpenBotThread, ...props }: Props & { scope: BotScope; defaultScope: boolean; delegationSupported: boolean; botNames: Record<string, string>; onOpenBotThread: (scope: BotScope) => void }) {
   const rpc = useMemo(() => scopedBotRpc(props.rpc, scope, defaultScope), [props.rpc, scope.botId, scope.threadId, defaultScope]);
   const renderBotDelegation = useCallback((delegationId: string, revision: number) => <DesktopBotDelegationCard scope={scope} rpc={props.rpc} delegationId={delegationId} revision={revision} botNames={botNames} onOpenThread={onOpenBotThread} />, [scope.botId, scope.threadId, props.rpc, botNames, onOpenBotThread]);
-  return <AssistantChat {...props} rpc={rpc} cacheKey={botCacheKey(props.hostKey, scope)} renderBotDelegation={delegationSupported ? renderBotDelegation : undefined} desktopBots />;
+  return <BotChat {...props} rpc={rpc} cacheKey={botCacheKey(props.hostKey, scope)} renderBotDelegation={delegationSupported ? renderBotDelegation : undefined} desktopBots />;
 }
 
 type Activity = ReturnType<typeof useBotUnread>;

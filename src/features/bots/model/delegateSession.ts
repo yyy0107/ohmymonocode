@@ -1,11 +1,11 @@
-import type { AssistantRpc } from "./assistantClient";
-import type { SessionReference } from "./assistant";
-import { assistantErrorMessage } from "./assistantErrors";
+import type { BotRpc } from "./botRpc";
+import type { SessionReference } from "./botView";
+import { botErrorMessage } from "./botErrors";
 import { translate } from "../../../shared/i18n/language";
 import { withStatusToast } from "../../../shared/ui/StatusToast";
 
 export function delegateSession(
-  rpc: AssistantRpc,
+  rpc: BotRpc,
   ref: SessionReference,
 ): Promise<unknown> {
   return withStatusToast(
@@ -28,6 +28,6 @@ const HOST_TOO_OLD =
 
 /** Hosts from before hand-over validate these fields as another control and reject them. */
 function delegateErrorMessage(error: unknown): string {
-  const message = assistantErrorMessage(error);
+  const message = botErrorMessage(error);
   return /unknown input field/i.test(message) ? HOST_TOO_OLD : message;
 }

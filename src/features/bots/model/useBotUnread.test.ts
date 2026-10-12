@@ -4,12 +4,12 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useBotUnread } from "./useBotUnread";
 import { botCacheKey, type BotThread } from "./bots";
-import { markAssistantRead } from "./assistantUnread";
-import type { AssistantMessage } from "./assistant";
+import { markBotRead } from "./botUnread";
+import type { BotMessage } from "./botView";
 
 let root: Root, node: HTMLDivElement;
 const rpc = vi.fn();
-const message = (id: string, revision: number): AssistantMessage => ({ id, revision, createdAt: revision, kind: "assistant", text: id });
+const message = (id: string, revision: number): BotMessage => ({ id, revision, createdAt: revision, kind: "assistant", text: id });
 const threads: BotThread[] = ["one", "two"].map((id) => ({ id, botId: "bot", title: id, kind: "direct", createdAt: 1, updatedAt: 1, revision: 1, lifecycle: "idle", chatRevision: 5 }));
 function Counter({ rows }: { rows: BotThread[] }) {
   const activity = useBotUnread("host", rows, rpc as never, true);
@@ -32,7 +32,7 @@ it("loads a latest preview for already-read threads without reusing another thre
   expect(JSON.parse(node.textContent!)).toEqual([{ count: 0, latest: "one" }, { count: 1, latest: "two" }]);
   expect(rpc.mock.calls.find(([, params]) => params.threadId === "one" && !params.latest)).toBeUndefined();
   expect(rpc.mock.calls.find(([, params]) => params.threadId === "two" && !params.latest)?.[1]).toMatchObject({ botId: "bot", afterRevision: 0 });
-  act(() => markAssistantRead(botCacheKey("host", { botId: "bot", threadId: "two" }), [message("two", 5)]));
+  act(() => markBotRead(botCacheKey("host", { botId: "bot", threadId: "two" }), [message("two", 5)]));
   expect(JSON.parse(node.textContent!)[1].count).toBe(0);
 });
 it("retries a failed preview on a fresh snapshot even when revisions are unchanged", async () => {

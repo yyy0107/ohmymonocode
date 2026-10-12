@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { migrateDefaultBotCache, scopedBotRpc } from "./botClient";
 import { botCacheKey } from "./bots";
-import { AssistantClient } from "./assistantClient";
+import { BotClient } from "./botRpc";
 
 it("routes chat and attachment commands to an unforgeable scope without changing Host navigation", async () => {
   const rpc = vi.fn(async () => ({}));
@@ -31,8 +31,8 @@ it("keeps pending sends independent and migrates only the default scope once", a
   expect(storage.getItem(`monocode.assistant-draft:${a}`)).toBe("");
   expect(storage.getItem("monocode.assistant-draft:host")).toBe("Legacy draft");
   const failing = vi.fn(async () => { throw new Error("offline"); });
-  const one = new AssistantClient(a, failing, storage);
-  const two = new AssistantClient(b, failing, storage);
+  const one = new BotClient(a, failing, storage);
+  const two = new BotClient(b, failing, storage);
   await expect(one.send("one")).rejects.toThrow("offline");
   await expect(two.send("two")).rejects.toThrow("offline");
   expect(one.pending()?.text).toBe("one");

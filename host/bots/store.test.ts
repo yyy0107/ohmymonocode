@@ -4,10 +4,10 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, expect, it } from "vitest";
 import { HostStore } from "../store";
-import { AssistantStore, signature, type AssistantRecord } from "./thread/store";
+import { BotThreadStore, signature, type BotThreadRecord } from "./thread/store";
 import { BotStore, type MigrationPhase } from "./store";
-import { assistantErrorCode } from "./thread/errors";
-import { fullAssistantPolicy, type AssistantAction } from "../../src/features/bots/model/assistant";
+import { botErrorCode } from "./thread/errors";
+import { fullBotPolicy, type BotAction } from "../../src/features/bots/model/botView";
 
 const cleanup: (() => void)[] = [];
 afterEach(() => cleanup.splice(0).forEach(fn => fn()));
@@ -18,10 +18,10 @@ function setup() {
   return { host, path, directory };
 }
 function legacy(host: HostStore) {
-  const record: AssistantRecord = {
+  const record: BotThreadRecord = {
     id: "original-assistant", name: "My assistant", revision: 7, chatRevision: 4,
     enabled: true, lifecycle: "idle", harness: "codex", model: "old-model", modelSettings: {},
-    runtimeMode: "full-access", targetRuntimeMode: "full-access", policy: fullAssistantPolicy(), policyVersion: 3,
+    runtimeMode: "full-access", targetRuntimeMode: "full-access", policy: fullBotPolicy(), policyVersion: 3,
     triggers: { user: true, event: true, schedule: true }, schedules: [], watches: [],
     maxAutoTurns: 8, chainWindowMinutes: 15, brainGeneration: 3, brainSessionId: "replaceable-provider-cache",
     brainMemory: { generation: 3, revision: 2 }, sourceCursor: 8,
@@ -58,12 +58,12 @@ it("reserves stable compatibility IDs without creating a Bot on an empty Host", 
   const { host } = setup(), bots = new BotStore(host), scope = bots.defaultScope();
   expect(new BotStore(host).defaultScope()).toEqual(scope);
   expect(bots.listBots()).toEqual([]);
-  expect(new AssistantStore(host).get()).toBeNull();
-  expect(() => new AssistantStore(host, scope)).toThrow(/does not belong/);
+  expect(new BotThreadStore(host).get()).toBeNull();
+  expect(() => new BotThreadStore(host, scope)).toThrow(/does not belong/);
   bots.recordCommandReceipt("create", "request", "sig", { pending: true });
   expect(bots.commandReceipt("create", "request", "sig")).toEqual({ pending: true });
   expect(() => bots.commandReceipt("create", "request", "changed")).toThrow(/different input/);
-  const assistant = new AssistantStore(host);
+  const assistant = new BotThreadStore(host);
   expect(assistant.initialize({ harness: "codex", model: "default" }).id).toBe(scope.botId);
   expect(bots.getBot(scope.botId)?.defaultThreadId).toBe(scope.threadId);
 });
@@ -72,12 +72,12 @@ it("isolates messages, history, receipts, queues, actions, source cursors and re
   const { host } = setup(), bots = new BotStore(host);
   const one = bots.createBot({ harness: "codex", model: "one" }), two = bots.createBot({ harness: "pi", model: "two" });
   const sibling = bots.createThread(one.botId);
-  const stores = [one, sibling, two].map(scope => new AssistantStore(host, scope));
+  const stores = [one, sibling, two].map(scope => new BotThreadStore(host, scope));
   for (const [index, store] of stores.entries()) {
     store.message({ id: "shared-id", kind: "assistant", text: `private-${index}`, streaming: index === 0, createdAt: index + 1 });
     store.receive("same-command", `request-${index}`, []);
     store.enqueue({ id: "same-wakeup", kind: "event", text: `event-${index}`, rootCauseId: "same-root", state: "backoff", retryAt: 0, attempts: 0, createdAt: 1 }, "same-dedupe");
-    store.putAction({ id: `action-${index}`, requestId: "same-request", action: "sessions.send", state: "executing", origin: { assistantId: store.botId, wakeupId: "same-wakeup" } } as AssistantAction);
+    store.putAction({ id: `action-${index}`, requestId: "same-request", action: "sessions.send", state: "executing", origin: { assistantId: store.botId, wakeupId: "same-wakeup" } } as BotAction);
     store.source({ eventKey: "same-event", sessionId: `session-${index}`, projectId: "project", kind: "completed", rootCauseId: "same-root", createdAt: 1 });
     store.writeChain("same-root", { count: index + 1, paused: true, startedAt: 1 });
     store.update({ brainSessionId: `brain-${index}`, sourceCursor: index, lifecycle: "running" });
@@ -97,13 +97,13 @@ it("isolates messages, history, receipts, queues, actions, source cursors and re
   }
   stores[0].discardPendingUserInput();
   expect(stores[1].pending().some(wakeup => wakeup.kind === "user")).toBe(true);
-  expect(() => new AssistantStore(host, { botId: one.botId, threadId: two.threadId })).toThrow(/does not belong/);
+  expect(() => new BotThreadStore(host, { botId: one.botId, threadId: two.threadId })).toThrow(/does not belong/);
   expect(bots.getThread(one.botId, two.threadId)).toBeNull();
   expect(() => bots.updateThread(one.botId, two.threadId, { title: "forged" })).toThrow(/does not belong/);
 });
 
 it("uses the first desktop-created Bot as the legacy phone and IM default", () => {
-  const { host } = setup(), bots = new BotStore(host), assistant = new AssistantStore(host);
+  const { host } = setup(), bots = new BotStore(host), assistant = new BotThreadStore(host);
   const reserved = bots.defaultScope();
   expect(assistant.get()).toBeNull();
   const created = bots.createBot({ name: "First desktop bot", harness: "codex", model: "default" });
@@ -118,8 +118,8 @@ it("shares Bot memory and configuration while preserving Thread model overrides 
   const { host } = setup(), bots = new BotStore(host);
   const main = bots.createBot({ harness: "codex", model: "default", modelSettings: { effort: "high" } });
   const scope = bots.createThread(main.botId, { modelOverride: { harness: "pi", model: "thread-model", modelSettings: { effort: "low" } } });
-  const first = new AssistantStore(host, main), second = new AssistantStore(host, scope);
-  const other = new AssistantStore(host, bots.createBot({ harness: "codex", model: "other" }));
+  const first = new BotThreadStore(host, main), second = new BotThreadStore(host, scope);
+  const other = new BotThreadStore(host, bots.createBot({ harness: "codex", model: "other" }));
   first.writeMemoryDoc("topic:shared", "shared-note");
   second.writeMemoryDoc("playbook:shared", "procedure");
   expect(second.memoryDoc("topic:shared")).toEqual({ text: "shared-note", revision: 1 });
@@ -147,9 +147,9 @@ it("shares Bot memory and configuration while preserving Thread model overrides 
 it("shares trusted session creation ownership within a Bot without exposing other Thread actions", () => {
   const { host } = setup(), bots = new BotStore(host);
   const scope = bots.createBot({ harness: "codex", model: "default" });
-  const first = new AssistantStore(host, scope), sibling = new AssistantStore(host, bots.createThread(scope.botId));
-  const other = new AssistantStore(host, bots.createBot({ harness: "codex", model: "other" }));
-  first.putAction({ id: "created", requestId: "created", action: "sessions.create", state: "accepted", origin: { assistantId: scope.botId }, targetRef: { sessionId: "shared-session" } } as AssistantAction);
+  const first = new BotThreadStore(host, scope), sibling = new BotThreadStore(host, bots.createThread(scope.botId));
+  const other = new BotThreadStore(host, bots.createBot({ harness: "codex", model: "other" }));
+  first.putAction({ id: "created", requestId: "created", action: "sessions.create", state: "accepted", origin: { assistantId: scope.botId }, targetRef: { sessionId: "shared-session" } } as BotAction);
   expect(sibling.createdSession("shared-session")).toBe(true);
   expect(sibling.actions()).toEqual([]);
   expect(other.createdSession("shared-session")).toBe(false);
@@ -162,21 +162,21 @@ it("checks metadata revisions and archive/restore without losing runtime or user
   expect(bots.listThreads(scope.botId)).toEqual([]);
   expect(bots.listThreads(scope.botId, true)[0]).toMatchObject({ title: "User title", archivedAt: 123 });
   try { bots.updateThread(scope.botId, scope.threadId, { title: "stale" }, thread.revision); expect.fail("stale Thread update must fail"); }
-  catch (error) { expect(assistantErrorCode(error)).toBe("conflict"); }
+  catch (error) { expect(botErrorCode(error)).toBe("conflict"); }
   bots.updateThread(scope.botId, scope.threadId, { archivedAt: undefined });
   expect(bots.listThreads(scope.botId)[0].title).toBe("User title");
   const bot = bots.getBot(scope.botId)!;
   bots.updateBot(scope.botId, { archivedAt: 123 }, bot.revision);
   expect(bots.listBots()).toEqual([]);
   try { bots.updateBot(scope.botId, { name: "stale" }, bot.revision); expect.fail("stale Bot update must fail"); }
-  catch (error) { expect(assistantErrorCode(error)).toBe("conflict"); }
+  catch (error) { expect(botErrorCode(error)).toBe("conflict"); }
   bots.updateBot(scope.botId, { archivedAt: undefined });
   expect(bots.listBots()).toHaveLength(1);
 });
 
 it("migrates legacy IDs and data once, preserving an independent backup and freezing the old tables", () => {
   const { host, path, directory } = setup(), old = legacy(host), bots = new BotStore(host);
-  const scope = bots.defaultScope(), assistant = new AssistantStore(host);
+  const scope = bots.defaultScope(), assistant = new BotThreadStore(host);
   expect(scope.botId).toBe(old.record.id);
   expect(scope.threadId).not.toBe(old.record.brainSessionId);
   expect(assistant.get()).toMatchObject(old.record);
@@ -199,7 +199,7 @@ it("migrates legacy IDs and data once, preserving an independent backup and free
   assistant.receive("new-command", "new message", []);
   expect(host.db.prepare("SELECT COUNT(*) AS count FROM assistant_messages").get()?.count).toBe(1);
   expect(new BotStore(host).defaultScope()).toEqual(scope);
-  expect(new AssistantStore(host).latestMessages()).toHaveLength(2);
+  expect(new BotThreadStore(host).latestMessages()).toHaveLength(2);
 });
 
 it.each<MigrationPhase>(["backup", "prepared", "copied", "complete"])("resumes safely after the %s migration checkpoint", phase => {
@@ -210,7 +210,7 @@ it.each<MigrationPhase>(["backup", "prepared", "copied", "complete"])("resumes s
   expect(resumed.defaultScope()).toEqual(firstScope);
   expect(resumed.listBots()).toHaveLength(1);
   expect(resumed.listThreads(firstScope.botId)).toHaveLength(1);
-  expect(new AssistantStore(host).messageById(old.message.id)).toEqual(old.message);
+  expect(new BotThreadStore(host).messageById(old.message.id)).toEqual(old.message);
 });
 
 it("rolls back a failed copy transaction and retries from the prepared checkpoint", () => {
@@ -222,20 +222,20 @@ it("rolls back a failed copy transaction and retries from the prepared checkpoin
   expect(host.db.prepare("SELECT value FROM bot_metadata WHERE key='migration'").get()?.value).toBe("prepared");
   host.db.exec("DROP TRIGGER fail_copy");
   new BotStore(host);
-  expect(new AssistantStore(host).messageById(old.message.id)).toEqual(old.message);
+  expect(new BotThreadStore(host).messageById(old.message.id)).toEqual(old.message);
 });
 
 it("preserves a legacy Bot pause independently from later Thread runtime updates", () => {
   const { host } = setup(), old = legacy(host);
   host.db.prepare("UPDATE assistants SET payload=?").run(JSON.stringify({ ...old.record, lifecycle: "paused" }));
   const bots = new BotStore(host), scope = bots.defaultScope();
-  const sibling = new AssistantStore(host, bots.createThread(scope.botId));
+  const sibling = new BotThreadStore(host, bots.createThread(scope.botId));
   expect(bots.getBot(scope.botId)?.paused).toBe(true);
   expect(sibling.view()?.lifecycle).toBe("paused");
   expect(bots.getThread(sibling.botId, sibling.threadId)?.lifecycle).toBe("paused");
   sibling.update({ lifecycle: "running" });
   expect(bots.getBot(scope.botId)?.paused).toBe(true);
-  expect(new AssistantStore(host).get()?.lifecycle).toBe("paused");
+  expect(new BotThreadStore(host).get()?.lifecycle).toBe("paused");
   bots.updateBot(scope.botId, { enabled: false });
   expect(sibling.view()?.lifecycle).toBe("disabled");
   expect(bots.getThread(sibling.botId, sibling.threadId)?.lifecycle).toBe("disabled");

@@ -1,8 +1,8 @@
-import type { AssistantMessage } from "../../../src/features/bots/model/assistant";
+import type { BotMessage } from "../../../src/features/bots/model/botView";
 import { memoryDate } from "./memory";
 import { bm25Scores, tokenizeMemorySearch } from "./memorySearch";
 
-type ChatMessage = Extract<AssistantMessage, { kind: "user" | "assistant" }>;
+type ChatMessage = Extract<BotMessage, { kind: "user" | "assistant" }>;
 
 export type ChatHit = {
   at: string;
@@ -45,7 +45,7 @@ export function chatStamp(at: number, timeZone: string): string {
  * Without a query, returns the latest messages since the given date.
  */
 export function searchChat(
-  messages: readonly AssistantMessage[],
+  messages: readonly BotMessage[],
   query: string,
   options: {
     timeZone: string;
