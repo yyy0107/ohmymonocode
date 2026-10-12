@@ -868,7 +868,7 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
 }
 
 /* Queued messages use compact bubbles; touch actions live in an anchored menu. */
-/* The typing bubble after a sent message, in the agent's bubble column. It
+/* The typing indicator after a sent message, aligned with the agent's reply. It
    stands in for the live status line until the agent's first output. */
 .transcript-turn-live:has(.mobile-typing-bubble) .transcript-live-footer {
   display: none;
@@ -876,9 +876,7 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
 .mobile-typing-bubble {
   width: fit-content;
   margin: 4px 16px 8px;
-  padding: 2px 12px;
-  border-radius: var(--radius-m-bubble) var(--radius-m-bubble) var(--radius-m-bubble) 6px;
-  background: var(--color-m-card);
+  padding: 2px 0;
   animation: m-msg-in var(--m-duration-msg) var(--m-ease) both;
 }
 /* Pending approvals (shared ApprovalControls): Allow and Deny side by side at

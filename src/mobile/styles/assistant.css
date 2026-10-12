@@ -202,11 +202,13 @@
 .assistant-chat[data-layout="mobile"] .assistant-message-row-status {
   align-items: center;
 }
-.assistant-chat[data-layout="mobile"] .assistant-message-row > .assistant-message:is(
-  .assistant-message-user, .assistant-message-assistant
-) {
+.assistant-chat[data-layout="mobile"] .assistant-message-row > .assistant-message-user {
   width: fit-content;
   max-width: 88%;
+}
+.assistant-chat[data-layout="mobile"] .assistant-message-row > .assistant-message-assistant {
+  width: 100%;
+  max-width: 100%;
 }
 .assistant-chat[data-layout="mobile"] .assistant-message-row > :not(.assistant-swipe-time, .assistant-swipe-reply) {
   transform: translateX(0);
@@ -280,8 +282,9 @@
 }
 .assistant-chat[data-layout="mobile"] .assistant-message-assistant {
   align-self: flex-start;
-  border-bottom-left-radius: 6px;
-  background: var(--color-m-card);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--color-m-ink);
 }
 .assistant-chat[data-layout="mobile"] :is(.assistant-message-assistant, .assistant-message-user) {
