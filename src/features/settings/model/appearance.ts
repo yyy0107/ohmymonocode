@@ -10,7 +10,11 @@ import {
   applyPreparedNewThreadBackground,
   clearPreparedNewThreadBackground,
 } from "./newThreadBackgroundEffects";
-import { applyDesktopSkin } from "../../../shared/theme/desktopSkin";
+import {
+  applyDesktopSkin,
+  DESKTOP_SKIN_INFO,
+  isDesktopSkinId,
+} from "../../../shared/theme/desktopSkin";
 
 const ACCENT_COLOR_KEY = "monocode.accentColor";
 const THEME_HUE_KEY = "monocode.themeHue";
@@ -426,7 +430,18 @@ export function applyThemePreference(value: ThemePreference): ColorScheme {
 
 /** The page colour the native window sits behind while glass is off. */
 function opaqueWindowBackground(): Rgb {
-  const style = getComputedStyle(document.documentElement);
+  const root = document.documentElement;
+  // A skin paints `--color-app`; match it so resizing never flashes the tint.
+  const skin = root.dataset.skin;
+  if (isDesktopSkinId(skin)) {
+    const hex = DESKTOP_SKIN_INFO[skin].app;
+    return {
+      r: Number.parseInt(hex.slice(1, 3), 16),
+      g: Number.parseInt(hex.slice(3, 5), 16),
+      b: Number.parseInt(hex.slice(5, 7), 16),
+    };
+  }
+  const style = getComputedStyle(root);
   const read = (name: string, fallback: number) => {
     const value = Number.parseFloat(style.getPropertyValue(name));
     return Number.isFinite(value) ? value : fallback;

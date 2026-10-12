@@ -27,6 +27,58 @@
   --animate-bolt: bolt 0.9s cubic-bezier(0.77, 0, 0.175, 1) infinite;
 }
 
+/* Semantic surface tokens as Tailwind colours (`bg-raised`, `text-ink`,
+   `border-hairline`...). These defaults are the Classic fallbacks: they
+   point at the tint ladder in index.css. A `[data-skin]` block is unlayered
+   and replaces every one of them with a concrete colour. */
+@theme {
+  --color-app: var(--color-background-base);
+  --color-raised: var(--color-selection);
+  --color-raised-hover: var(--color-selection-hover);
+  --color-composer: var(--composer-input, var(--card-color));
+  --color-composer-ring: var(--color-stroke);
+  --color-inset: var(--color-surface);
+  --color-control: var(--color-selection-subtle);
+  --color-hairline: var(--color-stroke);
+  --color-ink: var(--color-content);
+  --color-ink-secondary: var(--color-foreground-subtle);
+  --color-ink-tertiary: var(--color-foreground-subtlest);
+  --color-accent-border: var(--color-accent);
+  --color-accent-text: var(--color-accent);
+  --color-accent-ink: #ffffff;
+  --color-focus: var(--color-accent);
+  --color-bubble-user: var(--color-selection-strong);
+  --color-bubble-user-ink: var(--color-content);
+  --color-danger: var(--color-destructive);
+  --color-danger-ink: #ffffff;
+  --color-success-ink: #ffffff;
+}
+
+/* Skin-independent metrics shared by `src/shared/ui/omb`. */
+:root {
+  --radius-composer: 22px;
+  --radius-sheet: 16px;
+  --radius-row: 10px;
+  /* Desktop hit targets: inline icons, toolbar buttons, primary buttons. */
+  --hit-sm: 28px;
+  --hit: 32px;
+  --hit-lg: 36px;
+  --row-h: 52px;
+  --row-h-compact: 34px;
+  --ease-omb: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-msg: 0.18s;
+  --duration-pop: 0.2s;
+  --duration-panel: 0.24s;
+  --glass-filter: blur(20px) saturate(1.4);
+  --shadow-sheet: 0 18px 48px color-mix(in srgb, black 28%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-hairline) 60%, transparent);
+}
+
+html.theme-light {
+  --shadow-sheet: 0 18px 48px color-mix(in srgb, black 12%, transparent),
+    0 0 0 1px var(--color-hairline);
+}
+
 @keyframes panel-in {
   from { transform: translateX(28px); opacity: 0; }
   to { transform: none; opacity: 1; }

@@ -31,18 +31,20 @@ type SkinInfo = {
   /** Application-owned name; translated through the i18n catalog. */
   label: string;
   scheme: "dark" | "light";
+  /** The skin's `--color-app`, painted behind the webview and boot splash. */
+  app: string;
 };
 
 export const DESKTOP_SKIN_INFO: Record<DesktopSkinId, SkinInfo> = {
-  midnight: { label: "Midnight", scheme: "dark" },
-  atelier: { label: "Atelier", scheme: "light" },
-  foundry: { label: "Foundry", scheme: "dark" },
-  lagoon: { label: "Lagoon", scheme: "light" },
-  graphite: { label: "Graphite", scheme: "dark" },
-  linen: { label: "Linen", scheme: "light" },
-  dusk: { label: "Dusk", scheme: "dark" },
-  daylight: { label: "Daylight", scheme: "light" },
-  meadow: { label: "Meadow", scheme: "light" },
+  midnight: { label: "Midnight", scheme: "dark", app: "#070707" },
+  atelier: { label: "Atelier", scheme: "light", app: "#f5f1eb" },
+  foundry: { label: "Foundry", scheme: "dark", app: "#100e0b" },
+  lagoon: { label: "Lagoon", scheme: "light", app: "#dfeceb" },
+  graphite: { label: "Graphite", scheme: "dark", app: "#111214" },
+  linen: { label: "Linen", scheme: "light", app: "#eceff3" },
+  dusk: { label: "Dusk", scheme: "dark", app: "#121014" },
+  daylight: { label: "Daylight", scheme: "light", app: "#fcfcfc" },
+  meadow: { label: "Meadow", scheme: "light", app: "#ffffff" },
 };
 
 export function isDesktopSkinId(value: unknown): value is DesktopSkinId {

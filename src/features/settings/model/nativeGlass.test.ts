@@ -75,6 +75,21 @@ describe("native glass", () => {
     );
   });
 
+  it("fills an opaque window with the active skin's ground", async () => {
+    document.documentElement.dataset.skin = "lagoon";
+    try {
+      syncNativeGlass("light");
+      await vi.waitFor(() =>
+        expect(invoke).toHaveBeenCalledWith("set_window_glass_enabled", {
+          enabled: false,
+          background: { r: 0xdf, g: 0xec, b: 0xeb },
+        }),
+      );
+    } finally {
+      delete document.documentElement.dataset.skin;
+    }
+  });
+
   it("keeps the dark theme opaque on Linux when main pane glass is off", async () => {
     platform.isLinux = true;
     localStorage.setItem(BODY_GLASS_KEY, "0");

@@ -93,6 +93,18 @@
         --background-lightness: 97%;
       }
 
+      /* Skin grounds (`--color-app` in omb-skin.css) so the splash matches
+         the first paint instead of flashing the Classic tint. */
+      html[data-skin="midnight"] { --color-background-base: #070707; }
+      html[data-skin="atelier"] { --color-background-base: #f5f1eb; }
+      html[data-skin="foundry"] { --color-background-base: #100e0b; }
+      html[data-skin="lagoon"] { --color-background-base: #dfeceb; }
+      html[data-skin="graphite"] { --color-background-base: #111214; }
+      html[data-skin="linen"] { --color-background-base: #eceff3; }
+      html[data-skin="dusk"] { --color-background-base: #121014; }
+      html[data-skin="daylight"] { --color-background-base: #fcfcfc; }
+      html[data-skin="meadow"] { --color-background-base: #ffffff; }
+
       html,
       body,
       #boot-splash {
