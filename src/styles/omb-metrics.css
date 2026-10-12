@@ -29,6 +29,7 @@ html[data-skin] {
   --omb-radius-card: 16px;
   --omb-radius-sheet: 20px;
   --omb-radius-bubble: 20px;
+  --omb-radius-capsule: 24px;
 
   --omb-shadow-float: 0 8px 28px rgb(0 0 0 / 0.28), 0 1px 3px rgb(0 0 0 / 0.18);
 
@@ -662,4 +663,105 @@ html[data-skin] :where(.user-message-row:not(.mobile-desktop-transcript *)) .use
 html[data-skin] :where(.user-message-row:not(.mobile-desktop-transcript *)) :is(.user-message-bubble > pre, .user-message-with-link) {
   font-size: 15px;
   line-height: 22px;
+}
+
+/* Session tab strip. It stays in flow as window chrome (drag region, file
+   tabs, tool toggles); only its controls take the phone's pill shapes. */
+html[data-skin] [data-session-surface-tabs] .surface-tab {
+  height: 32px;
+  padding-inline-start: var(--omb-space-12);
+  border: 0;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+html[data-skin] [data-session-surface-tabs] .surface-tab + button {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+}
+html[data-skin] [data-session-surface-tabs] :is([data-session-tool-toggle], [data-session-overflow-menu]) {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+}
+html[data-skin] [data-session-surface-tabs] :is([data-session-tool-toggle], [data-session-overflow-menu]) svg {
+  width: 16px;
+  height: 16px;
+}
+html[data-skin] [data-session-surface-tabs] [data-session-project-chip] {
+  padding: var(--omb-space-2) var(--omb-space-8);
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* The composer stays in flow; the transcript's last 8px fade out so
+   messages dissolve into the input instead of ending on a hard line. A mask
+   fades the content itself, so it works over translucent panes and chat
+   background images alike. */
+html[data-skin] .agent-transcript {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--omb-space-8)), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--omb-space-8)), transparent);
+}
+
+/* Session status, as the phone's progress capsule. It keeps its place at the
+   top right; collapsed it is a 44px capsule, expanded a 16px card. */
+html[data-skin] [data-session-status][data-state="collapsed"] {
+  border-radius: var(--omb-radius-capsule);
+}
+html[data-skin] [data-session-status][data-state="expanded"] {
+  border-radius: var(--omb-radius-card);
+}
+html[data-skin] [data-session-status] [data-status-header],
+html[data-skin] [data-session-status] [data-status-header] > button {
+  height: var(--omb-hit);
+}
+html[data-skin] [data-session-status] [data-status-header] > button {
+  gap: var(--omb-space-8);
+  padding-inline: var(--omb-space-12);
+  font-size: 13px;
+  line-height: 18px;
+}
+html[data-skin] [data-session-status] [data-status-header] .font-mono {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+html[data-skin] [data-session-status] [data-status-header] > div {
+  padding-inline: var(--omb-space-12) var(--omb-space-6);
+}
+html[data-skin] [data-session-status] [data-status-header] > div > span {
+  font-size: 13px;
+  font-weight: 600;
+}
+html[data-skin] [data-session-status] [data-status-header] > div > button {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+}
+html[data-skin] [data-session-status] [data-status-scroll] {
+  max-height: calc(min(64dvh, 32rem) - var(--omb-hit));
+  padding: 0 var(--omb-space-8) var(--omb-space-12);
+}
+html[data-skin] [data-session-status] [data-status-scroll] > div {
+  gap: var(--omb-space-8);
+}
+html[data-skin] [data-session-status] [data-status-section] {
+  border-radius: var(--omb-radius-row);
+}
+html[data-skin] [data-session-status] [data-status-section] h3 {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+}
+html[data-skin] [data-session-status] [data-status-task] {
+  gap: var(--omb-space-10);
+  padding: var(--omb-space-6) var(--omb-space-8);
+  font-size: 13px;
+  line-height: 1.5;
+}
+html[data-skin] [data-session-status] [data-status-task] > span:last-child {
+  font-size: 13px;
+  line-height: 1.5;
 }

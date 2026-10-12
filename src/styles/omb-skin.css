@@ -893,3 +893,42 @@ html[data-skin] [data-settings-segmented] > button[aria-checked="true"] {
   background: var(--color-raised);
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
 }
+
+/* Session tab strip: pill tabs on the panel; sizes live in omb-metrics.css. */
+html[data-skin] [data-session-surface-tabs] .surface-tab {
+  color: var(--color-ink-secondary);
+}
+html[data-skin] [data-session-surface-tabs] .surface-tab:hover {
+  background: color-mix(in srgb, var(--color-raised) 65%, transparent);
+  color: var(--color-ink);
+}
+html[data-skin] [data-session-surface-tabs] .surface-tab:is([aria-selected="true"], [data-selected="true"]) {
+  background: var(--color-raised);
+  color: var(--color-ink);
+}
+html[data-skin] [data-session-surface-tabs] [data-tab-slot-id]::after {
+  display: none;
+}
+html[data-skin] [data-session-surface-tabs] :is([data-session-tool-toggle], [data-session-overflow-menu]) {
+  color: var(--color-ink-secondary);
+}
+html[data-skin] [data-session-surface-tabs] :is([data-session-tool-toggle], [data-session-overflow-menu]):hover,
+html[data-skin] [data-session-surface-tabs] [data-session-tool-toggle][aria-pressed="true"] {
+  background: var(--color-raised);
+  color: var(--color-ink);
+}
+html[data-skin] [data-session-surface-tabs] [data-session-project-chip] {
+  border-color: transparent;
+  background: var(--color-inset);
+  color: var(--color-ink-tertiary);
+}
+
+/* Session status capsule: panel material and the floating shadow. */
+html[data-skin] [data-session-status] {
+  border-color: var(--color-hairline);
+  box-shadow: var(--omb-shadow-float);
+}
+html[data-skin] [data-session-status] [data-status-section] {
+  border-color: transparent;
+  background: var(--color-inset);
+}

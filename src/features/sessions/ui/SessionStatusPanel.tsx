@@ -128,6 +128,7 @@ export function SessionStatusPanel({
       {model.hasContent ? (
         <aside
           aria-label={uiT("Status")}
+          data-session-status
           data-state={expanded ? "expanded" : "collapsed"}
           className={`pointer-events-auto relative isolate max-w-full overflow-hidden border border-content/10 text-content shadow-xl ${
             expanded ? "rounded-2xl" : "rounded-[17px]"
@@ -157,7 +158,7 @@ export function SessionStatusPanel({
               durationMs={MOTION_MS}
               className="min-h-0"
             >
-              <div className="max-h-[calc(min(64dvh,32rem)_-_34px)] overflow-x-hidden overflow-y-auto px-1.5 pb-1.5">
+              <div data-status-scroll className="max-h-[calc(min(64dvh,32rem)_-_34px)] overflow-x-hidden overflow-y-auto px-1.5 pb-1.5">
                 <PanelSections
                   model={model}
                   onNavigate={onNavigate}
@@ -194,7 +195,7 @@ function PanelHeader({
 }) {
   const { t: uiT } = useTranslation();
   return (
-    <div className="relative h-8 shrink-0">
+    <div data-status-header className="relative h-8 shrink-0">
       <button
         ref={summaryRef}
         type="button"
@@ -502,6 +503,7 @@ function TaskRows({ items }: { items: SessionStatusPanelModel["tasks"] }) {
       {(items ?? []).map((item, index) => (
         <li
           key={item.id ?? `${index}:${item.text}`}
+          data-status-task
           className="flex min-w-0 items-start gap-2 px-2 py-1"
         >
           <span className="grid size-4 shrink-0 place-items-center [&>span]:mt-0">
@@ -574,6 +576,7 @@ function Section({
   );
   return (
     <section
+      data-status-section
       className={`overflow-hidden rounded-[10px] border border-content/8 bg-content/[0.035]${hasBody && !onClick ? " py-1" : ""}`}
     >
       {onClick ? (
