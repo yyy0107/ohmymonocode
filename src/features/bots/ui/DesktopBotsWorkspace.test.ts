@@ -148,6 +148,8 @@ it("creates a Bot only after saving its editable draft and creates a named Threa
   act(() => active().querySelector<HTMLButtonElement>('[aria-label="New bot"]')!.click());
   await flush();
   const draft = node.querySelector<HTMLElement>('.desktop-bots-create:not([aria-hidden])')!;
+  act(() => [...draft.querySelectorAll<HTMLButtonElement>('[role="option"]')].find(button => button.textContent === "Create new Bot")!.click());
+  await act(async () => { await vi.advanceTimersByTimeAsync(360); }); await flush();
   expect(rpc.mock.calls.some(([method]) => method === "bots.create")).toBe(false);
   const name = [...draft.querySelectorAll("label")].find((label) => label.textContent?.startsWith("Assistant name"))!.querySelector("input")!;
   act(() => setValue(name, "New colleague"));
@@ -400,4 +402,84 @@ it("retains a Room draft and scroll across its member approval thread while paus
   expect(field.value).toBe("Room draft");
   expect(log.scrollTop).toBe(71);
   expect(rpc.mock.calls.some(([method]) => method.startsWith("botTeams."))).toBe(false);
+});
+
+async function recipient() {
+  act(() => active().querySelector<HTMLButtonElement>('[aria-label="New bot"]')!.click()); await flush();
+  return node.querySelector<HTMLInputElement>('[role="combobox"]')!;
+}
+async function key(field: HTMLElement, value: string) {
+  act(() => field.dispatchEvent(new KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true }))); await flush();
+}
+async function finishMotion() { await act(async () => { await vi.advanceTimersByTimeAsync(360); }); await flush(); }
+
+it("pins from the row menu, persists order, hides pins during search and drops an archived Bot", async () => {
+  await render();
+  act(() => active().querySelector<HTMLElement>('[title="B"]')!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 10, clientY: 20 }))); await flush();
+  const pin = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button => button.textContent?.includes("Pin Bot"))!;
+  act(() => pin.click()); await flush();
+  expect(JSON.parse(localStorage.getItem("monocode.bot-pins:host")!)).toEqual(["B"]);
+  expect(active().querySelector('.desktop-bots-pinned')?.textContent).toBe("B");
+  await select("B");
+  act(() => active().querySelector<HTMLButtonElement>('[aria-label="Bot details"]')!.click()); await flush();
+  expect(active().querySelector<HTMLButtonElement>('.desktop-bot-identity [aria-pressed]')?.getAttribute('aria-pressed')).toBe('true');
+  const search = active().querySelector<HTMLInputElement>('[aria-label="Search bots"]')!;
+  act(() => setValue(search, "B")); await finishMotion();
+  expect(active().querySelector('.desktop-bots-pinned')).toBeNull();
+  act(() => setValue(search, "")); await flush();
+  snapshot = { ...snapshot, bots: snapshot.bots.map(bot => bot.id === "B" ? { ...bot, archivedAt: 1 } : bot) };
+  await act(async () => { await vi.advanceTimersByTimeAsync(2100); }); await flush();
+  expect(JSON.parse(localStorage.getItem("monocode.bot-pins:host")!)).toEqual([]);
+  await finishMotion();
+  expect(active().querySelector('.desktop-bots-pinned')).toBeNull();
+});
+
+it("opens the last thread with picker arrows and Enter, filters results, and closes with Escape", async () => {
+  localStorage.setItem("monocode.bot-selection:host", JSON.stringify({ botId: "A", threadId: "A-2" }));
+  await render(); await select("B");
+  const field = await recipient();
+  expect(node.querySelector('.desktop-bots-create:not([aria-hidden]) .desktop-bots-draft-row')?.textContent).toBe("New");
+  expect(field.getAttribute("aria-expanded")).toBe("true");
+  act(() => setValue(field, "A")); await key(field, "ArrowDown"); await key(field, "Enter"); await finishMotion();
+  expect(active().querySelector('.desktop-bots-thread-trigger')?.textContent).toContain("A-2");
+  const next = await recipient(); await key(next, "Escape"); await finishMotion();
+  expect(active().querySelector('.desktop-bots-thread-trigger')?.textContent).toContain("A-2");
+  expect(node.querySelector('.desktop-bots-create:not([aria-hidden])')).toBeNull();
+  expect(document.activeElement).toBe(active().querySelector('[aria-label="New bot"]'));
+});
+
+it("hides multi-recipient hints on older Hosts and keeps Tab as ordinary navigation", async () => {
+  await render(); const field = await recipient();
+  await key(field, "ArrowDown"); await key(field, "Tab");
+  expect(node.querySelector('.desktop-bot-recipient-chip')).toBeNull();
+  expect(node.querySelector('.desktop-bot-recipient-menu')?.textContent).not.toContain("Tab to add");
+  await key(field, "ArrowUp"); await key(field, "Enter"); await finishMotion();
+  expect(node.querySelector('.desktop-bots-create:not([aria-hidden]) .assistant-settings')).not.toBeNull();
+  expect(rpc.mock.calls.some(([method]) => method === "bots.create")).toBe(false);
+});
+
+it("creates an ordered room from Tab recipients and retries a failed send without creating another room", async () => {
+  roomsSupported = true;
+  const base = rpc.getMockImplementation()!; let fail = true;
+  rpc.mockImplementation(async (method, params) => {
+    if (method === "botRooms.create") { const room = { ...rooms[0], id: "new-room", name: params.name, memberIds: params.memberIds }; rooms.push(room); return room; }
+    if (method === "botRooms.send") { if (fail) { fail = false; throw Error("Connection lost"); } return { accepted: true }; }
+    return base(method, params);
+  });
+  await render(); const field = await recipient();
+  await key(field, "ArrowDown"); await key(field, "Tab");
+  await key(field, "ArrowDown"); await key(field, "Tab");
+  expect([...node.querySelectorAll('.desktop-bot-recipient-chip')].map(chip => chip.textContent)).toEqual(["A", "B"]);
+  const message = node.querySelector<HTMLTextAreaElement>('[aria-label="Room message"]')!;
+  act(() => setValue(message, "Review together"));
+  await key(message, "Enter");
+  expect(node.querySelector('.desktop-bot-recipient-error')?.textContent).toBe("Connection lost");
+  await key(message, "Enter"); await finishMotion();
+  expect(rpc.mock.calls.filter(([method]) => method === "botRooms.create")).toHaveLength(1);
+  const creation = rpc.mock.calls.find(([method]) => method === "botRooms.create")![1];
+  expect(creation.memberIds).toEqual(["A", "B"]);
+  const sends = rpc.mock.calls.filter(([method]) => method === "botRooms.send");
+  expect(sends).toHaveLength(2); expect(sends[1][1]).toEqual(sends[0][1]);
+  expect(sends[1][1]).toMatchObject({ roomId: "new-room", text: "Review together" });
+  expect(node.querySelector('.desktop-bots-room-surface:not([aria-hidden])')).not.toBeNull();
 });

@@ -180,6 +180,7 @@ export function BotChat({
   botThreadPicker,
   botPinControl,
   botSettings,
+  botAvatarSupported = false,
   botMemory,
   botRuntime,
   botActivity,
@@ -206,6 +207,7 @@ export function BotChat({
   botPinControl?: ReactNode;
   /** Bot defaults stay separate from a thread's effective model override. */
   botSettings?: BotConfiguration;
+  botAvatarSupported?: boolean;
   /** File memory is available only in the capable desktop Bot workspace. */
   botMemory?: ReactNode;
   botRuntime?: ReactNode;
@@ -366,6 +368,8 @@ export function BotChat({
   const [readThrough, setReadThrough] = useState(() => botReadRevision(cacheKey));
   const latestRevision = messages.reduce((latest, message) => Math.max(latest, message.revision), 0);
   const newMessages = botsLayout ? messages.filter(message => message.kind === "assistant" && message.revision > readThrough) : [];
+  const retainedNewCount = useRef(0);
+  if (newMessages.length) retainedNewCount.current = newMessages.length;
   useEffect(() => {
     if (botsLayout && visible && followLog.current) setReadThrough(latestRevision);
   }, [botsLayout, visible, latestRevision]);
@@ -977,7 +981,7 @@ export function BotChat({
             >
               {settingsShown && errorNotice}
               <DesktopBotDetails
-                identity={botsLayout && settingsBase ? <BotIdentitySettings key={`${cacheKey}:${settingsBase.revision}`} bot={settingsBase} busy={busy} onSave={save}>{botPinControl}</BotIdentitySettings> : undefined}
+                identity={botsLayout && settingsBase ? <BotIdentitySettings key={`${cacheKey}:${settingsBase.revision}`} bot={settingsBase} avatarSupported={botAvatarSupported} busy={busy} onSave={save}>{botPinControl}</BotIdentitySettings> : undefined}
                 delegations={botsLayout ? botDelegations : undefined}
                 memory={botsLayout ? botMemory : undefined}
                 runtime={botsLayout ? botRuntime : undefined}
@@ -1054,7 +1058,7 @@ export function BotChat({
               >
                 <Controls {...controls} />
                 {botsLayout && <AnimatedCollapse expanded={awayFromBottom && newMessages.length > 0} className="desktop-bots-new-messages">
-                  <div><button type="button" onClick={jumpToLatest}><ArrowUp size={14} />{t("{count} new messages", { count: newMessages.length })}</button><button type="button" aria-label={t("Dismiss")} onClick={() => setReadThrough(latestRevision)}><X size={13} /></button></div>
+                  <div><button type="button" onClick={jumpToLatest}><ArrowUp size={14} />{t("{count} new messages", { count: retainedNewCount.current })}</button><button type="button" aria-label={t("Dismiss")} onClick={() => setReadThrough(latestRevision)}><X size={13} /></button></div>
                 </AnimatedCollapse>}
                 <div
                   ref={log}

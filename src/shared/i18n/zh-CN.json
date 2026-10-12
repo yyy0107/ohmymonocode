@@ -3936,5 +3936,20 @@
   "{count} new messages": "{count} 条新消息",
   "Scroll to bottom": "回到底部",
   "Download {name}": "下载 {name}",
-  "Up to 8 characters or emoji. Leave empty for a generated avatar.": "最多 8 个字符或表情，留空则自动生成头像。"
+  "Up to 8 characters or emoji. Leave empty for a generated avatar.": "最多 8 个字符或表情，留空则自动生成头像。",
+  "Pin Bot": "置顶 Bot",
+  "Unpin Bot": "取消置顶 Bot",
+  "Pinned bots": "置顶 Bot",
+  "Bot actions": "Bot 操作",
+  "To:": "收件人：",
+  "Recipients": "收件人",
+  "Search or create a Bot": "搜索或创建 Bot",
+  "Create new Bot": "创建新 Bot",
+  "Tab to add": "Tab 添加",
+  "Enter to open": "↵ 打开",
+  "Remove {name}": "移除 {name}",
+  "Add another Bot to start a room": "再添加一个 Bot 以开始房间对话",
+  "Send a message to start a room": "发送消息以创建房间",
+  "Room message": "房间消息",
+  "Message your Bots…": "给 Bot 们发消息…"
 }

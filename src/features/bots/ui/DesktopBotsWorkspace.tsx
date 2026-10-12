@@ -7,6 +7,9 @@ import { botCacheKey, type BotScope, type BotsSnapshot, type BotThread, type Bot
 import { migrateDefaultBotCache, scopedBotRpc } from "../model/botClient";
 import { BOT_SELECTION_EVENT, readBotSelection, selectBotThread } from "../model/botSelection";
 import { useBotUnread } from "../model/useBotUnread";
+import { readBotPins, writeBotPins } from "../model/botPins";
+import { BotRecipientPicker } from "./BotRecipientPicker";
+import { ExplorerMenu } from "../../files/ui/ExplorerMenu";
 import { BotAvatar } from "./BotAvatar";
 import { BotThreadSwitcher } from "./DesktopBotsChrome";
 import { BotMemoryDrafts } from "../model/botMemoryDrafts";
@@ -25,10 +28,10 @@ import { botErrorMessage } from "../model/botErrors";
 import { REMOTE_PROVIDERS, type HostDescriptor, type HostModelCatalog, type HostProject } from "../../connections/model/protocol";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
-import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
+import { AnimatedCollapse, useCollapseMotion } from "../../../shared/ui/AnimatedCollapse";
 import { HarnessIcon } from "../../sessions/ui/HarnessIcon";
 import { sessionDisplayTitle } from "../../sessions/model/session";
-import { Archive, Bot, ChevronRight, Loader2, Plus, Search, MessageSquare, X } from "../../../shared/ui/icons";
+import { Archive, Bot, ChevronRight, Loader2, Pin, Plus, Search, MessageSquare, X } from "../../../shared/ui/icons";
 
 type Props = ComponentProps<typeof BotChat>;
 const EMPTY_THREADS: BotThread[] = [];
@@ -74,6 +77,20 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSup
   const [selection, setSelection] = useState(() => readBotSelection(props.hostKey));
   const [visited, setVisited] = useState<BotScope[]>([]);
   const [creatingBot, setCreatingBot] = useState(false);
+  const [recipientOpen, setRecipientOpen] = useState(false);
+  const recipientMotion = useCollapseMotion(recipientOpen);
+  const recipientShown = recipientOpen || recipientMotion.foldState !== "closed";
+  const [pinsByHost, setPinsByHost] = useState<Record<string, string[]>>(() => ({ [props.hostKey]: readBotPins(props.hostKey) }));
+  const pins = useMemo(() => pinsByHost[props.hostKey] ?? readBotPins(props.hostKey), [pinsByHost, props.hostKey]);
+  const savePins = (ids: string[]) => {
+    setPinsByHost(current => ({ ...current, [props.hostKey]: ids })); writeBotPins(props.hostKey, ids);
+  };
+  const togglePin = (id: string) => savePins(pins.includes(id) ? pins.filter(value => value !== id) : [...pins, id]);
+  useEffect(() => {
+    if (!snapshot) return;
+    const active = pins.filter(id => snapshot.bots.some(bot => bot.id === id && !bot.archivedAt));
+    if (active.length !== pins.length) savePins(active);
+  }, [snapshot, pins, props.hostKey]);
   const [showArchive, setShowArchive] = useState(false);
   const [creatingThread, setCreatingThread] = useState<string>();
   const [threadName, setThreadName] = useState("");
@@ -84,15 +101,21 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSup
   const [draftVersion, setDraftVersion] = useState(0);
   const [memoryDrafts] = useState(() => new BotMemoryDrafts());
   const workspace = useRef<HTMLDivElement>(null);
+  const restoreRecipientFocus = useRef(false);
+  useEffect(() => {
+    if (recipientMotion.foldState !== "closed" || !restoreRecipientFocus.current) return;
+    restoreRecipientFocus.current = false;
+    workspace.current?.querySelector<HTMLButtonElement>('.desktop-bots-thread-surface:not([aria-hidden]) .desktop-bots-navigation-header button:last-child')?.focus();
+  }, [recipientMotion.foldState]);
   const createCommand = useRef<{ text: string; id: string } | undefined>(undefined);
-  const lastThread = useRef(new Map<string, string>());
+  const lastThread = useRef(new Map<string, string>(selection ? [[selection.botId, selection.threadId]] : []));
   const choose = useCallback((incoming: BotScope) => {
     // Selection events also carry environmentId; only persist the owned scope.
     const scope = { botId: incoming.botId, threadId: incoming.threadId };
     setSelection(scope);
     lastThread.current.set(scope.botId, scope.threadId);
     setVisited((current) => current.some((item) => item.botId === scope.botId && item.threadId === scope.threadId) ? current : [...current, scope]);
-    setCreatingBot(false);
+    setCreatingBot(false); setRecipientOpen(false);
     setManagementPanel(undefined); setRoomSelection(undefined);
     setShowArchive(false);
     setCreatingThread(undefined);
@@ -130,9 +153,9 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSup
   }, [visible, refreshCollaboration]);
   const openRoom = useCallback((id: string) => {
     setRoomSelection(id); setVisitedRooms(current => current.includes(id) ? current : [...current, id]);
-    setManagementPanel(undefined); setCreatingBot(false); setCreatingThread(undefined); setShowArchive(false);
+    setManagementPanel(undefined); setCreatingBot(false); setRecipientOpen(false); setCreatingThread(undefined); setShowArchive(false);
   }, []);
-  const openManagement = (panel: "teams" | "rooms") => { setManagementPanel(panel); setRoomSelection(undefined); setCreatingBot(false); setCreatingThread(undefined); setShowArchive(false); };
+  const openManagement = (panel: "teams" | "rooms") => { setManagementPanel(panel); setRoomSelection(undefined); setCreatingBot(false); setRecipientOpen(false); setCreatingThread(undefined); setShowArchive(false); };
   useEffect(() => {
     if (!visible) return;
     let disposed = false;
@@ -234,19 +257,33 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSup
       else setError("Thread not available");
     }, cause => setError(botErrorMessage(cause)));
   }, [refresh, select]);
-  const newThread = (botId: string) => { setManagementPanel(undefined); setRoomSelection(undefined); setShowArchive(false); setCreatingThread(botId); setThreadName(""); setError(undefined); };
-  const navigation = <BotNavigation hostName={props.hostName} hostPicker={props.hostPicker}
-    teams={teams} rooms={rooms} teamsSupported={props.teamsSupported} roomsSupported={props.roomsSupported} roomSelection={roomSelection} onOpenRoom={openRoom} onManage={openManagement}
-    snapshot={snapshot} selection={showArchive || managementPanel || roomSelection ? undefined : selection} activity={activity} environmentId={props.hostKey}
-    archiveOpen={showArchive} onArchive={() => { setManagementPanel(undefined); setRoomSelection(undefined); setShowArchive(true); setCreatingBot(false); setCreatingThread(undefined); }}
-    onNewBot={() => { setManagementPanel(undefined); setRoomSelection(undefined); setShowArchive(false); setCreatingBot(true); setCreatingThread(undefined); setError(undefined); }}
-    onSelectBot={(bot) => {
+  const selectBot = (bot: BotView) => {
       const thread = snapshot?.threads.find((thread) => thread.botId === bot.id && thread.id === lastThread.current.get(bot.id) && !thread.archivedAt)
         ?? snapshot?.threads.find((thread) => thread.botId === bot.id && thread.id === bot.defaultThreadId && !thread.archivedAt)
         ?? snapshot?.threads.find((thread) => thread.botId === bot.id && !thread.archivedAt);
       if (thread) select({ botId: bot.id, threadId: thread.id });
-    }} />;
-  const draftShown = !roomSelection && (creatingBot || !selection || showArchive || !!managementPanel);
+  };
+  const newThread = (botId: string) => { setManagementPanel(undefined); setRoomSelection(undefined); setShowArchive(false); setCreatingThread(botId); setThreadName(""); setError(undefined); };
+  const roomDraft = useRef<{ signature: string; createId: string; sendId: string; room?: BotRoom } | undefined>(undefined);
+  const sendToRecipients = async (members: BotView[], text: string) => {
+    if (!props.roomsSupported || members.length < 2) return;
+    const memberIds = members.map(bot => bot.id), signature = JSON.stringify([memberIds, text]);
+    if (roomDraft.current?.signature !== signature) roomDraft.current = { signature, createId: crypto.randomUUID(), sendId: crypto.randomUUID() };
+    const request = roomDraft.current;
+    request.room ??= await props.rpc<BotRoom>("botRooms.create", { commandId: request.createId, name: members.map(bot => bot.name).join(", ").slice(0, 100), memberIds });
+    const room = request.room;
+    await props.rpc("botRooms.send", { commandId: request.sendId, roomId: room.id, text });
+    setRooms(current => [...current.filter(item => item.id !== room.id), room]);
+    roomDraft.current = undefined; openRoom(room.id);
+    void refreshCollaboration().catch(cause => setCollaborationError(botErrorMessage(cause)));
+  };
+  const navigation = <BotNavigation pins={pins} onTogglePin={togglePin} draftOpen={recipientOpen || creatingBot} hostName={props.hostName} hostPicker={props.hostPicker}
+    teams={teams} rooms={rooms} teamsSupported={props.teamsSupported} roomsSupported={props.roomsSupported} roomSelection={roomSelection} onOpenRoom={openRoom} onManage={openManagement}
+    snapshot={snapshot} selection={showArchive || managementPanel || roomSelection ? undefined : selection} activity={activity} environmentId={props.hostKey}
+    archiveOpen={showArchive} onArchive={() => { setManagementPanel(undefined); setRoomSelection(undefined); setShowArchive(true); setCreatingBot(false); setRecipientOpen(false); setCreatingThread(undefined); }}
+    onNewBot={() => { setManagementPanel(undefined); setRoomSelection(undefined); setShowArchive(false); setCreatingBot(false); setRecipientOpen(true); setCreatingThread(undefined); setError(undefined); }}
+    onSelectBot={selectBot} />;
+  const draftShown = !roomSelection && (recipientShown || creatingBot || !selection || showArchive || !!managementPanel);
   const closeArchive = () => {
     setShowArchive(false);
     requestAnimationFrame(() => workspace.current?.querySelector<HTMLButtonElement>('.desktop-bots-thread-surface:not([aria-hidden]) .desktop-bots-archive-entry')?.focus());
@@ -261,6 +298,8 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSup
         <SurfaceVisibilityContext.Provider value={visible && selected}>
           <ScopedBotChat {...props} scope={scope} delegationSupported={props.delegationSupported} botNames={botNames} onOpenBotThread={openDelegationThread} threadTitle={thread?.title} botNavigation={navigation}
             botMemory={props.memorySupported ? <DesktopBotMemory botId={scope.botId} rpc={props.rpc} drafts={memoryDrafts} /> : undefined}
+            botPinControl={bot ? <button type="button" aria-pressed={pins.includes(bot.id)} onClick={() => togglePin(bot.id)}><Pin size={14} />{t(pins.includes(bot.id) ? "Unpin Bot" : "Pin Bot")}</button> : undefined}
+            botAvatarSupported={props.managementSupported}
             botSettings={bot}
             botThreadPicker={bot ? <BotThreadSwitcher bot={bot} threads={activeThreads.filter(item => item.botId === bot.id)} selected={scope.threadId} onSelect={item => select({ botId: item.botId, threadId: item.id })} onNew={() => newThread(bot.id)} /> : undefined}
             botReadOnlyReason={thread?.kind === "delegation" ? "Delegation threads accept approvals and questions. Start a direct thread for a new message." : thread?.kind === "room" ? "Room member threads accept approvals and questions. Send new messages in the room." : undefined}
@@ -284,16 +323,23 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSup
       <SurfaceVisibilityContext.Provider value={visible && draftShown}>
         {navigation}
         <section className="desktop-bots-create-content">
+          <div className="desktop-bots-recipient-surface" data-fold-state={recipientMotion.foldState} data-open={recipientOpen} inert={!recipientOpen} aria-hidden={!recipientOpen || undefined}
+            onTransitionEnd={event => { if (event.target === event.currentTarget && event.propertyName === "transform") recipientMotion.finish(); }}>
+            <SurfaceVisibilityContext.Provider value={visible && draftShown && recipientOpen}>
+              <BotRecipientPicker open={recipientOpen} bots={snapshot?.bots ?? []} roomsSupported={props.roomsSupported} onChoose={selectBot}
+                onCreate={() => { setRecipientOpen(false); setCreatingBot(true); }} onClose={() => { restoreRecipientFocus.current = true; setRecipientOpen(false); }} onSend={sendToRecipients} />
+            </SurfaceVisibilityContext.Provider>
+          </div>
           {props.teamsSupported && <div className="desktop-bot-management-surface" hidden={managementPanel !== "teams"} inert={managementPanel !== "teams"}><SurfaceVisibilityContext.Provider value={visible && draftShown && managementPanel === "teams"}><DesktopBotTeams teams={teams} bots={snapshot?.bots ?? []} rpc={props.rpc} onSaved={refreshCollaboration} /></SurfaceVisibilityContext.Provider></div>}
           {props.roomsSupported && <div className="desktop-bot-management-surface" hidden={managementPanel !== "rooms"} inert={managementPanel !== "rooms"}><SurfaceVisibilityContext.Provider value={visible && draftShown && managementPanel === "rooms"}><DesktopBotRooms rooms={rooms} bots={snapshot?.bots ?? []} rpc={props.rpc} onSaved={refreshCollaboration} onOpenRoom={openRoom} /></SurfaceVisibilityContext.Provider></div>}
           {managementPanel ? null : showArchive ? <BotArchive snapshot={snapshot} busy={busy} onRestore={restore} onClose={closeArchive} /> : creatingBot ? <>
             <header><strong>{t("New bot")}</strong><button type="button" disabled={busy} onClick={() => { setCreatingBot(false); setDraftVersion((value) => value + 1); createCommand.current = undefined; }}>{t("Cancel")}</button></header>
             <BotSettings key={draftVersion} value={null} submitLabel="Create bot" catalog={catalog} catalogState={catalogState}
               projects={projects} busy={busy} onSave={createBot} onRetryCatalog={() => void loadCatalog()} />
-          </> : <div className="desktop-bots-empty">
+          </> : recipientShown ? null : <div className="desktop-bots-empty">
             <Bot size={30} aria-hidden="true" />
             <h2>{t(snapshot ? "No bots yet" : "Loading…")}</h2>
-            {snapshot && <button type="button" onClick={() => setCreatingBot(true)}>{t("Create bot")}</button>}
+            {snapshot && <button type="button" onClick={() => setRecipientOpen(true)}>{t("Create bot")}</button>}
           </div>}
         </section>
       </SurfaceVisibilityContext.Provider>
@@ -316,7 +362,8 @@ function ScopedBotChat({ scope, defaultScope, delegationSupported, botNames, onO
 }
 
 type Activity = ReturnType<typeof useBotUnread>;
-function BotNavigation({ hostName, hostPicker, snapshot, selection, activity, environmentId, archiveOpen, onArchive, onNewBot, onSelectBot, teams, rooms, teamsSupported, roomsSupported, roomSelection, onOpenRoom, onManage }: {
+function BotNavigation({ pins, onTogglePin, draftOpen, hostName, hostPicker, snapshot, selection, activity, environmentId, archiveOpen, onArchive, onNewBot, onSelectBot, teams, rooms, teamsSupported, roomsSupported, roomSelection, onOpenRoom, onManage }: {
+  pins: string[]; onTogglePin: (id: string) => void; draftOpen: boolean;
   teams: BotTeam[]; rooms: BotRoom[]; teamsSupported: boolean; roomsSupported: boolean; roomSelection?: string; onOpenRoom: (id: string) => void; onManage: (panel: "teams" | "rooms") => void;
   hostName: string; hostPicker?: Props["hostPicker"]; snapshot?: BotsSnapshot; selection?: BotScope;
   archiveOpen: boolean; onArchive: () => void;
@@ -325,6 +372,13 @@ function BotNavigation({ hostName, hostPicker, snapshot, selection, activity, en
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
+  const visible = useSurfaceVisibility();
+  const [menu, setMenu] = useState<{ botId: string; x: number; y: number; open: boolean }>();
+  useEffect(() => { if (!visible) setMenu(current => current && { ...current, open: false }); }, [visible]);
+  const menuBot = snapshot?.bots.find(bot => bot.id === menu?.botId && !bot.archivedAt);
+  const pinnedBots = pins.flatMap(id => { const bot = snapshot?.bots.find(bot => bot.id === id && !bot.archivedAt); return bot ? [bot] : []; });
+  const retainedPinned = useRef(pinnedBots);
+  if (pinnedBots.length) retainedPinned.current = pinnedBots;
   const bots = snapshot?.bots.filter((bot) => !bot.archivedAt && `${bot.name} ${snapshot.threads.filter((thread) => thread.botId === bot.id && !thread.archivedAt).map((thread) => thread.title).join(" ")}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())) ?? [];
   const [foldedTeams, setFoldedTeams] = useState(new Set<string>());
   const activeTeams = teams.filter(team => !team.archivedAt);
@@ -337,8 +391,14 @@ function BotNavigation({ hostName, hostPicker, snapshot, selection, activity, en
         const newest = threads.map((thread) => activity.get(botCacheKey(environmentId, { botId: bot.id, threadId: thread.id }))?.latest).filter((message) => !!message).sort((a, b) => b.createdAt - a.createdAt)[0];
         const at = newest?.createdAt ?? Math.max(bot.updatedAt, ...threads.map(thread => thread.updatedAt));
         return <div key={bot.id} className="desktop-bots-bot-group">
-          <div className="desktop-bots-contact" data-selected={selection?.botId === bot.id}>
-            <button type="button" className="desktop-bots-contact-main" onClick={() => onSelectBot(bot)} aria-label={unread ? t("{bot}, {count} unread messages", { bot: bot.name, count: unread }) : bot.name} title={bot.name} aria-current={selection?.botId === bot.id || undefined}>
+          <div className="desktop-bots-contact" data-selected={!draftOpen && selection?.botId === bot.id} onContextMenu={event => {
+            event.preventDefault(); if (visible) setMenu({ botId: bot.id, x: event.clientX, y: event.clientY, open: true });
+          }} onKeyDown={event => {
+            if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
+              event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); setMenu({ botId: bot.id, x: rect.left + 20, y: rect.bottom, open: true });
+            }
+          }}>
+            <button type="button" className="desktop-bots-contact-main" onClick={() => onSelectBot(bot)} aria-label={unread ? t("{bot}, {count} unread messages", { bot: bot.name, count: unread }) : bot.name} title={bot.name} aria-current={(!draftOpen && selection?.botId === bot.id) || undefined}>
               <BotAvatar bot={bot} />
               <span className="desktop-bots-contact-copy"><span className="desktop-bots-contact-title"><strong>{bot.name}</strong>{chief && <small className="desktop-bots-chief" title={t("Chief of Staff")}>{t("Chief")}</small>}<time dateTime={new Date(at).toISOString()}>{new Date(at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</time></span><span className="desktop-bots-preview">{newest && "text" in newest ? newest.text.replace(/\s+/g, " ").trim() || t("Attachments") : threads[0]?.title || t("Main thread")}</span></span>
               {unread > 0 && <span className="desktop-bots-unread" aria-hidden="true" />}
@@ -349,7 +409,11 @@ function BotNavigation({ hostName, hostPicker, snapshot, selection, activity, en
   return <nav className="desktop-bots-navigation" aria-label={t("Bots")}>
     <header className="desktop-bots-navigation-header">{hostPicker ?? <span className="desktop-bots-host-name">{hostName}</span>}<button type="button" className="assistant-icon-button" onClick={onNewBot} aria-label={t("New bot")} title={t("New conversation")}><Plus size={20} /></button></header>
     <label className="desktop-bots-search"><Search size={15} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("Search bots")} aria-label={t("Search bots")} /></label>
+    <AnimatedCollapse expanded={!query.trim() && pinnedBots.length > 0} className="desktop-bots-pinned-collapse">
+      <div className="desktop-bots-pinned" aria-label={t("Pinned bots")}>{(pinnedBots.length ? pinnedBots : retainedPinned.current).map(bot => <button type="button" key={bot.id} onClick={() => onSelectBot(bot)} aria-label={bot.name} title={bot.name}><BotAvatar bot={bot} size={72} /><span>{bot.name}</span></button>)}</div>
+    </AnimatedCollapse>
     <div className="desktop-bots-contacts">
+      <AnimatedCollapse expanded={draftOpen}><button type="button" className="desktop-bots-draft-row" aria-current="page" onClick={onNewBot}><Plus size={20} /><span>{t("New")}</span></button></AnimatedCollapse>
       {roomsSupported && rooms.some(room => !room.archivedAt) && <div className="desktop-bots-room-nav">{rooms.filter(room => !room.archivedAt && room.name.toLocaleLowerCase().includes(query.toLocaleLowerCase())).map(room => <button type="button" key={room.id} aria-label={room.name} title={room.name} aria-current={roomSelection === room.id ? "page" : undefined} onClick={() => onOpenRoom(room.id)}><MessageSquare size={16} /><span>{room.name}</span></button>)}</div>}
       {groups.map(group => <div className="desktop-bots-team-group" key={group.id}>
         {group.team && <button type="button" className="desktop-bots-team-heading" aria-label={group.team.name} title={group.team.name} aria-expanded={!foldedTeams.has(group.id)} onClick={() => setFoldedTeams(current => { const next = new Set(current); if (next.has(group.id)) next.delete(group.id); else next.add(group.id); return next; })}><ChevronRight size={13} /><span>{group.team.name}</span></button>}
@@ -362,6 +426,9 @@ function BotNavigation({ hostName, hostPicker, snapshot, selection, activity, en
       {roomsSupported && <button type="button" aria-label={t("Manage rooms")} title={t("Manage rooms")} onClick={() => onManage("rooms")}><MessageSquare size={16} /><span>{t("Rooms")}</span></button>}
     </div>}
     <button type="button" className="desktop-bots-archive-entry" onClick={onArchive} aria-label={t("Archived bots and threads")} title={t("Archived bots and threads")} aria-current={archiveOpen ? "page" : undefined}><Archive size={16} /><span>{t("Archived bots and threads")}</span></button>
+    <ExplorerMenu open={!!menu?.open && !!menuBot && visible} x={menu?.x ?? 0} y={menu?.y ?? 0} ariaLabel={t("Bot actions")}
+      items={[{ kind: "item", id: "pin", label: t(menuBot && pins.includes(menuBot.id) ? "Unpin Bot" : "Pin Bot"), icon: <Pin size={14} /> }]}
+      onPick={() => { if (menuBot) onTogglePin(menuBot.id); setMenu(current => current && { ...current, open: false }); }} onClose={() => setMenu(current => current && { ...current, open: false })} />
   </nav>;
 }
 
