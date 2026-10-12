@@ -1,3 +1,4 @@
+import { startMotionClock, stopMotionClock, advanceMotionTimers } from "./motionTestClock";
 // @vitest-environment happy-dom
 import { act, createElement, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -13,6 +14,7 @@ let app: HTMLDivElement;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.useFakeTimers();
+  startMotionClock();
   setUiLanguage("en");
   app = document.createElement("div");
   app.className = "mobile-app";
@@ -22,6 +24,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   app.remove();
+  stopMotionClock();
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -102,7 +105,7 @@ const dialog = () =>
     '.mobile-sheet-backdrop:not([inert]) [role="dialog"]',
   );
 const click = (element: HTMLElement) => act(() => element.click());
-const finish = () => act(() => vi.advanceTimersByTime(600));
+const finish = () => advanceMotionTimers(600);
 const row = (text: string) =>
   [
     ...dialog()!.querySelectorAll<HTMLButtonElement>(".mobile-progress-row"),
@@ -116,12 +119,12 @@ describe("mobile session progress", () => {
     render([tasks(), { ...plan, text: "# Implementation plan\n\n[First file](/repo/first.md)" }], undefined, read);
     click(capsule()!);
     click(row("Implementation plan"));
-    finish();
+    await finish();
     await act(async () => {
       dialog()!.querySelector<HTMLAnchorElement>('a[href="/repo/first.md"]')!.click();
       await vi.dynamicImportSettled();
     });
-    finish();
+    await finish();
     await act(async () => {
       dialog()!.querySelector<HTMLAnchorElement>('a[href="/repo/second.md"]')!.click();
       await vi.dynamicImportSettled();
@@ -141,14 +144,14 @@ describe("mobile session progress", () => {
     click(capsule()!);
     click(row(kind === "plan" ? "Implementation plan" : "Review changes"));
     await act(async () => vi.dynamicImportSettled());
-    finish();
+    await finish();
     expect(dialog()?.getAttribute("aria-label")).toBe(kind === "plan" ? "Plan" : "Subagent conversation");
     act(() => { expect(backMobileSheet()).toBe(true); });
     expect(dialog()?.getAttribute("aria-label")).toBe("Session progress");
-    finish();
+    await finish();
     act(() => { expect(backMobileSheet()).toBe(true); });
     expect(dialog()).toBeNull();
-    finish();
+    await finish();
     expect(backMobileSheet()).toBe(false);
   });
 
@@ -165,10 +168,10 @@ describe("mobile session progress", () => {
     click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(section.querySelector('[data-fold-state="closing"][inert]')).not.toBeNull();
-    finish();
+    await finish();
     expect(section.textContent).not.toContain("Review changes");
     click(toggle);
-    finish();
+    await finish();
     expect(row("Review changes").querySelector('[title="Completed"]')).not.toBeNull();
     expect(row("Review changes").textContent).toContain("0 steps");
     click(row("Review changes"));
@@ -176,7 +179,7 @@ describe("mobile session progress", () => {
     expect(dialog()?.textContent).toContain("Checking compatibility.");
   });
 
-  it("hides ordinary chats and follows live task snapshots, including idle completion", () => {
+  it("hides ordinary chats and follows live task snapshots, including idle completion", async () => {
     const { snapshot, update } = render([
       { id: "user", role: "user", text: "Hello" },
     ]);
@@ -203,7 +206,7 @@ describe("mobile session progress", () => {
     expect(closing.textContent).toContain("Task 3");
     expect(capsule()?.closest("[inert]")).not.toBeNull();
     expect(capsule()?.textContent).toContain("Task 3");
-    finish();
+    await finish();
     expect(capsule()).toBeNull();
     expect(app.querySelector(".mobile-sheet-backdrop")).toBeNull();
     // New work should bring back only the capsule, not reopen the old sheet.
@@ -225,9 +228,9 @@ describe("mobile session progress", () => {
     click(row("Implementation plan"));
     expect(dialog()?.getAttribute("aria-label")).toBe("Plan");
     expect(dialog()?.textContent).toContain("Keep the public API stable.");
-    finish();
+    await finish();
     click(dialog()!.querySelector<HTMLButtonElement>('[aria-label="Back"]')!);
-    finish();
+    await finish();
     expect(dialog()?.getAttribute("aria-label")).toBe("Session progress");
     click(row("Review changes"));
     await act(async () => vi.dynamicImportSettled());
@@ -259,7 +262,7 @@ describe("mobile session progress", () => {
     expect(dialog()?.textContent).toContain("Compatibility verified.");
   });
 
-  it("focuses a long checklist and keeps folded rows inert through rapid reversal", () => {
+  it("focuses a long checklist and keeps folded rows inert through rapid reversal", async () => {
     render([tasks(8, 4)]);
     click(capsule()!);
     const more = dialog()!.querySelector<HTMLButtonElement>(
@@ -269,7 +272,7 @@ describe("mobile session progress", () => {
       dialog()?.querySelectorAll(".mobile-progress-tasks li"),
     ).toHaveLength(3);
     click(more);
-    finish();
+    await finish();
     expect(
       dialog()?.querySelectorAll(".mobile-progress-tasks li"),
     ).toHaveLength(8);
@@ -279,18 +282,18 @@ describe("mobile session progress", () => {
         ?.textContent,
     ).toContain("Task 1");
     click(more);
-    finish();
+    await finish();
     expect(
       dialog()?.querySelectorAll(".mobile-progress-tasks li"),
     ).toHaveLength(8);
     click(more);
-    finish();
+    await finish();
     expect(
       dialog()?.querySelectorAll(".mobile-progress-tasks li"),
     ).toHaveLength(3);
   });
 
-  it("registers native Back dismissal, supports rapid reopen and releases hidden portals", () => {
+  it("registers native Back dismissal, supports rapid reopen and releases hidden portals", async () => {
     const { update, onOverlayChange } = render([tasks()]);
     click(capsule()!);
     const close = onOverlayChange.mock.calls.at(-1)?.[0] as () => void;
@@ -299,18 +302,18 @@ describe("mobile session progress", () => {
     expect(dialog()).toBeNull();
     expect(app.querySelector(".mobile-sheet-backdrop[inert]")).not.toBeNull();
     click(capsule()!);
-    finish();
+    await finish();
     expect(dialog()).not.toBeNull();
     update({}, false);
     expect(dialog()).toBeNull();
     expect(onOverlayChange.mock.calls.at(-1)?.[0]).toBeUndefined();
-    finish();
+    await finish();
     expect(app.querySelector(".mobile-sheet-backdrop")).toBeNull();
     update();
     expect(dialog()).toBeNull();
   });
 
-  it("localizes application text while preserving provider text and running counts", () => {
+  it("localizes application text while preserving provider text and running counts", async () => {
     render([agent], ["npm run dev"]);
     expect(capsule()?.textContent).toContain("2 running");
     act(() => setUiLanguage("zh-CN"));

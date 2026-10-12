@@ -1,3 +1,5 @@
+import { motion } from "motion/react";
+import { motionGeometry, panelTransition } from "../shared/motion/tokens";
 import { useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -23,6 +25,7 @@ import {
 import { MobileSheet } from "./MobileSheet";
 import { MobileSheetPresence } from "./MobileSheetPresence";
 import { MobileDiffCounts } from "./MobileDiffCounts";
+const MotionChevronRight = motion.create(ChevronRight);
 import type { MobileGitIndexState } from "./useMobileGitIndex";
 import "./styles/session-progress.css";
 
@@ -66,7 +69,7 @@ export function MobileSessionProgress({
   const summaryModel = shown ? model : retained.current;
   const capsule = (
       <div className="mobile-session-progress" data-docked={dock ? true : undefined}>
-        <AnimatedCollapse expanded={shown} motion="height" durationMs={dock ? undefined : 560}>
+        <AnimatedCollapse expanded={shown} motion="height">
           <button
             type="button"
             className="mobile-progress-capsule"
@@ -427,7 +430,7 @@ function Section({
             className="flex min-h-11 w-full items-center gap-2 text-left"
           >
             {heading}
-            <ChevronRight size={16} aria-hidden="true" className={`zen-disclosure-chevron ml-auto shrink-0${expanded ? " rotate-90" : ""}`} />
+            <MotionChevronRight size={16} aria-hidden="true" className="zen-disclosure-chevron ml-auto shrink-0" animate={{ rotate: expanded ? motionGeometry.disclosureAngle : 0 }} transition={panelTransition} />
           </button>
         ) : heading}
       </h3>

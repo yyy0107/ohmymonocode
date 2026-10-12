@@ -29,38 +29,9 @@
 }
 .mobile-header.mobile-assistant-header[data-floating="true"]
   > .mobile-header-title[data-capsule="true"] {
-  --assistant-capsule-spring: cubic-bezier(0.22, 1.2, 0.36, 1);
   display: block;
   padding: 0;
   border-radius: 24px;
-}
-.mobile-assistant-header > .mobile-header-title {
-  transform: scaleX(1);
-  transform-origin: center top;
-  transition: transform 340ms var(--assistant-capsule-spring);
-}
-@supports (transition-timing-function: linear(0, 1)) {
-  .mobile-header.mobile-assistant-header[data-floating="true"]
-    > .mobile-header-title[data-capsule="true"] {
-    --assistant-capsule-spring: linear(
-      0, 0.3 8%, 0.72 18%, 1.03 32%, 1.08 44%, 0.97 65%, 1.008 83%, 1
-    );
-  }
-}
-/* Keep vertical sizing in AnimatedCollapse: scaling Y would distort its
-   measured heights. Transitions preserve the current squeeze on reversal. */
-.mobile-assistant-header > .mobile-header-title:has(
-  > .mobile-assistant-activity-collapse[data-fold-state="opening"]
-) {
-  transform: scaleX(0.975);
-}
-.mobile-assistant-header > .mobile-header-title:has(
-  > .mobile-assistant-activity-collapse[data-fold-state="closing"]
-) {
-  transform: scaleX(1.02);
-}
-.zen-fold-item.mobile-assistant-activity-collapse {
-  --collapse-easing: var(--assistant-capsule-spring);
 }
 .mobile-assistant-profile {
   display: flex;
@@ -151,8 +122,6 @@
   /* Match the scroll that the local layout will apply, without resizing the
      conversation and running its ResizeObserver on every keyboard frame. */
   transform: translateY(calc(var(--mobile-keyboard-offset) * var(--mobile-assistant-keyboard-follow, 0) * -1));
-  transition: --mobile-keyboard var(--mobile-keyboard-duration, 0ms)
-    var(--mobile-keyboard-easing, linear);
   min-height: 0;
   padding: calc(var(--mobile-header-height) + var(--mobile-safe-top) + 12px)
     18px calc(var(--mobile-assistant-dock-height, 76px) + 20px - min(max(0px, var(--mobile-safe-bottom) - 14px), var(--mobile-keyboard-height)));
@@ -212,7 +181,6 @@
 }
 .assistant-chat[data-layout="mobile"] .assistant-message-row > :not(.assistant-swipe-time, .assistant-swipe-reply) {
   transform: translateX(0);
-  transition: transform 200ms ease-out;
 }
 .assistant-swipe-time {
   position: absolute;
@@ -228,7 +196,6 @@
   visibility: hidden;
   opacity: 0;
   transform: translateX(94px);
-  transition: transform 200ms ease-out, opacity 200ms ease-out, visibility 0s 200ms;
 }
 .assistant-swipe-reply {
   position: absolute;
@@ -243,7 +210,7 @@
   color: var(--color-foreground-subtle);
   pointer-events: none;
   opacity: 0;
-  transition: opacity 200ms ease-out, background 160ms ease;
+  transition: background 160ms ease;
 }
 [data-reply-ready="true"] > .assistant-swipe-reply {
   color: var(--mobile-accent);
@@ -464,7 +431,6 @@
   transform: translateY(calc(0px - var(--mobile-keyboard-offset) - var(--mobile-dock-inset) + 14px));
   background: transparent;
   pointer-events: none;
-  transition: transform var(--mobile-keyboard-duration, 0ms) var(--mobile-keyboard-easing, linear);
 }
 .mobile-assistant-compose-dock > * {
   pointer-events: auto;
@@ -487,7 +453,6 @@
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 240ms ease, visibility 0s 240ms;
 }
 .assistant-chat[data-layout="mobile"] .mobile-assistant-reply-backdrop[data-active="true"] {
   opacity: 1;
@@ -838,7 +803,6 @@
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 3px #0002;
-  transition: transform 180ms ease;
 }
 .assistant-settings[data-layout="mobile"]
   .assistant-check

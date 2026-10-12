@@ -1,3 +1,4 @@
+import { startMotionClock, motionFrame, stopMotionClock, advanceMotionTimers } from "./motionTestClock";
 // @vitest-environment happy-dom
 import { readdirSync, readFileSync } from "node:fs";
 import { act, createElement } from "react";
@@ -28,6 +29,7 @@ const message: QueuedMessage = {
   ],
 };
 beforeEach(() => {
+  startMotionClock();
   setUiLanguage("en");
   node = document.createElement("div");
   document.body.append(node);
@@ -36,6 +38,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   document.body.replaceChildren();
+  stopMotionClock();
   vi.useRealTimers();
 });
 
@@ -59,7 +62,7 @@ it("requires a long press, previews the new order and saves the dragged row rela
   expect(node.querySelector('.mobile-queue-drag-preview')).toBeNull();
   act(() => vi.advanceTimersByTime(1));
   expect(node.querySelector('.mobile-queue-drag-preview')).not.toBeNull();
-  act(() => { pointer("pointermove", 175, window); vi.advanceTimersByTime(16); });
+  act(() => { pointer("pointermove", 175, window); vi.advanceTimersByTime(16); motionFrame(); });
   expect([...node.querySelectorAll<HTMLElement>('.mobile-queue-pills > button')].map(row => row.dataset.queueId)).toEqual(['second','queued','third']);
   await act(async () => pointer("pointerup", 175, window));
   expect(onReorder).toHaveBeenCalledWith('queued','third');
@@ -122,6 +125,7 @@ async function open() {
   await act(async () =>
     node.querySelector<HTMLButtonElement>(".mobile-queue-pill")!.click(),
   );
+  await advanceMotionTimers(300);
 }
 async function click(label: string) {
   await act(async () =>
@@ -130,11 +134,11 @@ async function click(label: string) {
       .click(),
   );
 }
-function finishMenuExit() {
+async function finishMenuExit() {
   const backdrop = node.querySelector<HTMLElement>(".mobile-sheet-backdrop")!;
   expect(backdrop.dataset.foldState).toBe("closing");
   expect(backdrop.hasAttribute("inert")).toBe(true);
-  act(() => backdrop.dispatchEvent(new Event("animationend", { bubbles: true })));
+  await advanceMotionTimers(600);
   expect(node.querySelector('[role="dialog"]')).toBeNull();
 }
 it.each(["frosted", "solid"])(
@@ -196,7 +200,7 @@ it("returns the complete queued message, images and intent to the original compo
   await click("Edit message");
   expect(props.onRestore).toHaveBeenCalledWith(message);
   expect(node.querySelector("textarea")).toBeNull();
-  finishMenuExit();
+  await finishMenuExit();
 });
 it("keeps the queue visible and reports restore failures", async () => {
   render({
@@ -238,7 +242,7 @@ it("closes with Escape and restores focus without changing the message", async (
         new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
       ),
   );
-  finishMenuExit();
+  await finishMenuExit();
   expect(document.activeElement).toBe(node.querySelector(".mobile-queue-pill"));
   expect(props.onDelete).not.toHaveBeenCalled();
   expect(props.onRestore).not.toHaveBeenCalled();
@@ -248,7 +252,7 @@ it("provides the native Back handler while a queue menu is open", async () => {
   await open();
   const close = props.onOverlayChange.mock.calls.find((args) => args[0])![0]!;
   act(() => close());
-  finishMenuExit();
+  await finishMenuExit();
   expect(props.onOverlayChange).toHaveBeenLastCalledWith();
 });
 it("cancels an active drag when its page becomes hidden", () => {

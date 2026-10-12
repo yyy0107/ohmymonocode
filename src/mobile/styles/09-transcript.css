@@ -1,6 +1,5 @@
 .mobile-desktop-transcript {
   position: relative;
-  transition: --mobile-keyboard var(--mobile-keyboard-duration, 0ms) var(--mobile-keyboard-easing, linear);
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -149,9 +148,6 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
   background: transparent;
   box-shadow: inset 0 0 0 1px var(--color-m-hairline);
   color: var(--color-m-ink);
-}
-.mobile-desktop-transcript .transcript-turn-live .user-message-row {
-  animation: m-msg-in var(--m-duration-msg) var(--m-ease) both;
 }
 .mobile-desktop-transcript .user-message-bubble > button {
   min-height: 0;
@@ -514,14 +510,9 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
   height: 44px;
   border-radius: 50%;
   opacity: 0;
-  translate: 0 6px;
-  transition:
-    opacity 560ms cubic-bezier(0.4, 0, 0.2, 1),
-    translate 560ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .mobile-jump[data-open="true"] {
   opacity: 1;
-  translate: 0 0;
 }
 .mobile-app .mobile-jump[data-open="false"] {
   /* Override the generic disabled opacity so closing can fade fully out. */
@@ -547,19 +538,10 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
   flex-shrink: 0;
   min-width: 0;
 }
-.mobile-shared-question-dock.animated-collapse-size {
-  /* Only the transform consumes the animated keyboard height. Layout uses
-     committed space, so settling and switching focus do not animate twice.
-     Preserve the shared grid transitions throughout opening and closing. */
-  transition:
-    grid-template-rows var(--collapse-duration) var(--collapse-easing),
-    grid-template-columns var(--collapse-duration) var(--collapse-easing),
-    --mobile-keyboard var(--mobile-keyboard-duration, 0ms) var(--mobile-keyboard-easing, linear);
-}
+
 .mobile-shared-question-clip {
   min-height: 0;
   min-width: 0;
-  transition: opacity 240ms ease;
 }
 .mobile-shared-question-dock:not([data-fold-state="open"]) > .mobile-shared-question-clip {
   overflow: hidden;
@@ -567,12 +549,7 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
 .mobile-shared-question-dock[data-open="false"] > .mobile-shared-question-clip {
   opacity: 0;
 }
-@media (prefers-reduced-motion: reduce) {
-  .mobile-shared-question-dock.animated-collapse-size,
-  .mobile-shared-question-clip {
-    transition: none;
-  }
-}
+
 .mobile-shared-question {
   position: relative;
   flex-shrink: 0;
@@ -865,7 +842,6 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
   width: fit-content;
   margin: 4px 16px 8px;
   padding: 2px 0;
-  animation: m-msg-in var(--m-duration-msg) var(--m-ease) both;
 }
 /* Pending approvals (shared ApprovalControls): Allow and Deny side by side at
    touch size. The shared row has no hook of its own, so match its two

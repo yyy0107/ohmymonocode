@@ -6,6 +6,9 @@ import { AgentMarkdown } from "../features/sessions/ui/AgentMarkdown";
 import { PlanActions, PlanDecision } from "../features/sessions/ui/PlanPreview";
 import { questionFollowUp } from "../features/sessions/model/questionHistory";
 import { TranscriptPlatformContext } from "../features/sessions/ui/TranscriptPlatform";
+import { motion } from "motion/react";
+import { popTransition, immediateTransition, msgTransition, motionDistance } from "../shared/motion/tokens";
+import { useMotionPreference } from "../shared/motion/useMotionPreference";
 import { useCollapseMotion } from "../shared/ui/AnimatedCollapse";
 import type { Block } from "../features/sessions/model/session";
 import type { WorktreeCreation } from "../features/source-control/model/worktreeCreation";
@@ -249,6 +252,7 @@ export const MobileTranscript = memo(function MobileTranscript({
       current.active === "progress" ? { ...current, active: undefined } : current);
   }, [progress.hasContent, gitSource]);
   const questionShown = !!session.pendingQuestion && questionOpen;
+  const reduced = useMotionPreference();
   const questionMotion = useCollapseMotion(questionShown);
   const planShown = !!planDecision?.open && visible;
   const planMotion = useCollapseMotion(planShown);
@@ -390,23 +394,22 @@ export const MobileTranscript = memo(function MobileTranscript({
         decidingPlanId={planDecision?.blockId}
         worktreeCreation={worktreeCreation}
         latestTurnAccessory={awaitingReply ? (
-          <div className="mobile-typing-bubble">
+          <motion.div initial={reduced ? false : { opacity: 0, y: motionDistance.msg }} animate={{ opacity: 1, y: 0 }} transition={reduced ? immediateTransition : msgTransition} className="mobile-typing-bubble">
             <TypingDots label={t("Waiting for a reply")} />
-          </div>
+          </motion.div>
         ) : undefined}
       />
       {session.pendingQuestion && (
-        <div
+        <motion.div
+          initial={false}
+          animate={{ gridTemplateRows: questionShown ? "1fr" : "0fr" }}
+          transition={reduced ? immediateTransition : popTransition}
+          onAnimationComplete={questionMotion.finish}
           className="mobile-shared-question-dock animated-collapse-size"
           data-open={questionShown}
           data-fold-state={questionMotion.foldState}
-          style={{ gridTemplateRows: questionShown ? "1fr" : "0fr" }}
           aria-hidden={!questionShown || undefined}
           inert={!questionShown || undefined}
-          onTransitionEnd={(event) => {
-            if (event.target === event.currentTarget && event.propertyName === "grid-template-rows")
-              questionMotion.finish();
-          }}
         >
           {/* Collapsing keeps the form mounted, so partial answers survive. */}
           <div className="mobile-shared-question-clip">
@@ -432,20 +435,19 @@ export const MobileTranscript = memo(function MobileTranscript({
               />
             </fieldset>
           </div>
-        </div>
+        </motion.div>
       )}
       {dockedPlan && !session.pendingQuestion && (
-        <div
+        <motion.div
+          initial={false}
+          animate={{ gridTemplateRows: planShown ? "1fr" : "0fr" }}
+          transition={reduced ? immediateTransition : popTransition}
+          onAnimationComplete={planMotion.finish}
           className="mobile-shared-question-dock animated-collapse-size"
           data-open={planShown}
           data-fold-state={planMotion.foldState}
-          style={{ gridTemplateRows: planShown ? "1fr" : "0fr" }}
           aria-hidden={!planShown || undefined}
           inert={!planShown || undefined}
-          onTransitionEnd={(event) => {
-            if (event.target === event.currentTarget && event.propertyName === "grid-template-rows")
-              planMotion.finish();
-          }}
         >
           <div className="mobile-shared-question-clip">
             <fieldset className="mobile-shared-question" disabled={!planShown || disabled}>
@@ -457,7 +459,7 @@ export const MobileTranscript = memo(function MobileTranscript({
               />
             </fieldset>
           </div>
-        </div>
+        </motion.div>
       )}
       {sheetHost &&
         createPortal(

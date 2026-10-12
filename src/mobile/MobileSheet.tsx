@@ -9,11 +9,13 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { reducedMotionQuery } from "../shared/lib/reducedMotion";
+import { AnimatePresence, animate as animateMotion, frame, cancelFrame, motion, useMotionValue, useScroll, useTransform, type AnimationPlaybackControls } from "motion/react";
+import { useMotionPreference } from "../shared/motion/useMotionPreference";
+import { immediateTransition, motionGeometry, popTransition, springs } from "../shared/motion/tokens";
 import { createPortal } from "react-dom";
 import { MobileOverlayHostContext, MobileOverlayLevelContext } from "./MobileOverlayHost";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "../shared/ui/SurfaceVisibility";
-import { keyboardMotionRemaining, keyboardViewportHeight, onKeyboardMotion, type KeyboardMotion } from "./keyboardMotion";
+import { keyboardViewportHeight, onKeyboardMotion, onKeyboardSettled, keyboardMotionRemaining, type KeyboardMotion } from "./keyboardMotion";
 import { ArrowLeft, X } from "../shared/ui/icons";
 import { useCollapseMotion } from "../shared/ui/AnimatedCollapse";
 import { useTranslation } from "../shared/i18n/useTranslation";
@@ -54,6 +56,7 @@ export const SHEET_WIDTH = {
 } as const;
 
 export type MobileSheetPoint = { x: number; y: number };
+
 
 const paintOnlyProperties = new Set([
   "opacity", "color", "background", "background-color", "background-image",
@@ -153,6 +156,10 @@ export function MobileSheet({
   children: ReactNode | (() => ReactNode);
 }) {
   const { t } = useTranslation();
+  const reduced = useMotionPreference();
+  const anchorX = useMotionValue(0);
+  const anchorY = useMotionValue(0);
+  const { scrollX, scrollY } = useScroll();
   const visible = useSurfaceVisibility();
   const overlayHost = useContext(MobileOverlayHostContext);
   const overlayLevel = useContext(MobileOverlayLevelContext);
@@ -188,13 +195,21 @@ export function MobileSheet({
   usePreserveInputFocusOnTouch(backdrop, preserveFocus, false, active);
   const [position, setPosition] = useState<CSSProperties>();
   const pendingKeyboardAnimation = useRef<(() => void) | undefined>(undefined);
-  useSheetDrag(
+  const drag = useSheetDrag(
     dialog,
     placement === "bottom" && open && visible,
     onClose,
     () => setDragClosing(true),
     detents,
+    finish,
   );
+  const overlayOpacity = useMotionValue(0);
+  const draggedOpacity = useTransform(() => overlayOpacity.get() * drag.opacity.get());
+  useLayoutEffect(() => {
+    if (reduced) { overlayOpacity.set(active ? 1 : 0); return; }
+    const animation = animateMotion(overlayOpacity, active ? 1 : 0, popTransition);
+    return () => animation.stop();
+  }, [active, reduced, overlayOpacity]);
   useLayoutEffect(() => {
     if (!active || placement !== "anchor") return;
     const element = dialog.current;
@@ -202,7 +217,7 @@ export function MobileSheet({
     if (!element || (!trigger && !anchorPoint)) return;
     const viewport = window.visualViewport;
     let insets = safeInsets(element);
-    let keyboardAnimation: Animation | undefined;
+    let keyboardAnimation: AnimationPlaybackControls[] = [];
     const place = (keyboard?: Pick<KeyboardMotion, "duration" | "easing">) => {
       let travel = keyboard;
       let rect = anchorPoint
@@ -303,21 +318,19 @@ export function MobileSheet({
         transformOrigin: `${align === "end" ? "right" : align === "center" ? "center" : "left"} ${next.side === "top" ? "bottom" : "top"}`,
       };
       element.dataset.anchorSide = next.side;
-      const animateTravel = !!travel?.duration && !!element.animate && element.style.position === "fixed";
+      const animateTravel = !reduced && !!travel?.duration && element.style.position === "fixed";
       const commitTravel = () => {
-        keyboardAnimation?.cancel();
-        keyboardAnimation = undefined;
-        element.style.removeProperty("translate");
-        if (!animateTravel || !travel) return;
+        for (const animation of keyboardAnimation) animation.stop();
+        keyboardAnimation = [];
+        if (!animateTravel || !travel) { anchorX.set(0); anchorY.set(0); return; }
         const targetTop = typeof style.top === "number" ? style.top :
           window.innerHeight - Number(style.bottom) - Math.min(size.height, next.maxHeight);
         // Position must be committed before adding this compensating offset;
         // otherwise the first frame adds it to the old position and jumps.
-        keyboardAnimation = element.animate([
-          { translate: `${bounds.left - Number(style.left)}px ${bounds.top - targetTop}px` },
-          { translate: "0px 0px" },
-        ], { duration: travel.duration, easing: travel.easing, fill: "both" });
-        void keyboardAnimation.finished.catch(() => {});
+        anchorX.set(bounds.left - Number(style.left));
+        anchorY.set(bounds.top - targetTop);
+        const transition = travel.duration ? { ...popTransition, duration: travel.duration / 1000 } : immediateTransition;
+        keyboardAnimation = [animateMotion(anchorX, 0, transition), animateMotion(anchorY, 0, transition)];
       };
       if (animateTravel) pendingKeyboardAnimation.current = commitTravel;
       else {
@@ -335,125 +348,82 @@ export function MobileSheet({
           : style,
       );
     };
-    let frame: number | undefined;
-    let refreshInsets = false;
-    let settlingKeyboard = false;
-    let settleTimer: ReturnType<typeof setTimeout> | undefined;
-    let settleFrame: number | undefined;
+    let scheduled = false;
+    let settlingKeyboard = !!keyboardMotionRemaining();
     let refreshAnimations = true;
     let anchorAnimations: Animation[] = [];
-    const animationRemaining = (): number => {
-      let remaining = 0;
-      const usingCachedAnimations = !refreshAnimations;
+    const animationRemaining = () => {
       if (refreshAnimations) {
         refreshAnimations = false;
         anchorAnimations = [];
-        // Discover effects once per external change, not once per animation
-        // frame. Child spinners and known paint-only effects never move the box.
-        for (let node: HTMLElement | null = trigger ?? null; node; node = node.parentElement) {
-          for (const animation of node.getAnimations?.() ?? []) {
+        for (let node: HTMLElement | null = trigger ?? null; node; node = node.parentElement)
+          for (const animation of node.getAnimations?.() ?? [])
             if (canMoveAnchor(animation)) anchorAnimations.push(animation);
-          }
-        }
       }
-      for (const animation of anchorAnimations) {
-        if (animation.playState !== "running" && !animation.pending) continue;
+      return anchorAnimations.some(animation => {
         const end = animation.effect?.getComputedTiming().endTime;
-        const time = animation.currentTime;
-        if (typeof end === "number" && Number.isFinite(end) && typeof time === "number")
-          remaining = Math.max(remaining, (end - time) / Math.abs(animation.playbackRate || 1));
-      }
-      if (remaining <= 0 && usingCachedAnimations && anchorAnimations.length) {
-        // WAAPI replacements emit no CSS motion events. Check once at the end
-        // of this lifecycle before sleeping, so a successor keeps being followed.
-        refreshAnimations = true;
-        return animationRemaining();
-      }
-      return remaining;
+        return (animation.playState === "running" || animation.pending) && typeof end === "number" && Number.isFinite(end) && end > (typeof animation.currentTime === "number" ? animation.currentTime : 0);
+      });
     };
     const tick = () => {
-      frame = undefined;
-      if (refreshInsets) {
-        insets = safeInsets(element);
-        refreshInsets = false;
-      }
+      scheduled = false;
+      insets = safeInsets(element);
       place();
-      if (trigger && !anchorPoint && animationRemaining() > 0)
-        frame = requestAnimationFrame(tick);
+      if (trigger && !anchorPoint && animationRemaining()) {
+        scheduled = true;
+        frame.read(tick);
+      } else if (anchorAnimations.length) {
+        refreshAnimations = true;
+        if (animationRemaining()) { scheduled = true; frame.read(tick); }
+      }
     };
     const schedule = () => {
       refreshAnimations = true;
-      if (!settlingKeyboard) frame ??= requestAnimationFrame(tick);
+      if (!settlingKeyboard && !scheduled) { scheduled = true; frame.read(tick); }
     };
-    const cancelSettle = () => {
-      clearTimeout(settleTimer);
-      if (settleFrame !== undefined) cancelAnimationFrame(settleFrame);
-    };
-    const settleKeyboard = (duration: number) => {
-      cancelSettle();
-      if (frame !== undefined) cancelAnimationFrame(frame);
-      frame = undefined;
-      refreshAnimations = true;
-      settlingKeyboard = true;
-      settleTimer = setTimeout(() => {
-        settleFrame = requestAnimationFrame(() => {
-          settleFrame = requestAnimationFrame(() => {
-            // keyboardMotion commits its shorter shell on the second frame.
-            // Correct against that layout on the following frame, once.
-            settleFrame = requestAnimationFrame(() => {
-              settleFrame = undefined;
-              settlingKeyboard = false;
-              refreshInsets = true;
-              tick();
-            });
-          });
-        });
-      }, duration);
-    };
-    const resize = () => { refreshInsets = true; schedule(); };
-    const scroll = (event: Event) => {
-      if (!(event.target instanceof Node && element.contains(event.target))) schedule();
-    };
-    const motion = (event: Event) => {
+    const motionEvent = (event: Event) => {
       if (anchorPoint || !trigger || !(event.target instanceof Element) || !event.target.contains(trigger)) return;
       if (event.type.startsWith("transition") && isPaintOnlyProperty((event as TransitionEvent).propertyName ?? "")) return;
       schedule();
     };
+    const motionEvents = ["transitionrun", "transitionend", "transitioncancel", "animationstart", "animationend", "animationcancel"];
+    for (const name of motionEvents) window.addEventListener(name, motionEvent, true);
+    const scroll = (event: Event) => {
+      if (!(event.target instanceof Node && element.contains(event.target))) schedule();
+    };
     const unsubscribe = onKeyboardMotion(motion => {
-      settleKeyboard(motion.duration);
+      cancelFrame(tick);
+      scheduled = false;
+      settlingKeyboard = !!motion.duration;
       insets = safeInsets(element);
       place(motion);
     });
+    const stopSettled = onKeyboardSettled(() => { settlingKeyboard = false; schedule(); });
+    const stopScrollX = scrollX.on("change", schedule);
+    const stopScrollY = scrollY.on("change", schedule);
     place();
-    const remaining = keyboardMotionRemaining();
-    if (remaining) settleKeyboard(remaining);
-    else if (trigger && !anchorPoint && animationRemaining() > 0) frame = requestAnimationFrame(tick);
+    if (!settlingKeyboard && trigger && !anchorPoint && animationRemaining()) { scheduled = true; frame.read(tick); }
     const observer = new ResizeObserver(schedule);
     observer.observe(element);
     if (trigger) observer.observe(trigger);
-    window.addEventListener("resize", resize);
+    window.addEventListener("resize", schedule);
     window.addEventListener("scroll", scroll, true);
     viewport?.addEventListener("resize", schedule);
     viewport?.addEventListener("scroll", schedule);
-    const motionEvents = ["transitionrun", "transitionend", "transitioncancel", "animationstart", "animationend", "animationcancel"];
-    for (const name of motionEvents) window.addEventListener(name, motion, true);
     return () => {
-      if (frame !== undefined) cancelAnimationFrame(frame);
-      cancelSettle();
       pendingKeyboardAnimation.current = undefined;
-      if (keyboardAnimation) {
-        // Closing preserves the currently visible position until its retained
-        // surface exits; reopening clears this offset during placement.
-        element.style.translate = getComputedStyle(element).translate;
-        keyboardAnimation.cancel();
-      }
+      cancelFrame(tick);
+      for (const name of motionEvents) window.removeEventListener(name, motionEvent, true);
+      for (const animation of keyboardAnimation) animation.stop();
+      stopSettled();
+      stopScrollX();
+      stopScrollY();
       unsubscribe();
       observer.disconnect();
-      window.removeEventListener("resize", resize);
+      window.removeEventListener("resize", schedule);
       window.removeEventListener("scroll", scroll, true);
       viewport?.removeEventListener("resize", schedule);
       viewport?.removeEventListener("scroll", schedule);
-      for (const name of motionEvents) window.removeEventListener(name, motion, true);
     };
   }, [
     active,
@@ -465,54 +435,21 @@ export function MobileSheet({
     side,
     overlapAnchor,
     constrainWidthToAnchor,
+    reduced, anchorX, anchorY, scrollX, scrollY,
   ]);
   useLayoutEffect(() => {
     const animate = pendingKeyboardAnimation.current;
     pendingKeyboardAnimation.current = undefined;
     animate?.();
   }, [position]);
-  useLayoutEffect(() => {
+  useEffect(() => {
+    if (placement !== "bottom" || active || dragClosing) return;
     const element = dialog.current;
-    if (!element || placement !== "anchor") return;
-    if (!element.animate || reducedMotionQuery().matches) {
-      element.style.removeProperty("transform");
-      element.style.removeProperty("opacity");
-      return;
-    }
-    const hidden = `translateY(${element.dataset.anchorSide === "top" ? 6 : -6}px) scale(0.97)`;
-    const computed = getComputedStyle(element);
-    element.dataset.anchorMotion = "true";
-    const animation = element.animate([
-      {
-        transform: element.style.transform || (active ? hidden : computed.transform),
-        opacity: element.style.opacity || (active ? "0" : computed.opacity || "1"),
-      },
-      { transform: active ? "translateY(0px) scale(1)" : hidden, opacity: active ? 1 : 0 },
-    ], {
-      duration: active ? SHEET_MOTION_MS : SHEET_CLOSE_MS,
-      easing: active ? "cubic-bezier(0.22, 1, 0.36, 1)" : "ease-in",
-      fill: "both",
-    });
-    void animation.finished.catch(() => {});
-    animation.onfinish = () => {
-      if (active) {
-        element.style.removeProperty("transform");
-        element.style.removeProperty("opacity");
-        animation.cancel();
-      }
-      finish();
-    };
-    return () => {
-      // Reverse from the visible frame, including repeated taps during closing.
-      if (animation.playState === "running") {
-        const visible = getComputedStyle(element);
-        element.style.transform = visible.transform;
-        element.style.opacity = visible.opacity;
-      }
-      animation.onfinish = null;
-      animation.cancel();
-    };
-  }, [active, placement, finish]);
+    if (!element) return;
+    const animation = animateMotion(drag.y, element.offsetHeight + motionGeometry.sheetExitGap,
+      reduced ? { ...immediateTransition, onComplete: finish } : { ...springs.sheet, onComplete: finish });
+    return () => animation.stop();
+  }, [active, placement, dragClosing, drag.y, reduced, finish]);
   useEffect(() => {
     if (!active) return;
     const input = preserveFocus?.current;
@@ -578,17 +515,16 @@ export function MobileSheet({
   if (!visible || (!active && foldState === "closed")) return null;
   const content = (
     <SurfaceVisibilityContext.Provider value={active}>
-    <div
+    <AnimatePresence>
+    <motion.div
+      transition={reduced ? immediateTransition : popTransition}
       ref={backdrop}
       className="mobile-sheet-backdrop"
-      style={overlayLevel === undefined ? undefined : { zIndex: overlayLevel }}
+      style={{ zIndex: overlayLevel, opacity: placement === "bottom" ? draggedOpacity : overlayOpacity }}
       data-placement={placement}
       data-fold-state={foldState}
       inert={!active}
       aria-hidden={!active || undefined}
-      onAnimationEnd={(event) => {
-        if (event.target === event.currentTarget) finish();
-      }}
       onPointerDownCapture={(event) =>
         preserveInputFocus(event, preserveFocus?.current)
       }
@@ -597,18 +533,27 @@ export function MobileSheet({
       }
       onClick={active ? onClose : undefined}
     >
-      <section
+      <motion.section
+        initial={placement === "bottom" ? false : { scale: motionGeometry.popScale, opacity: 0 }}
+        animate={placement === "bottom" ? undefined : { scale: active ? 1 : motionGeometry.popScale, opacity: active ? 1 : 0 }}
+        transition={reduced ? immediateTransition : popTransition}
+        onAnimationComplete={placement === "bottom" ? undefined : finish}
+        drag={placement === "bottom" ? "y" : false}
+        dragListener={false}
+        dragMomentum={false}
+        dragControls={drag.controls}
+        onPointerDownCapture={placement === "bottom" ? drag.start : undefined}
+        onDrag={drag.onDrag}
+        onDragEnd={drag.onDragEnd}
         ref={dialog}
         className="mobile-sheet"
         data-detents={detents || undefined}
         data-surface={surface}
-        style={
-          placement === "anchor"
-            ? (position ?? { visibility: "hidden" })
-            : placement === "dialog"
-              ? { width }
-              : undefined
-        }
+        style={{
+          ...(placement === "anchor" ? (position ?? { visibility: "hidden" as const }) : placement === "dialog" ? { width } : {}),
+          x: placement === "anchor" ? anchorX : undefined,
+          y: placement === "bottom" ? drag.y : placement === "anchor" ? anchorY : undefined,
+        }}
         role="dialog"
         aria-modal={preserveFocus ? undefined : true}
         aria-label={t(title)}
@@ -639,8 +584,9 @@ export function MobileSheet({
           )}
           {typeof children === "function" ? children() : children}
         </div>
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
+    </AnimatePresence>
     </SurfaceVisibilityContext.Provider>
   );
   return overlayHost ? createPortal(content, overlayHost) : content;

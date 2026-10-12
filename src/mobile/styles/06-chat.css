@@ -109,7 +109,6 @@
   pointer-events: none;
   /* Move the safe-area gap with the capsule. Animating padding would resize
      the dock and republish transcript padding on every keyboard frame. */
-  transition: transform var(--mobile-keyboard-duration, 0ms) var(--mobile-keyboard-easing, linear);
 }
 .mobile-composer-dock > * {
   pointer-events: auto;

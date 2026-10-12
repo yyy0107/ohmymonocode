@@ -149,12 +149,7 @@
 .mobile-connection-info dd { margin: 0; text-align: end; overflow-wrap: anywhere; min-width: 0; color: var(--color-m-ink-secondary); }
 .mobile-connection-editor-action { width: 100%; min-height: 48px; border-radius: 999px; justify-content: center; }
 .mobile-button.mobile-connection-delete { border: 1px solid var(--color-m-danger); color: var(--color-m-danger); background: transparent; }
-.mobile-sheet-backdrop[data-placement="bottom"][data-fold-state="closing"] .mobile-sheet {
-  animation: mobile-sheet-rise 120ms ease reverse both;
-}
-@media (prefers-reduced-motion: reduce) {
-  .mobile-sheet-backdrop[data-placement="bottom"][data-fold-state="closing"] .mobile-sheet { animation: none; }
-}
+
 .mobile-connection-row .mobile-host-status {
   font: inherit;
 }
@@ -220,15 +215,12 @@
 .mobile-defaults-status-issues small { width: 100%; font-size: inherit; color: var(--color-m-ink-secondary); }
 .mobile-defaults-status-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }
 .mobile-defaults-status-details { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--color-m-ink-secondary); }
-.mobile-defaults-status-details > svg { transition: transform 180ms ease; }
-.mobile-defaults-status-details[aria-expanded="true"] > svg { transform: rotate(180deg); }
+
 .mobile-defaults-status-details:focus-visible { outline: 2px solid var(--mobile-accent); outline-offset: 3px; }
 .mobile-defaults-status-raw { display: grid; gap: 12px; margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--mobile-separator); }
 .mobile-defaults-status-raw dt { font-weight: 500; }
 .mobile-defaults-status-raw dd { margin: 2px 0 0; white-space: pre-wrap; color: var(--color-m-ink-secondary); }
-@media (prefers-reduced-motion: reduce) {
-  .mobile-defaults-status-details > svg { transition: none; }
-}
+
 .mobile-settings-row {
   display: flex;
   align-items: center;
@@ -387,18 +379,12 @@ button.mobile-settings-row:active {
     0 3px 8px #00000026,
     0 1px 1px #00000029;
   transform-origin: left center;
-  translate: 0;
+  translate: calc(var(--mobile-switch-x, 0) * 1px);
   scale: 1;
-  transition:
-    translate var(--mobile-spring-snappy-duration) var(--mobile-spring-snappy),
-    scale var(--mobile-spring-release-duration) var(--mobile-spring-release);
 }
 .mobile-app input.mobile-switch:checked {
   background: var(--color-m-accent);
   box-shadow: none;
-}
-.mobile-app input.mobile-switch:checked::after {
-  translate: 20px;
 }
 .mobile-app input.mobile-switch:active:not(:disabled)::after {
   /* Keep the 27px layout box stable while the painted thumb stretches. */

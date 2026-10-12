@@ -1,5 +1,7 @@
 import "./browserCrypto";
 import { createRoot } from "react-dom/client";
+import { MotionConfig } from "motion/react";
+import { defaultTransition } from "../shared/motion/tokens";
 import { MobileApp } from "./MobileApp";
 import { installKeyboardMotion } from "./keyboardMotion";
 import { applyGlassSettings, readGlassSettings } from "./glassSettings";
@@ -65,5 +67,5 @@ createRoot(document.getElementById("root")!, {
       error instanceof Error && "cause" in error ? error.cause : error,
     );
   },
-}).render(<MobileApp />);
+}).render(<MotionConfig reducedMotion="user" transition={defaultTransition}><MobileApp /></MotionConfig>);
 

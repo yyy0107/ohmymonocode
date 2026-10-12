@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, type ComponentProps, type ComponentType } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ComponentProps, type ComponentType } from "react";
 import { useTranslation } from "../shared/i18n/useTranslation";
 import { useCollapseMotion } from "../shared/ui/AnimatedCollapse";
 import { MobileSheet } from "./MobileSheet";
@@ -62,10 +62,19 @@ type SheetLifetime = { open?: boolean; onExited?: () => void; onClose: () => voi
 /** A loading sheet can still close and finish its presence lifetime, even if
  * its chunk has not arrived. The loaded sheet receives the latest open state. */
 export function lazyMobileSheet<Load extends MobileModule>(load: Load) {
-  const Component = lazy(preloadable(load));
+  const preload = preloadable(load);
+  const Component = lazy(preload);
   return function LazyMobileSheet(props: MobileProps<Load> & SheetLifetime) {
     const { t } = useTranslation();
     const open = props.open ?? true;
+    const [ready, setReady] = useState(false);
+    useEffect(() => {
+      if (!open || ready) return;
+      let current = true;
+      const resolve = () => { if (current) setReady(true); };
+      void preload().then(resolve, resolve);
+      return () => { current = false; };
+    }, [open, ready]);
     // The fallback may be replaced midway through closing. Own the exit
     // lifetime above Suspense so that swap cannot lose the completion callback.
     const { foldState, finish } = useCollapseMotion(open, SHEET_CLOSE_MS);
@@ -77,11 +86,15 @@ export function lazyMobileSheet<Load extends MobileModule>(load: Load) {
         props.onExited?.();
       }
     }, [open, foldState, props.onExited]);
-    return <Suspense fallback={
+    const loading = (
       <MobileSheet open={open} onExited={finish}
         onClose={props.onClose} title="Loading…" header={{ title: t("Loading…") }}>
         <MobileLoading />
       </MobileSheet>
-    }><Component {...props} onExited={finish} /></Suspense>;
+    );
+    // Keep the same loading sheet while it closes. A chunk resolving during
+    // that spring must not replace the element that owns its completion.
+    if (!ready) return loading;
+    return <Suspense fallback={loading}><Component {...props} onExited={finish} /></Suspense>;
   };
 }

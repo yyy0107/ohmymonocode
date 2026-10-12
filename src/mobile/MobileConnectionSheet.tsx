@@ -1,10 +1,13 @@
+import { AnimatePresence, motion } from "motion/react";
+import { popTransition, immediateTransition, motionDistance } from "../shared/motion/tokens";
+import { useMotionPreference } from "../shared/motion/useMotionPreference";
 import { MobileSpinner } from "./MobileSpinner";
 import {
   Internet,
   PairingCode,
   ScanQrCode,
 } from "../shared/ui/icons";
-import { useRef, useState, type CSSProperties, type RefObject } from "react";
+import { useId, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { useTranslation } from "../shared/i18n/useTranslation";
 import { MobileSheet } from "./MobileSheet";
 import { MobileSwap } from "./MobileSwap";
@@ -47,6 +50,8 @@ export function MobileConnectionSheet({
   anchor: RefObject<HTMLElement | null>;
 }) {
   const { t } = useTranslation();
+  const reduced = useMotionPreference();
+  const selectionId = useId();
   const [method, setMethod] = useState<Method>("scan");
   // Unset until the first switch, so the panel does not animate on open.
   const [direction, setDirection] = useState<"forward" | "back">();
@@ -79,7 +84,6 @@ export function MobileConnectionSheet({
             } as CSSProperties
           }
         >
-          <span className="mobile-segmented-indicator" aria-hidden="true" />
           {METHODS.map(({ id, label, Icon }, index) => (
             <button
               key={id}
@@ -97,12 +101,17 @@ export function MobileConnectionSheet({
                 scanned.current = "";
               }}
             >
+              {method === id && <motion.span layoutId={selectionId} className="mobile-segmented-selection" aria-hidden="true" transition={reduced ? immediateTransition : popTransition} />}
               <Icon size={18} />
               <span>{t(label)}</span>
             </button>
           ))}
         </div>
-        <div
+        <AnimatePresence initial={false}>
+        <motion.div
+          initial={direction && !reduced ? { opacity: 0, x: direction === "back" ? -motionDistance.pop : motionDistance.pop } : false}
+          animate={{ opacity: 1, x: 0 }}
+          transition={reduced ? immediateTransition : popTransition}
           key={method}
           data-content-enter={direction}
           id="mobile-pairing-panel"
@@ -211,7 +220,8 @@ export function MobileConnectionSheet({
               </button>
             </>
           )}
-        </div>
+        </motion.div>
+        </AnimatePresence>
       </div>
     </MobileSheet>
   );

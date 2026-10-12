@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import { memo, useEffect, useRef, useState, type ComponentProps } from "react";
 import {
   MessageQueue,
@@ -171,7 +172,8 @@ function MobileQueueView({
         )}
       </div>
       {sorting.drag && dragged && (
-        <div
+        <motion.div
+          layout="position"
           ref={sorting.previewRef}
           className="mobile-queue-pill mobile-queue-drag-preview"
           aria-hidden="true"
@@ -181,7 +183,7 @@ function MobileQueueView({
             left: sorting.drag.left,
             top: 0,
             width: sorting.drag.width,
-            transform: `translateY(${sorting.drag.top}px) scale(1.03)`,
+            ...sorting.previewStyle,
           }}
         >
           <ListEnd size={17} />
@@ -192,7 +194,7 @@ function MobileQueueView({
               })}
           </span>
           <MoreHorizontal size={20} />
-        </div>
+        </motion.div>
       )}
       <MobileSheetPresence open={visible && !!menuMessage}>
       {menuMessage ? (

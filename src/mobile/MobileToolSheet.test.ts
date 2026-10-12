@@ -1,3 +1,4 @@
+import { startMotionClock, stopMotionClock, advanceMotionTimers } from "./motionTestClock";
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -180,6 +181,7 @@ describe("MobileToolSheet", () => {
   let root: Root;
   let node: HTMLDivElement;
   beforeEach(() => {
+  startMotionClock();
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     setUiLanguage("en");
     node = document.createElement("div");
@@ -187,6 +189,7 @@ describe("MobileToolSheet", () => {
     root = createRoot(node);
   });
   afterEach(() => {
+  stopMotionClock();
     act(() => root.unmount());
     node.remove();
     setUiLanguage("en");
@@ -336,7 +339,7 @@ describe("MobileToolSheet", () => {
     expect(node.textContent).toContain("1 passed");
   });
 
-  it("keeps diff content mounted and inert while closing, including rapid reversal", () => {
+  it("keeps diff content mounted and inert while closing, including rapid reversal", async () => {
     vi.useFakeTimers();
     try {
       act(() =>
@@ -360,12 +363,12 @@ describe("MobileToolSheet", () => {
       act(() => toggle.click());
       expect(toggle.getAttribute("aria-expanded")).toBe("true");
       expect(closing.hasAttribute("inert")).toBe(false);
-      act(() => vi.advanceTimersByTime(400));
+      await advanceMotionTimers(400);
       expect(
         node.querySelector('.mobile-tool-diff [data-fold-state="open"]'),
       ).not.toBeNull();
       act(() => toggle.click());
-      act(() => vi.advanceTimersByTime(400));
+      await advanceMotionTimers(400);
       expect(node.querySelector(".mobile-tool-diff .mobile-git-diff")).toBeNull();
       expect(toggle.getAttribute("aria-expanded")).toBe("false");
       act(() => toggle.click());

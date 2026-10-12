@@ -7,6 +7,7 @@ import type { Block } from "../features/sessions/model/session";
 import { SurfaceVisibilityContext } from "../shared/ui/SurfaceVisibility";
 import { MobileSessionTranscript } from "./MobileSessionViews";
 import { createSessionSnapshotStore } from "./sessionSnapshotStore";
+import { startMotionClock, stopMotionClock, advanceMotionTimers } from "./motionTestClock";
 import { applyReducedMotion } from "../shared/lib/reducedMotion";
 
 let root: Root;
@@ -14,6 +15,7 @@ let app: HTMLDivElement;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "requestAnimationFrame", "cancelAnimationFrame", "performance"] });
+  startMotionClock();
   app = document.createElement("div");
   app.className = "mobile-app";
   document.body.append(app);
@@ -22,6 +24,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   app.remove();
+  stopMotionClock();
   vi.useRealTimers();
   vi.restoreAllMocks();
   applyReducedMotion("system");
@@ -56,15 +59,13 @@ function mount(blocks: Block[], historyLoading = false) {
   return { render, update, store };
 }
 
-it("shows restored history immediately and paces only subsequent output", () => {
+it("shows restored history and subsequent streamed chunks immediately", () => {
   const { render, update } = mount([user, reply("Cached")], true);
   update([user, reply(text), reply(text, "second")]);
   expect(replies()).toEqual([text, text]);
   render({ historyLoading: false });
   expect(replies()).toEqual([text, text]);
   update([user, reply(text), reply(text + text, "second")]);
-  expect(replies()).toEqual([text, text]);
-  act(() => vi.advanceTimersByTime(2000));
   expect(replies()).toEqual([text, text + text]);
 });
 
@@ -74,8 +75,7 @@ it.each(["drawer", "page"])("skips background output when returning from a hidde
   const { render, update } = mount([user, reply("")]);
   update([user, reply(text)]);
   act(() => vi.advanceTimersByTime(100));
-  expect(replies()[0]!.length).toBeGreaterThan(0);
-  expect(replies()[0]!.length).toBeLessThan(text.length);
+  expect(replies()).toEqual([text]);
   render({ active: kind !== "drawer" }, kind !== "page");
   const beforeReturn = entrances();
   update([user, reply(text + text), reply(text, "second")]);
@@ -83,8 +83,6 @@ it.each(["drawer", "page"])("skips background output when returning from a hidde
   expect(replies()).toEqual([text + text, text]);
   expect(entrances()).toBe(beforeReturn);
   update([user, reply(text + text), reply(text + text, "second")]);
-  expect(replies()).toEqual([text + text, text]);
-  act(() => vi.advanceTimersByTime(2000));
   expect(replies()).toEqual([text + text, text + text]);
 });
 
@@ -97,29 +95,23 @@ it("shows new messages immediately without movement when reduced motion is enabl
   expect(animate.mock.contexts.filter(node => node.hasAttribute("data-transcript-content-motion"))).toHaveLength(0);
 });
 
-it("types the first reply inside its motion container and drains the final chunk", () => {
+it("shows the entire first reply inside its message motion container without per-word animation", () => {
   const { render, update } = mount([user]);
   render({ animateFrom: user.id });
   update([user, reply(text)]);
-  expect(replies()).toEqual([""]);
-  act(() => vi.advanceTimersByTime(100));
-  const partial = replies()[0]!;
-  expect(partial.length).toBeGreaterThan(0);
-  expect(partial.length).toBeLessThan(text.length);
+  expect(replies()).toEqual([text]);
   update([user, { ...reply(text + text), streaming: false }]);
-  expect(replies()).toEqual([partial]);
-  act(() => vi.advanceTimersByTime(2000));
   expect(replies()).toEqual([text + text]);
   expect(app.querySelector(".agent-markdown")!.closest("[data-transcript-content-motion]")).not.toBeNull();
   expect(app.querySelector("[data-word-fade]")).toBeNull();
 });
 
-it.each(["assistant", "reasoning"] as const)("keeps the running row mounted when the first %s output arrives", (role) => {
+it.each(["assistant", "reasoning"] as const)("keeps the running row mounted when the first %s output arrives", async (role) => {
   const { update } = mount([user]);
   const running = app.querySelector('.transcript-turn [role="status"]');
   expect(running).not.toBeNull();
   const row = running!.closest(".zen-fold-item");
-  act(() => vi.advanceTimersByTime(400));
+  await advanceMotionTimers(400);
   const output: Block = { id: "first-output", role, text: "Starting", streaming: true };
   update([user, output]);
   expect(app.querySelector('.transcript-turn [role="status"]')).toBe(running);
@@ -128,7 +120,7 @@ it.each(["assistant", "reasoning"] as const)("keeps the running row mounted when
   expect(app.querySelector('.transcript-turn [role="status"]')).toBe(running);
 });
 
-it("does not remount the running shimmer between send acknowledgement and the first reply", () => {
+it("does not remount the running shimmer between send acknowledgement and the first reply", async () => {
   const { render, update, store } = mount([user, { ...reply("Previous reply"), streaming: false }]);
   act(() => store.set({ ...store.get()!, status: "idle" }));
   const outgoing = { id: "next-user", text: "Hello", startedAt: Date.now(), placement: "transcript" as const };
@@ -140,7 +132,7 @@ it("does not remount the running shimmer between send acknowledgement and the fi
   expect(runningText).not.toBeNull();
   expect(runningText.classList.contains("shimmer-text")).toBe(true);
   const row = runningText.closest(".zen-fold-item");
-  act(() => vi.advanceTimersByTime(400));
+  await advanceMotionTimers(400);
   render({ outgoing: undefined, animateFrom: recorded.id });
   const reasoning: Block = { id: "thinking", role: "reasoning", text: "", streaming: true };
   for (const output of [
@@ -180,28 +172,24 @@ it("keeps the running shimmer mounted when work becomes collapsible", () => {
   expect(toggle.getAttribute("aria-expanded")).toBe("false");
 });
 
-it.each(["assistant", "reasoning", "tool"] as const)("slides a new %s message once without replaying on text updates", (role) => {
-  const animate = vi.spyOn(Element.prototype, "animate");
-  const entrances = () => animate.mock.contexts.filter(node => node.hasAttribute("data-transcript-content-motion"));
+it.each(["assistant", "reasoning", "tool"] as const)("slides a new %s message once without replaying on text updates", async (role) => {
   const { update } = mount([user]);
-  expect(entrances()).toHaveLength(0);
   const output: Block = { id: "new-output", role, text: "Received content", streaming: true,
     ...(role === "tool" ? { tool: { kind: "shell" as const, status: "in_progress" as const } } : {}) };
   update([user, output]);
-  expect(entrances()).toHaveLength(1);
+  const entrance = [...app.querySelectorAll<HTMLElement>("[data-transcript-content-motion]")].find(node => node.style.opacity === "0")!;
+  expect(entrance).toBeDefined();
+  expect(entrance.style.opacity).toBe("0");
+  await advanceMotionTimers(400);
+  expect(entrance.style.opacity).toBe("1");
   update([user, { ...output, text: "Received content with another chunk" }]);
-  expect(entrances()).toHaveLength(1);
+  expect(entrance.isConnected).toBe(true);
+  expect(entrance.style.opacity).toBe("1");
 });
 
-
-it.each(["", "已有文字。"])("paces a completed snapshot that grows an existing reply (%s)", initial => {
+it.each(["", "已有文字。"])("shows completed snapshots immediately when an existing reply grows (%s)", initial => {
   const { update } = mount([user, { ...reply(initial), streaming: false }]);
   update([user, { ...reply(initial + text), streaming: false }]);
-  expect(replies()).toEqual([initial]);
-  act(() => vi.advanceTimersByTime(100));
-  expect(replies()[0]!.length).toBeGreaterThan(initial.length);
-  expect(replies()[0]!.length).toBeLessThan(initial.length + text.length);
-  act(() => vi.advanceTimersByTime(2000));
   expect(replies()).toEqual([initial + text]);
 });
 

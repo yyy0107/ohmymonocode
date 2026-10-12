@@ -2,7 +2,6 @@
   --mobile-sheet-content-offset: max(0px, calc(50dvh - var(--mobile-safe-top) - 12px));
   height: calc(100dvh - var(--mobile-safe-top) - 12px);
   max-height: none;
-  transform: translateY(calc(100% - 50dvh));
 }
 .mobile-sheet[data-detents][data-detent="full"] {
   --mobile-sheet-content-offset: 0px;

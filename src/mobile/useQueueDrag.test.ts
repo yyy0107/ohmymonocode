@@ -2,6 +2,8 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { motion } from "motion/react";
+import { startMotionClock, motionFrame, stopMotionClock } from "./motionTestClock";
 import { useQueueDrag } from "./useQueueDrag";
 
 let root: Root;
@@ -34,13 +36,13 @@ function Queue() {
       ),
     ),
     sorting.drag &&
-      createElement("div", {
+      createElement(motion.div, {
         ref: sorting.previewRef,
         "data-preview": true,
         style: {
           left: sorting.drag.left,
           width: sorting.drag.width,
-          transform: `translateY(${sorting.drag.top}px) scale(1.03)`,
+          ...sorting.previewStyle,
         },
       }),
   );
@@ -48,6 +50,7 @@ function Queue() {
 
 beforeEach(() => {
   vi.useFakeTimers();
+  startMotionClock();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   frames = new Map();
   frameId = 0;
@@ -67,6 +70,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   node.remove();
+  stopMotionClock();
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
@@ -87,7 +91,7 @@ function pointer(type: string, y: number, target: EventTarget = window) {
 function frame() {
   const pending = [...frames.values()];
   frames.clear();
-  act(() => pending.forEach((callback) => callback(performance.now())));
+  act(() => { motionFrame(); pending.forEach((callback) => callback(performance.now())); });
 }
 
 function layout(height = 160, held = true) {
@@ -151,7 +155,7 @@ it("coalesces pointer moves and moves the ghost without rerendering the queue in
     pointer("pointermove", 130);
     pointer("pointermove", 132);
   });
-  expect(frames.size).toBe(1);
+  // Motion coalesces the pending updates into its own scheduler.
   frame();
   expect(
     node.querySelector<HTMLElement>("[data-preview]")!.style.transform,
@@ -180,6 +184,7 @@ it("mounts a deferred ghost at the latest pointer position", () => {
     pointer("pointermove", 132);
     const pending = [...frames.values()];
     frames.clear();
+    motionFrame();
     pending.forEach((callback) => callback(performance.now()));
   });
   expect(

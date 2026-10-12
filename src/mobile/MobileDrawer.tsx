@@ -42,7 +42,9 @@ import { useMobileSessionLists, type MobileProjectHistory } from "./sessionListS
 import { sortMobileProjects, sortMobileSessions } from "./sessionList";
 import { useListReorderMotion } from "../shared/hooks/useListReorderMotion";
 import type { MobileSheetPoint } from "./MobileSheet";
-import { MOBILE_SPRINGS, springDuration, springTransition } from "./motion";
+import { animate, motion, useDragControls, useMotionValue, useTransform, type AnimationPlaybackControls } from "motion/react";
+import { useMotionPreference } from "../shared/motion/useMotionPreference";
+import { motionGeometry, immediateTransition, springs, panelTransition } from "../shared/motion/tokens";
 import {
   canPullDrawerFrom,
   canPushDrawerFrom,
@@ -51,10 +53,13 @@ import {
   settleDrawerOpen,
 } from "./drawerGesture";
 
+const MotionChevronDown = motion.create(ChevronDown);
+
 type ProjectHistory = MobileProjectHistory;
 
 interface Swipe {
   id: number;
+  startEvent: PointerEvent;
   x: number;
   y: number;
   width: number;
@@ -223,48 +228,38 @@ function useMobileDrawerController({
     };
     hold.current = press;
   };
-  // While a finger moves the drawer, write at most once per animation frame;
-  // a React render per pointer move would rebuild every session row.
   const [dragging, setDragging] = useState(false);
-  const releaseDuration = useRef(springDuration(MOBILE_SPRINGS.smooth));
-  const { foldState, finish } = useCollapseMotion(open || dragging, releaseDuration.current);
+  const reduced = useMotionPreference();
+  const controls = useDragControls();
+  const x = useMotionValue(0);
+  const drawerWidth = useMotionValue(1);
+  const progress = useTransform(() => Math.max(0, Math.min(1, 1 + x.get() / drawerWidth.get())));
+  const release = useRef<AnimationPlaybackControls | undefined>(undefined);
+  const releaseVelocity = useRef<number | undefined>(undefined);
+  const { foldState, finish } = useCollapseMotion(open || dragging);
   const settledClosed = !open && !dragging && foldState === "closed";
   useLayoutEffect(() => {
     if (active && !covered) return;
     clearSwipe();
+    controls.cancel();
     cancelHold();
     setDragging(false);
-  }, [active, covered]);
-  const follow = (translate: number, width: number) => {
-    panel.current?.style.setProperty("transform", `translateX(${translate}px)`);
-    backdrop.current?.style.setProperty(
-      "--mobile-drawer-progress",
-      String(1 + translate / width),
-    );
-  };
-  const followRef = useRef(follow);
-  followRef.current = follow;
-  // A release hands its speed to the settle spring for that one transition.
-  const releaseTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const clearRelease = () => {
-    clearTimeout(releaseTimer.current);
-    releaseDuration.current = springDuration(MOBILE_SPRINGS.smooth);
-    backdrop.current?.style.removeProperty("--mobile-drawer-easing");
-    backdrop.current?.style.removeProperty("--mobile-drawer-duration");
-  };
-  const clearReleaseRef = useRef(clearRelease);
-  clearReleaseRef.current = clearRelease;
-  useEffect(() => () => clearTimeout(releaseTimer.current), []);
-  // Settled positions come from the stylesheet; the commit that ends a drag
-  // also clears its inline position, so the transition starts from the finger.
+  }, [active, covered, controls]);
   useLayoutEffect(() => {
-    if (dragging) return;
-    panel.current?.style.removeProperty("transform");
-    backdrop.current?.style.setProperty(
-      "--mobile-drawer-progress",
-      open ? "1" : "0",
-    );
-  }, [open, dragging]);
+    const element = panel.current;
+    if (!element || dragging) return;
+    const width = element.offsetWidth;
+    drawerWidth.set(Math.max(1, width));
+    release.current?.stop();
+    const target = open ? 0 : -width;
+    if (reduced) { x.jump(target); finish(); return; }
+    if (open && x.get() === target) { finish(); return; }
+    release.current = animate(x, target, {
+      ...(reduced ? immediateTransition : springs.drawer), velocity: releaseVelocity.current, onComplete: finish,
+    });
+    releaseVelocity.current = undefined;
+    return () => release.current?.stop();
+  }, [open, dragging, reduced, x, drawerWidth, finish]);
   const latest = useRef({ open, onOpenChange });
   latest.current = { open, onOpenChange };
   const close = () => onOpenChange(false);
@@ -286,20 +281,6 @@ function useMobileDrawerController({
   // and settles by distance or flick speed.
   useEffect(() => {
     if (!active || covered) return;
-    let moveFrame: number | undefined;
-    const cancelMove = () => {
-      if (moveFrame !== undefined) cancelAnimationFrame(moveFrame);
-      moveFrame = undefined;
-    };
-    const placeDrag = () => {
-      moveFrame = undefined;
-      const current = swipe.current;
-      if (!current?.dragging) return;
-      followRef.current(
-        clampDrawer(current.origin + current.last.x - current.x, current.width),
-        current.width,
-      );
-    };
     // Touch Events stay on their original target even if a list refresh removes
     // it. Keep preventing native scrolling there after the drawer owns the drag;
     // the document listener alone stops receiving those detached-target events.
@@ -315,26 +296,22 @@ function useMobileDrawerController({
       const { open } = latest.current;
       if (!(open ? canPushDrawerFrom : canPullDrawerFrom)(event.target)) return;
       const width = element.offsetWidth;
-      // Catching the drawer while it settles continues from where it is.
-      const settling = element
-        .getAnimations?.()
-        .some((animation) => animation.playState === "running");
+      release.current?.stop();
+      drawerWidth.set(Math.max(1, width));
       const target = event.target instanceof Element ? event.target : undefined;
       target?.addEventListener("touchmove", holdTouch, { capture: true, passive: false });
       swipe.current = {
         id: event.pointerId,
+        startEvent: event,
         x: event.clientX,
         y: event.clientY,
         width,
-        origin: settling
-          ? clampDrawer(new DOMMatrix(getComputedStyle(element).transform).m41, width)
-          : open ? 0 : -width,
+        origin: clampDrawer(x.get(), width),
         opening: !open,
         dragging: false,
         last: { x: event.clientX, t: event.timeStamp },
         velocity: 0,
         release: () => {
-          cancelMove();
           target?.removeEventListener("touchmove", holdTouch, true);
           if (element.hasPointerCapture?.(event.pointerId))
             element.releasePointerCapture(event.pointerId);
@@ -368,12 +345,12 @@ function useMobileDrawerController({
         // rather than when React next commits.
         if (backdrop.current) backdrop.current.dataset.dragging = "true";
         setDragging(true);
+        controls.start(current.startEvent, { distanceThreshold: 0 });
       }
       const elapsed = event.timeStamp - current.last.t;
       if (elapsed > 0)
         current.velocity = (event.clientX - current.last.x) / elapsed;
       current.last = { x: event.clientX, t: event.timeStamp };
-      moveFrame ??= requestAnimationFrame(placeDrag);
     };
     const end = (event: PointerEvent) => {
       const current = swipe.current;
@@ -385,9 +362,7 @@ function useMobileDrawerController({
       // A cancelled pointer may carry no coordinates. Keep the last actual
       // touch, and flush pending input before the spring takes over.
       if (event.type !== "pointercancel") current.last.x = event.clientX;
-      cancelMove();
-      placeDrag();
-      if (panel.current) getComputedStyle(panel.current).transform;
+      controls.cancel();
       clearSwipe();
       // A drag may start on a button; the click that follows must not land.
       dragClickUntil.current = Date.now() + 400;
@@ -399,27 +374,14 @@ function useMobileDrawerController({
         event.type === "pointercancel"
           ? latest.current.open
           : settleDrawerOpen(translate, current.width, current.velocity);
-      const distance = (open ? 0 : -current.width) - translate;
-      const settle = springTransition(
-        "transform",
-        MOBILE_SPRINGS.smooth,
-        distance,
-        event.type === "pointercancel" ? 0 : current.velocity * Math.sign(distance),
-      );
-      clearReleaseRef.current();
-      releaseDuration.current = settle.duration;
-      const layer = backdrop.current;
-      if (layer) {
-        layer.style.setProperty(
-          "--mobile-drawer-easing",
-          settle.transition.slice(settle.transition.indexOf("linear(")),
-        );
-        layer.style.setProperty("--mobile-drawer-duration", `${settle.duration}ms`);
-        releaseTimer.current = setTimeout(
-          () => clearReleaseRef.current(),
-          settle.duration,
-        );
-      }
+      x.set(translate);
+      releaseVelocity.current = event.type === "pointercancel" ? 0 : current.velocity * 1000;
+      release.current?.stop();
+      release.current = animate(x, open ? 0 : -current.width, {
+        ...(reduced ? immediateTransition : springs.drawer),
+        velocity: event.type === "pointercancel" ? 0 : current.velocity * 1000,
+        onComplete: finish,
+      });
       setDragging(false);
       if (open !== latest.current.open) {
         void lightImpact();
@@ -445,7 +407,6 @@ function useMobileDrawerController({
     document.addEventListener("pointerup", end, true);
     document.addEventListener("pointercancel", end, true);
     return () => {
-      cancelMove();
       document.removeEventListener("pointerdown", begin, true);
       document.removeEventListener("touchmove", holdTouch, true);
       document.removeEventListener("click", swallowClick, true);
@@ -454,7 +415,7 @@ function useMobileDrawerController({
       document.removeEventListener("pointercancel", end, true);
       clearSwipe();
     };
-  }, [active, covered]);
+  }, [active, covered, controls, x, drawerWidth, reduced, finish]);
 
   const tree = useMemo(() => sortMobileProjects(treeProjects, (id) =>
     id === project?.id ? sessions : (histories[id]?.sessions ?? []),
@@ -581,7 +542,6 @@ function useMobileDrawerController({
     covered,
     dragging,
     failedProjects,
-    finish,
     foreground,
     hostName,
     hostStatus,
@@ -607,6 +567,7 @@ function useMobileDrawerController({
     sessionsList,
     setMoreOpen,
     settledClosed,
+    controls, x, progress,
     surfaceVisible,
     t,
     tree,
@@ -625,7 +586,6 @@ function MobileDrawerView({ vm }: { vm: MobileDrawerViewModel }) {
     covered,
     dragging,
     failedProjects,
-    finish,
     foreground,
     hostName,
     hostStatus,
@@ -651,6 +611,7 @@ function MobileDrawerView({ vm }: { vm: MobileDrawerViewModel }) {
     sessionsList,
     setMoreOpen,
     settledClosed,
+    controls, x, progress,
     surfaceVisible,
     t,
     tree,
@@ -658,9 +619,10 @@ function MobileDrawerView({ vm }: { vm: MobileDrawerViewModel }) {
   } = vm;
   return (
     <SurfaceVisibilityContext.Provider value={surfaceVisible && open && foreground && !covered}>
-    <div
+    <motion.div
       ref={backdrop}
       className="mobile-drawer-backdrop"
+      style={{ "--mobile-drawer-progress": progress } as import("motion/react").MotionStyle}
       data-open={open}
       data-dragging={dragging || undefined}
       data-settled-closed={settledClosed || undefined}
@@ -670,15 +632,18 @@ function MobileDrawerView({ vm }: { vm: MobileDrawerViewModel }) {
         if (event.target === event.currentTarget) close();
       }}
     >
-      <nav
+      <motion.nav
+        drag="x"
+        dragListener={false}
+        dragControls={controls}
+        dragMomentum={false}
+        dragElastic={false}
+        style={{ x }}
         ref={panel}
         className="mobile-drawer"
         aria-label={t("Menu")}
         inert={covered}
         tabIndex={-1}
-        onTransitionEnd={(event) => {
-          if (event.target === event.currentTarget && event.propertyName === "transform") finish();
-        }}
         onKeyDown={(event) => {
           if (event.key === "Escape") close();
         }}
@@ -739,7 +704,7 @@ function MobileDrawerView({ vm }: { vm: MobileDrawerViewModel }) {
             >
               <MoreHorizontal size={22} />
               <span>{t(moreOpen ? "Show less" : "More")}</span>
-              <ChevronDown size={16} className="mobile-drawer-more-chevron" />
+              <MotionChevronDown size={16} className="mobile-drawer-more-chevron" animate={{ rotate: moreOpen ? motionGeometry.flipAngle : 0 }} transition={panelTransition} />
             </button>
             <div id={moreId}>
               <AnimatedCollapse expanded={moreOpen}>
@@ -821,8 +786,8 @@ function MobileDrawerView({ vm }: { vm: MobileDrawerViewModel }) {
           <Settings size={22} />
           <span>{t("Settings")}</span>
         </button>
-      </nav>
-    </div>
+      </motion.nav>
+    </motion.div>
     </SurfaceVisibilityContext.Provider>
   );
 }

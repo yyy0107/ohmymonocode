@@ -1,21 +1,23 @@
 import {
+  forwardRef,
+  useCallback,
   useLayoutEffect,
   useRef,
   useState,
-  type CSSProperties,
   type ReactNode,
   type RefObject,
 } from "react";
-import { reducedMotionQuery } from "../shared/lib/reducedMotion";
+import { AnimatePresence, animate as animateElement, motion, usePresenceData } from "motion/react";
+import { useMotionPreference } from "../shared/motion/useMotionPreference";
+import { duration, immediateTransition, motionGeometry, panelTransition } from "../shared/motion/tokens";
 import { useCollapseMotion } from "../shared/ui/AnimatedCollapse";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "../shared/ui/SurfaceVisibility";
 import { MobilePageStateContext, type MobilePageState } from "./mobilePageState";
 import { MobileOverlayLevelContext } from "./MobileOverlayHost";
 import { ReadonlyTextStateContext } from "../shared/ui/ReadonlyTextView";
-import "./styles/page-motion.css";
+import "./styles/page-layout.css";
 
-export const MOBILE_PAGE_MOTION_MS = 220;
-const EASING = "cubic-bezier(0.2, 0, 0, 1)";
+export const MOBILE_PAGE_MOTION_MS = duration.panel * 1000;
 export interface MobileRoute {
   key: string;
   section: "home" | "chat" | "settings";
@@ -30,9 +32,8 @@ export function mobileRouteDirection(from: MobileRoute, to: MobileRoute): Direct
   if (from.section === "settings") return -1;
   return to.section === "chat" ? 1 : -1;
 }
-const reducedMotion = () => reducedMotionQuery().matches;
 function pageMotionValues(direction: Direction, motion: PageMotion) {
-  const distance = motion === "subtle" ? 10 : motion === "push-home" ? 30 : 100;
+  const distance = motion === "subtle" ? motionGeometry.pageSubtle : motion === "push-home" ? motionGeometry.pageHomePercent : motionGeometry.pageSlidePercent;
   const unit = motion === "subtle" ? "px" : "%";
   return {
     offset: `${direction * distance}${unit}`,
@@ -42,58 +43,8 @@ function pageMotionValues(direction: Direction, motion: PageMotion) {
   };
 }
 
-/** Interrupt from the visible position, and let the shared lifetime own cleanup. */
-function usePageMotion(
-  element: RefObject<HTMLDivElement | null>,
-  active: boolean,
-  enter: boolean,
-  direction: Direction,
-  finish: () => void,
-  motion: PageMotion = "subtle",
-) {
-  useLayoutEffect(() => {
-    const node = element.current;
-    if (!node || (!enter && active) || reducedMotion() || !node.animate) return;
-    const computed = getComputedStyle(node);
-    const hidden = pageMotionValues(direction, motion);
-    const animation = node.animate([
-      {
-        opacity: node.style.opacity || (active ? hidden.opacity : computed.opacity || "1"),
-        transform: node.style.transform || (active ? `translateX(${hidden.offset})` : computed.transform),
-        filter: node.style.filter || (active ? hidden.filter : computed.filter),
-      },
-      {
-        opacity: active ? 1 : hidden.opacity,
-        transform: active ? "translateX(0px)" : `translateX(${hidden.exitOffset})`,
-        filter: active ? "none" : hidden.filter,
-      },
-    ], { duration: MOBILE_PAGE_MOTION_MS, easing: EASING, fill: "both" });
-    // A reversal intentionally cancels the old animation's finished promise.
-    void animation.finished.catch(() => {});
-    node.dataset.motionApi = "true";
-    animation.onfinish = () => {
-      if (active) {
-        node.style.removeProperty("opacity");
-        node.style.removeProperty("transform");
-        node.style.removeProperty("filter");
-        animation.cancel();
-      }
-      finish();
-    };
-    return () => {
-      if (animation.playState === "running") {
-        const visible = getComputedStyle(node);
-        node.style.opacity = visible.opacity;
-        node.style.transform = visible.transform;
-        node.style.filter = visible.filter;
-      }
-      animation.onfinish = null;
-      animation.cancel();
-    };
-  }, [active, enter, direction, element, finish, motion]);
-}
-
-function PageLayer({ active, visible, enter, direction, page, children, onExited, motion }: {
+const PageLayer = forwardRef<HTMLDivElement, {
+  id: number;
   active: boolean;
   visible: boolean;
   enter: boolean;
@@ -101,13 +52,19 @@ function PageLayer({ active, visible, enter, direction, page, children, onExited
   page: MobilePageState;
   children: ReactNode;
   onExited: () => void;
-  motion: PageMotion;
-}) {
+  profile: PageMotion;
+}>(function PageLayer({ id, active, visible, enter, direction, page, children, onExited, profile }, forwarded) {
   const element = useRef<HTMLDivElement>(null);
+  const assignRef = useCallback((node: HTMLDivElement | null) => {
+    element.current = node;
+    if (typeof forwarded === "function") forwarded(node);
+    else if (forwarded) forwarded.current = node;
+  }, [forwarded]);
+  const presence = usePresenceData() as { allowed: number[] } | undefined;
   const { foldState, finish } = useCollapseMotion(active, MOBILE_PAGE_MOTION_MS);
   const exit = useRef(onExited);
   exit.current = onExited;
-  usePageMotion(element, active, enter, direction, finish, motion);
+  const reduced = useMotionPreference();
   useLayoutEffect(() => {
     if (!active && foldState === "closed") exit.current();
   }, [active, foldState]);
@@ -130,25 +87,26 @@ function PageLayer({ active, visible, enter, direction, page, children, onExited
     return () => { save(); node.removeEventListener("scroll", save, true); };
   }, [active, page]);
   useLayoutEffect(() => {
-    if (motion === "slide" && active && visible)
+    if (profile === "slide" && active && visible)
       element.current?.querySelector<HTMLElement>(".mobile-sheet-header-button")?.focus({ preventScroll: true });
-  }, [motion, active, visible]);
-  const hidden = pageMotionValues(direction, motion);
+  }, [profile, active, visible]);
+  const hidden = pageMotionValues(direction, profile);
+  if (presence && !presence.allowed.includes(id)) return null;
   return (
-    <div
-      ref={element}
+    <motion.div
+      ref={assignRef}
       className="mobile-page-layer"
       data-page-active={active}
-      data-page-front={motion === "push-chat" || undefined}
+      data-page-front={profile === "push-chat" || undefined}
       data-page-motion={!active ? "exit" : enter ? "enter" : undefined}
-      style={{
-        "--mobile-page-offset": hidden.offset,
-        "--mobile-page-start-opacity": hidden.opacity,
-        "--mobile-page-start-filter": hidden.filter,
-      } as CSSProperties}
+      initial={enter && !reduced ? { x: hidden.offset, opacity: hidden.opacity, filter: hidden.filter } : false}
+      animate={active ? { x: 0, opacity: 1, filter: "none" } : { x: hidden.exitOffset, opacity: hidden.opacity, filter: hidden.filter }}
+      exit={{ opacity: 0, transition: immediateTransition }}
+      transition={reduced ? immediateTransition : panelTransition}
+      layout="position"
+      onAnimationComplete={finish}
       inert={!active || !visible}
       aria-hidden={!active || !visible || undefined}
-      onAnimationEnd={(event) => { if (event.target === event.currentTarget) finish(); }}
     >
       <MobilePageStateContext.Provider value={page}>
         <SurfaceVisibilityContext.Provider value={active && visible}>
@@ -157,9 +115,9 @@ function PageLayer({ active, visible, enter, direction, page, children, onExited
           </ReadonlyTextStateContext.Provider>
         </SurfaceVisibilityContext.Provider>
       </MobilePageStateContext.Provider>
-    </div>
+    </motion.div>
   );
-}
+});
 
 interface Entry { route: MobileRoute; id: number; page: MobilePageState; }
 const pageState = (): MobilePageState => ({ scroll: new Map(), values: new Map() });
@@ -174,6 +132,7 @@ export function MobilePageTransition({ route, visible = true, animate = true, sl
   children: ReactNode;
 }) {
   const parentVisible = useSurfaceVisibility();
+  const reduced = useMotionPreference();
   const pages = useRef(new Map<string, MobilePageState>());
   const [state, setState] = useState<{
     current: Entry; previous?: Entry & { children: ReactNode }; serial: number; direction: Direction; enter: boolean; push: boolean;
@@ -191,7 +150,7 @@ export function MobilePageTransition({ route, visible = true, animate = true, sl
     pages.current.delete(route.key);
     pages.current.set(route.key, page);
     if (pages.current.size > 24) pages.current.delete(pages.current.keys().next().value!);
-    const enter = animate && !reducedMotion();
+    const enter = animate && !reduced;
     setState({
       current: { route, id: state.previous?.route.key === route.key ? state.previous.id : state.serial + 1, page },
       previous: enter ? { ...state.current, children: committed.current } : undefined,
@@ -209,15 +168,17 @@ export function MobilePageTransition({ route, visible = true, animate = true, sl
   ];
   return (
     <div className="mobile-page-stack">
+      <AnimatePresence mode="popLayout" custom={{ allowed: layers.map(entry => entry.id) }}>
       {layers.map((entry) => (
-        <PageLayer key={entry.id} active={entry.active} visible={visible && parentVisible}
-          motion={slide ? "slide" : state.push ? entry.route.section === "chat" ? "push-chat" : "push-home" : "subtle"}
+        <PageLayer key={entry.id} id={entry.id} active={entry.active} visible={visible && parentVisible}
+          profile={slide ? "slide" : state.push ? entry.route.section === "chat" ? "push-chat" : "push-home" : "subtle"}
           enter={state.enter} direction={state.direction} page={entry.page}
           onExited={() => setState((current) => current.previous?.id === entry.id
             ? { ...current, previous: undefined } : current)}>
           {entry.children}
         </PageLayer>
       ))}
+      </AnimatePresence>
     </div>
   );
 }
@@ -237,40 +198,44 @@ export function MobilePageOverlay({ open, children, keepMounted = false }: {
     retained.current = children;
     opened.current = true;
   }
-  usePageMotion(element, open, true, 1, finish);
+  const reduced = useMotionPreference();
   const closed = !open && foldState === "closed";
   if (closed && (!keepMounted || !opened.current)) return null;
   return (
-    <div ref={element} className="mobile-page-overlay" inert={!open} aria-hidden={!open || undefined}
+    <AnimatePresence>
+    <motion.div ref={element} className="mobile-page-overlay" inert={!open} aria-hidden={!open || undefined}
       hidden={closed}
       data-page-motion={open ? "enter" : "exit"}
-      style={{ "--mobile-page-offset": "10px" } as CSSProperties}
-      onAnimationEnd={(event) => { if (event.target === event.currentTarget) finish(); }}>
+      initial={{ x: motionGeometry.pageSubtle, opacity: 0 }}
+      animate={{ x: open ? 0 : -motionGeometry.pageSubtle, opacity: open ? 1 : 0 }}
+      transition={reduced ? immediateTransition : panelTransition}
+      onAnimationComplete={finish}>
       <SurfaceVisibilityContext.Provider value={open}>
         <MobileOverlayLevelContext.Provider value={130}>
         {open ? children : retained.current}
         </MobileOverlayLevelContext.Provider>
       </SurfaceVisibilityContext.Provider>
-    </div>
+    </motion.div>
+    </AnimatePresence>
   );
 }
-
-const HEADER_START_OPACITY = 0.4;
 
 /** The persistent header animates without duplicating its focus/anchor refs. */
 export function useMobileHeaderMotion(ref: RefObject<HTMLElement | null>, route: MobileRoute, animate: boolean) {
   const previous = useRef(route);
+  const reduced = useMotionPreference();
   useLayoutEffect(() => {
     const before = previous.current;
     previous.current = route;
-    if (before.key === route.key || !animate || reducedMotion()) return;
+    if (before.key === route.key || !animate || reduced) return;
     // The animation starts in the commit that mounts the next page, whose
     // work can hold the first frames; starting from zero blanked the header.
-    const animation = ref.current?.animate?.([
-      { opacity: HEADER_START_OPACITY, transform: `translateX(${mobileRouteDirection(before, route) * 10}px)` },
-      { opacity: 1, transform: "translateX(0px)" },
-    ], { duration: MOBILE_PAGE_MOTION_MS, easing: EASING });
-    void animation?.finished.catch(() => {});
-    return () => animation?.cancel();
-  }, [route.key, animate, ref]);
+    const node = ref.current;
+    if (!node) return;
+    const animation = animateElement(node, {
+      opacity: [motionGeometry.headerOpacity, 1],
+      x: [mobileRouteDirection(before, route) * motionGeometry.pageSubtle, 0],
+    }, panelTransition);
+    return () => animation.stop();
+  }, [route.key, animate, ref, reduced]);
 }

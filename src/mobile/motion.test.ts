@@ -1,32 +1,23 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { MOBILE_MOTION, MOBILE_SPRINGS, springDuration, springEasing } from "./motion";
+import { duration, ease, springs } from "../shared/motion/tokens";
 
-const css = readFileSync("src/mobile/motion.css", "utf8");
+const source = (name: string) => readFileSync(`src/mobile/${name}`, "utf8");
 
-function token(name: string) {
-  return css.match(new RegExp(`--${name}:\\s*([^;]+);`, "g"))?.map((line) =>
-    line.replace(/^[^:]+:\s*/, "").replace(/;$/, ""),
-  );
-}
-
-describe("mobile motion tokens", () => {
-  it("keeps CSS springs in sync with the generator", () => {
-    for (const [name, spring] of Object.entries(MOBILE_SPRINGS)) {
-      expect(token(`mobile-spring-${name}-duration`)).toEqual([
-        `${springDuration(spring)}ms`,
-      ]);
-      expect(token(`mobile-spring-${name}`)).toContain(springEasing(spring));
-    }
-    expect(token("mobile-motion-press")).toEqual([`${MOBILE_MOTION.pressMs}ms`]);
-    expect(token("mobile-motion-shift")).toEqual([`${MOBILE_MOTION.shiftPx}px`]);
+describe("mobile Motion migration", () => {
+  it("uses the shared timing and spring vocabulary", () => {
+    expect(duration).toEqual({ msg: 0.18, pop: 0.2, panel: 0.24, collapse: 0.2 });
+    expect(ease).toEqual([0.22, 1, 0.36, 1]);
+    expect(springs.sheet).toEqual({ type: "spring", stiffness: 400, damping: 38 });
+    expect(springs.drawer).toEqual({ type: "spring", stiffness: 380, damping: 36 });
+    for (const file of ["MobilePageTransition.tsx", "MobileSheet.tsx", "MobileDrawer.tsx", "MobileSwap.tsx", "MobileComposer.tsx", "sheetDrag.ts"])
+      expect(source(file)).not.toMatch(/duration\s*:\s*\d+(?:\.\d+)?\b/);
   });
-
-  it("settles with at most a slight overshoot", () => {
-    for (const spring of Object.values(MOBILE_SPRINGS)) {
-      const values = springEasing(spring).slice(7, -1).split(", ").map(Number);
-      expect(values.at(-1)).toBe(1);
-      expect(Math.max(...values)).toBeLessThanOrEqual(1.02);
-    }
+  it("keeps presence and physical drag on Motion and removes animation timers", () => {
+    expect(source("MobilePageTransition.tsx")).toContain('mode="popLayout"');
+    expect(source("MobileSheet.tsx")).toContain('"y" : false');
+    expect(source("MobileDrawer.tsx")).toContain('drag="x"');
+    for (const file of ["sheetDrag.ts", "keyboardMotion.ts", "MobilePageTransition.tsx", "MobileSwap.tsx"])
+      expect(source(file)).not.toMatch(/requestAnimationFrame|setTimeout|\.animate\(/);
   });
 });

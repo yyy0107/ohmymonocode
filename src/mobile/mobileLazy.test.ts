@@ -1,3 +1,4 @@
+import { startMotionClock, stopMotionClock, advanceMotionTimers } from "./motionTestClock";
 // @vitest-environment happy-dom
 import { act, createElement, createRef, useImperativeHandle, type ComponentType, type Ref } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -10,6 +11,8 @@ import { lazyMobilePage, lazyMobileSheet } from "./mobileLazy";
 let root: Root;
 let node: HTMLDivElement;
 beforeEach(() => {
+  startMotionClock();
+  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.useFakeTimers();
   node = document.createElement("div");
@@ -19,7 +22,9 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   node.remove();
+  stopMotionClock();
   vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -40,12 +45,13 @@ it("closes a still-loading sheet and does not resurrect it when the chunk arrive
   await show(false);
   expect(module.load).not.toHaveBeenCalled();
   await show(true);
+  await advanceMotionTimers(600);
   expect(node.querySelector("[role=status]")).not.toBeNull();
   act(() => node.querySelector<HTMLButtonElement>("button")!.click());
   expect(onClose).toHaveBeenCalledOnce();
   await show(false);
   expect(node.querySelector<HTMLElement>(".mobile-sheet-backdrop")?.inert).toBe(true);
-  await act(async () => vi.advanceTimersByTime(1000));
+  await advanceMotionTimers(1000);
   await act(async () => module.resolve({ default: props => createElement(MobileSheet, {
     ...props, title: "Loaded sheet", children: "Loaded content",
   }) }));
@@ -63,18 +69,19 @@ it.each([false, true])("finishes a closing import race and supports reversal: %s
     MobileSheetPresence, { open, children: createElement(Sheet, { onClose: () => {}, onExited }) },
   )));
   await show(true);
+  await advanceMotionTimers(600);
   await show(false);
-  await act(async () => vi.advanceTimersByTime(50));
+  await advanceMotionTimers(50);
   if (reverse) await show(true);
   await act(async () => module.resolve({ default: props => createElement(MobileSheet, {
     ...props, title: "Loaded sheet", children: "Loaded content",
   }) }));
-  await act(async () => vi.advanceTimersByTime(1000));
+  await advanceMotionTimers(1000);
   if (reverse) {
     expect(node.textContent).toContain("Loaded content");
     expect(onExited).not.toHaveBeenCalled();
     await show(false);
-    await act(async () => vi.advanceTimersByTime(1000));
+    await advanceMotionTimers(1000);
   }
   expect(onExited).toHaveBeenCalledOnce();
   expect(node.querySelector(".mobile-sheet")).toBeNull();
@@ -99,7 +106,7 @@ it("loads an overlay only on first open and preserves its imperative ref and mou
   const handle = ref.current;
   expect(handle?.value).toBe(42);
   await show(false);
-  await act(async () => vi.advanceTimersByTime(1000));
+  await advanceMotionTimers(1000);
   expect(node.querySelector<HTMLElement>(".mobile-page-overlay")?.hidden).toBe(true);
   await show(true);
   expect(ref.current).toBe(handle);

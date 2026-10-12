@@ -2,8 +2,10 @@
 import { act, createElement, createRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { motion } from "motion/react";
 import { MobileSheet } from "./MobileSheet";
 import { settleDetent, useSheetDrag } from "./sheetDrag";
+import { startMotionClock, motionFrame, stopMotionClock } from "./motionTestClock";
 
 describe("settleDetent", () => {
   it("steps down once on a downward fling and otherwise settles at the nearest stop", () => {
@@ -19,12 +21,18 @@ describe("settleDetent", () => {
   });
 });
 
+// These assertions cover the same drag/rest/geometry contracts as the former
+// CSS/rAF tests. PointerEvent.pageY is supplied because happy-dom doesn't derive
+// it from clientY, and physical springs are advanced through Motion's scheduler.
 describe("MobileSheet drag", () => {
   let root: Root;
   let node: HTMLDivElement;
   beforeEach(() => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     vi.useFakeTimers();
+    vi.spyOn(window, "matchMedia").mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() } as unknown as MediaQueryList);
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(500);
+    startMotionClock();
     node = document.createElement("div");
     document.body.append(node);
     root = createRoot(node);
@@ -32,482 +40,249 @@ describe("MobileSheet drag", () => {
   afterEach(() => {
     act(() => root.unmount());
     node.remove();
+    stopMotionClock();
     vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
-
-  function drag(distance: number, settleMs = 300) {
+  async function step(milliseconds = 16) {
+    await act(async () => {
+      vi.advanceTimersByTime(milliseconds);
+      motionFrame(milliseconds);
+      for (let i = 0; i < 4; i++) await Promise.resolve();
+    });
+  }
+  async function rest() { for (let i = 0; i < 60; i++) await step(); }
+  function offset(sheet: HTMLElement) {
+    return Number(/translateY\(([-\d.]+)px\)/.exec(sheet.style.transform)?.[1] ?? 0);
+  }
+  function pointer(target: Element, type: string, y: number, kind = "mouse") {
+    const event = new PointerEvent(type, {
+      bubbles: true, cancelable: true, pointerId: 1, isPrimary: true,
+      pointerType: kind, button: 0, buttons: type === "pointerup" ? 0 : 1, clientY: y,
+    });
+    Object.defineProperty(event, "pageY", { value: y });
+    act(() => { target.dispatchEvent(event); });
+    return event;
+  }
+  async function pull(sheet: HTMLElement, from: number, to: number, selector = ".mobile-sheet-grip", kind = "mouse", milliseconds = 500) {
+    const handle = sheet.querySelector(selector)!;
+    pointer(handle, "pointerdown", from, kind);
+    await step(milliseconds);
+    pointer(handle, "pointermove", (from + to) / 2, kind);
+    await step(milliseconds);
+    pointer(handle, "pointermove", to, kind);
+    await step(milliseconds);
+    const moved = offset(sheet);
+    pointer(handle, "pointerup", to, kind);
+    await step(16);
+    await step(1);
+    return moved;
+  }
+  async function open(detents = false) {
     const onClose = vi.fn();
-    act(() =>
-      root.render(
-        createElement(MobileSheet, { title: "Tool details", onClose }, "Body"),
-      ),
-    );
+    if (detents) {
+      vi.stubGlobal("innerHeight", 1000);
+      vi.mocked(Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight")!.get!).mockReturnValue(800);
+    }
+    act(() => root.render(createElement(MobileSheet,
+      { title: "Tool details", onClose, detents, header: { title: "Bash", subtitle: "Completed" } },
+      createElement("p", { className: "body" }, "Body"))));
     const sheet = node.querySelector<HTMLElement>(".mobile-sheet")!;
-    Object.defineProperty(sheet, "offsetHeight", { value: 500 });
-    const grip = node.querySelector(".mobile-sheet-grip")!;
-    const pointer = (type: string, clientY: number) =>
-      new PointerEvent(type, {
-        bubbles: true,
-        pointerType: "mouse",
-        button: 0,
-        clientY,
-      });
-    grip.dispatchEvent(pointer("pointerdown", 100));
-    vi.advanceTimersByTime(500);
-    sheet.dispatchEvent(pointer("pointermove", 100 + distance / 2));
-    vi.advanceTimersByTime(500);
-    sheet.dispatchEvent(pointer("pointermove", 100 + distance));
-    vi.advanceTimersByTime(16);
-    const moved = sheet.style.transform;
-    act(() => { sheet.dispatchEvent(pointer("pointerup", 100 + distance)); });
-    act(() => vi.advanceTimersByTime(settleMs));
-    return {
-      onClose,
-      moved,
-      rest: sheet.style.transform,
-      transition: sheet.style.transition,
-      sheet,
-    };
+    await rest();
+    return { sheet, onClose };
   }
 
-  it("follows the pointer and closes after a long pull", () => {
-    const { onClose, moved } = drag(220);
-    expect(moved).toBe("translateY(220px)");
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it("starts one inert close at release and never restarts a CSS exit", () => {
-    const { sheet, onClose } = drag(220, 0);
-    const backdrop = sheet.closest<HTMLElement>(".mobile-sheet-backdrop")!;
-    expect(backdrop.dataset.foldState).toBe("closing");
-    expect(backdrop.hasAttribute("inert")).toBe(true);
-    expect(backdrop.style.animation).toBe("none");
-    expect(sheet.style.animation).toBe("none");
-    expect(sheet.style.transform).toBe("translateY(524px)");
+  it("follows the pointer and closes after a long pull", async () => {
+    const { sheet, onClose } = await open();
+    expect(await pull(sheet, 100, 320)).toBe(220);
+    expect(sheet.closest<HTMLElement>(".mobile-sheet-backdrop")!.dataset.foldState).toBe("closing");
+    expect(sheet.closest("[inert]")).not.toBeNull();
     expect(onClose).not.toHaveBeenCalled();
-    act(() => vi.advanceTimersByTime(130));
+    await rest();
     expect(onClose).toHaveBeenCalledOnce();
     expect(node.querySelector(".mobile-sheet")).toBeNull();
   });
-
-  it("springs back after a short pull", () => {
-    const { onClose, rest } = drag(60);
+  it("springs back after a short pull", async () => {
+    const { sheet, onClose } = await open();
+    expect(await pull(sheet, 100, 160)).toBe(60);
+    await rest();
     expect(onClose).not.toHaveBeenCalled();
-    expect(rest).toBe("");
+    expect(offset(sheet)).toBe(0);
   });
-
-  it("dismisses immediately after release with reduced motion", () => {
-    vi.spyOn(window, "matchMedia").mockReturnValue({
-      matches: true,
-    } as MediaQueryList);
-    const { onClose, transition } = drag(220, 0);
-    expect(onClose).toHaveBeenCalledTimes(1);
-    expect(transition).toBe("none");
+  it("dismisses immediately after release with reduced motion", async () => {
+    vi.mocked(window.matchMedia).mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() } as unknown as MediaQueryList);
+    const { sheet, onClose } = await open();
+    await pull(sheet, 100, 320);
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(node.querySelector(".mobile-sheet")).toBeNull();
   });
-
-  it("cancels a pending dismissal when the sheet unmounts", () => {
-    const { onClose } = drag(220, 0);
+  it("cancels a pending dismissal when the sheet unmounts", async () => {
+    const { sheet, onClose } = await open();
+    await pull(sheet, 100, 320);
     expect(onClose).not.toHaveBeenCalled();
     act(() => root.render(null));
-    act(() => vi.advanceTimersByTime(200));
+    await rest();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+  it.each(["mouse", "touch"])("drags only the nested sheet with %s input", async kind => {
+    const closeSettings = vi.fn(), closePicker = vi.fn();
+    act(() => root.render(createElement(MobileSheet, { title: "Settings", onClose: closeSettings },
+      createElement(MobileSheet, { title: "Picker", onClose: closePicker }, "Options"))));
+    const outer = node.querySelector<HTMLElement>('[aria-label="Settings"]')!;
+    const inner = node.querySelector<HTMLElement>('[aria-label="Picker"]')!;
+    await rest();
+    expect(await pull(inner, 100, 320, undefined, kind)).toBe(220);
+    expect(offset(outer)).toBe(0);
+    await rest();
+    expect(closePicker).toHaveBeenCalledOnce();
+    expect(closeSettings).not.toHaveBeenCalled();
+  });
+  it.each([".mobile-sheet-grip", ".mobile-sheet-header strong"])("expands from %s and steps back down before closing", async selector => {
+    const { sheet, onClose } = await open(true);
+    expect(sheet.dataset.detent).toBe("half");
+    expect(offset(sheet)).toBe(300);
+    expect(sheet.querySelector(".mobile-sheet-header strong")?.textContent).toBe("Bash");
+    await pull(sheet, 600, 400, selector, "touch");
+    expect(sheet.dataset.detent).toBe("full");
+    await rest();
+    expect(offset(sheet)).toBe(0);
+    await pull(sheet, 300, 500, selector, "touch");
+    expect(sheet.dataset.detent).toBe("half");
+    await rest();
+    expect(offset(sheet)).toBe(300);
+    expect(onClose).not.toHaveBeenCalled();
+    await pull(sheet, 600, 800, selector, "touch");
+    await rest();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+  it("closes from the header button without starting a drag", async () => {
+    const { sheet, onClose } = await open(true);
+    const button = sheet.querySelector<HTMLButtonElement>('[aria-label="Close"]')!;
+    pointer(button, "pointerdown", 600, "touch");
+    expect(pointer(button, "pointermove", 400, "touch").defaultPrevented).toBe(false);
+    pointer(button, "pointerup", 400, "touch");
+    expect(sheet.dataset.detent).toBe("half");
+    act(() => button.click());
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+  it("restores the half-height scroll viewport immediately with reduced motion", async () => {
+    vi.mocked(window.matchMedia).mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() } as unknown as MediaQueryList);
+    const { sheet } = await open(true);
+    await pull(sheet, 600, 400, ".mobile-sheet-header strong", "touch");
+    expect(sheet.dataset.detent).toBe("full");
+    expect(offset(sheet)).toBe(0);
+    await pull(sheet, 300, 500, ".mobile-sheet-header strong", "touch");
+    expect(sheet.dataset.detent).toBe("half");
+    expect(offset(sheet)).toBe(300);
+    expect(sheet.style.getPropertyValue("--mobile-sheet-content-offset")).toBe("");
+  });
+  it.each([80, 500])("steps a full sheet to half on a quick %ipx swipe, then dismisses on the next swipe", async distance => {
+    const { sheet, onClose } = await open(true);
+    await pull(sheet, 600, 400, ".mobile-sheet-header strong", "touch");
+    await rest();
+    await pull(sheet, 300, 300 + distance, ".mobile-sheet-header strong", "touch", 16);
+    expect(sheet.dataset.detent).toBe("half");
+    expect(sheet.closest("[inert]")).toBeNull();
+    await rest();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(offset(sheet)).toBe(300);
+    await pull(sheet, 600, 680, ".mobile-sheet-header strong", "touch", 16);
+    expect(sheet.closest("[inert]")).not.toBeNull();
+    await rest();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+  it.each(["half", "full"])("leaves all content swipes to native scrolling at the %s stop", async detent => {
+    const { sheet, onClose } = await open(true);
+    if (detent === "full") { await pull(sheet, 600, 400, ".mobile-sheet-header strong", "touch"); await rest(); }
+    const position = offset(sheet);
+    for (const scrollTop of [0, 100]) {
+      sheet.querySelector<HTMLElement>(".mobile-sheet-content")!.scrollTop = scrollTop;
+      for (const distance of [-150, 150]) {
+        const target = sheet.querySelector(".body")!;
+        pointer(target, "pointerdown", 600, "touch");
+        expect(pointer(target, "pointermove", 600 + distance, "touch").defaultPrevented).toBe(false);
+        pointer(target, "pointerup", 600 + distance, "touch");
+        await rest();
+        expect(sheet.dataset.detent).toBe(detent);
+        expect(offset(sheet)).toBe(position);
+      }
+    }
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it.each(["mouse", "touch"])(
-    "drags only the nested sheet with %s input",
-    (kind) => {
-      const closeSettings = vi.fn();
-      const closePicker = vi.fn();
-      act(() => root.render(createElement(
-        MobileSheet,
-        { title: "Settings", onClose: closeSettings },
-        createElement(MobileSheet, { title: "Picker", onClose: closePicker }, "Options"),
-      )));
-      const outer = node.querySelector<HTMLElement>('[aria-label="Settings"]')!;
-      const inner = node.querySelector<HTMLElement>('[aria-label="Picker"]')!;
-      for (const sheet of [outer, inner])
-        Object.defineProperty(sheet, "offsetHeight", { value: 500 });
-      const grip = inner.querySelector(".mobile-sheet-grip")!;
-      const event = (phase: "down" | "move" | "up", clientY: number) =>
-        kind === "mouse"
-          ? new PointerEvent(`pointer${phase}`, {
-              bubbles: true, pointerType: "mouse", button: 0, clientY,
-            })
-          : new TouchEvent(
-              { down: "touchstart", move: "touchmove", up: "touchend" }[phase],
-              {
-                bubbles: true, cancelable: true,
-                touches: phase === "up" ? [] : [{ clientY } as Touch],
-              },
-            );
-      grip.dispatchEvent(event("down", 100));
-      act(() => vi.advanceTimersByTime(500));
-      inner.dispatchEvent(event("move", 210));
-      act(() => vi.advanceTimersByTime(500));
-      inner.dispatchEvent(event("move", 320));
-      act(() => vi.advanceTimersByTime(16));
-      expect(inner.style.transform).toBe("translateY(220px)");
-      expect(outer.style.transform).toBe("");
-      act(() => { inner.dispatchEvent(event("up", 320)); });
-      act(() => vi.advanceTimersByTime(131));
-      expect(closePicker).toHaveBeenCalledOnce();
-      expect(closeSettings).not.toHaveBeenCalled();
-    },
-  );
-
-  describe("gesture scheduling", () => {
-    function open(detents = true) {
+  describe("Motion geometry and lifetime", () => {
+    function harness(detents = true) {
       vi.stubGlobal("innerHeight", 1000);
-      const frames = new Map<number, FrameRequestCallback>();
-      let frameId = 0;
-      const requestFrame = vi.fn((callback: FrameRequestCallback) => {
-        frames.set(++frameId, callback);
-        return frameId;
-      });
-      const cancelFrame = vi.fn((id: number) => frames.delete(id));
-      vi.stubGlobal("requestAnimationFrame", requestFrame);
-      vi.stubGlobal("cancelAnimationFrame", cancelFrame);
-      const observers: {
-        callback: ResizeObserverCallback;
-        disconnect: ReturnType<typeof vi.fn>;
-      }[] = [];
-      vi.stubGlobal("ResizeObserver", class {
-        disconnect = vi.fn();
-        observe = vi.fn();
-        constructor(readonly callback: ResizeObserverCallback) {
-          observers.push(this);
-        }
-      });
       const ref = createRef<HTMLElement>();
       const onClose = vi.fn();
+      let drag!: ReturnType<typeof useSheetDrag>;
+      let height = detents ? 800 : 500;
+      vi.mocked(Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight")!.get!).mockImplementation(function () {
+        return (this as HTMLElement).dataset.expanded ? 800 : height;
+      });
       function Sheet({ enabled }: { enabled: boolean }) {
-        useSheetDrag(ref, enabled, onClose, undefined, detents);
-        return createElement("section", { ref, className: "mobile-sheet" },
-          createElement("div", { className: "mobile-sheet-grip" }));
+        drag = useSheetDrag(ref, enabled, onClose, undefined, detents);
+        return createElement(motion.section, {
+          ref, className: "mobile-sheet", drag: "y", dragListener: false, dragMomentum: false,
+          dragControls: drag.controls, onPointerDownCapture: drag.start, onDrag: drag.onDrag,
+          onDragEnd: drag.onDragEnd, style: { y: drag.y },
+        }, createElement("div", { className: "mobile-sheet-grip" }));
       }
       const render = (enabled: boolean) => act(() => root.render(createElement(Sheet, { enabled })));
       render(true);
-      const sheet = ref.current!;
-      let height = 800;
-      const readHeight = vi.fn(() => height);
-      Object.defineProperty(sheet, "offsetHeight", { get: readHeight });
-      const pointer = (type: string, clientY: number) => {
-        const event = new PointerEvent(type, {
-          bubbles: true, cancelable: true, pointerType: "mouse", button: 0, clientY,
-        });
-        sheet.firstElementChild!.dispatchEvent(event);
-        return event;
-      };
-      const frame = () => {
-        const callbacks = [...frames.values()];
-        frames.clear();
-        for (const callback of callbacks) callback(performance.now());
-      };
-      const resize = (newHeight: number) => {
-        height = newHeight;
-        const observer = observers.at(-1)!;
-        observer.callback([{
-          target: sheet, borderBoxSize: [{ blockSize: height }],
-        } as ResizeObserverEntry], observer as unknown as ResizeObserver);
-      };
-      return { sheet, onClose, pointer, frame, frames, requestFrame, cancelFrame, readHeight, observers, resize, render };
+      return { sheet: ref.current!, onClose, render, drag, resize: (next: number) => { height = next; } };
     }
-
-    it("coalesces moves, keeps native cancellation immediate, and only remeasures changed geometry", () => {
-      const { sheet, pointer, frame, frames, readHeight, resize } = open();
-      pointer("pointerdown", 100);
-      for (const y of [125, 145, 175])
-        expect(pointer("pointermove", y).defaultPrevented).toBe(true);
-      expect(frames.size).toBe(1);
-      expect(sheet.style.transform).toBe("");
-      expect(readHeight).toHaveBeenCalledOnce();
-      frame();
-      expect(sheet.style.transform).toBe("translateY(375px)");
-      expect(sheet.style.getPropertyValue("--mobile-sheet-content-offset")).toBe("");
-      expect(frames.size).toBe(0);
-      pointer("pointermove", 180);
-      pointer("pointermove", 190);
-      frame();
-      expect(readHeight).toHaveBeenCalledOnce();
-      resize(800);
-      expect(frames.size).toBe(0);
-      resize(900);
-      expect(frames.size).toBe(1);
-      frame();
-      expect(readHeight).toHaveBeenCalledTimes(2);
-      expect(sheet.style.getPropertyValue("--mobile-sheet-content-offset")).toBe("0px");
-      pointer("pointermove", 250);
-      frame();
-      expect(sheet.style.getPropertyValue("--mobile-sheet-content-offset")).toBe("0px");
-      vi.stubGlobal("innerHeight", 800);
-      window.dispatchEvent(new Event("resize"));
-      frame();
-      expect(readHeight).toHaveBeenCalledTimes(3);
-      expect(sheet.style.getPropertyValue("--mobile-sheet-content-offset")).toBe("0px");
-      window.dispatchEvent(new Event("resize"));
-      expect(frames.size).toBe(0);
-    });
-
-    it.each(["pointerup", "pointercancel"])("flushes the last move and stops observing on %s", (release) => {
-      const { sheet, pointer, frames, cancelFrame, readHeight, observers, onClose, resize } = open();
+    it("keeps content geometry stable through expansion, reversal and the return spring", async () => {
+      const { sheet } = harness();
+      await rest();
       const writeOffset = vi.spyOn(sheet.style, "setProperty");
-      pointer("pointerdown", 100);
-      vi.advanceTimersByTime(500);
-      pointer("pointermove", 60);
-      expect(frames.size).toBe(1);
-      pointer(release, 60);
-      expect(frames.size).toBe(0);
-      expect(cancelFrame).toHaveBeenCalledOnce();
-      expect(observers[0].disconnect).toHaveBeenCalledOnce();
-      expect(readHeight).toHaveBeenCalledOnce();
-      expect(sheet.dataset.detent).toBe("half");
-      // Prepare the full viewport once, retaining it until the half stop lands.
-      expect(writeOffset.mock.calls.filter(([name]) => name === "--mobile-sheet-content-offset")
-        .map(([, value]) => value)).toEqual(["0px"]);
-      expect(sheet.style.getPropertyValue("--mobile-sheet-content-offset")).toBe("0px");
-      resize(900);
-      expect(frames.size).toBe(0);
-      expect(onClose).not.toHaveBeenCalled();
-      vi.advanceTimersByTime(500);
-      expect(sheet.style.getPropertyValue("--mobile-sheet-content-offset")).toBe("");
-    });
-
-    it("keeps content geometry stable through expansion, reversal and the return spring", () => {
-      const { sheet, pointer, frame } = open();
-      const writeOffset = vi.spyOn(sheet.style, "setProperty");
-      pointer("pointerdown", 600);
-      for (const y of [570, 540, 510, 480, 450, 420, 400]) {
-        vi.advanceTimersByTime(100);
-        pointer("pointermove", y);
-        frame();
-      }
-      pointer("pointerup", 400);
+      await pull(sheet, 600, 400);
+      await rest();
       expect(sheet.dataset.detent).toBe("full");
-      vi.advanceTimersByTime(500);
-      pointer("pointerdown", 200);
-      for (const y of [240, 280, 320, 360, 400]) {
-        vi.advanceTimersByTime(100);
-        pointer("pointermove", y);
-        frame();
-      }
-      pointer("pointerup", 400);
+      await pull(sheet, 200, 400);
       expect(sheet.dataset.detent).toBe("half");
       expect(sheet.style.getPropertyValue("--mobile-sheet-content-offset")).toBe("0px");
-      // Catch the return spring and expand again before its half-size cleanup.
-      sheet.getAnimations = () => [{ transitionProperty: "transform", playState: "running" } as Animation];
-      vi.spyOn(window, "getComputedStyle").mockReturnValue({ transform: "matrix(1, 0, 0, 1, 0, 250)" } as CSSStyleDeclaration);
-      vi.stubGlobal("DOMMatrix", class { m42 = 250; });
-      pointer("pointerdown", 400);
-      vi.advanceTimersByTime(16);
-      pointer("pointermove", 200);
-      frame();
-      pointer("pointerup", 200);
-      vi.advanceTimersByTime(500);
+      await pull(sheet, 400, 200, undefined, "mouse", 16);
+      await rest();
       expect(sheet.dataset.detent).toBe("full");
       expect(sheet.style.getPropertyValue("--mobile-sheet-content-offset")).toBe("0px");
-      expect(writeOffset.mock.calls.filter(([name]) => name === "--mobile-sheet-content-offset")
-        .map(([, value]) => value)).toEqual(["0px"]);
+      expect(writeOffset.mock.calls.filter(([name]) => name === "--mobile-sheet-content-offset").map(([, value]) => value)).toEqual(["0px"]);
     });
-
-    it("pulls a content-height sheet up to full screen without moving it at the switch", () => {
-      const { sheet, pointer, frame, readHeight } = open(false);
-      // The full-height layout is 300px taller than the 500px rest height.
-      readHeight.mockImplementation(() => sheet.dataset.expanded ? 800 : 500);
-      pointer("pointerdown", 600);
-      vi.advanceTimersByTime(100);
-      pointer("pointermove", 590);
-      frame();
+    it("pulls a content-height sheet to full screen and restores its content-height layout on return", async () => {
+      const { sheet } = harness(false);
+      await rest();
+      const handle = sheet.querySelector(".mobile-sheet-grip")!;
+      pointer(handle, "pointerdown", 600);
+      await step(100);
+      pointer(handle, "pointermove", 590);
+      await step(100);
       expect(sheet.dataset.expanded).toBe("true");
-      expect(sheet.style.transform).toBe("translateY(290px)");
-      for (const y of [500, 400, 300]) {
-        vi.advanceTimersByTime(100);
-        pointer("pointermove", y);
-        frame();
-      }
-      pointer("pointerup", 300);
-      expect(sheet.style.transform).toBe("translateY(0px)");
-      vi.advanceTimersByTime(500);
+      expect(offset(sheet)).toBe(290);
+      pointer(handle, "pointermove", 300);
+      await step(100);
+      pointer(handle, "pointerup", 300);
+      await rest();
+      expect(offset(sheet)).toBe(0);
       expect(sheet.dataset.expanded).toBe("true");
-      pointer("pointerdown", 100);
-      for (const y of [150, 250, 350]) {
-        vi.advanceTimersByTime(100);
-        pointer("pointermove", y);
-        frame();
-      }
-      pointer("pointerup", 350);
-      expect(sheet.style.transform).toBe("translateY(300px)");
-      vi.advanceTimersByTime(500);
+      await pull(sheet, 100, 350);
+      await rest();
       expect(sheet.dataset.expanded).toBeUndefined();
-      expect(sheet.style.transform).toBe("");
+      expect(offset(sheet)).toBe(0);
     });
-
-    it("stops watching a full sheet when an upward swipe becomes native scrolling", () => {
-      const { pointer, frame, frames, observers } = open(false);
-      pointer("pointerdown", 600);
-      for (const y of [500, 400]) {
-        vi.advanceTimersByTime(100);
-        pointer("pointermove", y);
-        frame();
-      }
-      pointer("pointerup", 400);
-      vi.advanceTimersByTime(500);
-      pointer("pointerdown", 100);
-      expect(pointer("pointermove", 75).defaultPrevented).toBe(false);
-      expect(pointer("pointermove", 150).defaultPrevented).toBe(false);
-      expect(frames.size).toBe(0);
-      expect(observers.at(-1)!.disconnect).toHaveBeenCalledOnce();
+    it("catches a settling sheet at its current Motion value", async () => {
+      const { sheet, drag } = harness();
+      await rest();
+      drag.y.set(120);
+      await step();
+      expect(await pull(sheet, 100, 125)).toBe(145);
     });
-
-    it.each(["disable", "unmount"])("cancels pending moves and geometry observers on %s", (action) => {
-      const { sheet, pointer, frame, frames, observers, render, readHeight } = open();
-      pointer("pointerdown", 100);
-      pointer("pointermove", 130);
-      if (action === "disable") render(false);
-      else act(() => root.render(null));
-      expect(frames.size).toBe(0);
-      expect(observers[0].disconnect).toHaveBeenCalledOnce();
-      vi.stubGlobal("innerHeight", 800);
-      window.dispatchEvent(new Event("resize"));
-      frame();
-      expect(readHeight).toHaveBeenCalledOnce();
-      expect(sheet.style.transform).toBe("");
-    });
-
-    it("catches a settling sheet at its visible offset", () => {
-      const { sheet, pointer, frame } = open();
-      sheet.getAnimations = () => [{ transitionProperty: "transform", playState: "running" } as Animation];
-      vi.spyOn(window, "getComputedStyle").mockReturnValue({ transform: "matrix(1, 0, 0, 1, 0, 120)" } as CSSStyleDeclaration);
-      vi.stubGlobal("DOMMatrix", class { m42 = 120; });
-      pointer("pointerdown", 100);
-      pointer("pointermove", 125);
-      frame();
-      expect(sheet.style.transform).toBe("translateY(145px)");
-    });
-  });
-
-  describe("two-stop sheets", () => {
-    function open() {
-      vi.stubGlobal("innerHeight", 1000);
-      const onClose = vi.fn();
-      act(() => root.render(createElement(MobileSheet,
-        { title: "Tool details", onClose, detents: true, header: { title: "Bash", subtitle: "Completed" } },
-        createElement("p", { className: "body" }, "Body"))));
-      const sheet = node.querySelector<HTMLElement>(".mobile-sheet")!;
-      Object.defineProperty(sheet, "offsetHeight", { value: 800 });
-      const touch = (type: string, clientY: number, selector = ".mobile-sheet-header strong") => {
-        const target = sheet.querySelector(selector)!;
-        const event = new TouchEvent(type, {
-          bubbles: true, cancelable: true, touches: type === "touchend" ? [] : [{ clientY } as Touch],
-        });
-        act(() => { target.dispatchEvent(event); });
-        return event;
-      };
-      const pull = (from: number, to: number, selector?: string) => {
-        touch("touchstart", from, selector);
-        act(() => vi.advanceTimersByTime(500));
-        touch("touchmove", (from + to) / 2, selector);
-        act(() => vi.advanceTimersByTime(500));
-        touch("touchmove", to, selector);
-        touch("touchend", to, selector);
-      };
-      return { sheet, onClose, pull, touch };
-    }
-
-    it.each([".mobile-sheet-grip", ".mobile-sheet-header strong"])(
-      "opens at half height, expands from %s, and steps back down before closing",
-      (selector) => {
-        const { sheet, onClose, pull } = open();
-        expect(sheet.dataset.detent).toBe("half");
-        expect(sheet.querySelector(".mobile-sheet-header strong")?.textContent).toBe("Bash");
-        pull(600, 400, selector);
-        expect(sheet.dataset.detent).toBe("full");
-        expect(sheet.style.transform).toBe("translateY(0px)");
-        pull(300, 500, selector);
-        expect(sheet.dataset.detent).toBe("half");
-        act(() => vi.advanceTimersByTime(450));
-        expect(sheet.style.transform).toBe("");
-        expect(onClose).not.toHaveBeenCalled();
-        pull(600, 800, selector);
-        act(() => vi.advanceTimersByTime(200));
-        expect(onClose).toHaveBeenCalledOnce();
-      },
-    );
-
-    it("closes from the header button", () => {
-      const { sheet, onClose, touch } = open();
-      const button = '.mobile-sheet-header [aria-label="Close"]';
-      touch("touchstart", 600, button);
-      expect(touch("touchmove", 400, button).defaultPrevented).toBe(false);
-      touch("touchend", 400, button);
-      expect(sheet.dataset.detent).toBe("half");
-      act(() => sheet.querySelector<HTMLButtonElement>('.mobile-sheet-header [aria-label="Close"]')!.click());
-      expect(onClose).toHaveBeenCalledOnce();
-    });
-
-    it("restores the half-height scroll viewport immediately with reduced motion", () => {
-      vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true } as MediaQueryList);
-      const { sheet, pull } = open();
-      pull(600, 400);
-      expect(sheet.dataset.detent).toBe("full");
-      expect(sheet.style.transition).toBe("none");
-      pull(300, 500);
-      act(() => vi.advanceTimersByTime(0));
-      expect(sheet.dataset.detent).toBe("half");
-      expect(sheet.style.getPropertyValue("--mobile-sheet-content-offset")).toBe("");
-    });
-
-    it.each([80, 500])("settles a full sheet at half after a quick %ipx downward swipe, then dismisses on the next swipe", (distance) => {
-      const { sheet, onClose, pull, touch } = open();
-      pull(600, 400);
-      expect(sheet.dataset.detent).toBe("full");
-      act(() => vi.advanceTimersByTime(250));
-      touch("touchstart", 300);
-      act(() => vi.advanceTimersByTime(16));
-      touch("touchmove", 300 + distance / 2);
-      act(() => vi.advanceTimersByTime(16));
-      touch("touchmove", 300 + distance);
-      touch("touchend", 300 + distance);
-      expect(sheet.dataset.detent).toBe("half");
-      expect(sheet.closest(".mobile-sheet-backdrop")?.hasAttribute("inert")).toBe(false);
-      expect(sheet.style.transform).toBe("translateY(300px)");
-      expect(sheet.style.transition).toContain("linear(");
-      act(() => vi.advanceTimersByTime(450));
-      expect(onClose).not.toHaveBeenCalled();
-      expect(node.querySelector(".mobile-sheet")).toBe(sheet);
-      expect(sheet.style.transform).toBe("");
-
-      touch("touchstart", 600);
-      act(() => vi.advanceTimersByTime(16));
-      touch("touchmove", 640);
-      act(() => vi.advanceTimersByTime(16));
-      touch("touchmove", 680);
-      touch("touchend", 680);
-      expect(sheet.closest(".mobile-sheet-backdrop")?.hasAttribute("inert")).toBe(true);
-      expect(sheet.style.transform).toBe("translateY(824px)");
-      act(() => vi.advanceTimersByTime(130));
-      expect(onClose).toHaveBeenCalledOnce();
-      expect(node.querySelector(".mobile-sheet")).toBeNull();
-    });
-
-    it.each(["half", "full"])("leaves all content swipes to native scrolling at the %s stop", (detent) => {
-      const { sheet, onClose, pull, touch } = open();
-      if (detent === "full") pull(600, 400);
-      act(() => vi.advanceTimersByTime(250));
-      const rest = sheet.style.transform;
-      for (const scrollTop of [0, 100]) {
-        sheet.querySelector<HTMLElement>(".mobile-sheet-content")!.scrollTop = scrollTop;
-        for (const distance of [-150, 150]) {
-          touch("touchstart", 600, ".body");
-          act(() => vi.advanceTimersByTime(16));
-          expect(touch("touchmove", 600 + distance, ".body").defaultPrevented).toBe(false);
-          touch("touchend", 600 + distance, ".body");
-          act(() => vi.advanceTimersByTime(250));
-          expect(sheet.dataset.detent).toBe(detent);
-          expect(sheet.style.transform).toBe(rest);
-        }
-      }
+    it.each(["disable", "unmount"])("cancels a pending dismissal on %s", async action => {
+      const { sheet, onClose, render } = harness();
+      await rest();
+      await pull(sheet, 100, 320);
+      if (action === "disable") render(false); else act(() => root.render(null));
+      await rest();
       expect(onClose).not.toHaveBeenCalled();
     });
   });

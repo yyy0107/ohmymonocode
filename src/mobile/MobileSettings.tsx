@@ -1,3 +1,4 @@
+import { MobileSwitch } from "./MobileSwitch";
 import { MobileHapticSettings } from "./MobileHapticSettings";
 import { MobileSettingsIcon as SettingsIcon, MobileSettingsGlyph } from "./MobileSettingsIcon";
 import { useCallback, useRef, type CSSProperties, type ReactNode, type RefObject } from "react";
@@ -463,7 +464,7 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
             <SettingsIcon name="sounds" />
             <label className="mobile-settings-label">
               <span>{t("Sounds")}</span>
-              <input
+              <MobileSwitch
                 type="checkbox"
                 role="switch"
                 className="mobile-switch"
@@ -479,7 +480,7 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
             <SettingsIcon name="notifications" />
             <label className="mobile-settings-label">
               <span>{t("System notifications")}</span>
-              <input
+              <MobileSwitch
                 type="checkbox"
                 role="switch"
                 className="mobile-switch"
@@ -597,7 +598,7 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
                   "When you send, the new prompt sits at the top of the transcript and the reply grows into the space below. Turn this off to keep the classic layout, with the latest message resting on the composer.",
                 )}
               </small>
-              <input
+              <MobileSwitch
                 id="mobile-transcript-anchor"
                 type="checkbox"
                 role="switch"

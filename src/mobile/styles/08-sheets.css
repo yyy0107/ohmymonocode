@@ -2,7 +2,6 @@
   position: fixed;
   inset: 0;
   bottom: var(--mobile-keyboard-offset);
-  transition: --mobile-keyboard var(--mobile-keyboard-duration, 0ms) var(--mobile-keyboard-easing, linear);
   z-index: 30;
   display: flex;
   align-items: flex-end;
@@ -41,9 +40,6 @@
 }
 /* Bottom sheets rise in and can be pulled by the grip or title header;
    their content keeps native scrolling in both directions. See sheetDrag.ts. */
-.mobile-sheet-backdrop[data-placement="bottom"] {
-  animation: mobile-sheet-fade 200ms ease-out;
-}
 /* Forms reserve space after the keyboard rises and restore it immediately on
    dismissal. Moving the backdrop bottom every frame exposes the page below it
    and repeatedly lays out the form, so the sheet rides the keyboard on a
@@ -58,7 +54,6 @@
   translate: 0 calc(-1 * var(--mobile-sheet-keyboard-lift, 0px));
 }
 .mobile-sheet-backdrop[data-placement="bottom"] .mobile-sheet {
-  animation: mobile-sheet-rise 200ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
 }
 .mobile-sheet-grip {
@@ -80,22 +75,7 @@
   border-radius: 3px;
   background: var(--color-m-hairline);
 }
-@keyframes mobile-sheet-rise {
-  from {
-    transform: translateY(100%);
-  }
-}
-@keyframes mobile-sheet-fade {
-  from {
-    opacity: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .mobile-sheet-backdrop[data-placement="bottom"],
-  .mobile-sheet-backdrop[data-placement="bottom"] .mobile-sheet {
-    animation: none;
-  }
-}
+
 .mobile-sheet-backdrop[data-placement="anchor"] {
   display: block;
   background: transparent;
@@ -126,55 +106,10 @@
   font-size: var(--mobile-font-xl);
   font-weight: 600;
 }
-.mobile-sheet-backdrop[data-placement="dialog"][data-fold-state="opening"] .mobile-sheet {
-  animation: mobile-sheet-pop 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.mobile-sheet-backdrop[data-placement="dialog"][data-fold-state="closing"] .mobile-sheet {
-  animation: mobile-sheet-pop 120ms ease reverse both;
-}
-@keyframes mobile-sheet-pop {
-  from { transform: scale(0.96); }
-  to { transform: scale(1); }
-}
-.mobile-sheet-backdrop[data-fold-state="opening"] {
-  animation: mobile-sheet-fade 200ms ease both;
-}
 .mobile-sheet-backdrop[data-fold-state="closing"] {
   pointer-events: none;
-  animation: mobile-sheet-fade 120ms ease reverse both;
 }
-.mobile-sheet-backdrop[data-placement="anchor"]:has(> [data-anchor-motion]) {
-  animation: none;
-}
-.mobile-sheet-backdrop[data-placement="anchor"][data-fold-state="opening"] .mobile-sheet:not([data-anchor-motion]) {
-  animation: mobile-sheet-drop 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.mobile-sheet-backdrop[data-placement="anchor"][data-fold-state="closing"] .mobile-sheet:not([data-anchor-motion]) {
-  animation: mobile-sheet-drop 120ms ease reverse both;
-}
-@keyframes mobile-sheet-drop {
-  from { transform: translateY(var(--mobile-sheet-enter-y, -6px)) scale(0.97); }
-  to { transform: translateY(0) scale(1); }
-}
-.mobile-sheet[data-anchor-side="top"] {
-  --mobile-sheet-enter-y: 6px;
-}
-/* Shared floating menus and dialogs match the 200ms mobile sheet motion. */
-.popover-open {
-  animation-duration: 200ms;
-}
-.modal-backdrop {
-  animation-duration: 200ms;
-}
-.modal-panel {
-  animation-duration: 200ms;
-}
-@media (prefers-reduced-motion: reduce) {
-  .mobile-sheet-backdrop[data-fold-state],
-  .mobile-sheet-backdrop[data-fold-state] .mobile-sheet {
-    animation: none;
-  }
-}
+
 .mobile-sheet-content {
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -681,7 +616,6 @@
   position: fixed;
   inset: 0;
   bottom: var(--mobile-keyboard-offset);
-  transition: --mobile-keyboard var(--mobile-keyboard-duration, 0ms) var(--mobile-keyboard-easing, linear);
   background: rgb(0 0 0 / 0.5);
   display: flex;
   justify-content: center;

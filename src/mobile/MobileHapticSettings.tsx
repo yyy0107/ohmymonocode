@@ -1,3 +1,4 @@
+import { MobileSwitch } from "./MobileSwitch";
 import { MobileSelect } from "./MobileSelect";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "../shared/i18n/useTranslation";
@@ -28,7 +29,7 @@ export function MobileHapticSettings() {
         <MobileSettingsIcon name={key === "interactions" ? "haptics" : "outputHaptics"} />
         <label className="mobile-settings-label">
           <span>{t(key === "interactions" ? "Interaction haptics" : "AI output haptics")}</span>
-          <input type="checkbox" role="switch" className="mobile-switch" checked={preferences[key]}
+          <MobileSwitch type="checkbox" role="switch" className="mobile-switch" checked={preferences[key]}
             onChange={(event) => saveHapticPreferences({ ...preferences, [key]: event.currentTarget.checked })} />
         </label>
       </div>

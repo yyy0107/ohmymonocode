@@ -2,15 +2,16 @@
 import { createElement, act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { startMotionClock, motionFrame, stopMotionClock } from "./motionTestClock";
 import { MobileComposer, type MobileComposerPanel } from "./MobileComposer";
 import type { MobileConfiguration } from "./MobileModelControls";
 import { setUiLanguage } from "../shared/i18n/language";
 import { readMobileAttachments } from "./attachments";
 import { KEYBOARD_EVENT, installKeyboardMotion } from "./keyboardMotion";
 import { lightImpact } from "./haptics";
-import { COMPOSER_MOTION_MS } from "../features/sessions/model/composerResize";
 import { Capacitor } from "@capacitor/core";
 import { Keyboard } from "@capacitor/keyboard";
+import { applyReducedMotion } from "../shared/lib/reducedMotion";
 
 vi.mock("./haptics", () => ({ lightImpact: vi.fn() }));
 vi.mock("@capacitor/keyboard", () => ({ Keyboard: { show: vi.fn(async () => {}) } }));
@@ -18,6 +19,7 @@ vi.mock("@capacitor/keyboard", () => ({ Keyboard: { show: vi.fn(async () => {}) 
 vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
 let root: Root | undefined;
 beforeEach(() => {
+  startMotionClock();
   setUiLanguage("en");
   vi.mocked(lightImpact).mockClear();
   vi.mocked(Keyboard.show).mockClear();
@@ -25,9 +27,12 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root?.unmount());
   root = undefined;
+  stopMotionClock();
   document.body.replaceChildren();
   vi.restoreAllMocks();
+  applyReducedMotion("system");
 });
+async function finishMotion() { await act(async () => { for(let i=0;i<60;i++) { motionFrame(); await Promise.resolve(); } }); }
 function render(overrides: Record<string, unknown> = {}) {
   const node = document.createElement("div");
   document.body.append(node);
@@ -582,7 +587,7 @@ describe("mobile composer card", () => {
     expect(node.querySelectorAll("textarea:not([data-autosize-measure])")).toHaveLength(1);
   });
 
-  it("lets sent attachments exit inertly and reverses closing when new files arrive", () => {
+  it("lets sent attachments exit inertly and reverses closing when new files arrive", async () => {
     vi.useFakeTimers();
     try {
       const attachment = { id: "one", name: "notes.txt", mimeType: "text/plain", kind: "file", size: 4 };
@@ -597,10 +602,10 @@ describe("mobile composer card", () => {
       expect(region.dataset.closing).toBeUndefined();
       expect(region.inert).toBe(false);
       expect(region.textContent).toContain("new.txt");
-      act(() => vi.advanceTimersByTime(COMPOSER_MOTION_MS + 20));
+      await finishMotion();
       expect(region.textContent).toContain("new.txt");
       rerender({ attachments: [] });
-      act(() => vi.advanceTimersByTime(COMPOSER_MOTION_MS + 20));
+      await finishMotion();
       expect(node.querySelector(".mobile-composer-attachments")).toBeNull();
     } finally {
       vi.useRealTimers();
@@ -612,6 +617,20 @@ describe("mobile composer card", () => {
     const { node, rerender } = render({
       attachments: [{ id: "one", name: "notes.txt", mimeType: "text/plain", kind: "file", size: 4 }],
     });
+    rerender({ attachments: [] });
+    expect(node.querySelector(".mobile-composer-attachments")).toBeNull();
+  });
+
+  it("keeps the attachment subtree when the live motion preference changes", () => {
+    const { node, rerender } = render({
+      attachments: [{ id: "one", name: "notes.txt", mimeType: "text/plain", kind: "file", size: 4 }],
+    });
+    const chips = node.querySelector(".mobile-composer-attachments");
+    act(() => applyReducedMotion("on"));
+    expect(node.querySelector(".mobile-composer-attachments")).toBe(chips);
+    act(() => applyReducedMotion("off"));
+    expect(node.querySelector(".mobile-composer-attachments")).toBe(chips);
+    act(() => applyReducedMotion("on"));
     rerender({ attachments: [] });
     expect(node.querySelector(".mobile-composer-attachments")).toBeNull();
   });
@@ -720,12 +739,12 @@ describe("mobile composer card", () => {
     expect(onStop).toHaveBeenCalledTimes(1);
   });
 
-  it("folds to one line for a pending question and expands when focused", () => {
+  it("folds to one line for a pending question and expands when focused", async () => {
     vi.useFakeTimers();
     try {
       const onExpand = vi.fn();
       const { node, rerender } = render({ running: true, canStop: true, value: "", canSend: false, compact: true, onExpand });
-      act(() => vi.advanceTimersByTime(400));
+      await finishMotion();
       const form = node.querySelector("form")!;
       expect(form.dataset.compact).toBe("true");
       expect(node.querySelector(".mobile-composer-context")!.hasAttribute("inert")).toBe(true);
@@ -736,7 +755,7 @@ describe("mobile composer card", () => {
       act(() => node.querySelector("textarea")!.focus());
       expect(onExpand).toHaveBeenCalledTimes(1);
       rerender({ compact: false });
-      act(() => vi.advanceTimersByTime(400));
+      await finishMotion();
       expect(form.dataset.compact).toBeUndefined();
       expect(node.querySelectorAll('[aria-label="Stop"]')).toHaveLength(1);
       expect(node.querySelector('[aria-label="Add to message"]')).not.toBeNull();

@@ -1,28 +1,29 @@
-import { cloneElement, useRef, useState, type ReactElement } from "react";
+import { cloneElement, useRef, type ReactElement } from "react";
+import { AnimatePresence, usePresence } from "motion/react";
 
-/** Freeze a sheet's payload on close; MobileSheet owns the exit lifetime. */
-export function MobileSheetPresence({ open, children }: {
-  open: boolean;
-  children: ReactElement<{ open?: boolean; onExited?: () => void }> | null;
-}) {
-  const [mounted, setMounted] = useState(open);
-  const retained = useRef(children);
-  const currentOpen = useRef(open);
-  currentOpen.current = open;
-  if (open) {
-    retained.current = children;
-    if (!mounted) setMounted(true);
-  }
-  if (!mounted || !retained.current) return null;
-  const child = open ? children : retained.current;
-  if (!child) return null;
-  return cloneElement(child, {
-    open,
+type SheetElement = ReactElement<{ open?: boolean; onExited?: () => void }>;
+
+function PresentSheet({ children }: { children: SheetElement }) {
+  const [present, safeToRemove] = usePresence();
+  const current = useRef(present);
+  current.current = present;
+  return cloneElement(children, {
+    open: present,
     onExited: () => {
-      if (currentOpen.current) return;
-      child.props.onExited?.();
-      retained.current = null;
-      setMounted(false);
+      // A late completion from the previous close cannot remove a reopened sheet.
+      if (current.current) return;
+      children.props.onExited?.();
+      safeToRemove?.();
     },
   });
+}
+
+/** AnimatePresence freezes a departing payload until its actual sheet exit finishes. */
+export function MobileSheetPresence({ open, children }: {
+  open: boolean;
+  children: SheetElement | null;
+}) {
+  return <AnimatePresence>
+    {open && children ? <PresentSheet key="sheet">{children}</PresentSheet> : null}
+  </AnimatePresence>;
 }

@@ -1,3 +1,4 @@
+import { startMotionClock, stopMotionClock, advanceMotionTimers } from "./motionTestClock";
 // @vitest-environment happy-dom
 import { act, createElement, Fragment } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -65,6 +66,7 @@ vi.mock("./MobileAppUpdates", () => ({
 let root: Root;
 let node: HTMLDivElement;
 beforeEach(() => {
+  startMotionClock();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.clearAllMocks();
   nativeBack.listener = undefined;
@@ -81,6 +83,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   act(() => root.unmount());
+  stopMotionClock();
   vi.useRealTimers();
   vi.restoreAllMocks();
   node.remove();
@@ -98,11 +101,11 @@ function active<T extends Element = HTMLElement>(selector: string): T | null {
   return [...node.querySelectorAll<T>(selector)]
     .find(item => !item.closest('[inert]')) ?? null;
 }
-function finishClosingSheet(dialog: Element) {
+async function finishClosingSheet(dialog: Element) {
   const backdrop = dialog.closest<HTMLElement>(".mobile-sheet-backdrop")!;
   expect(backdrop.dataset.foldState).toBe("closing");
   expect(backdrop.hasAttribute("inert")).toBe(true);
-  act(() => backdrop.dispatchEvent(new Event("animationend", { bubbles: true })));
+  await advanceMotionTimers(600);
   expect(dialog.isConnected).toBe(false);
 }
 function button(text: string) {
@@ -168,6 +171,7 @@ describe("mobile connection settings", () => {
         preview.querySelector<HTMLButtonElement>(".image-lightbox-close")!.click();
       else preview.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
+    await advanceMotionTimers(400);
     expect(document.querySelector(".image-lightbox")).toBeNull();
     expect(active("header strong")?.textContent).toBe("Glass");
     expect(App.exitApp).not.toHaveBeenCalled();
@@ -194,7 +198,7 @@ describe("mobile connection settings", () => {
     expect(active("header strong")?.textContent).toBe("Glass");
     expect(rootPage.hasAttribute("inert")).toBe(true);
     expect(active("#mobile-theme")).toBeNull();
-    act(() => rootPage.dispatchEvent(new Event("animationend", { bubbles: true })));
+    await advanceMotionTimers(400);
     expect(rootPage.isConnected).toBe(false);
     expect(active(".mobile-glass-preview")).not.toBeNull();
     act(() => active<HTMLButtonElement>("#mobile-glass-effect")!.click());
@@ -397,7 +401,7 @@ describe("mobile connection settings", () => {
       .toEqual(["Connections/projects/Connections"]);
     act(() => menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
     expect(active('[role="dialog"][aria-label="Projects"]')).toBeNull();
-    finishClosingSheet(menu);
+    await finishClosingSheet(menu);
     expect(document.activeElement).toBe(title);
     expect(title.getAttribute("aria-expanded")).toBe("false");
     expect(active(".mobile-app")?.getAttribute("data-view")).toBe("home");

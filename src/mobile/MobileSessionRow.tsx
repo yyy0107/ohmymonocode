@@ -31,6 +31,7 @@ export function MobileSessionRow({
       type="button"
       className="mobile-home-session"
       data-session-id={session.id}
+      data-list-row
       data-state={state}
       {...button}
     >

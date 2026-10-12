@@ -1,3 +1,5 @@
+import { motion } from "motion/react";
+import { popTransition, motionGeometry } from "../shared/motion/tokens";
 import { MobileSpinner } from "./MobileSpinner";
 import { useTranslation } from "../shared/i18n/useTranslation";
 
@@ -19,9 +21,9 @@ export function MobileHostUnavailable({ failed, retrying, lastOnline, now, onRet
   const spinning = retrying || !failed;
   return (
     <div className="mobile-host-unavailable" role={failed ? "alert" : "status"} aria-busy={spinning}>
-      <span className="mobile-host-unavailable-spinner" data-visible={spinning} aria-hidden="true">
+      <motion.span initial={false} animate={{ opacity: spinning ? 1 : 0, scale: spinning ? 1 : motionGeometry.popScale }} transition={popTransition} className="mobile-host-unavailable-spinner" data-visible={spinning} aria-hidden="true">
         <MobileSpinner size={24} className={spinning ? "mobile-spin" : undefined} />
-      </span>
+      </motion.span>
       <img className="mobile-host-unavailable-logo" src="/monocode.png" alt="" />
       <strong>{t(failed ? "Couldn’t connect" : "Connecting…")}</strong>
       {lastOnline !== undefined && (

@@ -139,7 +139,7 @@
   user-select: text;
   overflow-y: auto;
   touch-action: pan-y;
-  /* Height changes at once; useComposerResizeMotion glides on the compositor. */
+  /* Motion layout animates size changes on the compositor. */
 }
 .mobile-composer-card textarea {
   min-height: 32px;
@@ -205,14 +205,6 @@
   transition: background-color 150ms var(--m-ease), color 150ms var(--m-ease);
 }
 /* The send button gives a small kick as the message leaves. */
-.mobile-composer[data-launching] .mobile-send {
-  animation: mobile-send-kick 320ms cubic-bezier(0.3, 1.4, 0.5, 1);
-}
-@keyframes mobile-send-kick {
-  0% { transform: scale(0.86); }
-  45% { transform: scale(1.08); }
-  100% { transform: none; }
-}
 .mobile-composer-card .mobile-send:disabled {
   opacity: 1;
   background: var(--color-m-control);
@@ -228,24 +220,13 @@
   inset-inline: 0;
   bottom: 0;
 }
-/* The scaled card clips content its top edge has not revealed yet. */
-.mobile-composer-card[data-resize-motion] > .mobile-composer-input {
-  overflow: clip;
-}
+
 /* While a question holds the bottom the composer folds to a single line: the
    model row slides under the input and the toolbar collapses, leaving the
    text field and its send/stop button. Focusing it restores the full card. */
-.mobile-composer-context {
-  transition: opacity 240ms ease;
-}
 .mobile-composer-card[data-compact] > .mobile-composer-context {
   opacity: 0;
   pointer-events: none;
-}
-.mobile-composer-input {
-  transition:
-    margin-top 340ms cubic-bezier(0.22, 1, 0.36, 1),
-    padding 340ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .mobile-composer-card[data-compact] > .mobile-composer-input {
   margin-top: 0;
@@ -280,34 +261,10 @@
   width: calc(var(--mobile-composer-control) + 8px);
   overflow: hidden;
 }
-.mobile-composer-inline[data-fold-state="opening"] {
-  animation: mobile-composer-inline-in 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
 .mobile-composer-inline[data-fold-state="closing"] {
   pointer-events: none;
-  animation: mobile-composer-inline-out 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-@keyframes mobile-composer-inline-in {
-  from {
-    width: 0;
-    opacity: 0;
-  }
-}
-@keyframes mobile-composer-inline-out {
-  to {
-    width: 0;
-    opacity: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .mobile-composer-context,
-  .mobile-composer-input {
-    transition: none;
-  }
-  .mobile-composer-inline {
-    animation: none !important;
-  }
-}
+
 @media (max-width: 359px) {
   .mobile-composer-context {
     gap: 6px;
@@ -317,16 +274,7 @@
     display: none;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .mobile-composer-dock,
-  .mobile-composer textarea,
-  .mobile-send {
-    transition: none;
-  }
-  .mobile-composer[data-launching] .mobile-send {
-    animation: none;
-  }
-}
+
 /* One row that scrolls sideways instead of wrapping into a tall block. */
 .mobile-composer-attachments {
   display: flex;

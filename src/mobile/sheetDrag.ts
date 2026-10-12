@@ -1,6 +1,7 @@
-import { useEffect, useRef, type RefObject } from "react";
-import { reducedMotionQuery } from "../shared/lib/reducedMotion";
-import { MOBILE_SPRINGS, springTransition } from "./motion";
+import { useEffect, useRef, type RefObject, type PointerEvent as ReactPointerEvent } from "react";
+import { animate, frame, cancelFrame, useDragControls, useMotionValue, useTransform, type AnimationPlaybackControls, type PanInfo } from "motion/react";
+import { duration, motionGeometry, springs } from "../shared/motion/tokens";
+import { useMotionPreference } from "../shared/motion/useMotionPreference";
 
 /** Pull distance, as a share of the sheet height, that dismisses on release. */
 const DISMISS_SHARE = 0.28;
@@ -9,8 +10,8 @@ const DISMISS_VELOCITY = 0.55;
 /** Movement before a press counts as a drag rather than a tap or scroll. */
 const SLOP_PX = 6;
 /** Keep in sync with mobile-sheet animations in styles/08-sheets.css. */
-export const SHEET_MOTION_MS = 200;
-export const SHEET_CLOSE_MS = 120;
+export const SHEET_MOTION_MS = duration.pop * 1000;
+export const SHEET_CLOSE_MS = duration.pop * 1000;
 
 /** Share of the screen a two-stop sheet shows before it is pulled up. */
 export const SHEET_HALF_SHARE = 0.5;
@@ -36,351 +37,174 @@ export function settleDetent(
   return top < halfTop / 2 ? "full" : "half";
 }
 
-/**
- * Lets a bottom sheet follow the finger, pull up to full screen, step back
- * down, or close. Two-stop sheets rest at half height; other sheets rest at
- * their content height and switch to the full-height layout only once pulled
- * above it. Touch drags start on the grip or header; the content always keeps
- * its native scrolling gesture, including at the rest stop and list edges.
- */
+/** The gesture decisions stay pure; Motion owns visual travel and spring lifetime. */
 export function useSheetDrag(
   sheet: RefObject<HTMLElement | null>,
   enabled: boolean,
   onClose: () => void,
   onDismissStart?: () => void,
-  /** Open at half height and pull up to full screen, like a reading sheet. */
   detents = false,
+  onMotionComplete?: () => void,
 ) {
-  const close = useRef(onClose);
-  close.current = onClose;
-  const dismissStart = useRef(onDismissStart);
-  dismissStart.current = onDismissStart;
+  const reduced = useMotionPreference();
+  const controls = useDragControls();
+  const y = useMotionValue(0);
+  const sheetHeight = useMotionValue(1);
+  const lowestTop = useMotionValue(0);
+  const opacity = useTransform(() => {
+    const below = y.get() - lowestTop.get();
+    return below > 0 ? Math.max(0.35, 1 - below / (sheetHeight.get() * 1.4)) : 1;
+  });
+  const current = useRef({ onClose, onDismissStart, enabled, reduced, onMotionComplete });
+  current.current = { onClose, onDismissStart, enabled, reduced, onMotionComplete };
+  const release = useRef<AnimationPlaybackControls | undefined>(undefined);
+  const geometry = useRef({ height: 0, halfHeight: 0, halfTop: 0, detent: "half" as SheetDetent, fitExpanded: false, contentExpanded: false, closing: false });
+  const stopWatching = useRef<(() => void) | undefined>(undefined);
+  const prepareContent = () => {
+    const element = sheet.current, state = geometry.current;
+    if (element && detents && y.get() < state.halfTop && !state.contentExpanded) {
+      state.contentExpanded = true;
+      element.style.setProperty("--mobile-sheet-content-offset", "0px");
+    }
+  };
+  const watchGeometry = () => {
+    stopWatching.current?.();
+    const element = sheet.current;
+    if (!element) return;
+    const state = geometry.current;
+    let viewportHeight = window.innerHeight;
+    const refresh = () => {
+      state.height = element.offsetHeight;
+      if (detents) state.halfHeight = Math.round(window.innerHeight * SHEET_HALF_SHARE);
+      else if (!state.fitExpanded) state.halfHeight = state.height;
+      state.halfTop = Math.max(0, state.height - state.halfHeight);
+      sheetHeight.set(Math.max(1, state.height));
+      lowestTop.set(state.halfTop);
+      prepareContent();
+    };
+    const resized = () => {
+      if (viewportHeight === window.innerHeight) return;
+      viewportHeight = window.innerHeight;
+      frame.read(refresh);
+    };
+    let contentHeight: number | undefined;
+    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(entries => {
+      const entry = entries.find(item => item.target === element);
+      if (!entry) return;
+      const borderHeight = entry.borderBoxSize?.[0]?.blockSize;
+      if (borderHeight !== undefined ? Math.round(borderHeight) === state.height : entry.contentRect.height === contentHeight) return;
+      contentHeight = entry.contentRect.height;
+      frame.read(refresh);
+    });
+    observer?.observe(element, { box: "border-box" });
+    window.addEventListener("resize", resized);
+    window.visualViewport?.addEventListener("resize", resized);
+    stopWatching.current = () => {
+      cancelFrame(refresh);
+      observer?.disconnect();
+      window.removeEventListener("resize", resized);
+      window.visualViewport?.removeEventListener("resize", resized);
+      stopWatching.current = undefined;
+    };
+  };
   useEffect(() => {
     const element = sheet.current;
-    if (!enabled || !element) return;
-    const backdrop = element.parentElement;
-    element.style.transform = "";
-    element.style.transition = "";
-    element.style.animation = "";
-    element.style.removeProperty("--mobile-sheet-content-offset");
+    if (!element || !enabled) return;
+    const state = geometry.current;
+    state.closing = false;
+    state.detent = "half";
+    state.fitExpanded = false;
+    state.contentExpanded = false;
     delete element.dataset.expanded;
-    if (backdrop) {
-      backdrop.style.opacity = "";
-      backdrop.style.transition = "";
-      backdrop.style.animation = "";
+    element.style.removeProperty("--mobile-sheet-content-offset");
+    state.height = element.offsetHeight;
+    state.halfHeight = detents ? Math.round(window.innerHeight * SHEET_HALF_SHARE) : state.height;
+    state.halfTop = detents ? Math.max(0, state.height - state.halfHeight) : 0;
+    if (detents) element.dataset.detent = state.detent;
+    sheetHeight.set(Math.max(1, state.height));
+    lowestTop.set(state.halfTop);
+    if (reduced) { y.set(state.halfTop); onMotionComplete?.(); }
+    else {
+      y.set(state.height + motionGeometry.sheetExitGap);
+      release.current = animate(y, state.halfTop, { ...springs.sheet, onComplete: () => current.current.onMotionComplete?.() });
     }
-    let startY = 0;
-    /** Sheet offset when the finger landed; mid-settle catches keep it. */
-    let origin = 0;
-    let lastY = 0;
-    let lastAt = 0;
-    let velocity = 0;
-    let tracking = false;
-    let dragging = false;
-    let dragPlaced = false;
-    let contentExpanded = false;
-    let closing = false;
-    /** A content-height sheet laid out at full height while pulled up. */
-    let fitExpanded = false;
-    let closeTimer: number | undefined;
-    let moveFrame: number | undefined;
-    let resizeObserver: ResizeObserver | undefined;
-    let geometryDirty = true;
-    let height = 0;
-    let viewportHeight = 0;
-    let halfHeight = 0;
-    let halfTop = 0;
-    const viewport = window.visualViewport;
-    // Two-stop sheets rest at the half stop until pulled up; the stylesheet
-    // places that stop, so only a full or dragged position is written inline.
-    let detent: SheetDetent = "half";
-    if (detents) element.dataset.detent = detent;
-    const measure = () => {
-      if (!geometryDirty) return;
-      height = element.offsetHeight;
-      viewportHeight = window.innerHeight;
-      if (detents) {
-        halfHeight = Math.round(viewportHeight * SHEET_HALF_SHARE);
-        halfTop = Math.max(0, height - halfHeight);
-      } else if (!fitExpanded) {
-        // The rest stop is the sheet's own content height.
-        halfHeight = height;
-        halfTop = 0;
-      }
-      geometryDirty = false;
-    };
-    const base = () => (detent === "half" ? halfTop : 0);
-    // Lay a content-height sheet out at full height once, then offset it by
-    // the growth so it stays where it is drawn; the drag continues from there.
-    const expandFit = () => {
-      if (detents || fitExpanded) return 0;
-      const restHeight = height;
-      fitExpanded = true;
+    return () => { stopWatching.current?.(); controls.cancel(); release.current?.stop(); };
+  }, [sheet, enabled, detents, controls, y, sheetHeight, lowestTop]);
+  const start = (event: ReactPointerEvent<HTMLElement>) => {
+    const element = sheet.current;
+    const target = event.target;
+    const state = geometry.current;
+    if (!element || !enabled || state.closing || !(target instanceof Element) || target.closest(".mobile-sheet") !== element) return;
+    const grip = !!target.closest(".mobile-sheet-grip");
+    if (!grip && (event.pointerType !== "touch" || target.closest("button, a, input, textarea, select, [contenteditable]") || !target.closest(".mobile-sheet-header"))) return;
+    const settling = y.isAnimating();
+    release.current?.stop();
+    const previousTop = state.detent === "half" ? state.halfTop : 0;
+    state.height = element.offsetHeight;
+    state.halfHeight = detents ? Math.round(window.innerHeight * SHEET_HALF_SHARE) : state.fitExpanded ? state.halfHeight : state.height;
+    state.halfTop = detents || state.fitExpanded ? Math.max(0, state.height - state.halfHeight) : 0;
+    if (!settling) y.set(y.get() + (state.detent === "half" ? state.halfTop : 0) - previousTop);
+    // Prepare a full-size fit sheet once. Its offset preserves the visible rest
+    // position and the Motion drag origin before the pointer session starts.
+    if (!detents && !state.fitExpanded && state.detent === "half") {
+      const restHeight = state.height;
+      state.fitExpanded = true;
       element.dataset.expanded = "true";
-      height = element.offsetHeight;
-      halfHeight = restHeight;
-      halfTop = Math.max(0, height - restHeight);
-      element.style.transform = `translateY(${halfTop}px)`;
-      return halfTop;
-    };
-    const collapseFit = () => {
-      if (!fitExpanded) return;
-      fitExpanded = false;
-      delete element.dataset.expanded;
-      halfTop = 0;
-      geometryDirty = true;
-    };
-
-    const place = (top: number) => {
-      element.style.transform =
-        detents || fitExpanded || top > 0 ? `translateY(${top}px)` : "";
-      // Prepare the larger scroll viewport once before revealing it. Resizing
-      // it under the finger (or on every spring frame) relays out long lists,
-      // diffs and virtual editors. Keep it full-sized until landing at half.
-      if (detents && top < halfTop && !contentExpanded) {
-        contentExpanded = true;
-        element.style.setProperty("--mobile-sheet-content-offset", "0px");
-      }
-      // The backdrop only fades once the sheet sinks below its lowest stop.
-      const below = top - halfTop;
-      if (backdrop)
-        backdrop.style.opacity = below > 0
-          ? String(Math.max(0.35, 1 - below / (height * 1.4)))
-          : "";
-    };
-    const cancelMove = () => {
-      if (moveFrame !== undefined) cancelAnimationFrame(moveFrame);
-      moveFrame = undefined;
-    };
-    const placeDrag = () => {
-      moveFrame = undefined;
-      if (!tracking || !dragging) return;
-      // Read once before writing, and only again after the observed geometry
-      // changes. Content layout stays fixed while the sheet moves.
-      measure();
-      if (!dragPlaced) {
-        dragPlaced = true;
-        element.style.transition = "none";
-        if (backdrop) backdrop.style.transition = "none";
-      }
-      let top = origin + lastY - startY;
-      if (top < 0 && !detents && !fitExpanded && detent === "half") {
-        origin += expandFit();
-        top = origin + lastY - startY;
-      }
-      place(top > 0 ? top : top / 6);
-    };
-    const scheduleMove = () => {
-      if (tracking && dragging && moveFrame === undefined)
-        moveFrame = requestAnimationFrame(placeDrag);
-    };
-    const viewportChanged = () => {
-      if (window.innerHeight === viewportHeight) return;
-      geometryDirty = true;
-      scheduleMove();
-    };
-    const stopObserving = () => {
-      resizeObserver?.disconnect();
-      resizeObserver = undefined;
-      window.removeEventListener("resize", viewportChanged);
-      viewport?.removeEventListener("resize", viewportChanged);
-    };
-    const observeGeometry = () => {
-      if (typeof ResizeObserver !== "undefined") {
-        let contentHeight: number | undefined;
-        resizeObserver = new ResizeObserver((entries) => {
-          if (!tracking) return;
-          const entry = entries.find((entry) => entry.target === element);
-          if (!entry) return;
-          const borderHeight = entry.borderBoxSize?.[0]?.blockSize;
-          if (borderHeight !== undefined) {
-            if (Math.round(borderHeight) === height) return;
-          } else {
-            if (entry.contentRect.height === contentHeight) return;
-            contentHeight = entry.contentRect.height;
-          }
-          geometryDirty = true;
-          scheduleMove();
-        });
-        resizeObserver.observe(element, { box: "border-box" });
-      }
-      window.addEventListener("resize", viewportChanged);
-      viewport?.addEventListener("resize", viewportChanged);
-    };
-    const canStart = (target: EventTarget | null) => {
-      if (closing || !(target instanceof Element)) return false;
-      if (target.closest(".mobile-sheet") !== element) return false;
-      if (target.closest(".mobile-sheet-grip")) return true;
-      if (target.closest("button, a, input, textarea, select, [contenteditable]"))
-        return false;
-      return !!target.closest(".mobile-sheet-header");
-    };
-    // While a release settles, the inline transform is the target, not where
-    // the sheet is drawn; read the drawn offset so a catch does not jump.
-    const drawnTop = () => {
-      const settling = element
-        .getAnimations?.()
-        .some(
-          (animation) =>
-            "transitionProperty" in animation && animation.playState === "running",
-        );
-      return settling
-        ? new DOMMatrix(getComputedStyle(element).transform).m42
-        : base();
-    };
-    const begin = (y: number) => {
-      cancelMove();
-      stopObserving();
-      geometryDirty = true;
-      measure();
-      origin = drawnTop();
-      startY = lastY = y;
-      lastAt = performance.now();
-      velocity = 0;
-      tracking = true;
-      dragging = false;
-      dragPlaced = false;
-      observeGeometry();
-    };
-    const move = (y: number, event: Event) => {
-      if (!tracking) return;
-      const offset = y - startY;
-      const expandable = detent === "half";
-      if (!dragging) {
-        if (offset < -SLOP_PX && !expandable) {
-          tracking = false;
-          stopObserving();
-        }
-        if (Math.abs(offset) <= SLOP_PX || (offset < 0 && !expandable)) return;
-        dragging = true;
-        if (closeTimer !== undefined) window.clearTimeout(closeTimer);
-      }
-      if (event.cancelable) event.preventDefault();
-      const now = performance.now();
-      velocity = (y - lastY) / Math.max(1, now - lastAt);
-      lastY = y;
-      lastAt = now;
-      scheduleMove();
-    };
-    const end = () => {
-      if (!tracking) return;
-      // Commit the last input even when release arrives before the next frame.
-      cancelMove();
-      if (dragging) placeDrag();
-      stopObserving();
-      tracking = false;
-      if (!dragging) return;
-      dragging = false;
-      // Resolve the release position with transitions disabled before assigning
-      // the spring target. This is one style flush per release, never per move.
-      getComputedStyle(element).transform;
-      const reducedMotion = reducedMotionQuery().matches;
-      let released = origin + lastY - startY;
-      const settled = settleDetent(released, velocity, halfTop, halfHeight, detent);
-      // An upward fling from a content-height sheet still below its rest stop.
-      if (settled === "full" && !detents && !fitExpanded) {
-        const shift = expandFit();
-        origin += shift;
-        released += shift;
-        getComputedStyle(element).transform;
-      }
-      const dismiss = settled === "dismiss";
-      // Settling continues the finger's speed on the shared spring; a dismiss
-      // keeps the short exit that the sheet's close lifetime expects.
-      const target = dismiss ? height + 24 : settled === "full" ? 0 : halfTop;
-      const settle = dismiss
-        ? undefined
-        : springTransition(
-            "transform",
-            MOBILE_SPRINGS.smooth,
-            target - released,
-            velocity * Math.sign(target - released),
-          );
-      const duration = settle?.duration ?? SHEET_CLOSE_MS;
-      element.style.transition = reducedMotion
-        ? "none"
-        : (settle?.transition ??
-          `transform ${duration}ms cubic-bezier(0.22, 1, 0.36, 1)`);
-      if (backdrop)
-        backdrop.style.transition = reducedMotion
-          ? "none"
-          : `opacity ${Math.min(duration, SHEET_MOTION_MS)}ms ease`;
-      if (dismiss) {
-        closing = true;
-        // The drag owns the exit from its current offset. The shared fold
-        // lifetime runs concurrently; its CSS keyframes must not restart it.
-        element.style.animation = "none";
-        if (backdrop) backdrop.style.animation = "none";
-        dismissStart.current?.();
-        element.style.transform = `translateY(${height + 24}px)`;
-        if (backdrop) backdrop.style.opacity = "0";
-        if (reducedMotion) close.current();
-        else
-          closeTimer = window.setTimeout(() => close.current(), SHEET_CLOSE_MS);
-      } else {
-        detent = settled;
-        if (detents) element.dataset.detent = detent;
-        place(base());
-        if (detent === "half") {
-          // Hand the rest position back to the stylesheet once it lands.
-          const settledAt = detent;
-          closeTimer = window.setTimeout(() => {
-            if (detent === settledAt && !tracking) {
-              element.style.transform = "";
-              contentExpanded = false;
-              element.style.removeProperty("--mobile-sheet-content-offset");
-              collapseFit();
-            }
-          }, reducedMotion ? 0 : duration);
+      state.height = element.offsetHeight;
+      state.halfHeight = restHeight;
+      state.halfTop = Math.max(0, state.height - restHeight);
+      y.set(y.get() + state.halfTop);
+    }
+    sheetHeight.set(Math.max(1, state.height));
+    lowestTop.set(state.halfTop);
+    watchGeometry();
+    controls.start(event, { distanceThreshold: SLOP_PX });
+  };
+  const onDrag = (_: PointerEvent, info: PanInfo) => {
+    const element = sheet.current;
+    const state = geometry.current;
+    if (!element) return;
+    if (state.detent === "full" && info.offset.y < -SLOP_PX) {
+      stopWatching.current?.();
+      controls.cancel();
+      y.set(0);
+      return;
+    }
+    prepareContent();
+  };
+  const onDragEnd = (event: PointerEvent, info: PanInfo) => {
+    const element = sheet.current;
+    const state = geometry.current;
+    if (!element || !current.current.enabled) return;
+    stopWatching.current?.();
+    y.stop();
+    const settled = event.type === "pointercancel" ? state.detent
+      : settleDetent(y.get(), info.velocity.y / 1000, state.halfTop, state.halfHeight, state.detent);
+    if (settled === "dismiss") {
+      state.closing = true;
+      current.current.onDismissStart?.();
+    } else {
+      state.detent = settled;
+      if (detents) element.dataset.detent = settled;
+    }
+    const target = settled === "dismiss" ? state.height + motionGeometry.sheetExitGap : settled === "full" ? 0 : state.halfTop;
+    const finish = () => {
+      current.current.onMotionComplete?.();
+      if (settled === "dismiss") current.current.onClose();
+      else if (settled === "half") {
+        state.contentExpanded = false;
+        element.style.removeProperty("--mobile-sheet-content-offset");
+        if (state.fitExpanded) {
+          state.fitExpanded = false;
+          delete element.dataset.expanded;
+          state.halfTop = 0;
+          lowestTop.set(0);
+          y.set(0);
         }
       }
     };
-
-    const touchStart = (event: TouchEvent) => {
-      if (event.touches.length === 1 && canStart(event.target))
-        begin(event.touches[0].clientY);
-    };
-    const touchMove = (event: TouchEvent) => {
-      if (event.touches.length !== 1) return end();
-      move(event.touches[0].clientY, event);
-    };
-    // Mouse and pen drag from the grip only; text in the sheet stays selectable.
-    const pointerDown = (event: PointerEvent) => {
-      if (event.pointerType === "touch" || event.button !== 0) return;
-      if (!(event.target instanceof Element)) return;
-      if (event.target.closest(".mobile-sheet") !== element) return;
-      if (!event.target.closest(".mobile-sheet-grip") || closing) return;
-      element.setPointerCapture?.(event.pointerId);
-      begin(event.clientY);
-    };
-    const pointerMove = (event: PointerEvent) => {
-      if (event.pointerType !== "touch") move(event.clientY, event);
-    };
-    const pointerUp = (event: PointerEvent) => {
-      if (event.pointerType !== "touch") end();
-    };
-
-    element.addEventListener("touchstart", touchStart, { passive: true });
-    element.addEventListener("touchmove", touchMove, { passive: false });
-    element.addEventListener("touchend", end);
-    element.addEventListener("touchcancel", end);
-    element.addEventListener("pointerdown", pointerDown);
-    element.addEventListener("pointermove", pointerMove);
-    element.addEventListener("pointerup", pointerUp);
-    element.addEventListener("pointercancel", pointerUp);
-    return () => {
-      tracking = false;
-      cancelMove();
-      stopObserving();
-      if (closeTimer !== undefined) window.clearTimeout(closeTimer);
-      element.removeEventListener("touchstart", touchStart);
-      element.removeEventListener("touchmove", touchMove);
-      element.removeEventListener("touchend", end);
-      element.removeEventListener("touchcancel", end);
-      element.removeEventListener("pointerdown", pointerDown);
-      element.removeEventListener("pointermove", pointerMove);
-      element.removeEventListener("pointerup", pointerUp);
-      element.removeEventListener("pointercancel", pointerUp);
-    };
-  }, [sheet, enabled, detents]);
+    if (current.current.reduced) { y.set(target); finish(); }
+    else release.current = animate(y, target, { ...springs.sheet, velocity: info.velocity.y, onComplete: finish });
+  };
+  return { y, opacity, start, controls, onDrag, onDragEnd };
 }

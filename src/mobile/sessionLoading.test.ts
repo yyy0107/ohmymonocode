@@ -1,3 +1,4 @@
+import { startMotionClock, stopMotionClock, advanceMotionTimers } from "./motionTestClock";
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -111,6 +112,7 @@ const catalog: HostModelCatalog = { models: { codex: [
 let root: Root;
 let node: HTMLDivElement;
 beforeEach(() => {
+  startMotionClock();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.useFakeTimers();
   host.cache.clear();
@@ -138,6 +140,7 @@ beforeEach(() => {
   root = createRoot(node);
 });
 afterEach(() => {
+  stopMotionClock();
   act(() => root.unmount());
   node.remove();
   vi.useRealTimers();
@@ -167,19 +170,19 @@ describe("mobile conversation loading UI", () => {
     await mount();
     await open("one");
     // Begin after navigation and its initial confirmation have settled.
-    await act(async () => vi.advanceTimersByTimeAsync(500));
+    await advanceMotionTimers(500);
     host.commits.mockClear();
     for (let revision = 2; revision <= 4; revision++) {
       current = { ...current, revision, updatedAt: revision,
         session: { ...current.session, modelSettings: {}, context: { used: revision * 100, window: 1000 },
           blocks: [{ id: "reply", role: "assistant", text: `Streaming ${revision}`, streaming: true }] } };
-      await act(async () => vi.advanceTimersByTimeAsync(250));
+      await advanceMotionTimers(250);
       expect(transcript()?.textContent).toBe(`Streaming ${revision}`);
     }
     expect(host.commits).not.toHaveBeenCalled();
     current = { ...current, revision: 5, status: "idle", runId: undefined,
       session: { ...current.session, title: "Finished conversation" } };
-    await act(async () => vi.advanceTimersByTimeAsync(250));
+    await advanceMotionTimers(250);
     expect(node.querySelector("header")?.textContent).toContain("Finished conversation");
     expect(activePage().querySelector<HTMLButtonElement>("[data-stop]")?.disabled).toBe(true);
     const second = snapshot("two", 7);
@@ -235,7 +238,7 @@ describe("mobile conversation loading UI", () => {
     await act(async () => node.querySelector<HTMLButtonElement>('header [aria-label="Menu"]')!.click());
     expect(host.sessions).not.toHaveBeenCalled();
     host.sessions.mockClear();
-    await act(async () => vi.advanceTimersByTimeAsync(3_000));
+    await advanceMotionTimers(3_000);
     expect(host.sessions).toHaveBeenCalledTimes(1);
     host.sessions.mockClear();
     await act(async () => node.querySelector<HTMLDivElement>(".mobile-drawer-backdrop")!.click());
@@ -373,12 +376,12 @@ describe("mobile conversation loading UI", () => {
     await closeDrawer();
     getAssistant.mockResolvedValue({ name: "我的助理" });
     await openDrawer();
-    await act(async () => vi.advanceTimersByTimeAsync(2000));
+    await advanceMotionTimers(2000);
     expect(assistant().textContent).toBe("我的助理");
     await closeDrawer();
     getAssistant.mockRejectedValue(new Error("Offline"));
     await openDrawer();
-    await act(async () => vi.advanceTimersByTimeAsync(2000));
+    await advanceMotionTimers(2000);
     expect(assistant().textContent).toBe("我的助理");
   });
 
@@ -416,6 +419,7 @@ describe("mobile conversation loading UI", () => {
         row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 90, clientY: 220 }));
         await vi.dynamicImportSettled();
       });
+      await advanceMotionTimers(300);
     };
     const action = (name: string) => [...node.querySelectorAll<HTMLButtonElement>('.mobile-session-actions button')].find((button) => button.textContent === name)!;
     await showMenu();
@@ -425,13 +429,13 @@ describe("mobile conversation loading UI", () => {
     expect(host.updateSession).toHaveBeenCalledWith("other", "other-chat", { pinned: true });
     expect(activePage().querySelector('[data-session-id="other-chat"] .mobile-home-session-pin')).not.toBeNull();
     expect(node.querySelector('.mobile-sheet-backdrop[data-fold-state="closing"]')?.hasAttribute('inert')).toBe(true);
-    act(() => vi.advanceTimersByTime(150));
+    await advanceMotionTimers(300);
     expect(node.querySelector('[role="dialog"]')).toBeNull();
     await showMenu();
     expect(action("Unpin")).toBeDefined();
     await act(async () => action("Mark as unread").click());
     expect(host.markUnread).toHaveBeenCalledWith("other-chat", 4);
-    act(() => vi.advanceTimersByTime(150));
+    await advanceMotionTimers(300);
     await showMenu();
     host.updateSession.mockRejectedValueOnce(new Error("Host offline"));
     await act(async () => action("Archive").click());
@@ -439,6 +443,7 @@ describe("mobile conversation loading UI", () => {
     expect(node.querySelector('[data-session-id="other-chat"]')).not.toBeNull();
     await act(async () => action("Archive").click());
     expect(host.updateSession).toHaveBeenLastCalledWith("other", "other-chat", { archived: true });
+    await advanceMotionTimers(400);
     expect(node.querySelector('[data-session-id="other-chat"]')).toBeNull();
   });
 
@@ -493,7 +498,7 @@ describe("mobile conversation loading UI", () => {
     expect(page.hasAttribute("inert")).toBe(true);
     expect(composer().value).toBe("");
     expect(transcript()).toBeNull();
-    act(() => vi.advanceTimersByTime(240));
+    await advanceMotionTimers(240);
     expect(page.isConnected).toBe(false);
   });
 
@@ -628,7 +633,7 @@ describe("mobile imported native continuation", () => {
     await act(async () => check.resolve({ ...access("external"), holder: { pid: 42, command: "pi", provider: "pi" } }));
     expect(composer().disabled).toBe(true);
     expect(node.querySelector(".mobile-native-readonly")?.textContent).toContain("Pi (pid 42)");
-    await act(async () => vi.advanceTimersByTimeAsync(5000));
+    await advanceMotionTimers(5000);
     expect(composer().disabled).toBe(false);
   });
 
@@ -659,7 +664,7 @@ describe("mobile imported native continuation", () => {
     expect(composer().disabled).toBe(true);
     expect(node.querySelector(".mobile-native-readonly")).not.toBeNull();
     host.session.mockResolvedValue({ ...value, runId: "host-run", supportsQueue: true });
-    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    await advanceMotionTimers(1000);
     expect(composer().disabled).toBe(false);
     expect(node.querySelector<HTMLButtonElement>("[data-stop]")!.disabled).toBe(false);
     expect(node.querySelector(".mobile-native-readonly")).toBeNull();
@@ -675,7 +680,7 @@ describe("mobile imported native continuation", () => {
     host.nativeAccess.mockReturnValueOnce(old.promise).mockResolvedValue(access("external", "/native/two.jsonl"));
     await mount();
     await open("one");
-    await act(async () => vi.advanceTimersByTimeAsync(15000));
+    await advanceMotionTimers(15000);
     expect(host.nativeAccess).toHaveBeenCalledTimes(1);
     await open("two");
     await act(async () => old.resolve(access()));
@@ -696,7 +701,7 @@ describe("mobile imported native continuation", () => {
     host.nativeAccess.mockReturnValue(check.promise);
     host.session.mockResolvedValue({ ...first, revision: 2, session: { ...first.session,
       nativeSession: { ...first.session.nativeSession!, providerSessionId: "native-rebound" } } });
-    await act(async () => vi.advanceTimersByTimeAsync(3000));
+    await advanceMotionTimers(3000);
     expect(composer().disabled).toBe(true);
     expect(host.nativeAccess).toHaveBeenCalledTimes(2);
     await act(async () => check.resolve(access("external", "/native/opencode.db")));
@@ -710,7 +715,7 @@ describe("mobile imported native continuation", () => {
     expect(composer().disabled).toBe(false);
     vi.spyOn(document, "hidden", "get").mockReturnValue(true);
     await act(async () => document.dispatchEvent(new Event("visibilitychange")));
-    await act(async () => vi.advanceTimersByTimeAsync(10000));
+    await advanceMotionTimers(10000);
     expect(host.nativeAccess).toHaveBeenCalledTimes(1);
     const check = deferred<NativeSessionAccess>();
     host.nativeAccess.mockReturnValue(check.promise);

@@ -1,3 +1,4 @@
+import { advanceMotionTimers, startMotionClock, stopMotionClock } from "./motionTestClock";
 import { MobileActivitySheet } from "./MobileActivitySheet";
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -14,6 +15,7 @@ let root: Root;
 let app: HTMLDivElement;
 beforeEach(() => {
   vi.useFakeTimers();
+  startMotionClock();
   setUiLanguage("en");
   app = document.createElement("div");
   app.className = "mobile-app";
@@ -23,6 +25,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   document.body.replaceChildren();
+  stopMotionClock();
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
@@ -41,7 +44,7 @@ const button = (label: string) =>
       node.getAttribute("aria-label") === label,
   )!;
 const click = (node: HTMLElement) => act(() => node.click());
-const finish = () => act(() => vi.advanceTimersByTime(400));
+const finish = () => advanceMotionTimers(600);
 
 it("opens empty agent rows from the main stream and follows live snapshots", async () => {
   let block = agent();
@@ -100,7 +103,7 @@ it("opens empty agent rows from the main stream and follows live snapshots", asy
   click(
     app.querySelector<HTMLButtonElement>('[aria-label="Show root\'s work"]')!,
   );
-  finish();
+  await finish();
   expect(page().textContent).toContain("Full live reply");
 });
 
@@ -163,32 +166,32 @@ it.each(["header", "native", "Escape"])("navigates nested agents, tools and file
     scroll.dispatchEvent(new Event("scroll"));
   });
   click(button("child"));
-  finish();
+  await finish();
   click(
     page().querySelector<HTMLButtonElement>(
       '[data-tool-open-row]',
     )!,
   );
-  finish();
+  await finish();
   expect(page().textContent).toContain("result".repeat(2000));
   await act(async () => button("View file").click());
-  finish();
+  await finish();
   expect(page().textContent).toContain("File body");
   expect(app.querySelectorAll('[role="dialog"]')).toHaveLength(1);
   back();
-  finish();
+  await finish();
   expect(page().textContent).toContain("result".repeat(2000));
   back();
-  finish();
+  await finish();
   back();
-  finish();
+  await finish();
   expect(page().textContent).toContain("Root reply");
   expect(
     page().querySelector<HTMLElement>("[data-mobile-page-scroll]")!.scrollTop,
   ).toBe(120);
 });
 
-it("shows a legacy history notice and deduplicates a final report", () => {
+it("shows a legacy history notice and deduplicates a final report", async () => {
   const block = agent();
   block.tool!.status = "completed";
   block.tool!.detail = "Final report";
@@ -213,7 +216,7 @@ it("shows a legacy history notice and deduplicates a final report", () => {
   expect(page().textContent?.match(/Final report/g)).toHaveLength(1);
 });
 
-it("opens an activity agent in the same sheet and restores the activity scroll", () => {
+it("opens an activity agent in the same sheet and restores the activity scroll", async () => {
   const block = agent();
   block.agentRun!.transcript = [
     { id: "reply", role: "assistant", text: "Child conversation" },
@@ -241,32 +244,38 @@ it("opens an activity agent in the same sheet and restores the activity scroll",
   click(
     page().querySelector<HTMLButtonElement>(".mobile-activity-step button")!,
   );
-  finish();
+  await finish();
   expect(page().textContent).toContain("Child conversation");
   expect(app.querySelectorAll('[role="dialog"]')).toHaveLength(1);
   click(button("Back"));
-  finish();
+  await finish();
   expect(
     page().querySelector<HTMLElement>("[data-mobile-page-scroll]")!.scrollTop,
   ).toBe(84);
 });
 
-it("slides new tool and thought entries into an open activity sheet without replaying its history", () => {
-  const animate = vi.spyOn(Element.prototype, "animate");
-  const entrances = () => animate.mock.contexts.filter(node => node.matches("li[data-transcript-content-motion]"));
+it("slides new tool and thought entries into an open activity sheet without replaying its history", async () => {
+  const entries = () => [...page().querySelectorAll<HTMLElement>("li[data-transcript-content-motion]")];
   const history: Block = { id: "old", role: "assistant", text: "Existing activity" };
   const render = (steps: Block[]) => act(() => root.render(createElement(MobileActivitySheet, {
     steps, live: true, onStep: () => {}, onBack: () => {}, onClose: () => {},
   })));
   render([history]);
-  expect(entrances()).toHaveLength(0);
+  const oldEntry = entries()[0];
+  expect(oldEntry.style.opacity).toBe("1");
+  await advanceMotionTimers(600);
   const added: Block[] = [
     { id: "thought", role: "reasoning", text: "Thinking about the next step" },
     { id: "tool", role: "tool", text: "Read file", tool: { kind: "read", status: "in_progress" } },
   ];
   render([history, ...added]);
-  expect(entrances()).toHaveLength(2);
+  const arriving = entries().slice(1);
+  expect(arriving).toHaveLength(2);
+  expect(arriving.map((entry) => entry.style.opacity)).toEqual(["0", "0"]);
   expect(page().textContent).toContain("Thinking about the next step");
+  await advanceMotionTimers(200);
+  expect(arriving.every((entry) => entry.style.opacity === "1")).toBe(true);
   render([history, { ...added[0], text: "Updated thought" }, added[1]]);
-  expect(entrances()).toHaveLength(2);
+  expect(entries()).toEqual([oldEntry, ...arriving]);
+  expect(arriving.every((entry) => entry.style.opacity === "1")).toBe(true);
 });

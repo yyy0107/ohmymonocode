@@ -1,3 +1,4 @@
+import { startMotionClock, stopMotionClock, advanceMotionTimers } from "./motionTestClock";
 // @vitest-environment happy-dom
 import { act, createElement, StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -29,6 +30,7 @@ let onOpen: ReturnType<typeof vi.fn<(path: string) => Promise<void>>>;
 let onClose: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
+  startMotionClock();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   localStorage.clear();
   setUiLanguage("en");
@@ -41,6 +43,7 @@ beforeEach(() => {
   onClose = vi.fn();
 });
 afterEach(() => {
+  stopMotionClock();
   act(() => root.unmount());
   node.remove();
   trigger.remove();
@@ -82,6 +85,7 @@ it("browses only when opened, preserves closing content and refreshes after a co
   await render(false);
   expect(browseDirectories).not.toHaveBeenCalled();
   await render();
+  await advanceMotionTimers(400);
   const count = browseDirectories.mock.calls.length;
   expect(count).toBeGreaterThan(0);
   const picker = node.querySelector(".mobile-project-picker")!;
@@ -92,8 +96,7 @@ it("browses only when opened, preserves closing content and refreshes after a co
   expect(browseDirectories).toHaveBeenCalledTimes(count);
   expect(node.querySelector(".mobile-project-picker")).toBe(picker);
   await render(false);
-  await act(async () => picker.closest(".mobile-sheet-backdrop")!
-    .dispatchEvent(new Event("animationend", { bubbles: true })));
+  await advanceMotionTimers(600);
   expect(node.querySelector(".mobile-project-picker")).toBeNull();
   await render();
   expect(browseDirectories).toHaveBeenCalledTimes(count + 1);

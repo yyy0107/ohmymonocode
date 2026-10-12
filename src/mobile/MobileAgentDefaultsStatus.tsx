@@ -1,3 +1,5 @@
+import { motion } from "motion/react";
+import { motionGeometry, panelTransition } from "../shared/motion/tokens";
 import { useId, useState } from "react";
 import {
   REMOTE_PROVIDERS,
@@ -11,6 +13,8 @@ import { useTranslation } from "../shared/i18n/useTranslation";
 import { AnimatedCollapse } from "../shared/ui/AnimatedCollapse";
 import { ChevronDown, CircleAlert, Info } from "../shared/ui/icons";
 import type { MobileAgentDefaults } from "./agentDefaults";
+
+const MotionChevronDown = motion.create(ChevronDown);
 
 type Issue = {
   source: string;
@@ -135,7 +139,7 @@ export function MobileAgentDefaultsStatus({
           onClick={() => setDetailsOpen((open) => !open)}
         >
           {t("Error details")}
-          <ChevronDown size={16} aria-hidden="true" />
+          <MotionChevronDown size={16} aria-hidden="true" animate={{ rotate: detailsOpen ? motionGeometry.flipAngle : 0 }} transition={panelTransition} />
         </button>
         <button
           type="button"

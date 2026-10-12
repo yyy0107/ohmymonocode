@@ -1,3 +1,5 @@
+import { frame as motionFrame, cancelFrame, useMotionValue } from "motion/react";
+import { motionGeometry } from "../shared/motion/tokens";
 import { lightImpact } from "./haptics";
 import {
   useCallback,
@@ -22,11 +24,11 @@ export function useQueueDrag(
   const [preview, setPreview] = useState<string[]>();
   const previewElement = useRef<HTMLDivElement | null>(null);
   const previewTop = useRef(0);
+  const previewY = useMotionValue(0);
   const previewRef = useCallback((element: HTMLDivElement | null) => {
     previewElement.current = element;
-    if (element)
-      element.style.transform = `translateY(${previewTop.current}px) scale(1.03)`;
-  }, []);
+    if (element) previewY.set(previewTop.current);
+  }, [previewY]);
   const cleanup = useRef<(() => void) | undefined>(undefined);
   const suppressUntil = useRef(0);
   const latest = useRef({ ids, enabled, onDrop });
@@ -112,9 +114,7 @@ export function useQueueDrag(
       }
       const top = y - grabOffset;
       previewTop.current = top;
-      if (previewElement.current) {
-        previewElement.current.style.transform = `translateY(${top}px) scale(1.03)`;
-      }
+      previewY.set(top);
       // Finger movement stays outside React; only geometry and order changes
       // need a render of the queue and its glass preview.
       if (
@@ -126,7 +126,7 @@ export function useQueueDrag(
       }
     };
     const schedule = () => {
-      if (active && !frame) frame = requestAnimationFrame(tick);
+      if (active && !frame) { frame = 1; motionFrame.update(tick); }
     };
     const tick = () => {
       frame = 0;
@@ -176,7 +176,8 @@ export function useQueueDrag(
       }
       active = false;
       clearTimeout(timer);
-      cancelAnimationFrame(frame);
+      cancelFrame(tick);
+      frame = 0;
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", aborted);
@@ -240,6 +241,7 @@ export function useQueueDrag(
   return {
     drag,
     previewRef,
+    previewStyle: { y: previewY, scale: motionGeometry.queueScale },
     order: preview ?? ids,
     start,
     cancel,

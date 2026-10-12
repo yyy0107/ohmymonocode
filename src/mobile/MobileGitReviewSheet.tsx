@@ -1,3 +1,5 @@
+import { motion } from "motion/react";
+import { motionGeometry, panelTransition } from "../shared/motion/tokens";
 import { useEffect, useId, useRef, useState } from "react";
 import type { GitChangedFile, GitFileDiff } from "../platform/tauri/fs";
 import { useTranslation } from "../shared/i18n/useTranslation";
@@ -14,6 +16,8 @@ import "./styles/git-review.css";
 import { MobileDiffCounts } from "./MobileDiffCounts";
 
 /** Keep or undo the edits one conversation made. */
+const MotionChevronRight = motion.create(ChevronRight);
+
 export type MobileSessionChangeActions = {
   /** The conversation is still writing; both actions wait for it. */
   busy: boolean;
@@ -253,7 +257,7 @@ function MobileGitFileRow({
         title={entry.relative}
         onClick={() => setExpanded((value) => !value)}
       >
-        <ChevronRight size={16} aria-hidden="true" className="mobile-git-file-chevron" />
+        <MotionChevronRight size={16} aria-hidden="true" className="mobile-git-file-chevron" animate={{ rotate: expanded ? motionGeometry.disclosureAngle : 0 }} transition={panelTransition} />
         <span className="mobile-git-file-path"><bdi dir="ltr">{entry.relative}</bdi></span>
         <MobileDiffCounts
           additions={entry.additions}

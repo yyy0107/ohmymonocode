@@ -1,3 +1,5 @@
+import { motion } from "motion/react";
+import { motionGeometry, panelTransition } from "../shared/motion/tokens";
 import { useContext, useId, useMemo, useState, type ReactNode } from "react";
 import { isLongText, ReadonlyTextView } from "../shared/ui/ReadonlyTextView";
 import { isReadTool } from "../integrations/harness/core/preview";
@@ -20,6 +22,8 @@ import { MobileSheet, MobileSheetHeader } from "./MobileSheet";
 import { MobileDiffCounts } from "./MobileDiffCounts";
 import { MobileToolDiff } from "./MobileGitDiff";
 import "./styles/git-review.css";
+
+const MotionChevronRight = motion.create(ChevronRight);
 
 type ReadOutput = { count: number; start?: number; end?: number };
 
@@ -207,7 +211,7 @@ export function MobileToolSheet({
                   title={path}
                   onClick={() => setDiffExpanded((value) => !value)}
                 >
-                  <ChevronRight size={16} aria-hidden="true" className="mobile-git-file-chevron" />
+                  <MotionChevronRight size={16} aria-hidden="true" className="mobile-git-file-chevron" animate={{ rotate: diffExpanded ? motionGeometry.disclosureAngle : 0 }} transition={panelTransition} />
                   <span className="mobile-git-file-path"><bdi dir="ltr">{displayPath(path, cwd)}</bdi></span>
                   <MobileDiffCounts additions={preview.additions ?? 0} deletions={preview.deletions ?? 0} />
                 </button>

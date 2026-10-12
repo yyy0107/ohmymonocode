@@ -1,3 +1,4 @@
+import { advanceMotionTimers, startMotionClock, stopMotionClock } from "./motionTestClock";
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -109,6 +110,7 @@ function summary(id = "one", projectId = "project"): HostSessionSummary {
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.useFakeTimers();
+  startMotionClock();
   localStorage.clear();
   setUiLanguage("en");
   mocked.permission = "granted";
@@ -144,9 +146,14 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   node.remove();
+  stopMotionClock();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
+// AutoAnimate uses real WAAPI; finish retained list removals after the UI settles.
+async function finishListAnimations() {
+  await advanceMotionTimers(300);
+}
 // Departing pages remain in DOM briefly but cannot be selected by the user.
 const activePage = () => node.querySelector<HTMLElement>('[data-page-active="true"]')!;
 async function openMenu() {
@@ -163,7 +170,7 @@ async function swipeOpenDrawer() {
     })));
   }
   expect(node.querySelector(".mobile-drawer-backdrop")!.getAttribute("data-open")).toBe("true");
-  await act(async () => vi.advanceTimersByTimeAsync(400));
+  await advanceMotionTimers(400);
 }
 // Start a blank chat from Home before exercising the conversation drawer.
 /** The drawer keeps Projects in its collapsed More section. */
@@ -197,7 +204,7 @@ async function updateReply(id = "one") {
       : row,
   );
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(3_000);
+    await advanceMotionTimers(3_000);
   });
 }
 describe("mobile header search", () => {
@@ -212,6 +219,7 @@ describe("mobile header search", () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input(), query);
       input().dispatchEvent(new Event("input", { bubbles: true }));
     });
+    await finishListAnimations();
   };
 
   it("replaces the leading header controls, filters all projects and restores the list and focus on close", async () => {
@@ -228,12 +236,13 @@ describe("mobile header search", () => {
     await typeQuery("Other");
     expect(visibleIds()).toEqual(["two"]);
     await act(async () => searchButton("Close search").click());
-    expect(visibleIds()).toEqual(["one", "two"]);
     expect(document.activeElement).toBe(trigger);
     expect(node.querySelector(".mobile-header-search")!.getAttribute("data-fold-state")).toBe("closing");
     expect(node.querySelector(".mobile-header-search")!.hasAttribute("inert")).toBe(true);
     expect(node.querySelector('header button[aria-label="Menu"]')!.hasAttribute("inert")).toBe(false);
-    await act(async () => vi.advanceTimersByTimeAsync(350));
+    await finishListAnimations();
+    expect(visibleIds()).toEqual(["one", "two"]);
+    await advanceMotionTimers(350);
     expect(node.querySelector(".mobile-header-search")).toBeNull();
     await act(async () => trigger.click());
     expect(input().value).toBe("");
@@ -247,7 +256,7 @@ describe("mobile header search", () => {
     const down = new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerType: "touch", pointerId: 1, button: 0 });
     await act(async () => target.dispatchEvent(down));
     expect(down.defaultPrevented).toBe(true);
-    await act(async () => vi.advanceTimersByTimeAsync(500));
+    await advanceMotionTimers(500);
     expect(node.querySelector('.mobile-session-actions')).toBeNull();
     await act(async () => {
       target.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 1, pointerType: "touch" }));
@@ -257,7 +266,7 @@ describe("mobile header search", () => {
     expect(node.querySelector(".mobile-app")!.getAttribute("data-view")).toBe("home");
     expect(activePage().querySelector(".mobile-home-recent")).not.toBeNull();
     expect(node.querySelector(".mobile-header-search")!.getAttribute("data-fold-state")).toBe("closing");
-    await act(async () => vi.advanceTimersByTimeAsync(350));
+    await advanceMotionTimers(350);
     expect(node.querySelector(".mobile-header-search")).toBeNull();
   });
 
@@ -278,6 +287,7 @@ describe("mobile header search", () => {
     expect(visibleIds()).toEqual([]);
     expect(node.textContent).toContain("No matching conversations");
     await act(async () => searchButton("Close search").click());
+    await advanceMotionTimers(32);
     await act(async () => searchButton().click());
     expect(node.querySelector(".mobile-header-search")!.getAttribute("data-fold-state")).toBe("opening");
     expect(input().value).toBe("");
@@ -293,7 +303,7 @@ describe("mobile header search", () => {
     expect(trigger).toBe(projectSearch);
     expect(node.querySelector("header strong")!.textContent).toBe("Project");
     expect(node.querySelector('header button[aria-label="返回"]')!.hasAttribute("inert")).toBe(false);
-    await act(async () => vi.advanceTimersByTimeAsync(350));
+    await advanceMotionTimers(350);
     expect(node.querySelector(".mobile-header-search")).toBeNull();
   });
 
@@ -355,6 +365,7 @@ describe("mobile project conversation Back navigation", () => {
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Other");
         input.dispatchEvent(new Event("input", { bubbles: true }));
       });
+      await finishListAnimations();
       expect(activePage().querySelectorAll(".mobile-home [data-session-id]")).toHaveLength(1);
       await openRow(); // Existing outside-click behavior dismisses search first.
     }
@@ -363,6 +374,7 @@ describe("mobile project conversation Back navigation", () => {
     expect(headerButton("Menu")).toBeNull();
     await act(async () => headerButton("Back")!.click());
     expect(node.querySelector("header strong")!.textContent).toBe("Other");
+    await finishListAnimations();
     expect(activePage().querySelectorAll(".mobile-home [data-session-id]")).toHaveLength(1);
     expect(activePage().querySelector('.mobile-home [data-session-id="two"]')).not.toBeNull();
   });
@@ -443,7 +455,7 @@ describe("mobile unread indicators and notification navigation", () => {
       row.dispatchEvent(new PointerEvent("pointerdown", {
         bubbles: true, pointerId: 8, pointerType: "touch", button: 0, clientX: 100, clientY: 100,
       }));
-      await vi.advanceTimersByTimeAsync(450);
+      await advanceMotionTimers(450);
       row.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 8, pointerType: "touch" }));
       row.click();
     });
@@ -467,6 +479,7 @@ describe("mobile unread indicators and notification navigation", () => {
     expect(menuButton("Unpin")).toBeDefined();
     await act(async () => menuButton("Archive").click());
     expect(mocked.updateSession).toHaveBeenCalledWith("project", "second", { archived: true });
+    await finishListAnimations();
     expect(node.querySelector('[data-session-id="second"]')).toBeNull();
     expect(mocked.session).not.toHaveBeenCalledWith("second");
   });
@@ -481,13 +494,15 @@ describe("mobile unread indicators and notification navigation", () => {
     expect(node.querySelector("header strong")?.textContent).toBe("First conversation");
     await act(async () => {
       mocked.nativeUnread?.({ environmentId: "host", unreadIds: [] });
-      await vi.advanceTimersByTimeAsync(3000);
+      await advanceMotionTimers(3000);
     });
     expect(node.querySelector(".mobile-unread-dot")).not.toBeNull();
     expect(JSON.parse(localStorage.getItem("monocode.mobileActivity:host")!).entries.one.manualUnread).toBe(true);
     expect(mocked.notify).not.toHaveBeenCalled();
     await act(async () => node.querySelector<HTMLButtonElement>('[data-session-id="one"]')!.click());
     await openMenu();
+    await advanceMotionTimers(600);
+    await finishListAnimations();
     expect(node.querySelector(".mobile-unread-dot")).toBeNull();
     expect(JSON.parse(localStorage.getItem("monocode.mobileActivity:host")!).entries.one.manualUnread).toBeUndefined();
   });
@@ -510,9 +525,11 @@ describe("mobile unread indicators and notification navigation", () => {
         .one.read,
     ).toBe(20);
     await openMenu();
+    await advanceMotionTimers(600);
+    await finishListAnimations();
     expect(node.querySelector(".mobile-unread-dot")).toBeNull();
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(3_000);
+      await advanceMotionTimers(3_000);
     });
     expect(mocked.notify).toHaveBeenCalledTimes(1);
   });

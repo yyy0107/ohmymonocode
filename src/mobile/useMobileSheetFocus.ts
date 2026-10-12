@@ -1,5 +1,6 @@
 import { useEffect, type RefObject } from "react";
-import { keyboardHeight, keyboardMotionRemaining, onKeyboardMotion } from "./keyboardMotion";
+import { frame, cancelFrame } from "motion/react";
+import { keyboardHeight, keyboardMotionRemaining, onKeyboardMotion, onKeyboardSettled } from "./keyboardMotion";
 import { reducedMotionQuery } from "../shared/lib/reducedMotion";
 
 /** Reveal fields inside their sheet without letting the WebView pan the page. */
@@ -10,12 +11,6 @@ export function useMobileSheetFocus(
   useEffect(() => {
     const element = sheet.current;
     if (!active || !element) return;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let frame: number | undefined;
-    const cancel = () => {
-      clearTimeout(timer);
-      if (frame !== undefined) cancelAnimationFrame(frame);
-    };
     const focusedField = () => {
       const field = document.activeElement;
       if (!(field instanceof HTMLElement) ||
@@ -46,31 +41,19 @@ export function useMobileSheetFocus(
         return;
       }
     };
-    const schedule = (duration: number) => {
-      cancel();
-      // keyboardMotion commits the shorter layout two frames after the rise.
-      // Read geometry on the next frame, once, rather than during every frame.
-      timer = setTimeout(() => {
-        frame = requestAnimationFrame(() => {
-          frame = requestAnimationFrame(() => {
-            frame = requestAnimationFrame(reveal);
-          });
-        });
-      }, duration);
-    };
+    const revealAfterLayout = () => { if (!keyboardMotionRemaining()) reveal(); };
     const focus = () => {
-      cancel();
-      if (focusedField()) schedule(keyboardMotionRemaining());
+      cancelFrame(revealAfterLayout);
+      if (focusedField() && !keyboardMotionRemaining()) frame.postRender(revealAfterLayout);
     };
-    const stop = onKeyboardMotion(({ height, duration }) => {
-      cancel();
-      if (height && focusedField()) schedule(duration);
-    });
+    const stop = onKeyboardMotion(() => cancelFrame(revealAfterLayout));
+    const stopSettled = onKeyboardSettled(() => { if (keyboardHeight()) reveal(); });
     element.addEventListener("focusin", focus);
     if (keyboardHeight()) focus();
     return () => {
-      cancel();
+      cancelFrame(revealAfterLayout);
       stop();
+      stopSettled();
       element.removeEventListener("focusin", focus);
     };
   }, [sheet, active]);

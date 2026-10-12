@@ -1,3 +1,4 @@
+import { startMotionClock, stopMotionClock, advanceMotionTimers } from "./motionTestClock";
 // @vitest-environment happy-dom
 import { act, createElement, createRef, Fragment } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -38,6 +39,7 @@ beforeEach(() => {
   vi.mocked(lightImpact).mockClear();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.useFakeTimers();
+  startMotionClock();
   setUiLanguage("en");
   node = document.createElement("div");
   document.body.append(node);
@@ -46,6 +48,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   node.remove();
+  stopMotionClock();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -128,13 +131,13 @@ describe("mobile home and project history", () => {
       session("asking", "one", 300, { status: "running", needsInput: true }),
       session("still-working", "one", 200, { status: "running" }),
     ];
-    await act(async () => vi.advanceTimersByTimeAsync(3_000));
+    await advanceMotionTimers(3_000);
     expect(row(projects[0].cwd).querySelector('[aria-label="Working"]')).toBeNull();
     expect(row(projects[0].cwd).querySelector('[aria-label="Needs input"]')).not.toBeNull();
     act(() => setUiLanguage("zh-CN"));
     expect(row(projects[0].cwd).querySelector(".mobile-home-project-state")?.getAttribute("aria-label")).toBe("需要输入");
     latest = [session("finished", "one", 400, { lastCompletedRunId: "done" })];
-    await act(async () => vi.advanceTimersByTimeAsync(3_000));
+    await advanceMotionTimers(3_000);
     expect(row(projects[0].cwd).querySelector(".mobile-home-project-state")).toBeNull();
   });
 
@@ -219,10 +222,10 @@ describe("mobile home and project history", () => {
     expect(paths()).toEqual(["/p6", "/p5", "/p4", "/p3", "/p2", "/p1", "/p0"]);
     expect(node.querySelector(".mobile-home-projects .mobile-list-more")).toBeNull();
     latest = 2;
-    await act(async () => vi.advanceTimersByTimeAsync(3000));
+    await advanceMotionTimers(3000);
     expect(paths()).toEqual(["/p5", "/p4", "/p3", "/p2", "/p6", "/p1", "/p0"]);
     failed = true;
-    await act(async () => vi.advanceTimersByTimeAsync(3000));
+    await advanceMotionTimers(3000);
     expect(paths()).toEqual(["/p5", "/p4", "/p3", "/p2", "/p6", "/p1", "/p0"]);
     expect(owners.map(item => item.id)).toEqual(["p0", "p1", "p2", "p3", "p4", "p5", "p6"]);
   });
@@ -235,7 +238,7 @@ describe("mobile home and project history", () => {
       bubbles: true, button: 0, pointerId: 1, pointerType: "touch", clientX: x, clientY: 200,
     })));
     touch("pointerdown");
-    act(() => vi.advanceTimersByTime(450));
+    await advanceMotionTimers(450);
     expect(onSessionActions).toHaveBeenCalledWith(expect.objectContaining({ id: "new", projectId: "two" }), row, { x: 80, y: 200 });
     expect(lightImpact).toHaveBeenCalledOnce();
     touch("pointerup");
@@ -247,16 +250,16 @@ describe("mobile home and project history", () => {
     expect(onSession).toHaveBeenCalledWith("new", projects[1]);
     onSession.mockClear(); onSessionActions.mockClear();
     touch("pointerdown"); touch("pointermove", 110);
-    act(() => vi.advanceTimersByTime(500));
+    await advanceMotionTimers(500);
     touch("pointerup", 110); act(() => row.click());
     expect(onSessionActions).not.toHaveBeenCalled();
     expect(onSession).not.toHaveBeenCalled();
     touch("pointerdown"); touch("pointercancel");
-    act(() => vi.advanceTimersByTime(500));
+    await advanceMotionTimers(500);
     expect(onSessionActions).not.toHaveBeenCalled();
     touch("pointerdown");
     await render({ inactive: true, onSession, onSessionActions });
-    act(() => vi.advanceTimersByTime(500));
+    await advanceMotionTimers(500);
     expect(onSessionActions).not.toHaveBeenCalled();
   });
 
@@ -286,7 +289,7 @@ describe("mobile home and project history", () => {
     }
     expect(more(".mobile-home-recent").textContent).toBe("Show less");
     act(() => more(".mobile-home-recent").click());
-    act(() => vi.advanceTimersByTime(350));
+    await advanceMotionTimers(350);
     expect(ids(".mobile-home-recent")).toHaveLength(20);
     expect(more(".mobile-home-recent").textContent).toBe("Show more items");
   });
@@ -303,23 +306,23 @@ describe("mobile home and project history", () => {
     await render({ loadSessions });
     expect(ids(".mobile-home-recent")).toEqual(["running", "asking", "done"]);
     const trigger = node.querySelector<HTMLButtonElement>(".mobile-home-filter")!;
-    const choose = (label: string) => {
+    const choose = async (label: string) => {
       act(() => trigger.click());
       const option = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')]
         .find((item) => item.textContent === label)!;
       act(() => option.click());
-      act(() => vi.advanceTimersByTime(400));
+      await advanceMotionTimers(400);
     };
-    choose("Working");
+    await choose("Working");
     expect(trigger.textContent).toBe("Working");
     expect(ids(".mobile-home-recent")).toEqual(["running"]);
-    choose("Needs input");
+    await choose("Needs input");
     expect(ids(".mobile-home-recent")).toEqual(["asking"]);
-    choose("Completed");
+    await choose("Completed");
     expect(ids(".mobile-home-recent")).toEqual(["done"]);
-    choose("Archived");
+    await choose("Archived");
     expect(ids(".mobile-home-recent")).toEqual(["stored"]);
-    choose("All");
+    await choose("All");
     expect(ids(".mobile-home-recent")).toEqual(["running", "asking", "done"]);
     await render({ project: projects[0], loadSessions });
     expect(node.querySelector(".mobile-home-filter")).toBeNull();
@@ -389,11 +392,12 @@ describe("mobile home and project history", () => {
     const toggle = node.querySelector<HTMLButtonElement>(".mobile-home-pinned .mobile-home-section-toggle")!;
     act(() => toggle.click());
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    act(() => vi.advanceTimersByTime(400));
+    await advanceMotionTimers(400);
     expect(ids(".mobile-home-pinned")).toEqual([]);
     act(() => toggle.click());
     expect(ids(".mobile-home-pinned")).toEqual(["pin"]);
     await render({ query: "o" });
+    await advanceMotionTimers(400);
     expect(node.querySelector(".mobile-home-overview-projects")).toBeNull();
     expect(node.querySelector(".mobile-home-pinned")).toBeNull();
     expect(ids(".mobile-home-recent")).toEqual(["pin", "new", "old"]);
@@ -415,19 +419,19 @@ describe("mobile home and project history", () => {
     expect(section.querySelector('[data-fold-state="closing"][inert]')).not.toBeNull();
     expect(section.querySelectorAll(".mobile-home-project")).toHaveLength(2);
     // Reversing a close keeps the same content mounted and interactive again.
-    act(() => vi.advanceTimersByTime(100));
+    await advanceMotionTimers(100);
     act(() => toggle.click());
     expect(section.querySelector('[data-fold-state="opening"]')).not.toBeNull();
     expect(section.querySelector('[data-fold-state="opening"]')?.hasAttribute("inert")).toBe(false);
-    act(() => vi.advanceTimersByTime(400));
+    await advanceMotionTimers(400);
     act(() => toggle.click());
-    act(() => vi.advanceTimersByTime(400));
+    await advanceMotionTimers(400);
     expect(section.querySelector(".mobile-home-project")).toBeNull();
     expect(toggle.querySelector('[aria-label="Needs input"]')).not.toBeNull();
     expect(toggle.querySelector('[aria-label="Working"] .mobile-spin')).not.toBeNull();
     history = [session("finished", "one", 40),
       session("archived-work", "one", 50, { archived: true, status: "running" })];
-    await act(async () => vi.advanceTimersByTimeAsync(3_000));
+    await advanceMotionTimers(3_000);
     expect(toggle.querySelector(".mobile-home-project-activity")).toBeNull();
     act(() => toggle.click());
     expect(section.querySelector('[data-fold-state="opening"]')).not.toBeNull();
@@ -528,7 +532,7 @@ describe("mobile home and project history", () => {
     const loadSessions = vi.fn(defaults.loadSessions);
     await render({ loadSessions });
     await render({ loadSessions, foreground: false });
-    await act(async () => vi.advanceTimersByTimeAsync(10_000));
+    await advanceMotionTimers(10_000);
     expect(loadSessions).toHaveBeenCalledTimes(2);
     act(() => setUiLanguage("zh-CN"));
     expect(node.textContent).toContain("最近");
@@ -559,7 +563,7 @@ it("pauses list refresh while the retained page is hidden", async () => {
   expect(loadSessions).toHaveBeenCalledTimes(2);
   render(false);
   loadSessions.mockClear();
-  await act(async () => vi.advanceTimersByTimeAsync(6000));
+  await advanceMotionTimers(6000);
   expect(loadSessions).not.toHaveBeenCalled();
   render(true);
   await act(async () => {});

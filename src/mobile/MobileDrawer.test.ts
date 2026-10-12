@@ -4,8 +4,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { HostSessionSummary } from "../features/connections/model/protocol";
 import { setUiLanguage } from "../shared/i18n/language";
+import { startMotionClock, motionFrame, stopMotionClock } from "./motionTestClock";
 import { MobileDrawer } from "./MobileDrawer";
 import { lightImpact } from "./haptics";
+import { applyReducedMotion } from "../shared/lib/reducedMotion";
 
 vi.mock("./haptics", () => ({ lightImpact: vi.fn() }));
 
@@ -15,6 +17,7 @@ beforeEach(() => {
   vi.mocked(lightImpact).mockClear();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.useFakeTimers();
+  startMotionClock();
   setUiLanguage("en");
   node = document.createElement("div");
   document.body.append(node);
@@ -23,8 +26,11 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   node.remove();
+  stopMotionClock();
+  vi.restoreAllMocks();
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  applyReducedMotion("system");
 });
 function render(open = true, props: Record<string, unknown> = {}) {
   const onOpenChange = vi.fn();
@@ -77,21 +83,15 @@ function render(open = true, props: Record<string, unknown> = {}) {
 const row = () =>
   node.querySelector<HTMLButtonElement>('[data-session-id="recent"]')!;
 function touch(type: string, y = 100, x = 100, target: Element = row()) {
-  act(() =>
-    target.dispatchEvent(
-      new PointerEvent(type, {
-        bubbles: true,
-        pointerId: 1,
-        pointerType: "touch",
-        button: 0,
-        clientX: x,
-        clientY: y,
-      }),
-    ),
-  );
+  const event = new PointerEvent(type, {bubbles: true, pointerId: 1, isPrimary: true, pointerType: "touch", button: 0, clientX:x, clientY:y});
+  Object.defineProperties(event, {pageX: {value:x}, pageY:{value:y}});
+  act(() => { target.dispatchEvent(event); });
 }
-function frame() {
-  act(() => vi.advanceTimersByTime(16));
+function frame() { act(() => { vi.advanceTimersByTime(16); motionFrame(); }); }
+async function settle() {
+  await act(async () => { for(let i=0;i<60;i++) { motionFrame(); await Promise.resolve(); }
+    for (const element of node.querySelectorAll("*")) for (const animation of element.getAnimations()) animation.finish();
+    await Promise.resolve(); });
 }
 function touchMove(target: Element) {
   const event = new Event("touchmove", { bubbles: true, cancelable: true });
@@ -105,8 +105,23 @@ function captureOn(panel: HTMLElement) {
   panel.releasePointerCapture = vi.fn((id) => { captured.delete(id); });
   return captured;
 }
-describe("mobile sidebar sessions", () => {
-  it("pauses retained spinners without pausing the drawer's closing transition", () => {
+describe("mobile sidebar sessions", async () => {
+  it("settles reduced-motion open and close on the first paint", () => {
+    applyReducedMotion("on");
+    render();
+    act(() => motionFrame(1));
+    const panel = node.querySelector<HTMLElement>(".mobile-drawer")!;
+    Object.defineProperty(panel, "offsetWidth", { value: 300 });
+    render(false);
+    act(() => motionFrame(1));
+    expect(panel.style.transform).toBe("translateX(-300px)");
+    expect(panel.parentElement!.dataset.settledClosed).toBe("true");
+    render(true);
+    act(() => motionFrame(1));
+    expect(panel.style.transform).toBe("none");
+    expect(panel.parentElement!.dataset.settledClosed).toBeUndefined();
+  });
+  it("pauses retained spinners without pausing the drawer's closing transition", async () => {
     const props = { sessions: [{
       id: "running", title: "Working", projectId: "project", harness: "codex", status: "running", revision: 1, updatedAt: 100,
     }] };
@@ -126,7 +141,7 @@ describe("mobile sidebar sessions", () => {
     expect(layer.hasAttribute("data-animation-paused")).toBe(false);
   });
 
-  it("keeps the glass layer through closing and a rapid reversal, then releases it", () => {
+  it("keeps the glass layer through closing and a rapid reversal, then releases it", async () => {
     render(false);
     const layer = node.querySelector<HTMLElement>(".mobile-drawer-backdrop")!;
     expect(layer.dataset.settledClosed).toBe("true");
@@ -136,25 +151,29 @@ describe("mobile sidebar sessions", () => {
     act(() => vi.advanceTimersByTime(100));
     expect(layer.dataset.settledClosed).toBeUndefined();
     render(true);
-    act(() => vi.advanceTimersByTime(500));
+    await settle();
     expect(layer.dataset.settledClosed).toBeUndefined();
     render(false);
     expect(layer.dataset.settledClosed).toBeUndefined();
-    act(() => vi.advanceTimersByTime(410));
+    await settle();
     expect(layer.dataset.settledClosed).toBe("true");
   });
 
-  it("finishes closing and ignores pulls while its owning page is inactive", () => {
+  it("finishes closing and ignores pulls while its owning page is inactive", async () => {
     render();
     const panel = node.querySelector<HTMLElement>(".mobile-drawer")!;
     Object.defineProperty(panel, "offsetWidth", { value: 300 });
     touch("pointerdown", 100, 250);
     touch("pointermove", 100, 100);
+    // Happy DOM snapshots listeners during dispatch; deliver the position to
+    // the Motion pan listener installed when the drawer claims the gesture.
+    touch("pointermove", 100, 100);
     frame();
     expect(panel.style.transform).toBe("translateX(-150px)");
     const { onOpenChange } = render(true, { active: false });
     expect(node.querySelector(".mobile-drawer")).toBe(panel);
-    expect(panel.style.transform).toBe("");
+    await settle();
+    expect(panel.style.transform).toBe("translateX(-300px)");
     expect(panel.parentElement!.dataset.open).toBe("false");
     expect(panel.parentElement!.hasAttribute("inert")).toBe(true);
     const chat = document.createElement("main");
@@ -167,7 +186,7 @@ describe("mobile sidebar sessions", () => {
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 
-  it("lists pinned conversations first and hides archives", () => {
+  it("lists pinned conversations first and hides archives", async () => {
     render();
     expect(
       [
@@ -178,7 +197,7 @@ describe("mobile sidebar sessions", () => {
     ).toEqual(["Pinned conversation", "Recent conversation"]);
     expect(node.textContent).not.toContain("Archived conversation");
   });
-  it("opens a conversation on a short tap", () => {
+  it("opens a conversation on a short tap", async () => {
     const { onSession, onSessionActions } = render();
     touch("pointerdown");
     act(() => vi.advanceTimersByTime(200));
@@ -193,7 +212,7 @@ describe("mobile sidebar sessions", () => {
     expect(onSessionActions).not.toHaveBeenCalled();
     expect(lightImpact).not.toHaveBeenCalled();
   });
-  it("opens actions on a hold and suppresses the release tap, then accepts a fresh tap", () => {
+  it("opens actions on a hold and suppresses the release tap, then accepts a fresh tap", async () => {
     const { onSession, onSessionActions } = render();
     touch("pointerdown");
     act(() => vi.advanceTimersByTime(450));
@@ -234,7 +253,7 @@ describe("mobile sidebar sessions", () => {
     await act(async () => {});
   });
 
-  it("leaves scroll gestures to the list without opening actions or navigating", () => {
+  it("leaves scroll gestures to the list without opening actions or navigating", async () => {
     const { onSession, onSessionActions } = render();
     touch("pointerdown");
     touch("pointermove", 160);
@@ -244,7 +263,7 @@ describe("mobile sidebar sessions", () => {
     expect(onSessionActions).not.toHaveBeenCalled();
     expect(onSession).not.toHaveBeenCalled();
   });
-  it("cancels a hold when the touch is cancelled or the drawer unmounts", () => {
+  it("cancels a hold when the touch is cancelled or the drawer unmounts", async () => {
     const { onSessionActions } = render();
     touch("pointerdown");
     touch("pointercancel");
@@ -255,7 +274,7 @@ describe("mobile sidebar sessions", () => {
     act(() => vi.advanceTimersByTime(500));
     expect(onSessionActions).not.toHaveBeenCalled();
   });
-  it("offers the same actions from a context menu without opening the conversation", () => {
+  it("offers the same actions from a context menu without opening the conversation", async () => {
     const { onSession, onSessionActions } = render();
     const event = new MouseEvent("contextmenu", {
       bubbles: true,
@@ -271,7 +290,7 @@ describe("mobile sidebar sessions", () => {
     });
     expect(onSession).not.toHaveBeenCalled();
   });
-  it("closes when the open panel is pushed from a session row, without opening it", () => {
+  it("closes when the open panel is pushed from a session row, without opening it", async () => {
     const { onOpenChange, onSession } = render();
     touch("pointerdown");
     touch("pointermove", 100, 60);
@@ -282,7 +301,7 @@ describe("mobile sidebar sessions", () => {
     expect(lightImpact).toHaveBeenCalledOnce();
     expect(onSession).not.toHaveBeenCalled();
   });
-  it("closes from a push that starts anywhere on screen, outside the drawer", () => {
+  it("closes from a push that starts anywhere on screen, outside the drawer", async () => {
     const { onOpenChange } = render();
     Object.defineProperty(node.querySelector(".mobile-drawer"), "offsetWidth", {
       value: 300,
@@ -296,7 +315,7 @@ describe("mobile sidebar sessions", () => {
     elsewhere.remove();
     expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
   });
-  it("follows a push that reverses mid-gesture and stays open", () => {
+  it("follows a push that reverses mid-gesture and stays open", async () => {
     const { onOpenChange } = render();
     Object.defineProperty(node.querySelector(".mobile-drawer"), "offsetWidth", {
       value: 300,
@@ -315,28 +334,21 @@ describe("mobile sidebar sessions", () => {
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(lightImpact).not.toHaveBeenCalled();
   });
-  it("coalesces moves and flushes the last touch on cancel without a late frame", () => {
+  it("coalesces Motion drag updates and returns to the open stop after cancellation", async () => {
     const { onOpenChange } = render();
     const panel = node.querySelector<HTMLElement>(".mobile-drawer")!;
-    Object.defineProperty(panel, "offsetWidth", { value: 300 });
-    const write = vi.spyOn(panel.style, "setProperty");
-    const positions = () => write.mock.calls.filter(([key]) => key === "transform").map(([, value]) => value);
     touch("pointerdown", 100, 250);
     touch("pointermove", 100, 200);
     touch("pointermove", 100, 100);
-    expect(positions()).toEqual([]);
     frame();
-    expect(positions()).toEqual(["translateX(-150px)"]);
+    expect(panel.style.transform).toBe("translateX(-150px)");
     touch("pointermove", 100, 230);
-    // Native cancellation need not contain the last touch's coordinates.
     touch("pointercancel", 0, 0);
-    expect(positions()).toEqual(["translateX(-150px)", "translateX(-20px)"]);
-    expect(panel.style.transform).toBe("");
-    frame();
-    expect(positions()).toHaveLength(2);
+    await settle();
+    expect(panel.style.transform).toBe("none");
     expect(onOpenChange).not.toHaveBeenCalled();
   });
-  it("discards a pending drag frame when a covering surface takes ownership", () => {
+  it("discards a pending drag frame when a covering surface takes ownership", async () => {
     render();
     const panel = node.querySelector<HTMLElement>(".mobile-drawer")!;
     Object.defineProperty(panel, "offsetWidth", { value: 300 });
@@ -344,10 +356,11 @@ describe("mobile sidebar sessions", () => {
     touch("pointermove", 100, 100);
     render(true, { covered: true });
     frame();
-    expect(panel.style.transform).toBe("");
+    await settle();
+    expect(panel.style.transform).toBe("none");
     expect(panel.parentElement!.dataset.dragging).toBeUndefined();
   });
-  it("hands the settled position back to the stylesheet when a drag ends", () => {
+  it("hands the settled position back to the stylesheet when a drag ends", async () => {
     render();
     Object.defineProperty(node.querySelector(".mobile-drawer"), "offsetWidth", {
       value: 300,
@@ -369,10 +382,11 @@ describe("mobile sidebar sessions", () => {
     touch("pointermove", 100, 240);
     touch("pointerup", 100, 240);
     expect(backdrop.dataset.dragging).toBeUndefined();
-    expect(panel.style.transform).toBe("");
+    await settle();
+    expect(panel.style.transform).toBe("none");
     expect(progress()).toBe("1");
   });
-  it("keeps the browser from claiming a touch the drawer is dragging", () => {
+  it("keeps the browser from claiming a touch the drawer is dragging", async () => {
     render();
     const move = () => {
       const event = new Event("touchmove", { bubbles: true, cancelable: true });
@@ -386,7 +400,7 @@ describe("mobile sidebar sessions", () => {
     touch("pointerup", 100, 60);
     expect(move()).toBe(false);
   });
-  it("finishes a drag when a session refresh replaces the original touch target", () => {
+  it("finishes a drag when a session refresh replaces the original touch target", async () => {
     const summary: HostSessionSummary = {
       id: "recent", title: "Recent conversation", projectId: "project", harness: "codex",
       status: "idle", revision: 1, updatedAt: 100,
@@ -443,7 +457,7 @@ describe("mobile sidebar sessions", () => {
       touch("pointercancel", 100, 200);
     },
   );
-  it("leaves pushes on a sheet above the drawer alone", () => {
+  it("leaves pushes on a sheet above the drawer alone", async () => {
     const { onOpenChange } = render();
     const sheet = document.createElement("div");
     sheet.className = "mobile-sheet-backdrop";
@@ -454,7 +468,7 @@ describe("mobile sidebar sessions", () => {
     sheet.remove();
     expect(onOpenChange).not.toHaveBeenCalled();
   });
-  it("opens when the conversation is pulled from a button", () => {
+  it("opens when the conversation is pulled from a button", async () => {
     const { onOpenChange } = render(false);
     Object.defineProperty(node.querySelector(".mobile-drawer"), "offsetWidth", {
       value: 300,
@@ -476,7 +490,7 @@ describe("mobile sidebar sessions", () => {
     expect(lightImpact).toHaveBeenCalledOnce();
     expect(clicked).not.toHaveBeenCalled();
   });
-  it("leaves pulls that start in a text field alone", () => {
+  it("leaves pulls that start in a text field alone", async () => {
     const { onOpenChange } = render(false);
     const chat = document.createElement("main");
     chat.className = "mobile-chat";
@@ -490,7 +504,7 @@ describe("mobile sidebar sessions", () => {
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 });
-describe("mobile sidebar recents", () => {
+describe("mobile sidebar recents", async () => {
   const projects = [
     { id: "android", name: "Android", cwd: "/mnt/data/Android" },
     { id: "codex", name: "monocode", cwd: "/home/wy/Documents/Codex/monocode" },
@@ -518,7 +532,7 @@ describe("mobile sidebar recents", () => {
     ...extra,
   });
 
-  it("keeps the mounted hidden list unchanged and uses the latest rows and actions on reopening", () => {
+  it("keeps the mounted hidden list unchanged and uses the latest rows and actions on reopening", async () => {
     const onOpenChange = vi.fn();
     const loadSessions = vi.fn(async () => []);
     const onSession = vi.fn();
@@ -668,6 +682,7 @@ describe("mobile sidebar recents", () => {
     expect(retry.textContent).toContain("Android");
     failed = false;
     await act(async () => retry.click());
+    await settle();
     expect(recentIds()).toEqual(["android-chat"]);
     expect(node.querySelector("button.mobile-drawer-group-status")).toBeNull();
   });
@@ -695,7 +710,7 @@ describe("mobile sidebar recents", () => {
       node.querySelector('[data-session-id="android-chat"] strong')?.textContent,
     ).toBe("android chat");
   });
-  it("shows twenty recent conversations until Show more", () => {
+  it("shows twenty recent conversations until Show more", async () => {
     const base = {
       projectId: "project",
       harness: "codex" as const,
@@ -753,17 +768,17 @@ describe("mobile sidebar recents", () => {
     act(() => allProjects.click());
     expect(onAllProjects).toHaveBeenCalledOnce();
     expect(node.textContent).not.toContain("Open project");
-    act(() => vi.advanceTimersByTime(350));
+    await settle();
     act(() => more.click());
     expect(more.getAttribute("aria-expanded")).toBe("false");
     // Closing actions remain mounted for the animation but cannot be focused.
     expect(allProjects.closest("[inert]")).not.toBeNull();
-    act(() => vi.advanceTimersByTime(350));
+    await settle();
     expect(node.querySelector(".mobile-drawer-all-projects")).toBeNull();
   });
 });
 
-it("shows the assistant unread count with its custom name and hides the badge after reading", () => {
+it("shows the assistant unread count with its custom name and hides the badge after reading", async () => {
   const props = { onAssistant: vi.fn(), assistantName: "My helper" };
   const badge = () => node.querySelector(".mobile-drawer-assistant-badge");
   const assistant = () => node.querySelector(".mobile-drawer-assistant")!;
@@ -779,7 +794,7 @@ it("shows the assistant unread count with its custom name and hides the badge af
   expect(assistant().textContent).toBe("My helper");
 });
 
-it("shows the Notes entry only when supplied by a capable Host", () => {
+it("shows the Notes entry only when supplied by a capable Host", async () => {
   render();
   act(() => node.querySelector<HTMLButtonElement>(".mobile-drawer-more-toggle")!.click());
   const notes = () => [...node.querySelectorAll<HTMLButtonElement>(".mobile-drawer-item")].find((button) => button.textContent === "Notes");

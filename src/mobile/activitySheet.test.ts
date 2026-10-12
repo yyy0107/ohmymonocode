@@ -1,3 +1,4 @@
+import { advanceMotionTimers, startMotionClock, stopMotionClock } from "./motionTestClock";
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
@@ -12,12 +13,14 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 let root: Root | undefined;
 beforeEach(() => {
   vi.useFakeTimers();
+  startMotionClock();
   setUiLanguage("en");
 });
 afterEach(() => {
   act(() => root?.unmount());
   root = undefined;
   document.body.replaceChildren();
+  stopMotionClock();
   vi.useRealTimers();
   vi.restoreAllMocks();
   setUiLanguage("en");
@@ -84,7 +87,7 @@ const settledTurn: Block[] = [
 const dialog = () =>
   document.querySelector<HTMLElement>('.mobile-sheet-backdrop:not([inert]) [role="dialog"]');
 const currentPage = () => dialog()!.querySelector<HTMLElement>('[data-page-active="true"]')!;
-const finishNavigation = () => act(() => vi.advanceTimersByTime(240));
+const finishNavigation = () => advanceMotionTimers(600);
 
 describe("mobile activity sheet", () => {
   it("opens a settled group's steps in a sheet, then a step's details with a way back", async () => {
@@ -113,22 +116,22 @@ describe("mobile activity sheet", () => {
     expect(dialog()).toBe(sheet);
     expect(sheet.dataset.detent).toBe("full");
     expect(sheet.style.transform).toBe("translateY(0px)");
-    expect(currentPage().style.getPropertyValue("--mobile-page-offset")).toBe("100%");
+    expect(currentPage().style.transform).toBe("translateX(100%)");
     const outgoing = sheet.querySelector('[data-page-active="false"]')!;
     expect(outgoing.hasAttribute("inert")).toBe(true);
     expect(outgoing.getAttribute("aria-hidden")).toBe("true");
     expect(dialog()?.querySelector(".mobile-tool-sheet")).not.toBeNull();
     expect(dialog()?.textContent).toContain("ok");
-    finishNavigation();
+    await finishNavigation();
     expect(sheet.querySelector(".mobile-activity-sheet")).toBeNull();
     const back = [...currentPage().querySelectorAll<HTMLButtonElement>("button")]
       .find((button) => button.getAttribute("aria-label") === "Back")!;
     act(() => back.click());
     expect(dialog()).toBe(sheet);
-    expect(currentPage().style.getPropertyValue("--mobile-page-offset")).toBe("-100%");
+    expect(currentPage().style.transform).toBe("translateX(-100%)");
     expect(currentPage().querySelector<HTMLElement>("[data-mobile-page-scroll]")!.scrollTop).toBe(180);
     expect(sheet.querySelector(".mobile-tool-sheet")).not.toBeNull();
-    finishNavigation();
+    await finishNavigation();
     expect(sheet.querySelector(".mobile-tool-sheet")).toBeNull();
     expect(dialog()?.querySelector(".mobile-activity-sheet")).not.toBeNull();
   });
@@ -153,7 +156,7 @@ describe("mobile activity sheet", () => {
       document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }));
     });
     expect(document.activeElement).toBe(buttons[0]);
-    finishNavigation();
+    await finishNavigation();
     expect(sheet!.querySelectorAll(".mobile-page-layer")).toHaveLength(1);
     expect(currentPage().querySelector(".mobile-tool-sheet")).not.toBeNull();
   });
@@ -183,21 +186,21 @@ describe("mobile activity sheet", () => {
     const { node } = render(settledTurn, "idle", async () => new TextEncoder().encode("export const value = 1;"));
     await act(async () => { node.querySelector<HTMLButtonElement>("[data-activity-sheet]")!.click(); await vi.dynamicImportSettled(); });
     act(() => currentPage().querySelector<HTMLButtonElement>(".mobile-activity-step > button")!.click());
-    finishNavigation();
+    await finishNavigation();
     const viewFile = [...currentPage().querySelectorAll<HTMLButtonElement>("button")]
       .find((button) => button.textContent === "View file")!;
     await act(async () => { viewFile.click(); await vi.dynamicImportSettled(); });
-    finishNavigation();
+    await finishNavigation();
     expect(dialog()!.querySelector(".mobile-file-sheet")).not.toBeNull();
     back();
-    finishNavigation();
+    await finishNavigation();
     expect(currentPage().querySelector(".mobile-tool-sheet")).not.toBeNull();
     back();
-    finishNavigation();
+    await finishNavigation();
     expect(currentPage().querySelectorAll(".mobile-activity-step")).toHaveLength(2);
     back();
     expect(dialog()).toBeNull();
-    finishNavigation();
+    await finishNavigation();
     expect(node.querySelector(".mobile-sheet-backdrop")).toBeNull();
   });
 
@@ -228,10 +231,10 @@ describe("mobile activity sheet", () => {
     expect(currentPage().querySelectorAll(".mobile-spin")).toHaveLength(1);
     // New rows open their current details and still return to the same live list.
     act(() => currentPage().querySelectorAll<HTMLButtonElement>(".mobile-activity-step button")[2].click());
-    finishNavigation();
+    await finishNavigation();
     update([user, edit("a", "a.ts"), shell("b"), shell("c"), edit("d", "d.ts")]);
     act(() => currentPage().querySelector<HTMLButtonElement>('[aria-label="Back"]')!.click());
-    finishNavigation();
+    await finishNavigation();
     expect(currentPage().querySelectorAll(".mobile-activity-step")).toHaveLength(4);
     expect(currentPage().querySelector(".mobile-spin")).toBeNull();
     update([
@@ -246,7 +249,7 @@ describe("mobile activity sheet", () => {
     expect(currentPage().textContent).not.toContain("other-turn.ts");
   });
 
-  it("keeps a group with a pending approval inline so it can be answered", () => {
+  it("keeps a group with a pending approval inline so it can be answered", async () => {
     const { node } = render([
       { id: "user", role: "user", text: "Fix it", startedAt: 1 },
       edit("a", "a.ts"),
@@ -258,7 +261,7 @@ describe("mobile activity sheet", () => {
 });
 
 describe("mobile live turn footer", () => {
-  it("shows the project mascot and the running tool verb under the live reply", () => {
+  it("shows the project mascot and the running tool verb under the live reply", async () => {
     const { node } = render([
       { id: "user", role: "user", text: "Fix it", startedAt: Date.now() - 65_000 },
       edit("a", "a.ts"),
@@ -271,17 +274,17 @@ describe("mobile live turn footer", () => {
     expect(footer.hasAttribute("data-live-clock")).toBe(false);
     const verb = footer.textContent;
     expect(verb).toMatch(/^\S[^·]*…$/);
-    act(() => vi.advanceTimersByTime(1000));
+    await advanceMotionTimers(1000);
     expect(footer.textContent).toBe(verb);
     expect(node.textContent).not.toMatch(/\b[56]s\b/);
   });
 
-  it("has no footer once the turn settles", () => {
+  it("has no footer once the turn settles", async () => {
     const { node } = render(settledTurn);
     expect(node.querySelector("[data-live-footer]")).toBeNull();
   });
 
-  it("shows the finished time and compact duration below the answer", () => {
+  it("shows the finished time and compact duration below the answer", async () => {
     setUiLanguage("zh-CN");
     const { node } = render([
       { id: "user", role: "user", text: "Fix it", startedAt: 1_000, durationMs: 8_000 },

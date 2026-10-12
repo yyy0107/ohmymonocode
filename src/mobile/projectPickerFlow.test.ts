@@ -1,3 +1,4 @@
+import { startMotionClock, stopMotionClock, advanceMotionTimers } from "./motionTestClock";
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -68,6 +69,7 @@ vi.mock("./useMobileActivity", () => ({
 let root: Root;
 let node: HTMLDivElement;
 beforeEach(() => {
+  startMotionClock();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.clearAllMocks();
   registered.length = 0;
@@ -78,6 +80,7 @@ beforeEach(() => {
   root = createRoot(node);
 });
 afterEach(() => {
+  stopMotionClock();
   act(() => root.unmount());
   node.remove();
   localStorage.clear();
@@ -108,7 +111,7 @@ async function pick() {
   expect(backdrop.dataset.foldState).toBe("closing");
   expect(backdrop.hasAttribute("inert")).toBe(true);
   expect(node.querySelector('.mobile-sheet-backdrop:not([inert]) [role="dialog"]')).toBeNull();
-  await act(async () => backdrop.dispatchEvent(new Event("animationend", { bubbles: true })));
+  await advanceMotionTimers(600);
   expect(node.querySelector('[role="dialog"]')).toBeNull();
   expect(host.sessions).toHaveBeenCalledWith("new-project");
   expect(host.models).toHaveBeenCalledWith("new-project");

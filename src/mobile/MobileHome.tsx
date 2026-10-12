@@ -1,3 +1,6 @@
+import { motion } from "motion/react";
+import { motionGeometry, panelTransition } from "../shared/motion/tokens";
+import { useListReorderMotion } from "../shared/hooks/useListReorderMotion";
 import { MobileSpinner } from "./MobileSpinner";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import type {
@@ -54,6 +57,8 @@ interface RemoteOrigin {
   name: string;
   owner: HostProject;
 }
+
+const MotionChevronDown = motion.create(ChevronDown);
 
 function projectState(history: readonly HostSessionSummary[]) {
   return history.some((session) => !session.archived && session.needsInput)
@@ -321,6 +326,7 @@ function useMobileHomeController({
       <button
         type="button"
         className="mobile-home-project"
+        data-list-row
         key={overview?.key ?? item.id}
         title={item.cwd}
         data-state={state}
@@ -421,6 +427,13 @@ function useMobileHomeController({
 type MobileHomeViewModel = ReturnType<typeof useMobileHomeController>;
 
 function MobileHomeView({ vm }: { vm: MobileHomeViewModel }) {
+  const list = useRef<HTMLDivElement>(null);
+  useListReorderMotion(list, [
+    ...vm.matchingProjects.map((project) => project.id),
+    ...vm.overviewProjects.map((project) => project.key),
+    ...vm.pinned.map((session) => session.id),
+    ...vm.recent.map((session) => session.id),
+  ], "data-list-row", !vm.inactive);
   const {
     activeFilter,
     chatsPage,
@@ -479,7 +492,7 @@ function MobileHomeView({ vm }: { vm: MobileHomeViewModel }) {
       inert={inactive}
       aria-hidden={inactive || undefined}
     >
-      <div className="mobile-home-scroll" key={chatsPage ? "chats" : project?.id ?? "all"}>
+      <div ref={list} className="mobile-home-scroll" key={chatsPage ? "chats" : project?.id ?? "all"}>
         {root && devices}
         {root && unavailable && !hasProjects && (projectsUnavailable || projectsPending) ? unavailable
           : projectsUnavailable && !hasProjects ? (
@@ -519,7 +532,7 @@ function MobileHomeView({ vm }: { vm: MobileHomeViewModel }) {
                 onClick={() => setProjectsOpen((open) => !open)}>
                 <span>{t("Projects")}</span>
                 {projectActivity(sessions, true)}
-                <ChevronDown size={18} aria-hidden="true" />
+                <MotionChevronDown size={18} aria-hidden="true" animate={{ rotate: projectsOpen ? 0 : -motionGeometry.disclosureAngle }} transition={panelTransition} />
               </button>
             </h2>
             <AnimatedCollapse expanded={projectsOpen} motion="height">
@@ -534,7 +547,7 @@ function MobileHomeView({ vm }: { vm: MobileHomeViewModel }) {
               <button type="button" className="mobile-home-section-toggle" aria-expanded={pinnedOpen}
                 onClick={() => setPinnedOpen((open) => !open)}>
                 <span>{t("Pinned")}</span>
-                <ChevronDown size={18} aria-hidden="true" />
+                <MotionChevronDown size={18} aria-hidden="true" animate={{ rotate: pinnedOpen ? 0 : -motionGeometry.disclosureAngle }} transition={panelTransition} />
               </button>
             </h2>
             <AnimatedCollapse expanded={pinnedOpen} motion="height">

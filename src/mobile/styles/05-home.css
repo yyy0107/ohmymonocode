@@ -366,7 +366,6 @@
   background: var(--color-m-card);
   box-shadow: var(--m-shadow-float);
   color: var(--color-m-ink);
-  transition: opacity 200ms ease, transform 200ms ease;
 }
 .mobile-host-unavailable-spinner[data-visible="false"] {
   opacity: 0;
@@ -434,12 +433,6 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-}
-.mobile-home-section-toggle > svg {
-  transition: transform 220ms ease;
-}
-.mobile-home-section-toggle[aria-expanded="false"] > svg {
-  transform: rotate(-90deg);
 }
 .mobile-home-project[data-compact] {
   min-height: 52px;

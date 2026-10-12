@@ -4,7 +4,7 @@
    skin in skins.css redeclares all colors and the skin-dependent radii.
 
    Utilities: bg-m-app, text-m-ink, border-m-hairline, rounded-m-xl,
-   rounded-m-composer, size-m-hit, text-m-body, animate-m-msg-in, … */
+   rounded-m-composer, size-m-hit, text-m-body, … */
 @theme {
   --color-m-app: #070707;
   --color-m-panel: #111111;
@@ -57,32 +57,11 @@
   --text-m-caption--line-height: 14px;
 
   --ease-m-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --animate-m-msg-in: m-msg-in 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
-  --animate-m-pop-in: m-pop-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
-  --animate-m-panel-in: m-panel-in 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-m-typing: m-typing 1.2s ease-in-out infinite;
 
 }
 
 /* Keyframes stay global: plain stylesheets reference them, not only utilities. */
-@keyframes m-msg-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-}
-@keyframes m-pop-in {
-  from {
-    opacity: 0;
-    transform: scale(0.96);
-  }
-}
-@keyframes m-panel-in {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-}
 @keyframes m-typing {
   0%,
   60%,
@@ -137,9 +116,6 @@ html[data-mobile-glass="solid"] {
     --m-duration-pop: 0s;
     --m-duration-panel: 0s;
   }
-  .animate-m-msg-in,
-  .animate-m-pop-in,
-  .animate-m-panel-in,
   .animate-m-typing {
     animation: none;
   }

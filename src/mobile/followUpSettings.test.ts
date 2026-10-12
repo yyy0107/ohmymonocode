@@ -1,3 +1,4 @@
+import { startMotionClock, stopMotionClock, advanceMotionTimers } from "./motionTestClock";
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -90,6 +91,7 @@ vi.mock("./useMobileActivity", () => ({
 
 let root: Root, node: HTMLDivElement;
 beforeEach(() => {
+  startMotionClock();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.clearAllMocks();
   localStorage.clear();
@@ -99,6 +101,7 @@ beforeEach(() => {
   root = createRoot(node);
 });
 afterEach(() => {
+  stopMotionClock();
   act(() => root.unmount());
   node.remove();
   localStorage.clear();
@@ -127,6 +130,7 @@ function activeDialog() {
   );
 }
 async function choose(label: string) {
+  await advanceMotionTimers(300);
   await act(async () => {
     [...activeDialog()!.querySelectorAll<HTMLButtonElement>('[role="radio"]')]
       .find((button) => button.textContent === label)!
@@ -238,9 +242,7 @@ describe("mobile composer settings", () => {
     expect(loadFollowUpBehavior()).toBe("queue");
     const backdrop = dialog.closest(".mobile-sheet-backdrop")!;
     expect(backdrop.getAttribute("data-fold-state")).toBe("closing");
-    await act(async () =>
-      backdrop.dispatchEvent(new Event("animationend", { bubbles: true })),
-    );
+    await advanceMotionTimers(600);
     expect(node.contains(dialog)).toBe(false);
   });
 

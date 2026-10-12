@@ -1,3 +1,6 @@
+import { motion } from "motion/react";
+import { popTransition, immediateTransition, motionDistance } from "../shared/motion/tokens";
+import { useMotionPreference } from "../shared/motion/useMotionPreference";
 import { useLayoutEffect, useRef, type RefObject } from "react";
 import { useTranslation } from "../shared/i18n/useTranslation";
 import { useCollapseMotion } from "../shared/ui/AnimatedCollapse";
@@ -18,6 +21,7 @@ export function MobileHeaderSearch({
   trigger: RefObject<HTMLButtonElement | null>;
 }) {
   const { t } = useTranslation();
+  const reduced = useMotionPreference();
   const input = useRef<HTMLInputElement>(null);
   const wasOpen = useRef(false);
   const { foldState, finish } = useCollapseMotion(open);
@@ -30,14 +34,15 @@ export function MobileHeaderSearch({
 
   if (!open && foldState === "closed") return null;
   return (
-    <label
+    <motion.label
+      initial={{ opacity: 0, x: motionDistance.pop }}
+      animate={{ opacity: open ? 1 : 0, x: open ? 0 : motionDistance.pop }}
+      transition={reduced ? immediateTransition : popTransition}
+      onAnimationComplete={finish}
       className="mobile-header-search"
       data-fold-state={foldState}
       aria-hidden={!open || undefined}
       inert={!open}
-      onAnimationEnd={(event) => {
-        if (event.target === event.currentTarget) finish();
-      }}
     >
       <Search size={18} aria-hidden="true" />
       <input
@@ -53,6 +58,6 @@ export function MobileHeaderSearch({
         aria-label={t("Search conversations")}
         placeholder={t("Search conversations...")}
       />
-    </label>
+    </motion.label>
   );
 }

@@ -1,3 +1,6 @@
+import { motion, type HTMLMotionProps } from "motion/react";
+import { msgTransition, immediateTransition, motionDistance } from "../../shared/motion/tokens";
+import { useMotionPreference } from "../../shared/motion/useMotionPreference";
 import type { HTMLAttributes } from "react";
 import { cx } from "./cx";
 
@@ -7,16 +10,21 @@ import { cx } from "./cx";
  */
 export function Bubble({ from, className, ...props }:
   HTMLAttributes<HTMLDivElement> & { from: "user" | "agent" }) {
+  const reduced = useMotionPreference();
   return (
-    <div
+    <motion.div
+      initial={reduced ? false : { opacity: 0, y: motionDistance.msg }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={reduced ? immediateTransition : msgTransition}
+      layout="position"
       className={cx(
-        "max-w-[80%] animate-m-msg-in rounded-m-bubble px-3.5 py-2 text-m-body break-words",
+        "max-w-[80%] rounded-m-bubble px-3.5 py-2 text-m-body break-words",
         from === "user"
           ? "self-end rounded-br-md bg-m-bubble-user text-m-bubble-user-ink"
           : "self-start rounded-bl-md bg-m-card text-m-ink",
         className,
       )}
-      {...props}
+      {...props as HTMLMotionProps<"div">}
     />
   );
 }

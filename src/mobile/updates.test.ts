@@ -1,3 +1,4 @@
+import { startMotionClock, stopMotionClock, advanceMotionTimers } from "./motionTestClock";
 // @vitest-environment happy-dom
 import { createElement, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -73,6 +74,7 @@ const manifest = {
 vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
 let root: Root | undefined;
 beforeEach(() => {
+  startMotionClock();
   vi.useFakeTimers();
   vi.clearAllMocks();
   native.platform = "android";
@@ -89,11 +91,11 @@ afterEach(async () => {
   root = undefined;
   document.body.innerHTML = "";
   vi.clearAllTimers();
+  stopMotionClock();
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
-const advance = (ms: number) =>
-  act(async () => vi.advanceTimersByTimeAsync(ms));
+const advance = advanceMotionTimers;
 async function mount(settle = true) {
   const container = document.createElement("div");
   document.body.append(container);

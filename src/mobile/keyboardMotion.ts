@@ -1,3 +1,5 @@
+import { animate, motionValue, useMotionValue, type AnimationPlaybackControls, type Transition } from "motion/react";
+import { useEffect } from "react";
 import { reducedMotionQuery } from "../shared/lib/reducedMotion";
 // Follows the Android soft keyboard. MainActivity reports where the keyboard
 // is heading, with its duration and easing curve, as each animation starts.
@@ -191,13 +193,46 @@ function assistantContentRatio(delta: number) {
   return transcriptFollow(scroller, content, delta, limit);
 }
 
+/** Current visual lift is shared with anchored menus without a style-sampling loop. */
+export const keyboardLift = motionValue(0);
+const settledListeners = new Set<() => void>();
+export function onKeyboardSettled(listener: () => void) {
+  settledListeners.add(listener);
+  return () => { settledListeners.delete(listener); };
+}
+
+/** React consumers can derive their own transforms without rerendering per frame. */
+export function useKeyboardMotionValue() {
+  const value = useMotionValue(keyboardLift.get());
+  useEffect(() => keyboardLift.on("change", next => value.set(next)), [value]);
+  return value;
+}
+
+function motionEasing(easing: string): Transition["ease"] {
+  const bezier = /^cubic-bezier\(([^)]+)\)$/.exec(easing);
+  if (bezier) return bezier[1].split(",").map(Number) as [number, number, number, number];
+  const linear = /^linear\((.*)\)$/.exec(easing);
+  if (!linear) return "linear";
+  const stops = linear[1].split(",").map((stop, index, all) => {
+    const [value, position] = stop.trim().split(/\s+/);
+    return { value: Number(value), position: position?.endsWith("%") ? parseFloat(position) / 100 : index / (all.length - 1) };
+  });
+  return progress => {
+    const right = stops.findIndex(stop => stop.position >= progress);
+    if (right <= 0) return right < 0 ? 1 : stops[0].value;
+    const from = stops[right - 1], to = stops[right];
+    const portion = (progress - from.position) / Math.max(Number.EPSILON, to.position - from.position);
+    return from.value + portion * (to.value - from.value);
+  };
+}
+
 export function installKeyboardMotion(root = document.documentElement) {
   const surfaces = new Set<HTMLElement>();
   const shells = new Map<HTMLElement, string>();
   let layout = height;
   let clearance = height;
-  let settleTimer: ReturnType<typeof setTimeout> | undefined;
-  let settleFrame: number | undefined;
+  let animation: AnimationPlaybackControls | undefined;
+  const progress = motionValue(0);
   let styles: Record<(typeof MOTION_PROPERTIES)[number], string> = {
     "--mobile-keyboard-height": `${height}px`,
     "--mobile-keyboard-duration": "0ms",
@@ -229,6 +264,7 @@ export function installKeyboardMotion(root = document.documentElement) {
     // A newly mounted menu starts at the current keyboard height, without
     // replaying a motion that began before the menu existed.
     sync(element, false);
+    element.style.setProperty("--mobile-keyboard", `${keyboardLift.get()}px`);
   };
   const scan = (element: Element) => {
     if (element.matches(".mobile-app")) attachShell(element);
@@ -238,6 +274,7 @@ export function installKeyboardMotion(root = document.documentElement) {
   };
   const release = (element: HTMLElement) => {
     for (const property of MOTION_PROPERTIES) element.style.removeProperty(property);
+    element.style.removeProperty("--mobile-keyboard");
     surfaces.delete(element);
   };
   scan(root);
@@ -254,10 +291,10 @@ export function installKeyboardMotion(root = document.documentElement) {
     }
   });
   mounts.observe(root, { childList: true, subtree: true });
-  const cancelSettle = () => {
-    clearTimeout(settleTimer);
-    if (settleFrame !== undefined) cancelAnimationFrame(settleFrame);
-  };
+  const cancelSettle = () => { animation?.stop(); animation = undefined; };
+  const stopLift = keyboardLift.on("change", lift => {
+    for (const element of surfaces) element.style.setProperty("--mobile-keyboard", `${lift}px`);
+  });
   const commitLayout = () => {
     layout = height;
     styles["--mobile-keyboard-layout"] = `${layout}px`;
@@ -268,6 +305,7 @@ export function installKeyboardMotion(root = document.documentElement) {
     clearance = height;
     styles["--mobile-keyboard-clearance"] = `${clearance}px`;
     commitLayout();
+    for (const listener of settledListeners) listener();
   };
   const receive = (event: Event) => {
     const detail = (event as CustomEvent).detail ?? {};
@@ -310,11 +348,17 @@ export function installKeyboardMotion(root = document.documentElement) {
     if (height <= layout || !effectiveDuration) commitLayout();
     else for (const shell of shells.keys()) sizeShell(shell);
     if (effectiveDuration) {
-      settleTimer = setTimeout(() => {
-        settleFrame = requestAnimationFrame(() => {
-          settleFrame = requestAnimationFrame(settle);
-        });
-      }, effectiveDuration);
+      const from = keyboardLift.get();
+      progress.jump(0);
+      animation = animate(progress, 1, {
+        onUpdate: amount => keyboardLift.set(from + (height - from) * amount),
+        duration: effectiveDuration / 1000,
+        ease: motionEasing(easing),
+        onComplete: settle,
+      });
+    } else {
+      keyboardLift.set(height);
+      settle();
     }
     for (const element of surfaces) sync(element, true);
     const motion = { height, previous, duration: effectiveDuration, easing };
@@ -338,6 +382,8 @@ export function installKeyboardMotion(root = document.documentElement) {
   viewport?.addEventListener("resize", unpan);
   return () => {
     cancelSettle();
+    stopLift();
+    keyboardLift.set(0);
     mounts.disconnect();
     for (const element of surfaces) release(element);
     for (const [element, original] of shells) element.style.height = original;

@@ -1,3 +1,4 @@
+import { startMotionClock, stopMotionClock, advanceMotionTimers } from "./motionTestClock";
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -9,6 +10,7 @@ let root: Root, node: HTMLDivElement;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.useFakeTimers();
+  startMotionClock();
   node = document.createElement("div");
   document.body.append(node);
   root = createRoot(node);
@@ -16,6 +18,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   node.remove();
+  stopMotionClock();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -38,7 +41,7 @@ it("prepares only visible rows and the next batch for a large history", () => {
   expect(renderItem.mock.calls.every(([item]) => item < 10)).toBe(true);
 });
 
-it("retains closing rows and reverses a rapid collapse without rebuilding untouched batches", () => {
+it("retains closing rows and reverses a rapid collapse without rebuilding untouched batches", async () => {
   const items = Array.from({ length: 12 }, (_, index) => index);
   const renderItem = (item: number) =>
     createElement("button", { key: item, "data-row": item }, item);
@@ -53,7 +56,7 @@ it("retains closing rows and reverses a rapid collapse without rebuilding untouc
     );
   toggle();
   toggle();
-  act(() => vi.advanceTimersByTime(350));
+  await advanceMotionTimers(350);
   const row = node.querySelector('[data-row="5"]');
   toggle();
   expect(node.querySelectorAll("[data-row]")).toHaveLength(12);
@@ -61,7 +64,7 @@ it("retains closing rows and reverses a rapid collapse without rebuilding untouc
   toggle();
   expect(node.querySelector('[data-row="5"]')).toBe(row);
   expect(row?.closest<HTMLElement>(".zen-fold-item")?.inert).toBe(false);
-  act(() => vi.advanceTimersByTime(350));
+  await advanceMotionTimers(350);
   expect(node.querySelectorAll("[data-row]")).toHaveLength(10);
 });
 

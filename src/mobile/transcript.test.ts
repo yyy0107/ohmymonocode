@@ -1,3 +1,4 @@
+import { startMotionClock, stopMotionClock, advanceMotionTimers } from "./motionTestClock";
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement, act, type ComponentProps } from "react";
@@ -12,10 +13,16 @@ import { saveTranscriptAnchor } from "../features/settings/model/appearance";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 let root: Root | undefined;
+beforeEach(() => {
+  startMotionClock();
+  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
+});
 afterEach(() => {
   act(() => root?.unmount());
   root = undefined;
   document.body.replaceChildren();
+  stopMotionClock();
+  vi.restoreAllMocks();
 });
 function render(
   options: { runId?: string; disabled?: boolean; block?: object; blocks?: Block[];
@@ -165,7 +172,7 @@ describe("mobile jump interaction", () => {
     root = undefined;
     vi.useRealTimers();
   });
-  it("consumes pointer, mouse and click events and keeps composer focus", () => {
+  it("consumes pointer, mouse and click events and keeps composer focus", async () => {
     const { node } = render({ runId: "active-run" });
     const parent = document.createElement("div");
     node.replaceWith(parent);
@@ -206,18 +213,18 @@ describe("mobile jump interaction", () => {
     expect(button.disabled).toBe(true);
     expect(button.inert).toBe(true);
     expect(button.getAttribute("aria-hidden")).toBe("true");
-    act(() => vi.advanceTimersByTime(200));
+    await advanceMotionTimers(100);
     // Scroll away again during the fade: reuse the same button and cancel closing.
     act(() => scroller.dispatchEvent(new WheelEvent("wheel", { deltaY: -10 })));
     expect(node.querySelector(".mobile-jump")).toBe(button);
     expect(button.dataset.foldState).toBe("opening");
     expect(button.disabled).toBe(false);
-    act(() => vi.advanceTimersByTime(600));
+    await advanceMotionTimers(600);
     expect(button.dataset.foldState).toBe("open");
     act(() => button.click());
-    act(() => vi.advanceTimersByTime(400));
+    await advanceMotionTimers(100);
     expect(button.dataset.foldState).toBe("closing");
-    act(() => vi.advanceTimersByTime(200));
+    await advanceMotionTimers(200);
     expect(button.dataset.foldState).toBe("closed");
   });
 });
@@ -283,10 +290,9 @@ describe("mobile message streaming", () => {
     });
     return node;
   }
-  it("paces a newly submitted reply even when it finished before the first sync", () => {
+  it("shows a submitted reply immediately when it finished before the first sync", () => {
     const node = reply(true);
-    expect(node.querySelector(".agent-markdown")?.textContent).toBe("");
-    act(() => vi.advanceTimersByTime(2000));
+    expect(node.querySelector("[data-word-fade]")).toBeNull();
     expect(node.querySelector(".agent-markdown")?.textContent).toBe(text);
   });
   it("shows saved replies immediately without replaying the typewriter", () => {
@@ -319,6 +325,7 @@ describe("mobile question history", () => {
     expect(dialog().closest(".mobile-desktop-transcript")).toBeNull();
     const option = [...dialog().querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Local")!;
     act(() => option.click());
+    await advanceMotionTimers(400);
     await act(async () => dialog().querySelector<HTMLButtonElement>('[data-question-submit]')!.click());
     expect(commands).toEqual([expect.objectContaining({
       type: "send", sessionId: "session", text: "Which source?\nLocal", followUpBehavior: "steer",
@@ -328,7 +335,7 @@ describe("mobile question history", () => {
     expect(commands[0]).not.toHaveProperty("requestId");
     expect(dialog()).toBeNull();
     expect(node.querySelector('.mobile-sheet-backdrop[data-fold-state="closing"][inert]')).not.toBeNull();
-    act(() => vi.advanceTimersByTime(300));
+    await advanceMotionTimers(600);
     expect(node.querySelector('[role="dialog"]')).toBeNull();
   });
 
@@ -390,7 +397,7 @@ describe("mobile question history", () => {
       questionAnswer: { blockId: "saved-question", reply: { kind: "answered", answers: { q: ["local"] } } } });
   });
 
-  it("retains answers during a closing reversal and skips without sending a reply", () => {
+  it("retains answers during a closing reversal and skips without sending a reply", async () => {
     const { node, commands } = render({ blocks: [question] });
     const trigger = node.querySelector<HTMLButtonElement>('[data-question-history] > button')!;
     act(() => trigger.click());
@@ -403,7 +410,7 @@ describe("mobile question history", () => {
     expect(dialog()).toBe(sheet);
     expect(option.getAttribute("aria-pressed")).toBe("true");
     act(() => sheet.querySelector<HTMLButtonElement>('[data-question-secondary]')!.click());
-    act(() => vi.advanceTimersByTime(300));
+    await advanceMotionTimers(600);
     expect(node.querySelector('[role="dialog"]')).toBeNull();
     expect(commands).toEqual([]);
   });
@@ -421,14 +428,14 @@ describe("mobile question history", () => {
     expect(commands).toEqual([]);
   });
 
-  it("closes if another client answers the saved question", () => {
+  it("closes if another client answers the saved question", async () => {
     const { node, snapshot, update } = render({ blocks: [question] });
     act(() => node.querySelector<HTMLButtonElement>('[data-question-history] > button')!.click());
     const answered: Block = { ...question, question: { ...question.question!, decision: "answered",
       reply: { kind: "answered", answers: { q: ["remote"] } } } };
     update({ snapshot: { ...snapshot, session: { ...snapshot.session, blocks: [answered] } } });
     expect(dialog()).toBeNull();
-    act(() => vi.advanceTimersByTime(300));
+    await advanceMotionTimers(600);
     expect(node.querySelector('[role="dialog"]')).toBeNull();
     expect(node.querySelector('[data-question-history]')!.textContent).toContain("Remote");
   });

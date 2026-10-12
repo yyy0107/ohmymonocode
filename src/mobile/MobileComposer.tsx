@@ -19,8 +19,9 @@ import { useTranslation } from "../shared/i18n/useTranslation";
 import { AnimatedCollapse, useCollapseMotion } from "../shared/ui/AnimatedCollapse";
 import { HarnessIcon } from "../features/sessions/ui/HarnessIcon";
 import { AttachmentList } from "../features/sessions/ui/AttachmentList";
-import { prefersReducedMotion } from "../shared/lib/reducedMotion";
-import { ATTACHMENT_RESIZE_MS, useComposerResizeMotion } from "./composerResizeMotion";
+import { AnimatePresence, motion, usePresence } from "motion/react";
+import { immediateTransition, panelTransition, popTransition } from "../shared/motion/tokens";
+import { useMotionPreference } from "../shared/motion/useMotionPreference";
 import { RuntimeModeIcon } from "../features/sessions/ui/RuntimeModeIcon";
 import { MODE_COMMAND_STYLES } from "../features/sessions/ui/modeCommands";
 import { PLAN_COMMAND } from "../features/sessions/model/plan";
@@ -114,37 +115,42 @@ type Props = {
   };
 };
 
-/**
- * The row leaves layout at once when the last file goes. It stays visible out
- * of flow while the card's top edge (useComposerResizeMotion) covers it.
- */
+function MobileAttachmentPresence({ children }: { children: ReactNode }) {
+  const [present, safeToRemove] = usePresence();
+  useLayoutEffect(() => { if (!present) safeToRemove?.(); }, [present, safeToRemove]);
+  // The parent owns the reversible exit. Once it releases this child (or
+  // reduced motion removes it), layout projection must not retain its DOM.
+  return present ? children : null;
+}
+
+/** Attachment content stays inert while Motion completes its reversible exit. */
 function MobileComposerAttachments({ attachments, onRemove }: {
   attachments: Attachment[];
   onRemove?: (id: string) => void;
 }) {
+  const reduced = useMotionPreference();
   const [retained, setRetained] = useState(attachments);
   if (attachments.length && retained !== attachments) setRetained(attachments);
-  // Reduced motion drops the row with the last file.
-  const shown = attachments.length ? attachments : prefersReducedMotion() ? [] : retained;
+  const shown = attachments.length ? attachments : reduced ? [] : retained;
   const closing = !attachments.length && shown.length > 0;
-  useEffect(() => {
-    if (!closing) return;
-    const timer = window.setTimeout(() => setRetained([]), prefersReducedMotion() ? 0 : ATTACHMENT_RESIZE_MS);
-    return () => window.clearTimeout(timer);
-  }, [closing]);
-  return <div
+  const content = shown.length ? <MobileAttachmentPresence key="attachments"><motion.div layout="position"
+    transition={reduced ? immediateTransition : popTransition}>
+    <AttachmentList animated className="mobile-composer-attachments"
+      attachments={shown} onRemove={closing ? undefined : onRemove} />
+  </motion.div></MobileAttachmentPresence> : null;
+  return <motion.div
     className="mobile-composer-attachment-region"
+    layout="position"
     data-closing={closing || undefined}
     inert={closing || undefined}
     aria-hidden={closing || undefined}
+    initial={false}
+    animate={{ opacity: closing ? 0 : 1 }}
+    transition={reduced ? immediateTransition : popTransition}
+    onAnimationComplete={() => { if (closing) setRetained([]); }}
   >
-    {shown.length ? <AttachmentList
-      animated
-      className="mobile-composer-attachments"
-      attachments={shown}
-      onRemove={closing ? undefined : onRemove}
-    /> : null}
-  </div>;
+    <AnimatePresence>{content}</AnimatePresence>
+  </motion.div>;
 }
 
 function useMobileComposerController(props: Props) {
@@ -273,7 +279,6 @@ function useMobileComposerController(props: Props) {
       host.style.removeProperty("--mobile-dock-height");
     };
   }, [hasQueue]);
-  useComposerResizeMotion(form, !!props.compact, props.attachments.length);
   useMobileTextareaAutosize(area, props.value, {
     minHeight: 32,
     widthSource: dock,
@@ -482,7 +487,7 @@ function MobileComposerView({ vm }: { vm: MobileComposerViewModel }) {
   } = vm;
   return (
     <>
-      <div ref={dock} className="mobile-composer-dock">
+      <motion.div ref={dock} className="mobile-composer-dock" layout="position" layoutRoot transition={panelTransition}>
         {inlineOpen && <div className="mobile-sheet mobile-command-suggestions">
           <div className="mobile-skill-heading"><strong>{t("Skills and commands")}</strong>
             <button type="button" className="mobile-icon-button" aria-label={t("Close suggestions")}
@@ -492,7 +497,9 @@ function MobileComposerView({ vm }: { vm: MobileComposerViewModel }) {
             active={skillActive} id={skillListId} onPick={pickSkill} onActive={setSkillActive} onRetry={() => void skillsState.reload(true)} />
         </div>}
         {props.queue ? <div className="mobile-message-queue">{props.queue}</div> : null}
-        <form
+        <motion.form
+          layout
+          transition={panelTransition}
           ref={form}
           className="mobile-composer mobile-composer-card"
           data-compact={props.compact || undefined}
@@ -515,7 +522,9 @@ function MobileComposerView({ vm }: { vm: MobileComposerViewModel }) {
             if (props.canSend) launch();
           }}
         >
-          <div
+          <motion.div
+            layout="position"
+            transition={panelTransition}
             className="mobile-composer-context"
             inert={props.compact || undefined}
             aria-hidden={props.compact || undefined}
@@ -573,8 +582,8 @@ function MobileComposerView({ vm }: { vm: MobileComposerViewModel }) {
               </button>
             )}
             {props.progressSlot && <div ref={props.progressSlot} className="mobile-composer-progress" />}
-          </div>
-          <div className="mobile-composer-input">
+          </motion.div>
+          <motion.div layout transition={panelTransition} className="mobile-composer-input">
             <MobileComposerAttachments
               attachments={props.attachments}
               onRemove={props.disabled ? undefined : props.onRemoveAttachment}
@@ -625,17 +634,18 @@ function MobileComposerView({ vm }: { vm: MobileComposerViewModel }) {
               }}
             />
               {inline.foldState !== "closed" ? (
-                <span
+                <motion.span
+                  initial={false}
+                  animate={{ opacity: props.compact ? 1 : 0 }}
+                  transition={popTransition}
+                  onAnimationComplete={inline.finish}
                   className="mobile-composer-inline"
                   data-fold-state={inline.foldState}
                   inert={!props.compact || undefined}
                   aria-hidden={!props.compact || undefined}
-                  onAnimationEnd={(event) => {
-                    if (event.target === event.currentTarget) inline.finish();
-                  }}
                 >
                   {sendButton}
-                </span>
+                </motion.span>
               ) : null}
             </div>
             <AnimatedCollapse expanded={!props.compact} className="mobile-composer-toolbar-collapse">
@@ -705,7 +715,7 @@ function MobileComposerView({ vm }: { vm: MobileComposerViewModel }) {
               {sendButton}
             </div>
             </AnimatedCollapse>
-          </div>
+          </motion.div>
           <input
             ref={photos}
             type="file"
@@ -725,8 +735,8 @@ function MobileComposerView({ vm }: { vm: MobileComposerViewModel }) {
             disabled={props.disabled || props.readingAttachments}
             onChange={(event) => selectFiles(event.currentTarget)}
           />
-        </form>
-      </div>
+        </motion.form>
+      </motion.div>
       <MobileModelControls
         open={props.panel === "model"}
         anchor={panelAnchor}

@@ -1,3 +1,6 @@
+import { motion } from "motion/react";
+import { popTransition, immediateTransition } from "../shared/motion/tokens";
+import { useMotionPreference } from "../shared/motion/useMotionPreference";
 import { useTranscriptHaptics } from "./useTranscriptHaptics";
 import {
   useCallback,
@@ -48,7 +51,8 @@ export function MobileConversation({
   const layout = useTranscriptLayout();
   const [jump, setJump] = useState<(() => void) | undefined>();
   const [showJump, setShowJump] = useState(false);
-  const jumpMotion = useCollapseMotion(showJump, 560);
+  const jumpMotion = useCollapseMotion(showJump);
+  const reduced = useMotionPreference();
   const onJumpReady = useCallback(
     (callback: () => void) => setJump(() => callback),
     [],
@@ -75,7 +79,11 @@ export function MobileConversation({
         onJumpToBottomReady={onJumpReady}
       />
       {/* Keep the button mounted so fades can reverse without restarting. */}
-      <button
+      <motion.button
+        initial={false}
+        animate={{ opacity: showJump ? 1 : 0 }}
+        transition={reduced ? immediateTransition : popTransition}
+        onAnimationComplete={jumpMotion.finish}
         className="mobile-jump"
         type="button"
         data-open={showJump}
@@ -84,10 +92,6 @@ export function MobileConversation({
         inert={!showJump}
         aria-hidden={!showJump}
         aria-label={t("Jump to latest")}
-        onTransitionEnd={(event) => {
-          if (event.target === event.currentTarget && event.propertyName === "opacity")
-            jumpMotion.finish();
-        }}
         // Keep focus in the composer so tapping does not collapse it first.
         onPointerDown={(event) => {
           event.preventDefault();
@@ -104,7 +108,7 @@ export function MobileConversation({
         }}
       >
         <ArrowDownCircle size={22} />
-      </button>
+      </motion.button>
     </div>
   );
 }

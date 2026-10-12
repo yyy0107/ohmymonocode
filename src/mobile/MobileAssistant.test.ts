@@ -1,3 +1,4 @@
+import { advanceMotionTimers, startMotionClock, stopMotionClock } from "./motionTestClock";
 // @vitest-environment happy-dom
 import { act, createElement, createRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -20,6 +21,7 @@ let root: Root, node: HTMLDivElement;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.useFakeTimers();
+  startMotionClock();
   localStorage.clear();
   setUiLanguage("en");
   node = document.createElement("div");
@@ -29,6 +31,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   node.remove();
+  stopMotionClock();
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -168,7 +171,7 @@ async function mountConversation() {
     { kind: "user", id: "user", revision: 1, createdAt: 1, text: "Question" },
     { kind: "assistant", id: "reply", revision: 2, createdAt: 2, text: "A result\nNext line" },
   ]);
-  await act(async () => vi.advanceTimersByTime(2000));
+  await advanceMotionTimers(2000);
   await flush();
   return {
     ...data,
@@ -257,7 +260,7 @@ it("swipes a reply above the unchanged draft and sends the full quote with it", 
   touch(bubble, "pointerdown", 80);
   touch(bubble, "pointermove", 160);
   touch(bubble, "lostpointercapture", 160);
-  act(() => vi.advanceTimersByTime(500));
+  await advanceMotionTimers(500);
   expect(log.dataset.messageSwipe).toBe("reply");
   expect(node.querySelector('[role="dialog"][aria-label="Message actions"]')).toBeNull();
   touch(bubble, "pointerup", 160);
@@ -268,13 +271,14 @@ it("swipes a reply above the unchanged draft and sends the full quote with it", 
   expect(document.activeElement).toBe(field);
   expect(log.dataset.messageSwipe).toBeUndefined();
   expect(rpc.mock.calls.some(([method]) => method === "assistant.send")).toBe(false);
+  await advanceMotionTimers(32);
   act(() => button("Send").click());
   await flush();
   expect(rpc.mock.calls.find(([method]) => method === "assistant.send")?.[1].text).toBe("> A result\n> Next line\n\nExplain this");
   expect(field.value).toBe("");
   expect(log.inert).toBe(false);
   expect(node.querySelector<HTMLElement>(".mobile-assistant-reply-collapse")?.inert).toBe(true);
-  act(() => vi.advanceTimersByTime(351));
+  await advanceMotionTimers(351);
   expect(node.querySelector(".mobile-assistant-reply-preview")).toBeNull();
 });
 
@@ -304,7 +308,7 @@ it("cancels reply focus with Back, the close button or the backdrop while preser
     expect(fold.dataset.foldState).toBe("opening");
     expect(fold.inert).toBe(false);
     act(() => ref.current!.back());
-    act(() => vi.advanceTimersByTime(351));
+    await advanceMotionTimers(351);
     expect(node.querySelector(".mobile-assistant-reply-preview")).toBeNull();
   }
   expect(close).not.toHaveBeenCalled();
@@ -343,14 +347,15 @@ it.each(["background", "user", "assistant"])("reveals every message time while s
   touch(target, "pointerdown", 260);
   touch(target, "pointermove", 160);
   expect(log.dataset.messageSwipe).toBe("time");
-  act(() => vi.advanceTimersByTime(20));
+  await advanceMotionTimers(20);
   const times = [...log.querySelectorAll<HTMLElement>(".assistant-swipe-time")];
   for (const time of times) {
-    expect(time.style.transform).toBe("translate3d(6px, 0, 0)");
+    expect(time.style.transform).toBe("translateX(6px)");
     expect(time.style.opacity).toBe("1");
   }
   touch(target, "pointerup", 160);
   expect(log.dataset.messageSwipe).toBeUndefined();
+  await advanceMotionTimers(600);
   for (const time of times) expect(time.style.transform).toBe("");
   expect(field.value).toBe("");
 });
@@ -381,14 +386,14 @@ it("cancels short, reversed, vertical, interrupted and multiple-touch gestures",
   touch(user, "pointerup", 180);
   expect(field.value).toBe("");
   expect(log.dataset.messageSwipe).toBeUndefined();
-  act(() => vi.advanceTimersByTime(500));
+  await advanceMotionTimers(500);
   expect(node.querySelector('[role="dialog"][aria-label="Message actions"]')).toBeNull();
 });
 
 it("keeps time gestures and copy available when replies are disabled", async () => {
   const { log, bubble, field, update } = await mountConversation();
   update({ enabled: false });
-  await act(async () => vi.advanceTimersByTime(2000));
+  await advanceMotionTimers(2000);
   await flush();
   touch(bubble, "pointerdown", 80);
   touch(bubble, "pointermove", 180);
@@ -399,7 +404,7 @@ it("keeps time gestures and copy available when replies are disabled", async () 
   expect(log.dataset.messageSwipe).toBe("time");
   touch(bubble, "pointerup", 80);
   touch(bubble, "pointerdown", 80);
-  act(() => vi.advanceTimersByTime(450));
+  await advanceMotionTimers(450);
   touch(bubble, "pointerup", 80);
   expect(button("Reply").disabled).toBe(true);
   expect(button("Copy").disabled).toBe(false);
@@ -413,7 +418,7 @@ it("expands activity inside the center capsule and retains it through closing an
     lifecycle: "running",
     activity: { action: "sessions.get", sessionTitle: "pi · ncmcli", at: 1 },
   });
-  await act(async () => vi.advanceTimersByTime(2000));
+  await advanceMotionTimers(2000);
   await flush();
   expect(fold()?.dataset.foldState).toBe("opening");
   expect(fold()?.textContent).toBe("Reading pi · ncmcli");
@@ -423,19 +428,19 @@ it("expands activity inside the center capsule and retains it through closing an
     kind: "assistant", id: "reply", revision: 1, createdAt: 1,
     text: "A streaming reply", streaming: true,
   }]);
-  await act(async () => vi.advanceTimersByTime(350));
+  await advanceMotionTimers(350);
   await flush();
   expect(fold()?.dataset.foldState).toBe("open");
   expect(fold()?.textContent).toBe("Reading pi · ncmcli");
 
   data.update({ lifecycle: "idle", activity: undefined });
-  await act(async () => vi.advanceTimersByTime(250));
+  await advanceMotionTimers(250);
   await flush();
   expect(fold()?.dataset.foldState).toBe("closing");
   expect(fold()?.textContent).toBe("Reading pi · ncmcli");
   expect(fold()?.inert).toBe(true);
   expect(fold()?.getAttribute("aria-hidden")).toBe("true");
-  act(() => vi.advanceTimersByTime(150));
+  await advanceMotionTimers(150);
 
   // A new send can restart activity before the closing animation finishes.
   data.update({ lifecycle: "running", activity: { action: "files.read", at: 2 } });
@@ -445,16 +450,16 @@ it("expands activity inside the center capsule and retains it through closing an
   expect(fold()?.dataset.foldState).toBe("opening");
   expect(fold()?.textContent).toBe("Going through the files");
   expect(fold()?.inert).toBe(false);
-  act(() => vi.advanceTimersByTime(200));
+  await advanceMotionTimers(100);
   expect(fold()?.dataset.foldState).toBe("opening");
-  act(() => vi.advanceTimersByTime(150));
+  await advanceMotionTimers(150);
   expect(fold()?.dataset.foldState).toBe("open");
 
   data.update({ lifecycle: "idle", activity: undefined });
-  await act(async () => vi.advanceTimersByTime(2000));
+  await advanceMotionTimers(2000);
   await flush();
   expect(fold()?.dataset.foldState).toBe("closing");
-  act(() => vi.advanceTimersByTime(350));
+  await advanceMotionTimers(350);
   expect(fold()).toBeNull();
   expect(capsule.querySelector("strong")?.textContent).toBe("Assistant");
 });
@@ -469,13 +474,13 @@ it("localizes capsule activity and respects reduced motion", async () => {
     lifecycle: "running",
     activity: { action: "sessions.get", sessionTitle: "pi · ncmcli", at: 1 },
   });
-  await act(async () => vi.advanceTimersByTime(2000));
+  await advanceMotionTimers(2000);
   await flush();
   const fold = node.querySelector<HTMLElement>(".mobile-assistant-activity-collapse");
   expect(fold?.dataset.foldState).toBe("open");
   expect(fold?.textContent).toBe("正在查看「pi · ncmcli」");
   data.update({ lifecycle: "idle", activity: undefined });
-  await act(async () => vi.advanceTimersByTime(250));
+  await advanceMotionTimers(250);
   await flush();
   expect(node.querySelector(".mobile-assistant-activity-collapse")).toBeNull();
 });
@@ -514,22 +519,22 @@ it("opens Reply on a stationary long press, cancels scrolling holds and closes w
     );
   pointer("pointerdown");
   pointer("pointermove", 130);
-  act(() => vi.advanceTimersByTime(500));
+  await advanceMotionTimers(500);
   expect(node.querySelector('[role="dialog"][aria-label="Message actions"]')).toBeNull();
   pointer("pointerdown");
-  act(() => vi.advanceTimersByTime(449));
+  await advanceMotionTimers(449);
   expect(node.querySelector('[role="dialog"][aria-label="Message actions"]')).toBeNull();
-  act(() => vi.advanceTimersByTime(1));
+  await advanceMotionTimers(1);
   expect(
     node.querySelector('[role="dialog"][aria-label="Message actions"]'),
   ).not.toBeNull();
   pointer("pointerup");
   act(() => data.ref.current!.back());
   expect(data.close).not.toHaveBeenCalled();
-  act(() => vi.advanceTimersByTime(400));
+  await advanceMotionTimers(400);
   expect(node.querySelector('[role="dialog"][aria-label="Message actions"]')).toBeNull();
   pointer("pointerdown");
-  act(() => vi.advanceTimersByTime(450));
+  await advanceMotionTimers(450);
   pointer("pointerup");
   act(() => button("Reply").click());
   expect(field.value).toBe("Explain this");
@@ -562,7 +567,7 @@ it.each([true, false])(
       ),
     );
     await flush();
-    await act(async () => vi.advanceTimersByTime(500));
+    await advanceMotionTimers(500);
     expect(node.textContent).toContain("Connecting…");
     expect(node.querySelector(".mobile-assistant-settings-page")).toBeNull();
     expect(node.querySelector(".assistant-settings")).toBeNull();
@@ -607,7 +612,7 @@ it("keeps setup hidden after a failed initial sync and recovers on retry", async
   await flush();
   expect(node.textContent).toContain("Host connection failed");
   expect(node.querySelector(".mobile-assistant-settings-page")).toBeNull();
-  await act(async () => vi.advanceTimersByTime(2000));
+  await advanceMotionTimers(2000);
   await flush();
   expect(node.querySelector(".assistant-conversation")).not.toBeNull();
   expect(node.querySelector(".mobile-assistant-settings-page")).toBeNull();
@@ -641,13 +646,14 @@ it("handles menu, settings and exit as separate back steps while retaining the d
   expect(
     node.querySelector<HTMLElement>(".assistant-conversation")!.inert,
   ).toBe(true);
+  await advanceMotionTimers(600);
   act(() => data.ref.current!.back());
   expect(backdrop.getAttribute("data-fold-state")).toBe("closing");
   expect(backdrop.inert).toBe(true);
   expect(composer.value).toBe("Continue the project");
-  act(() => vi.advanceTimersByTime(119));
+  await advanceMotionTimers(119);
   expect(node.querySelector(".mobile-assistant-settings-page")).toBe(page);
-  act(() => vi.advanceTimersByTime(12));
+  await advanceMotionTimers(600);
   expect(node.querySelector(".mobile-assistant-settings-page")).toBeNull();
   act(() => data.ref.current!.back());
   expect(data.close).toHaveBeenCalledOnce();
@@ -663,18 +669,19 @@ it("reopens the settings sheet during closing without losing unsaved edits", asy
   const backdrop = page.closest<HTMLElement>(".mobile-sheet-backdrop")!;
   const name = page.querySelector<HTMLInputElement>("input:not([type])")!;
   type(name, "Unsaved assistant name");
+  await advanceMotionTimers(600);
   act(() => data.ref.current!.back());
-  act(() => vi.advanceTimersByTime(60));
+  await advanceMotionTimers(60);
   act(() => button("Assistant options").click());
   act(() => button("Settings").click());
   expect(node.querySelector(".mobile-assistant-settings-page")).toBe(page);
   expect(backdrop.getAttribute("data-fold-state")).toBe("opening");
   expect(backdrop.inert).toBe(false);
   expect(name.value).toBe("Unsaved assistant name");
-  act(() => vi.advanceTimersByTime(211));
+  await advanceMotionTimers(600);
   expect(backdrop.getAttribute("data-fold-state")).toBe("open");
   act(() => data.ref.current!.back());
-  act(() => vi.advanceTimersByTime(131));
+  await advanceMotionTimers(600);
   expect(node.querySelector(".mobile-assistant-settings-page")).toBeNull();
 });
 it("opens and closes the settings sheet immediately with reduced motion", async () => {
@@ -713,18 +720,18 @@ it("releases the settings action bar's space during typing and restores unsaved 
     expect(actions()?.dataset.foldState).toBe("closing");
     expect(actions()?.inert).toBe(true);
     expect(node.querySelector(".assistant-settings-footer")).toBe(footer);
-    act(() => vi.advanceTimersByTime(80));
+    await advanceMotionTimers(80);
     keyboard(0);
     expect(actions()?.dataset.foldState).toBe("opening");
     expect(actions()?.inert).toBe(false);
     keyboard(320);
-    act(() => vi.advanceTimersByTime(251));
+    await advanceMotionTimers(251);
     expect(actions()).toBeNull();
     expect(node.querySelector(".assistant-settings-footer")).toBeNull();
     expect(name.value).toBe("Unsaved name");
     keyboard(0);
     expect(actions()?.dataset.foldState).toBe("opening");
-    act(() => vi.advanceTimersByTime(251));
+    await advanceMotionTimers(251);
     expect(actions()?.dataset.foldState).toBe("open");
     expect(button("Save settings").disabled).toBe(false);
     expect(button("Reset")).toBeDefined();
@@ -772,7 +779,7 @@ it("retains the settings revision during polling and saves phone project switche
   act(() => button("Assistant options").click());
   act(() => button("Settings").click());
   data.update({ revision: 2, name: "Other device" });
-  await act(async () => vi.advanceTimersByTime(2000));
+  await advanceMotionTimers(2000);
   await flush();
   const name = [...node.querySelectorAll("label")]
     .find((l) => l.textContent?.startsWith("Assistant name"))!
@@ -828,7 +835,7 @@ it("keeps uploaded attachments across settings and retries a failed send with th
   act(() => button("Assistant options").click());
   act(() => button("Settings").click());
   act(() => data.ref.current!.back());
-  act(() => vi.advanceTimersByTime(351));
+  await advanceMotionTimers(351);
   expect(
     node.querySelector(".mobile-assistant-attachments")?.textContent,
   ).toContain("notes.txt");
@@ -849,7 +856,7 @@ it("keeps uploaded attachments across settings and retries a failed send with th
       .querySelector<HTMLElement>(".mobile-assistant-attachments")
       ?.closest<HTMLElement>(".zen-fold-item")?.inert,
   ).toBe(true);
-  act(() => vi.advanceTimersByTime(351));
+  await advanceMotionTimers(351);
   expect(node.querySelector(".mobile-assistant-attachments")).toBeNull();
 });
 it("does not pull a reader to the bottom on polling, and follows messages once back at the bottom", async () => {
@@ -871,7 +878,7 @@ it("does not pull a reader to the bottom on polling, and follows messages once b
       text: "Progress",
     },
   ]);
-  await act(async () => vi.advanceTimersByTime(2000));
+  await advanceMotionTimers(2000);
   await flush();
   expect(log.scrollTo).not.toHaveBeenCalled();
   log.scrollTop = 700;
@@ -885,7 +892,7 @@ it("does not pull a reader to the bottom on polling, and follows messages once b
       text: "Completed",
     },
   ]);
-  await act(async () => vi.advanceTimersByTime(2000));
+  await advanceMotionTimers(2000);
   await flush();
   expect(log.scrollTo).toHaveBeenCalledWith({ top: 700 });
 });
@@ -953,7 +960,7 @@ it("keeps new bubbles below the floating header as replies grow and the viewport
     text: "A growing reply", streaming: true,
   };
   data.messages([message]);
-  await act(async () => vi.advanceTimersByTime(2000));
+  await advanceMotionTimers(2000);
   await flush();
   expect(log.scrollTop).toBe(170);
   const resize = () => act(() => {
@@ -978,7 +985,7 @@ it("keeps new bubbles below the floating header as replies grow and the viewport
   bubbleHeight = 1100;
   resize();
   data.messages([{ ...message, revision: 2, text: "More of the reply" }]);
-  await act(async () => vi.advanceTimersByTime(2000));
+  await advanceMotionTimers(2000);
   await flush();
   expect(log.scrollTo).not.toHaveBeenCalled();
 
@@ -990,7 +997,7 @@ it("keeps new bubbles below the floating header as replies grow and the viewport
     { ...message, revision: 2 },
     { ...message, id: "next", revision: 3, text: "Next reply" },
   ]);
-  await act(async () => vi.advanceTimersByTime(2000));
+  await advanceMotionTimers(2000);
   await flush();
   expect(log.scrollTop).toBe(1450);
   expect(log.lastElementChild!.getBoundingClientRect().top).toBe(200);
@@ -1004,7 +1011,7 @@ it("shows only the latest compact card for a repeated session", async () => {
     ref, title: `codex · Task ${revision}`, projectName: "Project", harness: "codex" as const,
     model: "codex:gpt-6.1-sol", actionId: `action-${revision}`, status: "completed" as const,
   })));
-  await act(async () => vi.advanceTimersByTime(2000));
+  await advanceMotionTimers(2000);
   await flush();
   expect(node.querySelectorAll(".assistant-card")).toHaveLength(1);
   expect(node.querySelector(".assistant-card-title strong")?.textContent).toBe("Task 3");
@@ -1055,7 +1062,7 @@ it("closes only the nested settings picker on Escape", async () => {
   act(() => button("Settings").click());
   act(() => button("Assistant permissions").click());
   await flush();
-  act(() => vi.advanceTimersByTime(211));
+  await advanceMotionTimers(600);
   const page = node.querySelector<HTMLElement>(
     ".mobile-assistant-settings-page",
   )!;
@@ -1077,7 +1084,7 @@ it("closes only the nested settings picker on Escape", async () => {
   expect(
     page.closest(".mobile-sheet-backdrop")?.getAttribute("data-fold-state"),
   ).toBe("open");
-  act(() => vi.advanceTimersByTime(131));
+  await advanceMotionTimers(600);
   expect(
     node.querySelector('[role="dialog"][aria-label="Assistant execution permissions"]'),
   ).toBeNull();
@@ -1106,7 +1113,7 @@ it("acknowledges mobile assistant messages only while the page and document are 
   expect(localStorage.getItem("monocode.assistant-read:read-mobile")).toBe("1");
   render(false);
   data.messages([{ kind: "assistant", id: "next", revision: 2, createdAt: 2, text: "New reply" }]);
-  await act(async () => vi.advanceTimersByTimeAsync(2000));
+  await advanceMotionTimers(2000);
   expect(localStorage.getItem("monocode.assistant-read:read-mobile")).toBe("1");
   render(true);
   await flush();
@@ -1135,21 +1142,21 @@ it("keeps one log observer across revisions and stops background polling while h
   const reply: AssistantMessage = { kind: "assistant", id: "reply", revision: 1, createdAt: 1, text: "Reply" };
   for (const revision of [1, 2]) {
     data.messages([{ ...reply, revision, text: `Reply ${revision}` }]);
-    await act(async () => vi.advanceTimersByTimeAsync(2000));
+    await advanceMotionTimers(2000);
     await flush();
     expect(observers.find((entry) => entry.targets.has(log))).toBe(observer);
     expect(observer.disconnected).toBe(false);
   }
   log.scrollTo = vi.fn();
   observer.observe.mockClear();
-  await act(async () => vi.advanceTimersByTimeAsync(2000));
+  await advanceMotionTimers(2000);
   await flush();
   expect(log.scrollTo).not.toHaveBeenCalled();
   expect(observer.observe).not.toHaveBeenCalled();
   render(false);
   expect(observer.disconnected).toBe(true);
   data.rpc.mockClear();
-  await act(async () => vi.advanceTimersByTimeAsync(6000));
+  await advanceMotionTimers(6000);
   expect(data.rpc).not.toHaveBeenCalled();
   render(true);
   await flush();
