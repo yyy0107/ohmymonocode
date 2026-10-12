@@ -918,10 +918,10 @@ html:not([data-skin]) [data-segment-indicator] {
   initial-value: 0;
 }
 
-/* Send: 0.86 → 1.08 → 1 as a message leaves. */
+/* Send amplitude comes from desktop metrics; timings stay at the call site. */
 @keyframes omb-send-kick {
-  0% { transform: scale(0.86); }
-  45% { transform: scale(1.08); }
+  0% { transform: scale(var(--omb-send-kick-start)); }
+  45% { transform: scale(var(--omb-send-kick-peak)); }
   100% { transform: none; }
 }
 

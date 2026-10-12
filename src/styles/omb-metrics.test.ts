@@ -48,11 +48,9 @@ describe("skinned desktop metrics", () => {
         );
       expect(curve(metrics, "omb")).toEqual(curve(mobile, "mobile"));
     }
+    // Desktop press/send amplitudes are intentionally independent of mobile.
     expect(token(metrics, "omb-motion-press")).toEqual([`${MOTION.pressMs}ms`]);
     expect(token(metrics, "omb-motion-shift")).toEqual([`${MOTION.shiftPx}px`]);
-    expect(token(metrics, "omb-motion-press-scale")).toEqual([
-      String(MOTION.pressScale),
-    ]);
   });
 
   it("only applies under a desktop skin", () => {
