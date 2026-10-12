@@ -518,3 +518,19 @@ Performance 证据来自 Chrome CDP `devtools.timeline` trace，可载入 Chrome
 证据保存在 `build/prompt-overlap/`：`before.png` / `after.png` 为相同 anchor 场景的前后截图；`before/`、`after/` 包含四组连续发送截图，`checks/` 包含修复前后浏览器及真实 Motion 日志。`npx tsc --noEmit` 通过。此前全套录制与 Performance 记录不覆盖连续发送中断这一回归，本节新增验证补上该场景。
 
 纳入清理提交前重新完整运行：`npx vitest run --maxWorkers=4` 得到 679 个文件，670 passed / 7 failed / 2 skipped；7256 tests passed / 7 failed / 17 skipped，117.41s，无 unhandled error。失败文件及断言与上表既有失败一致，新增 5 条全部通过。`npm run build`、`npm run mobile:build` 均通过（Vite 25.09s / 13.90s）；原有 chunk/import/依赖注解警告不影响构建。日志在 `build/prompt-overlap/checks/{vitest-final,desktop-build,mobile-build}.log`。未发布、推送或创建 PR。
+
+### 项目拖动时相邻项目消失回归修复
+
+用户截图中的空白区域可以在实际 `ProjectList` 复现：每个项目外层的 `AnimatedCollapse` 在完全展开后仍永久保留 `overflow: hidden`，排序时内层项目的 Motion 位移因此超出各自固定行槽并被裁掉。修复为仅在 opening、closing、closed 或退出期间裁剪；稳定 open 时移除内联 overflow，沿用调用方样式。展开/折叠、快速反向、隐藏交互及保留挂载的规则不变。
+
+浏览器回归还发现松手后的相关残留位移：仅清除 DOM transform 不能清除 Motion 保存的 transform，迟到渲染会把旧值写回（分组内复现为 `y=-66px`）。`useAnimatedReorder` 清理时在停止动画后用共享 `immediateTransition` 将 Motion transform 重置为 `none`，再沿用原有事件、ghost 和内联样式清理。拖动阈值、排序提交、分组/置顶存储及事件判定均未修改，没有引入动画计时器。
+
+`AnimatedCollapse.test.ts` 新增 1 条完整 overflow 生命周期回归，并在原快速反向和 reduced-motion 测试补充稳定 open/closed 的 overflow 断言；11/11 通过。新增断言在修复前失败，没有修改原业务断言或删除测试。相关 7 个测试文件 208/208 通过；位移清理修复后另跑 3 个 reorder 测试文件，28/28 通过。
+
+新增 `tests/browser/project-drag.{html,tsx,spec.ts}` 使用真实 ProjectList、实际样式与本地确定性数据。1440×900 Chrome 覆盖普通项目、项目分组、置顶项目的上下拖动、Escape 取消、松手排序和最终零位移，以及展开项目拖动时的子内容保留/恢复；普通与 reduced-motion 共 8/8 通过。使用命中栈验证移动后的相邻行实际可见，避免只检查 DOM 存在。相同测试在旧裁剪实现下失败；修复后的截图已人工查看。
+
+另补快速连续拖动检查：三个项目区域 × 两种动态效果模式 × 3 次，共 18 序列通过。第二次激活后连续两帧 ghost 和相邻行正常；最终松手后的 36 个采样帧均为零位移，无 pageerror。此项验证连续操作的逐帧结果，未单独量化第二次按下时旧落位是否尚未结束。临时脚本和结果保存在 `checks/rapid-drag.{mjs,json,log}`。同一 hook 的非 ghost `SurfaceTabs` 也在首次落位未完成时开始下一次拖动：连续 3 帧维持第二次拖动的 `x=-80px`，再次松手后连续 2 帧均为零位移（`checks/surface-tabs-rapid.*`）。
+
+验证时另一个工作线程正在同一工作区迁移文件，`src/features/files/` 暂时缺失使工作区类型检查和相关测试无法加载。未恢复或纳入这些并行改动；完整检查在隔离快照 `/tmp/monocode-project-drag-snapshot` 执行，源码为 `b502cbb2` 加本节的 6 个实现/测试文件，不代表并行工作区整体状态。`npx tsc --noEmit`、`npm run build`、`npm run mobile:build` 均通过。完整 `npx vitest run --maxWorkers=4`：679 个文件，670 passed / 7 failed / 2 skipped；7249 tests passed / 7 failed / 17 skipped，124.08s，无 unhandled error。失败项与前述既有失败表一致，包括 2 个 Capacitor mock 套件加载失败；本次新增测试通过。
+
+证据入口为 `build/project-drag/before.png`、`after.png`，详细连拍在 `before/`、`after/`，检查日志在 `checks/`（含旧裁剪失败、旧残留位移、工作区临时缺失模块、定向/完整测试及两端构建）。沿用 Playwright 1.63.0 和 `/opt/google/chrome/chrome`；未接入真实 Host/provider 或原生外壳。本节修复单独本地提交，未发布、推送或创建 PR。

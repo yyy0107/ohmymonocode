@@ -1,5 +1,5 @@
 import { animate, cancelFrame, frame as motionFrame, type AnimationPlaybackControls } from "motion/react";
-import { duration as motionDuration, panelTransition } from "../motion/tokens";
+import { duration as motionDuration, immediateTransition, panelTransition } from "../motion/tokens";
 import {
   useCallback,
   useLayoutEffect,
@@ -166,7 +166,11 @@ export function useAnimatedReorder<T extends string>(
         window.removeEventListener("keydown", onKey);
         window.removeEventListener("blur", onCancel);
         window.removeEventListener("scroll", onScroll, true);
-        for (const controls of animations.values()) controls.stop();
+        for (const [element, controls] of animations) {
+          controls.stop();
+          // Clear Motion's stored value as well as the gesture's inline style.
+          animate(element, { transform: "none" }, immediateTransition);
+        }
         animations.clear();
         cancelFrame(paintFrame);
         stopAutoScroll();

@@ -129,7 +129,7 @@ function CollapseBody({
         ...(durationMs === undefined ? undefined : { duration: durationMs / 1000 }),
       }}
       layout={animateContentResize ? "size" : false}
-      style={{ overflow: "hidden", display: hidden ? "none" : undefined }}
+      style={{ overflow: expanded && present && foldState === "open" ? undefined : "hidden", display: hidden ? "none" : undefined }}
       hidden={hidden}
       aria-hidden={!visible || undefined}
       inert={!visible}

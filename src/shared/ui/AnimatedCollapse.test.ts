@@ -85,6 +85,41 @@ it("does not replay motion on mount and animates both opening and closing", asyn
   expect(fold()?.dataset.foldState).toBe("open");
 });
 
+it("only clips overflowing descendants while opening, closing or settled closed", async () => {
+  const options = { keepMounted: true };
+  render(true, true, undefined, undefined, options);
+  const disclosure = fold()!;
+  expect(disclosure.dataset.foldState).toBe("open");
+  // Reordered rows can move outside an expanded group's original bounds.
+  expect(disclosure.style.overflow).toBe("");
+
+  render(false, true, undefined, undefined, options);
+  expect(disclosure.dataset.foldState).toBe("closing");
+  expect(disclosure.style.overflow).toBe("hidden");
+  // Reversing the close must keep clipping until the new opening finishes.
+  render(true, true, undefined, undefined, options);
+  expect(disclosure.dataset.foldState).toBe("opening");
+  expect(disclosure.style.overflow).toBe("hidden");
+  await complete();
+  expect(fold()).toBe(disclosure);
+  expect(disclosure.dataset.foldState).toBe("open");
+  expect(disclosure.style.overflow).toBe("");
+
+  render(false, true, undefined, undefined, options);
+  expect(disclosure.style.overflow).toBe("hidden");
+  await complete();
+  expect(disclosure.dataset.foldState).toBe("closed");
+  expect(disclosure.hidden).toBe(true);
+  expect(disclosure.style.overflow).toBe("hidden");
+  render(true, true, undefined, undefined, options);
+  expect(disclosure.dataset.foldState).toBe("opening");
+  expect(disclosure.style.overflow).toBe("hidden");
+  await complete();
+  expect(fold()).toBe(disclosure);
+  expect(disclosure.dataset.foldState).toBe("open");
+  expect(disclosure.style.overflow).toBe("");
+});
+
 it.each([false, true])("cancels obsolete completion on rapid reversal (retained: %s)", async (keepMounted) => {
   const options = { keepMounted };
   render(true, true, undefined, undefined, options);
@@ -94,6 +129,7 @@ it.each([false, true])("cancels obsolete completion on rapid reversal (retained:
   expect(child()?.getAttribute("data-visible")).toBe("true");
   await complete();
   expect(fold()?.dataset.foldState).toBe("open");
+  expect(fold()?.style.overflow).toBe("");
   expect(child()).not.toBeNull();
 });
 
@@ -109,6 +145,7 @@ it.each([undefined, 420])(
     render(false, true, durationMs);
     render(true, true, durationMs);
     expect(fold()?.dataset.foldState).toBe("open");
+    expect(fold()?.style.overflow).toBe("");
     render(false, true, durationMs);
     expect(fold()).toBeNull();
   },
@@ -219,11 +256,13 @@ it("retains hidden content immediately with reduced motion", () => {
   expect(child()).toBe(button);
   expect(fold()?.hidden).toBe(true);
   expect(fold()?.inert).toBe(true);
+  expect(fold()?.style.overflow).toBe("hidden");
   expect(child()?.getAttribute("data-visible")).toBe("false");
   render(true, true, undefined, undefined, options);
   expect(child()).toBe(button);
   expect(fold()?.dataset.foldState).toBe("open");
   expect(fold()?.hidden).toBe(false);
+  expect(fold()?.style.overflow).toBe("");
 });
 
 it("notifies only after entering, not on mount or while opening", async () => {
@@ -239,4 +278,3 @@ it("notifies only after entering, not on mount or while opening", async () => {
   render(true, true, undefined, undefined, { onEntered });
   expect(onEntered).toHaveBeenCalledOnce();
 });
-
