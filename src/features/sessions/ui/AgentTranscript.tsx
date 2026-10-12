@@ -1094,7 +1094,7 @@ function AgentTranscriptComponent({
       {/* Contain wide rows inside the vertical scroller; code blocks and tables
           retain their own horizontal scrolling. Clip the content column so
           WebKit can keep scrolling the transcript vertically. */}
-      <div className="mx-auto flex w-full min-w-0 max-w-4xl @[1280px]:max-w-6xl flex-col gap-1 overflow-x-clip wrap-anywhere pb-8">
+      <div className="mx-auto flex w-full min-w-0 max-w-4xl flex-col gap-1 overflow-x-clip wrap-anywhere pb-8">
         {firstVisibleTurn > 0 ? (
           <div className="flex justify-center px-4 @md:px-6 py-3">
             <button

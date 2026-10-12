@@ -1093,7 +1093,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
             ref={composerDockMotion.dockedRef}
             data-session-composer
             inert={btw.open}
-            className="mx-auto w-full max-w-4xl @[1280px]:max-w-6xl shrink-0"
+            className="mx-auto w-full max-w-4xl shrink-0"
           >
             {composer}
           </div>
