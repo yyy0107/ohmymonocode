@@ -241,3 +241,15 @@
 - 每步只跑相关的现有测试：`src/mobile/motion.test.ts`、新的令牌一致性测试，以及改到组件时对应的 `QuestionForm` / `AgentTranscript` / `SessionStatusPanel` 测试。
 - 加一条 CSS 测试：`omb-metrics.css` 里每条规则都以 `html[data-skin]` 开头，并且文件里不出现 `--radius-lg`、`--radius-xl`。
 - 改完在桌面窗口里实际检查：皮肤下侧栏、输入、问题卡、右贴设置；切到 Classic 确认尺寸不变；手机入口确认没有被影响。
+
+## 第一轮实施记录
+
+与上文不同的地方：
+
+- 停止按钮保留现有的 ink 圆盘，不改成 control 底：好几个皮肤的作曲家底色等于 raised，control 底在上面看不见。
+- 输入框最大高度保持 160px，与 `COMPOSER_MAX_HEIGHT` 一致；长高已有合成器动画，不需要再改。
+- 菜单只放大 `menuitem*` 行和作曲家加号菜单；选择器里的 `option` 列表只换圆角，保持原密度。弹出层内边距不动。
+- 设置里的分段控件只做了 36px 外壳和选中块，没有做前后缘拉伸：现有 `Segmented` 是每个按钮各自着色，没有独立的指示块。
+- `.ui-button-md` / `-sm` 的皮肤规则降为单类特异性，场景选择器（问题卡、审批）可以覆盖它们。
+- 审批 toast 的按钮保持现有 `flex: none` 加排序，尺寸统一为 36px。
+- 主侧栏的群组行（会话分组）高 40px，图标列与会话头像对齐；群组内的会话行左侧多缩进 20px。

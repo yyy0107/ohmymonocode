@@ -654,7 +654,7 @@ export function SettingsView({
                 ref={lockOverscroll}
                 className="@container/settings min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-none"
               >
-                <div className="mx-auto w-full max-w-4xl px-5 py-6 pb-16 @min-[560px]/settings:px-8 @min-[560px]/settings:py-8">
+                <div data-settings-content className="mx-auto w-full max-w-4xl px-5 py-6 pb-16 @min-[560px]/settings:px-8 @min-[560px]/settings:py-8">
                   <PageHeader
                     title={settingsSectionLabel(section)}
                     description={settingsSectionDescription(section)}
@@ -5387,7 +5387,7 @@ function PageHeader({
 }) {
   return (
     <header className="pb-6">
-      <h1 className="text-ui-xl font-semibold leading-tight text-foreground">
+      <h1 data-settings-title className="text-ui-xl font-semibold leading-tight text-foreground">
         {title}
       </h1>
       {description ? (
@@ -5425,13 +5425,14 @@ function Group({
     <section
       id={id ? settingDomId(id) : undefined}
       data-setting-id={id}
+      data-settings-group
       className={title || description || action ? "pt-8 first:pt-0" : "pt-5 first:pt-0"}
     >
       {title || description || action ? (
         <div className="flex items-end gap-4 pb-3">
           <div className="min-w-0 flex-1">
             {title ? (
-              <h2 className="text-ui-lg font-semibold text-foreground">
+              <h2 data-settings-group-title className="text-ui-lg font-semibold text-foreground">
                 {title}
               </h2>
             ) : null}
@@ -5517,6 +5518,7 @@ function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
+      data-settings-segmented
       className="inline-grid max-w-full shrink-0 gap-1 text-ui-base"
       style={{
         gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`,

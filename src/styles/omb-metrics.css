@@ -487,3 +487,99 @@ html[data-skin] .approval-toast :is([data-approval="allow"], [data-approval="den
   padding: 0 var(--omb-space-16);
   font-size: 15px;
 }
+
+/* Menus, as the phone's floating menu: 16px card, 44px rows. Listbox
+   options in pickers keep their own density. */
+html[data-skin] :is(.popover-frame, .composer-popover) {
+  max-width: min(420px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  border-radius: var(--omb-radius-card);
+}
+html[data-skin] :is(.popover-frame, .composer-popover) :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]),
+html[data-skin] .composer-popover > button {
+  gap: var(--omb-space-12);
+  min-height: var(--omb-hit);
+  padding: var(--omb-space-8) var(--omb-space-12);
+  border-radius: var(--omb-radius-row);
+  font-size: 15px;
+}
+html[data-skin] :is(.popover-frame, .composer-popover) [role="option"] {
+  border-radius: var(--omb-radius-row);
+}
+
+/* Right-hand sheet: only the leading corners round. */
+html[data-skin] .app-view-dialog.omb-slide-panel {
+  border-radius: var(--omb-radius-sheet) 0 0 var(--omb-radius-sheet);
+}
+
+/* Settings, as the phone's settings pages: a 720px column, 52px rows,
+   iOS-sized switches and a 36px segmented control. */
+html[data-skin] [data-settings-content] {
+  max-width: 720px;
+}
+html[data-skin] [data-settings-title] {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 22px;
+}
+html[data-skin] [data-settings-group] {
+  padding-top: var(--omb-space-28);
+}
+html[data-skin] [data-settings-group]:first-child {
+  padding-top: 0;
+}
+html[data-skin] [data-settings-group-title] {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+html[data-skin] [data-settings-group] .settings-card {
+  border-radius: var(--omb-radius-card);
+}
+html[data-skin] .settings-row {
+  min-height: 52px;
+  padding: var(--omb-space-12) var(--omb-space-16);
+}
+html[data-skin] .settings-row > div:first-child > div:first-child {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+}
+html[data-skin] .settings-row > div:first-child > p {
+  font-size: 13px;
+  line-height: 18px;
+}
+html[data-skin] .settings-row [data-slot="switch"][data-size="default"] {
+  width: 51px;
+  height: 31px;
+  padding: 2px;
+  transition: background-color var(--omb-motion-feedback) var(--omb-ease-out);
+}
+html[data-skin] .settings-row [data-slot="switch"][data-size="default"] > [data-slot="switch-thumb"] {
+  width: 27px;
+  height: 27px;
+  translate: 0 0;
+  transition: translate var(--omb-spring-snappy-duration) var(--omb-spring-snappy);
+}
+html[data-skin] .settings-row [data-slot="switch"][data-size="default"][data-state="checked"] > [data-slot="switch-thumb"] {
+  translate: 20px 0;
+}
+html[data-skin] [data-settings-segmented] {
+  gap: var(--omb-space-2);
+  height: var(--omb-control);
+  padding: var(--omb-space-2);
+  border-radius: 999px;
+}
+html[data-skin] [data-settings-segmented] > button {
+  height: 32px;
+  padding-inline: var(--omb-space-12);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-skin] .settings-row [data-slot="switch"],
+  html[data-skin] .settings-row [data-slot="switch-thumb"] {
+    transition: none;
+  }
+}

@@ -729,7 +729,6 @@ html[data-skin] .app-view-dialog.omb-slide-panel {
   transform: none;
   border: 0;
   border-left: 1px solid var(--color-hairline);
-  border-radius: var(--radius-xl, 0.75rem) 0 0 var(--radius-xl, 0.75rem);
   background: var(--color-panel);
   color: var(--color-ink);
   box-shadow: -24px 0 48px color-mix(in srgb, black 32%, transparent);
@@ -851,10 +850,6 @@ html[data-skin] :is(.popover-frame, .composer-popover, .modal-frame, .quick-open
   box-shadow: var(--shadow-sheet);
 }
 
-html[data-skin] :is(.popover-frame, .composer-popover) {
-  border-radius: 14px;
-}
-
 html[data-skin] :is(.modal-frame, .quick-open-panel) {
   border-radius: var(--radius-sheet);
   max-height: 85vh;
@@ -869,12 +864,6 @@ html[data-skin] :is(.composer-popover, .quick-open-panel) {
   );
   -webkit-backdrop-filter: var(--glass-filter);
   backdrop-filter: var(--glass-filter);
-}
-
-html[data-skin] :is(.popover-frame, .composer-popover)
-  :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="option"]),
-html[data-skin] .composer-popover > button {
-  border-radius: 8px;
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -894,4 +883,17 @@ html[data-skin] .popover-open {
   html[data-skin] .popover-open {
     animation: none;
   }
+}
+
+html[data-skin] [data-settings-group-title] {
+  color: var(--color-ink-tertiary);
+}
+
+html[data-skin] [data-settings-segmented] {
+  background: var(--color-inset);
+}
+
+html[data-skin] [data-settings-segmented] > button[aria-checked="true"] {
+  background: var(--color-raised);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
 }
