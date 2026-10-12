@@ -2118,6 +2118,7 @@ export function Composer({
             prompt={question}
             onReply={onQuestionReply}
             onInteraction={onQuestionInteraction}
+            variant="dock"
           />
         ) : null}
         {children}

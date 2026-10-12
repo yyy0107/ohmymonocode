@@ -104,7 +104,14 @@ import {
 import { markLinkedSessionUpdateSeen } from "../../inbox/model/linkedSessionSeen";
 import { RemoteSession } from "../../connections/ui/RemoteSession";
 import { isRemoteProjectPath } from "../../projects/model/recents";
-import { questionFollowUp } from "../model/questionHistory";
+import {
+  latestAnswerableQuestionId,
+  questionAnswerableLater,
+  questionFollowUp,
+} from "../model/questionHistory";
+import type { QuestionAnswer } from "../model/userQuestion";
+import { QuestionHistoryForm } from "./QuestionHistoryForm";
+import { TranscriptPlatformContext } from "./TranscriptPlatform";
 import {
   IMPLEMENT_PLAN_PROMPT,
   skipPlanDecision,
@@ -114,6 +121,9 @@ import { PlanDecision } from "./PlanPreview";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import { remoteProjectFor, sessionUsesHost } from "../../connections/model/remoteProjects";
 import type { HostSession } from "../../connections/model/protocol";
+
+/** Closed question panels stay closed when the pane remounts. */
+const dismissedDockQuestions = new Set<string>();
 
 export type SessionPaneProps = {
   clockOffsetMs?: number;
@@ -416,10 +426,15 @@ const LocalSessionPane = memo(function LocalSessionPane({
       onApproval(session.id, requestId, decision),
     [onApproval, session.id],
   );
+  const liveQuestionHistoryId = session.pendingQuestion?.historyId;
   const replyQuestion = useCallback(
-    (requestId: number, reply: UserQuestionReply) =>
-      onQuestionReply(session.id, requestId, reply),
-    [onQuestionReply, session.id],
+    (requestId: number, reply: UserQuestionReply) => {
+      // A live question the user skipped must not reopen once it is saved.
+      if (reply.kind === "skipped" && liveQuestionHistoryId)
+        dismissedDockQuestions.add(liveQuestionHistoryId);
+      return onQuestionReply(session.id, requestId, reply);
+    },
+    [onQuestionReply, session.id, liveQuestionHistoryId],
   );
   const openPlan = useCallback(
     (blockId: string) => onOpenPlan(session.id, blockId),
@@ -443,6 +458,56 @@ const LocalSessionPane = memo(function LocalSessionPane({
   const lastDecisionPlanId = useRef(decidingPlanId);
   if (decidingPlanId) lastDecisionPlanId.current = decidingPlanId;
   const dockedPlanId = decidingPlanId ?? lastDecisionPlanId.current;
+  // Saved questions are answered from the composer dock, not inside history.
+  const [openQuestionId, setOpenQuestionId] = useState<string>();
+  const [, setDismissRevision] = useState(0);
+  const latestQuestionId = latestAnswerableQuestionId(session);
+  // Only a question the user has not already skipped or closed opens by itself.
+  const autoQuestionId =
+    latestQuestionId && !dismissedDockQuestions.has(latestQuestionId)
+      ? latestQuestionId
+      : undefined;
+  const requestedQuestionId = openQuestionId ?? autoQuestionId;
+  const lateQuestionsEnabled = !session.worktreeRemoved && session.harness === "codex";
+  const shownQuestionId =
+    lateQuestionsEnabled &&
+    !session.pendingQuestion &&
+    questionAnswerableLater(session, requestedQuestionId)
+      ? requestedQuestionId
+      : undefined;
+  const lastShownQuestionId = useRef(shownQuestionId);
+  if (shownQuestionId) lastShownQuestionId.current = shownQuestionId;
+  const dockedQuestionId = shownQuestionId ?? lastShownQuestionId.current;
+  const dockedQuestion = dockedQuestionId
+    ? session.blocks.find((block) => block.id === dockedQuestionId)?.question
+    : undefined;
+  const blocksRef = useRef(session.blocks);
+  blocksRef.current = session.blocks;
+  // Closing covers every question asked so far; only a newer one opens again.
+  const closeQuestionDock = useCallback(() => {
+    for (const block of blocksRef.current)
+      if (block.question) dismissedDockQuestions.add(block.id);
+    setOpenQuestionId(undefined);
+    setDismissRevision((revision) => revision + 1);
+  }, []);
+  const answerQuestionLater = (answer: QuestionAnswer) =>
+    onSubmit(session.id, questionFollowUp(session, answer), [], {
+      questionAnswer: answer,
+    });
+  const pendingQuestionId = useRef(session.pendingQuestion?.historyId);
+  pendingQuestionId.current = session.pendingQuestion?.historyId;
+  const parentTranscriptPlatform = useContext(TranscriptPlatformContext);
+  const transcriptPlatform = useMemo(
+    () => ({
+      ...parentTranscriptPlatform,
+      // The live question is already docked in the composer.
+      openQuestion: (blockId: string) => {
+        if (blockId !== pendingQuestionId.current)
+          setOpenQuestionId(blockId);
+      },
+    }),
+    [parentTranscriptPlatform],
+  );
   const jumpToBottomRef = useRef<(() => void) | null>(null);
   const transcriptScope = useRef<HTMLDivElement>(null);
   // Workspace commands already route remote:// paths to their owning Host.
@@ -683,20 +748,36 @@ const LocalSessionPane = memo(function LocalSessionPane({
       worktreeCreation={session.worktreeCreation}
       question={session.pendingQuestion}
       children={
-        <AnimatedCollapse expanded={!!decidingPlanId}>
-          {dockedPlanId ? (
-            <PlanDecision
-              key={dockedPlanId}
-              onImplement={() =>
-                onSubmit(session.id, IMPLEMENT_PLAN_PROMPT, [])
-              }
-              onRevise={(feedback) =>
-                onSubmit(session.id, feedback, [], { intent: "plan" })
-              }
-              onSkip={() => skipPlanDecision(dockedPlanId)}
-            />
-          ) : null}
-        </AnimatedCollapse>
+        <>
+          <AnimatedCollapse expanded={!!shownQuestionId}>
+            {dockedQuestionId && dockedQuestion ? (
+              <QuestionHistoryForm
+                key={dockedQuestionId}
+                blockId={dockedQuestionId}
+                question={dockedQuestion}
+                disabled={!shownQuestionId}
+                onAnswer={answerQuestionLater}
+                onClose={closeQuestionDock}
+                onCollapse={closeQuestionDock}
+                variant="dock"
+              />
+            ) : null}
+          </AnimatedCollapse>
+          <AnimatedCollapse expanded={!!decidingPlanId}>
+            {dockedPlanId ? (
+              <PlanDecision
+                key={dockedPlanId}
+                onImplement={() =>
+                  onSubmit(session.id, IMPLEMENT_PLAN_PROMPT, [])
+                }
+                onRevise={(feedback) =>
+                  onSubmit(session.id, feedback, [], { intent: "plan" })
+                }
+                onSkip={() => skipPlanDecision(dockedPlanId)}
+              />
+            ) : null}
+          </AnimatedCollapse>
+        </>
       }
       onQuoteRequestConsumed={acknowledgeQuote}
       onInboxCardDismiss={() => onInboxCardDismiss?.(session.id)}
@@ -953,6 +1034,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
                 sessionId={session.id}
                 onMouseDown={focusPane}
               >
+                <TranscriptPlatformContext.Provider value={transcriptPlatform}>
                 <AgentTranscript
                   clockOffsetMs={clockOffsetMs}
                   blocks={session.blocks}
@@ -973,8 +1055,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
                   worktreeCreation={session.worktreeCreation}
                   pendingQuestion={!!session.pendingQuestion}
                   pendingQuestionHistoryId={session.pendingQuestion?.historyId}
-                  onQuestionFollowUp={session.worktreeRemoved || session.harness !== "codex" ? undefined : (answer) =>
-                    onSubmit(session.id, questionFollowUp(session, answer), [], { questionAnswer: answer })}
+                  onQuestionFollowUp={lateQuestionsEnabled ? answerQuestionLater : undefined}
                   backgroundTasks={session.backgroundTasks}
                   onApproval={session.worktreeRemoved ? undefined : approve}
                   onAddToChat={addSelectionToChat}
@@ -1063,6 +1144,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
                     )
                   }
                 />
+                </TranscriptPlatformContext.Provider>
               </PooledTranscript>
               {!session.inboxAsk ? (
                 <TranscriptFind

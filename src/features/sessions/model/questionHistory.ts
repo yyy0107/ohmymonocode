@@ -73,6 +73,35 @@ export function questionFollowUp(
   });
 }
 
+export function questionAnswerableLater(
+  session: Session,
+  blockId: string | undefined,
+): boolean {
+  const record = blockId
+    ? session.blocks.find((block) => block.id === blockId)?.question
+    : undefined;
+  return (
+    session.harness === "codex" &&
+    !!record?.allowLateReply &&
+    !record.reply &&
+    record.decision !== "answered" &&
+    session.pendingQuestion?.historyId !== blockId
+  );
+}
+
+/** The newest saved question, while the user has not written past it. */
+export function latestAnswerableQuestionId(
+  session: Session,
+): string | undefined {
+  for (let index = session.blocks.length - 1; index >= 0; index--) {
+    const block = session.blocks[index]!;
+    if (block.question)
+      return questionAnswerableLater(session, block.id) ? block.id : undefined;
+    if (block.role === "user") return undefined;
+  }
+  return undefined;
+}
+
 /** Persist the record without restoring a live request or an expired timer. */
 export function restoreQuestionRecord(
   value: unknown,

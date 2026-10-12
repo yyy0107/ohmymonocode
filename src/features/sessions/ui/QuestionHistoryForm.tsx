@@ -11,12 +11,16 @@ export function QuestionHistoryForm({
   disabled = false,
   onAnswer,
   onClose,
+  onCollapse,
+  variant,
 }: {
   blockId: string;
   question: UserQuestionRecord;
   disabled?: boolean;
   onAnswer: (answer: QuestionAnswer) => boolean | void | Promise<boolean | void>;
   onClose: () => void;
+  onCollapse?: () => void;
+  variant?: "card" | "dock";
 }) {
   const { t } = useTranslation();
   const visible = useSurfaceVisibility();
@@ -29,6 +33,8 @@ export function QuestionHistoryForm({
     >
       <QuestionForm
         prompt={{ ...question, autoResolveAt: undefined }}
+        onCollapse={onCollapse}
+        variant={variant}
         onReply={async (_, reply) => {
           if (disabled || sending || !visible) return;
           if (reply.kind === "skipped") {

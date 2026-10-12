@@ -327,3 +327,44 @@ describe("QuestionForm steps", () => {
     });
   });
 });
+
+describe("QuestionForm dock layout", () => {
+  const typeReply = (value: string) => {
+    const field = container.querySelector<HTMLInputElement>("input")!;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, value);
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  };
+  const render = (onReply = vi.fn(), onCollapse = vi.fn()) => {
+    act(() => root.render(createElement(QuestionForm, {
+      prompt: { requestId: 3, questions: [{ id: "kind", prompt: "Which part?",
+        multiSelect: false, allowCustom: true,
+        options: [{ id: "form", label: "Form" }, { id: "chat", label: "Chat" }] }] },
+      onReply, onCollapse, variant: "dock",
+    })));
+    return { onReply, onCollapse };
+  };
+  const submit = () => container.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+
+  it("numbers the choices and replaces the Other row with a reply field", () => {
+    const { onCollapse } = render();
+    const options = Array.from(container.querySelectorAll("button[aria-pressed]"));
+    expect(options.map((option) => option.textContent)).toEqual(["1Form", "2Chat"]);
+    expect(container.querySelector("input")!.placeholder).toBe("Or write your own reply");
+    expect(submit().disabled).toBe(true);
+    act(() => container.querySelector<HTMLButtonElement>('button[aria-label="Collapse question"]')!.click());
+    expect(onCollapse).toHaveBeenCalled();
+  });
+
+  it("sends a written reply instead of a picked choice", () => {
+    const { onReply } = render();
+    act(() => container.querySelector<HTMLButtonElement>("button[aria-pressed]")!.click());
+    typeReply("Both");
+    expect(container.querySelector("button[aria-pressed]")!.getAttribute("aria-pressed")).toBe("false");
+    act(() => submit().click());
+    expect(onReply).toHaveBeenCalledWith(3, {
+      kind: "answered", answers: { kind: ["__custom__"] }, custom: { kind: "Both" },
+    });
+  });
+});
