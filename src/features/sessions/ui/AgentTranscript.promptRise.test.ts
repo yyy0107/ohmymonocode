@@ -29,7 +29,7 @@ const second: Block[] = [
   { id: "u2", role: "user", text: "Next" },
 ];
 
-function render(blocks: Block[], busy = true, options: { promptMotion?: "mobile"; animateFrom?: string } = {}) {
+function render(blocks: Block[], busy = true, options: { promptMotion?: "mobile"; animateFrom?: string } = { promptMotion: "mobile" }) {
   act(() =>
     root.render(
       createElement(AgentTranscript, { blocks, busy, visible: true, ...options }),
@@ -96,7 +96,30 @@ function risenPrompts() {
   ];
 }
 
-describe("prompt rise in the chat layout", () => {
+describe("desktop messages appear in place", () => {
+  it.each([
+    ["chat", true], ["chat", false], ["full", true], ["full", false],
+  ] as const)("does not slide new user or AI messages (layout=%s, anchor=%s)", (layout, anchor) => {
+    appearance.layout = layout;
+    appearance.anchor = anchor;
+    const desktop = { promptMotion: undefined };
+    render([], false, desktop);
+    render(first, true, desktop);
+    act(() => vi.advanceTimersByTime(20));
+    render([...first, { id: "a1", role: "assistant", text: "Hi", streaming: true }], true, desktop);
+    act(() => vi.advanceTimersByTime(100));
+    render(second, true, desktop);
+    act(() => vi.advanceTimersByTime(20));
+
+    expect(animate).not.toHaveBeenCalled();
+    expect(container.querySelector("[data-prompt-rise]")).toBeNull();
+    expect(container.querySelector("[data-transcript-content-motion]")).toBeNull();
+    expect(container.querySelector<HTMLElement>('[data-prompt-anchor="u2"]')!.style.visibility).toBe("");
+    expect(container.querySelector(".agent-markdown")).not.toBeNull();
+  });
+});
+
+describe("mobile prompt rise in the chat layout", () => {
   it("slides the first prompt up from the dock and settles it from a pending tint", () => {
     render([], false);
     render(first);
@@ -297,7 +320,7 @@ describe("prompt rise in the chat layout", () => {
   });
 
   it("preserves the default mount behavior when an explicit submission marker is supplied", () => {
-    render(second, true, { animateFrom: "u2" });
+    render(second, true, { promptMotion: undefined, animateFrom: "u2" });
     act(() => vi.advanceTimersByTime(20));
     expect(animate).not.toHaveBeenCalled();
   });

@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Block } from "../model/session";
 import { AgentTranscript } from "./AgentTranscript";
+import { applyReducedMotion } from "../../../shared/lib/reducedMotion";
 
 let container: HTMLDivElement;
 let root: Root;
@@ -34,6 +35,8 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  vi.restoreAllMocks();
+  applyReducedMotion("system");
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
@@ -53,7 +56,58 @@ function render(blocks: Block[], busy = true, visible = true) {
   );
 }
 
+it("keeps new desktop replies in place while typing and draining their final chunk", () => {
+  const animate = vi.spyOn(Element.prototype, "animate");
+  const entrances = () => animate.mock.contexts.filter(node =>
+    node.hasAttribute("data-transcript-content-motion"));
+  const user: Block = { id: "user", role: "user", text: "Review" };
+  const history: Block[] = [
+    { id: "previous-user", role: "user", text: "Hello" },
+    { id: "previous-reply", role: "assistant", text: "已有回复。" },
+    user,
+  ];
+  const text = "新回复原地逐字显示，不播放从下往上的入场动画。".repeat(8);
+  const reply = (text: string, streaming = true): Block => ({
+    id: "reply", role: "assistant", text, streaming,
+  });
+  const received = () => container.querySelectorAll(".agent-markdown")[1]!;
+  render(history);
+  expect(container.querySelector(".agent-markdown")!.textContent).toBe("已有回复。");
+  expect(entrances()).toHaveLength(0);
+
+  render([...history, reply(text)]);
+  expect(entrances()).toHaveLength(0);
+  expect(received().closest("[data-transcript-content-motion]")).toBeNull();
+  expect(received().textContent).toBe("");
+  act(() => vi.advanceTimersByTime(100));
+  const partial = received().textContent!;
+  expect(partial.length).toBeGreaterThan(0);
+  expect(partial.length).toBeLessThan(text.length);
+
+  render([...history, reply(text + text, false)], false);
+  expect(received().textContent).toBe(partial);
+  act(() => vi.advanceTimersByTime(2000));
+  expect(received().textContent).toBe(text + text);
+  expect(received().closest("[data-transcript-content-motion]")).toBeNull();
+  expect(entrances()).toHaveLength(0);
+  expect(container.querySelector("[data-word-fade]")).toBeNull();
+});
+
+it("shows new desktop output immediately without sliding when motion is reduced", () => {
+  applyReducedMotion("on");
+  const animate = vi.spyOn(Element.prototype, "animate");
+  const user: Block = { id: "user", role: "user", text: "Review" };
+  render([user]);
+  render([user, { id: "reply", role: "assistant", text: "收到回复。", streaming: true }]);
+  expect(container.querySelector(".agent-markdown")!.textContent).toBe("收到回复。");
+  expect(animate.mock.contexts.filter(node =>
+    node.hasAttribute("data-transcript-content-motion"))).toHaveLength(0);
+});
+
 it("shows background replies immediately on returning, then paces fresh output", () => {
+  const animate = vi.spyOn(Element.prototype, "animate");
+  const entrances = () => animate.mock.contexts.filter(node =>
+    node.hasAttribute("data-transcript-content-motion")).length;
   const user: Block = { id: "user", role: "user", text: "Review" };
   const reply = (text: string): Block => ({ id: "reply", role: "assistant", text, streaming: true });
   const text = "后台已经收到的回复应该直接显示。".repeat(8);
@@ -67,9 +121,11 @@ it("shows background replies immediately on returning, then paces fresh output",
   const background = text + text;
   render([user, reply(background)], true, false);
   const next: Block = { id: "next", role: "assistant", text: "后台新回复。" };
+  const beforeReturn = entrances();
   render([user, reply(background), next]);
   expect([...container.querySelectorAll(".agent-markdown")].map(node => node.textContent))
     .toEqual([background, next.text]);
+  expect(entrances()).toBe(beforeReturn);
 
   render([user, reply(background + text), next]);
   expect(container.querySelector(".agent-markdown")!.textContent).toBe(background);

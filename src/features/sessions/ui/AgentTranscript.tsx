@@ -265,7 +265,7 @@ type Props = {
   touchScroll?: boolean;
   /** A just-submitted turn whose first response may already have arrived. */
   animateFrom?: string;
-  /** Phone sends land after a Host round trip: introduce `animateFrom` on mount too. */
+  /** Opt into phone prompt entrances, including `animateFrom` after a Host round trip. */
   promptMotion?: "mobile";
   /** The conversation this transcript belongs to, for its workflow run cards. */
   workflowParent?: WorkflowRunParent;
@@ -455,7 +455,7 @@ function AgentTranscriptComponent({
         : "recorded";
     if (lastUserSending && !wasSending) beforeSending.current = seenUserId.current;
     seenUserId.current = lastUserId;
-    priorTurn.current = promptChange.current === "sent"
+    priorTurn.current = promptMotion === "mobile" && promptChange.current === "sent"
       ? measureLastTurn(scroller.current)
       : undefined;
     if (lastUserId && !anchorTurn) setAnchorTurn(true);
@@ -729,10 +729,9 @@ function AgentTranscriptComponent({
     pinTranscript(el);
   }, [lastUserId, pinTranscript, setShowJump]);
 
-  // In the chat layout a sent prompt scrolls into its laid-out row with the
-  // turns above it, whether or not prompts are pinned
-  // to the top. A mount may be an existing running session, so only an
-  // explicitly marked mobile submission introduces its prompt on mount.
+  // Phone prompts slide into their laid-out rows; desktop messages appear in
+  // place. A mount may be an existing running session, so only an explicitly
+  // marked phone submission introduces its prompt on mount.
   const introducePrompt = useRef({ chat: false, visible });
   introducePrompt.current = {
     chat: transcriptLayout === "chat",
@@ -766,7 +765,7 @@ function AgentTranscriptComponent({
       return;
     }
     const { chat, visible } = introducePrompt.current;
-    if (!lastUserId || !chat || !visible) return;
+    if (!lastUserId || !chat || !visible || promptMotion !== "mobile") return;
     if (
       mounting &&
       !(promptMotion === "mobile" && animateFrom === lastUserId)
