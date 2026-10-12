@@ -21,6 +21,7 @@ import type { HostSession } from "./protocol";
 import { remoteSessionFor, rememberRemoteSession } from "./connections";
 import { isRetiredSession } from "../../sessions/model/retiredSessions";
 import { sessionUsesHost } from "./remoteProjects";
+import { loadRecents, projectRailItems, rememberProject, saveProjectRailOrder } from "../../projects/model/recents";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("./remoteOutbox", () => ({
   OUTBOX_PREFIX: "monocode.remote-command.v1:",
@@ -79,6 +80,7 @@ beforeEach(() => {
         updatedAt: 2,
       };
     if (command === "remote_request") {
+      if (args.method === "nativeSources.import") return value;
       if (args.method === "sessions.delete") return { deleted: true };
       if (args.method === "projects.list") return [project];
       if (args.method === "sessions.sync") return { kind: "snapshot", value };
@@ -281,6 +283,20 @@ it("never falls back to bootstrap cache after authentication rejection or native
     return original(command, args);
   });
   await expect(initializeSharedHost()).rejects.toThrow("offline");
+});
+
+it("imports native history without promoting its project in the sidebar", async () => {
+  await initializeSharedHost();
+  rememberProject(project.cwd);
+  rememberProject("/work/current");
+  saveProjectRailOrder(["/work/current", project.cwd]);
+  const previous = loadRecents();
+
+  expect(await sharedSessionBackend()!.native!.import("native-source")).toBe("history");
+  expect(loadRecents()).toEqual(previous);
+  expect(projectRailItems(loadRecents(), "").map((row) => row.path)).toEqual([
+    "/work/current", project.cwd,
+  ]);
 });
 
 it("does not overwrite legacy project preferences during pre-settings bootstrap", async () => {

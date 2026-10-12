@@ -416,6 +416,7 @@ isRemoteProjectPath,
 looksLikeProject,
 normalizeProjectPath,
 projectRailItems,
+rememberImportedProject,
 rememberProject,
 replaceProjectPath,
 sameProjectPath,
@@ -2125,7 +2126,7 @@ export function useWorkspaceController({
             setSessions(next);
           }
           setHistory((current) => mergeProjectHistorySummary(current, summary));
-          if (imported) setRecents(rememberProject(session.cwd));
+          if (imported) setRecents(rememberImportedProject(session.cwd));
         },
       }),
     [],

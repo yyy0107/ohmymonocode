@@ -9,6 +9,7 @@ import {
   looksLikeProject,
   projectRailItems,
   projectRailSections,
+  rememberImportedProject,
   rememberProject,
   replaceProjectPath,
   savePinnedProjects,
@@ -211,6 +212,45 @@ describe("projectRailItems", () => {
         (item) => item.path,
       ),
     ).toEqual(["/tmp/app"]);
+  });
+});
+
+describe("rememberImportedProject", () => {
+  beforeEach(mockLocalStorage);
+
+  it("retains existing project order and visit times across repeated imports", () => {
+    rememberProject("/work/a");
+    rememberProject("/work/b");
+    saveProjectRailOrder(["/work/a", "/work/b"]);
+    const previous = loadRecents();
+    expect(rememberImportedProject("/work/a/")).toEqual(previous);
+    expect(rememberImportedProject("/work/b")).toEqual(previous);
+    expect(loadProjectRailOrder()).toEqual(["/work/a", "/work/b"]);
+  });
+
+  it("appends imported projects without moving the existing rows, including after reload", () => {
+    rememberProject("/work/a");
+    rememberProject("/work/b");
+    const previousOrder = projectRailItems(loadRecents(), "").map((row) => row.path);
+    rememberImportedProject("/work/import-one");
+    rememberImportedProject("/work/import-two");
+    rememberImportedProject("/work/import-one/");
+    expect(projectRailItems(loadRecents(), "").map((row) => row.path)).toEqual([
+      ...previousOrder, "/work/import-one", "/work/import-two",
+    ]);
+    expect(loadRecents().slice(-2)).toEqual([
+      { path: "/work/import-one", openedAt: 0 },
+      { path: "/work/import-two", openedAt: 0 },
+    ]);
+  });
+
+  it("does not restore archived projects or add non-project paths", () => {
+    rememberProject("/work/archived");
+    archiveProject("/work/archived");
+    const archived = loadArchivedProjects();
+    for (const path of ["/work/archived/", "~", "/", ""])
+      expect(rememberImportedProject(path)).toEqual([]);
+    expect(loadArchivedProjects()).toEqual(archived);
   });
 });
 

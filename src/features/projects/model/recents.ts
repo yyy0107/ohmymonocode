@@ -80,6 +80,28 @@ export function rememberProject(path: string): RecentProject[] {
   return next;
 }
 
+/** Importing history is not a project visit; keep existing sidebar positions. */
+export function rememberImportedProject(path: string): RecentProject[] {
+  const normalized = normalize(path);
+  const previous = loadRecents();
+  if (
+    !looksLikeProject(normalized) ||
+    isChatFolder(normalized) ||
+    previous.some((project) => sameProjectPath(project.path, normalized)) ||
+    loadArchivedProjects().some((project) => sameProjectPath(project.path, normalized))
+  ) return previous;
+
+  const order = syncProjectRailOrder(
+    loadProjectRailOrder(),
+    collectRailProjects(previous, ""),
+  );
+  const next = [...previous, { path: normalized, openedAt: 0 }];
+  saveProjectRailOrder([...order, normalized]);
+  save(next);
+  notifyProjectPathsChanged();
+  return next;
+}
+
 function replacePath(paths: string[], from: string, to: string): string[] {
   const out: string[] = [];
   const seen = new Set<string>();

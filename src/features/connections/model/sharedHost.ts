@@ -31,7 +31,7 @@ import {
 } from "./remoteProjects";
 import {
   normalizeProjectPath,
-  rememberProject,
+  rememberImportedProject,
 } from "../../projects/model/recents";
 import {
   OUTBOX_PREFIX,
@@ -301,7 +301,7 @@ export async function initializeSharedHost(): Promise<void> {
         paths.set(value.session.id, normalizeProjectPath(project.cwd));
         if (!remoteSessionFor(value.session.id))
           rememberRemoteSession(value.session.id, value.session.id, { environmentId: prepared.machine.environmentId, projectId: value.projectId });
-        rememberProject(project.cwd);
+        rememberImportedProject(project.cwd);
         return value.session.id;
       },
       syncAll: async () => {
