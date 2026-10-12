@@ -1,0 +1,759 @@
+import { translate } from "../shared/i18n/language";
+import {
+WorkflowAppContext
+} from "../features/workflows/ui/workflowAppContext";
+import {
+WorkflowActivityContext
+} from "../features/workflows/model/workflowActivity";
+import { WorkflowProjectsContext } from "../features/workflows/kit/store/TabStoreProvider";
+import {
+AppViewHost,
+AppViewRendererContext
+} from "../features/workspace/ui/AppViewHost";
+import { ActivityBar } from "./shell/ActivityBar";
+import {
+OrchestrationActions,
+OrchestrationWorkers
+} from "../features/orchestration/ui/OrchestrationActions";
+import {
+type CSSProperties
+} from "react";
+import { Sidebar } from "./shell/Sidebar";
+import { SidebarRail } from "./shell/SidebarTransition";
+import { SidebarMain } from "./shell/SidebarMain";
+import { GradientBlurBackground } from "../features/settings/ui/GradientBlurBackground";
+import { ApprovalToasts } from "../features/sessions/ui/ApprovalToasts";
+import { HarnessUpdateNotice } from "../features/providers/ui/HarnessUpdateNotice";
+import { WhatsNewDialog } from "./shell/WhatsNewDialog";
+import { ProviderSignInDialog } from "../features/sessions/ui/ProviderSignInDialog";
+import { WindowDragBar,WINDOW_DRAG_BAR_HEIGHT } from "./shell/WindowChrome";
+import { LAYER } from "../shared/lib/layers";
+import { MENU_BAR_HEIGHT,MenuBar } from "./shell/MenuBar";
+import {
+commandShortcutLabel,paletteCommands
+} from "./commands/registry";
+import { QuickOpen } from "../features/search/ui/QuickOpen";
+import {
+DeleteSessionDialog
+} from "../features/sessions/ui/DeleteSessionDialog";
+import {
+HAS_NATIVE_GLASS,IS_MAC
+} from "../platform/tauri/platform";
+import { UpdateAvailableDialog } from "./shell/UpdateAvailableDialog";
+import {
+appViewTitle,
+APP_PAGE_KINDS,leafIds
+} from "../features/workspace/model/layout";
+import {
+pickTextHarness
+} from "../integrations/harness";
+
+
+import {
+looksLikeProject
+} from "../features/projects/model/recents";
+import { AppViewDialog } from "../features/workspace/ui/AppViewDialog";
+import {
+SessionHeaderActionsContext
+} from "../features/workspace/ui/SessionHeaderActions";
+
+import {
+TranscriptPoolOutlet
+} from "../features/sessions/ui/TranscriptPool";
+import { ReminderNotices } from "../features/sessions/ui/ReminderNotices";
+
+import { PaneTree } from "../features/workspace/ui/PaneTree";
+import { SessionPane } from "../features/sessions/ui/SessionPane";
+import { SubagentTabsContext } from "../features/sessions/ui/SubagentTabsContext";
+import { SessionSurface } from "../features/sessions/ui/SessionSurface";
+import { TerminalDockLayout } from "./shell/TerminalDockLayout";
+import { SurfaceVisibilityContext } from "../shared/ui/SurfaceVisibility";
+import {
+prefetchRemoteProjectSessions
+} from "../features/connections/model/connections";
+import { AddRemoteProjectDialog } from "../features/connections/ui/AddRemoteProjectDialog";
+
+import { LinkedWorkItemPanel,selectedChangeKind,selectedChangePath,selectedCommitSha,tabIsOneCard } from "./controller/useWorkspaceController";
+import type { WorkspaceViewModel } from "./controller/useWorkspaceController";
+
+/** Workspace window layout. Pure view over the controller's view-model. */
+export function AppView({ vm }: { vm: WorkspaceViewModel }) {
+  const {
+    active,
+    activeAppView,
+    activeLinkedWorkItemPanel,
+    activeSessionId,
+    activeTab,
+    activeTabId,
+    activityBarProps,
+    appDialog,
+    appPage,
+    appPageHostRef,
+    approvalSessionIds,
+    approvalToasts,
+    busySessionIds,
+    closeAppDialog,
+    closeLinkedWorkItemPanel,
+    commandHandlers,
+    composerFocusToken,
+    composerFocused,
+    currentProjectDock,
+    dirtyFiles,
+    dispatch,
+    editorNavigations,
+    explorerRootLabel,
+    failedProjectPaths,
+    fileErrorCounts,
+    filesCwd,
+    filesSearchOpen,
+    focusProjectTerminal,
+    gitCwd,
+    harnessUpdateHeight,
+    historyFailed,
+    historyPending,
+    inboxAskPortal,
+    inboxVisible,
+    lastDockSide,
+    linkedSessionUpdateIds,
+    linkedWorkItemPanels,
+    loadedProjects,
+    manualUpdateOpen,
+    menuBarPinned,
+    navigationExpanded,
+    notesEnabled,
+    onApproval,
+    onArchiveHistorySession,
+    onArchiveHistorySessions,
+    onCloseFile,
+    onCloseOtherFiles,
+    onCloseOtherProjectTerminals,
+    onCloseProjectTerminal,
+    onDeleteHistorySession,
+    onDeleteHistorySessions,
+    onFileDeleted,
+    onFileDirtyChange,
+    onFileErrorCountChange,
+    onFileMoved,
+    onFindInProject,
+    onGoToFile,
+    onHideProjectTerminal,
+    onMoveDockToPane,
+    onMovePane,
+    onMovePaneToDock,
+    onNew,
+    onNewChat,
+    onNewInProject,
+    onNewTerminal,
+    onOpenAllChanges,
+    onOpenApprovalSession,
+    onOpenCommit,
+    onOpenFile,
+    onOpenInboxSession,
+    onOpenLinkedWorkItem,
+    onOpenNotificationSettings,
+    onOpenSessionFile,
+    onOpenTerminal,
+    onOpenWorkingTreeDiff,
+    onPinFile,
+    onPinHistorySession,
+    onPinHistorySessions,
+    onPlaceSessionOnPane,
+    onPrefetchHistorySession,
+    onProjectTerminalSide,
+    onProjectTerminalSize,
+    onRailBack,
+    onRailForward,
+    onRatio,
+    onRemoteSessionDeleted,
+    onRemoveProject,
+    onRenameHistorySession,
+    onReorderFiles,
+    onReorderProjectTerminals,
+    onRepairChecks,
+    onSearchEverywhere,
+    onSelectFileSurface,
+    onSelectHistorySession,
+    onSelectProject,
+    onSelectProjectTerminal,
+    onSelectRemoteSession,
+    onSelectWorkspace,
+    onSessionNavigationOrder,
+    onSetHistorySessionLinkedWorkItem,
+    onTerminalMetaChange,
+    onToggleNavigation,
+    onToggleSidebar,
+    onUpdatePlan,
+    openFilePaths,
+    openProjectSessions,
+    openSettings,
+    openSubagentTab,
+    orchestrationActions,
+    orchestrationWorkers,
+    paletteOpen,
+    paletteQuery,
+    paletteSessions,
+    paletteToken,
+    pickProject,
+    projectCwd,
+    projectSwitchPending,
+    projectTerminalFocused,
+    projectTerminals,
+    providerSignInRequest,
+    questionSessionIds,
+    recents,
+    refreshHistory,
+    reminderNoticesHeight,
+    remoteProjectDialogOpen,
+    renderAppView,
+    repairSessions,
+    searchFocusToken,
+    sessionDeleteDialog,
+    sessionHeaderActions,
+    sessionPaneProps,
+    sessionReminders,
+    sessionSidebarOpen,
+    sessions,
+    setFilesSearchOpen,
+    setHarnessUpdateHeight,
+    setManualUpdateOpen,
+    setPaletteOpen,
+    setProviderSignInRequest,
+    setReminderNoticesHeight,
+    setRemoteProjectDialogOpen,
+    setSessionDeleteDialog,
+    setSidebarTab,
+    setWhatsNewVersion,
+    sidebarCwd,
+    sidebarFooter,
+    sidebarHistory,
+    sidebarNavigation,
+    sidebarOpenSessionIds,
+    sidebarTab,
+    sidebarWorkflows,
+    surfaceModeToggle,
+    tabVisitNav,
+    tabs,
+    titlebarNavigation,
+    transcriptPool,
+    treeHistory,
+    unseenFinishedIds,
+    updateStatus,
+    whatsNewVersion,
+    windowLeading,
+    workflowActivity,
+    workflowApp,
+    workflowProjects,
+    workspaceNavigation,
+    workspaceVisible,
+    worktreeTabStats,
+  } = vm;
+
+
+  return (
+    <WorkflowAppContext.Provider value={workflowApp}>
+    <SubagentTabsContext.Provider value={openSubagentTab}>
+    <WorkflowProjectsContext.Provider value={workflowProjects}>
+    <WorkflowActivityContext.Provider value={workflowActivity}>
+    <OrchestrationActions.Provider value={orchestrationActions}>
+      <OrchestrationWorkers.Provider value={orchestrationWorkers}>
+        <AppViewRendererContext.Provider value={renderAppView}>
+          <SessionHeaderActionsContext.Provider value={sessionHeaderActions}>
+            <div
+              className={`app-shell-root relative isolate flex h-full flex-col text-content ${
+                HAS_NATIVE_GLASS
+                  ? "bg-background-base/40"
+                  : "bg-background-base"
+              }`}
+              style={
+                {
+                  "--menu-bar-h": menuBarPinned
+                    ? `${MENU_BAR_HEIGHT}px`
+                    : "0px",
+                } as CSSProperties
+              }
+            >
+              <div aria-hidden className="window-chat-background">
+                <GradientBlurBackground />
+              </div>
+              <div
+                data-window-chrome
+                className="relative shrink-0"
+                style={{ zIndex: LAYER.windowChrome }}
+              >
+                {!IS_MAC ? (
+                  <MenuBar
+                    navigationItems={titlebarNavigation}
+                    handlers={commandHandlers}
+                    dispatch={dispatch}
+                    canGoBack={tabVisitNav.canBack}
+                    canGoForward={tabVisitNav.canForward}
+                    sidebarOpen={sessionSidebarOpen}
+                    navigationExpanded={navigationExpanded}
+                    onToggleNavigation={
+                      sessionSidebarOpen ? onToggleNavigation : undefined
+                    }
+                    windowLeading={windowLeading}
+                    windowActions={surfaceModeToggle}
+                  />
+                ) : null}
+                {!menuBarPinned ? (
+                  <WindowDragBar
+                    navigationItems={titlebarNavigation}
+                    canGoBack={tabVisitNav.canBack}
+                    canGoForward={tabVisitNav.canForward}
+                    onGoBack={onRailBack}
+                    onGoForward={onRailForward}
+                    onTogglePanel={onToggleSidebar}
+                    panelActive={sessionSidebarOpen}
+                    navigationExpanded={navigationExpanded}
+                    onToggleNavigation={
+                      sessionSidebarOpen ? onToggleNavigation : undefined
+                    }
+                    windowLeading={windowLeading}
+                    windowActions={surfaceModeToggle}
+                  />
+                ) : null}
+              </div>
+              <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
+                <SidebarRail open={!sessionSidebarOpen}>
+                  <ActivityBar
+                    layout="rail"
+                    chromeInMenuBar
+                    {...activityBarProps}
+                  />
+                </SidebarRail>
+                <Sidebar
+                  navigation={sidebarNavigation}
+                  footer={sidebarFooter}
+                  workflowsSection={sidebarWorkflows}
+                  recents={recents}
+                  onSelectProject={onSelectProject}
+                  onOpenProject={pickProject}
+                  onRemoveProject={onRemoveProject}
+                  onOpenNotificationSettings={onOpenNotificationSettings}
+                  projectHistory={treeHistory}
+                  loadedProjectPaths={loadedProjects}
+                  failedProjectPaths={failedProjectPaths}
+                  onLoadProject={refreshHistory}
+                  onPrefetchRemoteProject={prefetchRemoteProjectSessions}
+                  onNewInProject={onNewInProject}
+                  cwd={sidebarCwd}
+                  gitCwd={gitCwd}
+                  worktreeTabStats={worktreeTabStats}
+                  onSelectWorkspace={onSelectWorkspace}
+                  workspaceSwitchPending={
+                    workspaceNavigation.pending?.project === sidebarCwd
+                  }
+                  workspaceSwitchError={
+                    workspaceNavigation.error?.project === sidebarCwd
+                      ? workspaceNavigation.error.message
+                      : undefined
+                  }
+                  explorerRootLabel={explorerRootLabel}
+                  open={sessionSidebarOpen}
+                  chromeInMenuBar
+                  onToggleSidebar={onToggleSidebar}
+                  tab={sidebarTab}
+                  onTabChange={setSidebarTab}
+                  filesSearchOpen={filesSearchOpen}
+                  onFilesSearchOpenChange={setFilesSearchOpen}
+                  onOpenFilesSearch={onFindInProject}
+                  searchFocusToken={searchFocusToken}
+                  sessions={sidebarHistory}
+                  busySessionIds={busySessionIds}
+                  approvalSessionIds={approvalSessionIds}
+                  questionSessionIds={questionSessionIds}
+                  activeSessionId={active?.id}
+                  visibleSessionId={activeSessionId ?? null}
+                  status={historyFailed ? "error" : "idle"}
+                  pending={historyPending}
+                  onSelectSession={onSelectHistorySession}
+                  onSelectRemoteSession={onSelectRemoteSession}
+                  onRemoteSessionDeleted={onRemoteSessionDeleted}
+                  onPrefetchSession={onPrefetchHistorySession}
+                  onSessionNavigationOrder={onSessionNavigationOrder}
+                  onPlaceSessionOnPane={onPlaceSessionOnPane}
+                  onRenameSession={onRenameHistorySession}
+                  onArchiveSession={onArchiveHistorySession}
+                  onArchiveSessions={onArchiveHistorySessions}
+                  onPinSession={onPinHistorySession}
+                  onPinSessions={onPinHistorySessions}
+                  onSetSessionLinkedWorkItem={onSetHistorySessionLinkedWorkItem}
+                  reminders={sessionReminders.reminders}
+                  onSetReminders={sessionReminders.schedule}
+                  onCancelReminders={sessionReminders.cancel}
+                  onDeleteSession={onDeleteHistorySession}
+                  onDeleteSessions={onDeleteHistorySessions}
+                  onOpenFile={onOpenFile}
+                  onOpenTerminal={onOpenTerminal}
+                  onFileMoved={onFileMoved}
+                  onFileDeleted={onFileDeleted}
+                  onOpenDiff={onOpenWorkingTreeDiff}
+                  onOpenAllChanges={onOpenAllChanges}
+                  onOpenCommit={onOpenCommit}
+                  selectedDiffPath={
+                    activeTab
+                      ? selectedChangePath(activeTab, gitCwd)
+                      : undefined
+                  }
+                  selectedDiffKind={
+                    activeTab ? selectedChangeKind(activeTab) : undefined
+                  }
+                  selectedCommitSha={
+                    activeTab ? selectedCommitSha(activeTab) : undefined
+                  }
+                  textHarness={pickTextHarness(active?.harness)}
+                  onNew={onNew}
+                  onNewChat={onNewChat}
+                  openSessions={openProjectSessions}
+                  openSessionIds={sidebarOpenSessionIds}
+                  onOpenInboxItem={onOpenLinkedWorkItem}
+                  onGoToFile={onGoToFile}
+                  unseenFinishedIds={unseenFinishedIds}
+                  linkedSessionUpdateIds={linkedSessionUpdateIds}
+                />
+
+                <SidebarMain open={sessionSidebarOpen}>
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                    <main
+                      data-project-switching={projectSwitchPending || undefined}
+                      aria-busy={projectSwitchPending || undefined}
+                      className="project-switch-surface relative flex min-h-0 min-w-0 flex-1"
+                    >
+                      {APP_PAGE_KINDS.filter(
+                        (kind) => kind !== "notes" || notesEnabled,
+                      ).map((kind) => (
+                        <div
+                          key={kind}
+                          data-app-page={kind}
+                          ref={appPage === kind ? appPageHostRef : undefined}
+                          tabIndex={-1}
+                          hidden={appPage !== kind}
+                          aria-hidden={appPage !== kind}
+                          inert={
+                            appPage !== kind || appDialog !== null || undefined
+                          }
+                          className={
+                            appPage === kind
+                              ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden outline-none"
+                              : "hidden"
+                          }
+                        >
+                          <AppViewHost
+                            kind={kind}
+                            visible={appPage === kind && appDialog === null}
+                            focused={appPage === kind && appDialog === null}
+                          />
+                        </div>
+                      ))}
+                      <div
+                        data-workspace-content
+                        hidden={!workspaceVisible}
+                        aria-hidden={!workspaceVisible}
+                        inert={!workspaceVisible || undefined}
+                        className={
+                          workspaceVisible
+                            ? "relative flex min-h-0 min-w-0 flex-1"
+                            : "hidden"
+                        }
+                      >
+                        <SurfaceVisibilityContext.Provider
+                          value={workspaceVisible}
+                        >
+                          <TerminalDockLayout
+                            projectTerminals={projectTerminals}
+                            currentDock={currentProjectDock}
+                            projectCwd={projectCwd}
+                            workspaceVisible={workspaceVisible}
+                            lastDockSide={lastDockSide}
+                            focused={projectTerminalFocused}
+                            onFocus={focusProjectTerminal}
+                            onHide={onHideProjectTerminal}
+                            onSideChange={onProjectTerminalSide}
+                            onSizeCommit={onProjectTerminalSize}
+                            onAddTerminal={onNewTerminal}
+                            onSelectTerminal={onSelectProjectTerminal}
+                            onCloseTerminal={onCloseProjectTerminal}
+                            onCloseOtherTerminals={onCloseOtherProjectTerminals}
+                            onReorderTerminals={onReorderProjectTerminals}
+                            onTerminalMetaChange={onTerminalMetaChange}
+                            onMoveToPane={onMoveDockToPane}
+                          >
+                            <div
+                              className="relative flex min-h-0 min-w-0 flex-row"
+                              style={{
+                                gridArea: "main",
+                              }}
+                            >
+                              <div className="relative min-h-0 min-w-0 flex-1">
+                                {tabs.map((tab) => (
+                                  <div
+                                    key={tab.id}
+                                    data-workspace-tab={tab.id}
+                                    data-active={String(tab.id === activeTabId)}
+                                    aria-hidden={tab.id !== activeTabId}
+                                    className={
+                                      tab.id === activeTabId
+                                        ? "absolute inset-0 flex h-full min-h-0 flex-col"
+                                        : "hidden"
+                                    }
+                                  >
+                                    <div
+                                      className={`flex min-h-0 min-w-0 flex-1 flex-col ${
+                                        // One card for a lone pane or a chat's
+                                        // unified view; split views card each
+                                        // column on a gutter (see PaneTree).
+                                        tabIsOneCard(tab, sessions)
+                                          ? "pane-card mb-1 mr-1"
+                                          : "h-full"
+                                      }`}
+                                    >
+                                      <PaneTree
+                                        {...sessionPaneProps}
+                                        visible={
+                                          workspaceVisible &&
+                                          tab.id === activeTabId
+                                        }
+                                        surfaceMode={tab.surfaceMode ?? "split"}
+                                        onOpenSessionFile={onOpenSessionFile}
+                                        layout={tab.layout}
+                                        sessions={sessions}
+                                        editorPanes={[
+                                          ...tab.editorPanes,
+                                          ...(tab.terminalPanes ?? []),
+                                        ]}
+                                        dirtyFileIds={dirtyFiles}
+                                        fileErrorCounts={fileErrorCounts}
+                                        focusedId={
+                                          workspaceVisible &&
+                                          tab.id === activeTabId &&
+                                          !tab.diffFocused &&
+                                          !projectTerminalFocused
+                                            ? tab.focusedId
+                                            : ""
+                                        }
+                                        addToChatSessionId={
+                                          tab.id === activeTabId
+                                            ? active?.id
+                                            : undefined
+                                        }
+                                        composerFocused={
+                                          workspaceVisible &&
+                                          composerFocused &&
+                                          !projectTerminalFocused
+                                        }
+                                        composerFocusToken={composerFocusToken}
+                                        onSelectFile={onSelectFileSurface}
+                                        onCloseFile={onCloseFile}
+                                        onCloseOtherFiles={onCloseOtherFiles}
+                                        onPinFile={onPinFile}
+                                        onReorderFiles={onReorderFiles}
+                                        onFileDirtyChange={onFileDirtyChange}
+                                        onFileErrorCountChange={
+                                          onFileErrorCountChange
+                                        }
+                                        transcriptPool={transcriptPool}
+                                        onRatio={(splitId, index, ratio) =>
+                                          onRatio(tab.id, splitId, index, ratio)
+                                        }
+                                        editorNavigation={
+                                          editorNavigations[tab.id] &&
+                                          (!editorNavigations[tab.id]
+                                            .ownerSessionId ||
+                                            leafIds(tab.layout).includes(
+                                              editorNavigations[tab.id]
+                                                .ownerSessionId!,
+                                            ))
+                                            ? editorNavigations[tab.id].target
+                                            : null
+                                        }
+                                        onUpdatePlan={onUpdatePlan}
+                                        onMovePane={onMovePane}
+                                        onMovePaneToDock={onMovePaneToDock}
+                                        onTerminalMetaChange={
+                                          onTerminalMetaChange
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </TerminalDockLayout>
+                          {[...linkedWorkItemPanels.values()].map((panel) => (
+                            <LinkedWorkItemPanel
+                              repairSessions={repairSessions}
+                              onRepairChecks={onRepairChecks}
+                              onOpenSession={(sessionId) => {
+                                closeLinkedWorkItemPanel(panel.sessionId);
+                                onOpenInboxSession(sessionId);
+                              }}
+                              key={panel.sessionId}
+                              target={panel.item}
+                              cwd={panel.cwd}
+                              recents={recents}
+                              visible={
+                                !activeAppView &&
+                                activeLinkedWorkItemPanel?.sessionId ===
+                                  panel.sessionId
+                              }
+                              onClose={() =>
+                                closeLinkedWorkItemPanel(panel.sessionId)
+                              }
+                            />
+                          ))}
+                        </SurfaceVisibilityContext.Provider>
+                      </div>
+                    </main>
+                  </div>
+                  <div className="hidden" aria-hidden>
+                    {sessions
+                      .filter((session) => session.inboxAsk)
+                      .map((session) => {
+                        const visible =
+                          inboxVisible &&
+                          inboxAskPortal?.sessionId === session.id;
+                        return (
+                          <SessionSurface
+                            key={session.id}
+                            host={visible ? inboxAskPortal.host : undefined}
+                          >
+                            <SurfaceVisibilityContext.Provider value={visible}>
+                              <SessionPane
+                                {...sessionPaneProps}
+                                session={session}
+                                visible={visible}
+                                focused={visible}
+                                inSplit={false}
+                                composerFocused={visible && composerFocused}
+                                composerFocusToken={composerFocusToken}
+                              />
+                            </SurfaceVisibilityContext.Provider>
+                          </SessionSurface>
+                        );
+                      })}
+                  </div>
+                </SidebarMain>
+              </div>
+
+              {paletteOpen ? (
+                <QuickOpen
+                  key={paletteToken}
+                  open
+                  cwd={filesCwd}
+                  openPaths={openFilePaths}
+                  initialQuery={paletteQuery}
+                  commands={paletteCommands(commandHandlers)}
+                  commandShortcut={commandShortcutLabel}
+                  sessions={paletteSessions}
+                  recents={recents}
+                  currentProject={
+                    looksLikeProject(sidebarCwd) ? sidebarCwd : null
+                  }
+                  onOpenFile={onOpenFile}
+                  onRunCommand={(id) => void dispatch(id)}
+                  onOpenSession={(sessionId) =>
+                    void onSelectHistorySession(sessionId)
+                  }
+                  onOpenProject={onSelectProject}
+                  onAddProject={() => void dispatch("App: Open Project")}
+                  onSearchEverywhere={onSearchEverywhere}
+                  onClose={() => setPaletteOpen(false)}
+                />
+              ) : null}
+
+              {appDialog ? (
+                <AppViewDialog
+                  title={translate(appViewTitle(appDialog))}
+                  onClose={closeAppDialog}
+                  topInset={
+                    menuBarPinned ? MENU_BAR_HEIGHT : WINDOW_DRAG_BAR_HEIGHT
+                  }
+                >
+                  {renderAppView(appDialog, true)}
+                </AppViewDialog>
+              ) : null}
+              {sessionDeleteDialog && (
+                <DeleteSessionDialog
+                  title={sessionDeleteDialog.title}
+                  unusedWorktree={sessionDeleteDialog.unusedWorktree}
+                  onClose={(choice) => {
+                    sessionDeleteDialog.resolve(choice);
+                    setSessionDeleteDialog(undefined);
+                  }}
+                />
+              )}
+              <HarnessUpdateNotice
+                topOffset={
+                  12 + (reminderNoticesHeight ? reminderNoticesHeight + 8 : 0)
+                }
+                onHeightChange={setHarnessUpdateHeight}
+              />
+              <ApprovalToasts
+                notices={approvalToasts}
+                focusedSessionId={
+                  workspaceVisible ? activeTab?.focusedId : undefined
+                }
+                topOffset={
+                  12 +
+                  (reminderNoticesHeight ? reminderNoticesHeight + 8 : 0) +
+                  (harnessUpdateHeight ? harnessUpdateHeight + 8 : 0)
+                }
+                onFocusSession={onOpenApprovalSession}
+                onApproval={onApproval}
+              />
+              <ReminderNotices
+                reminders={sessionReminders.due}
+                error={sessionReminders.error}
+                onOpen={sessionReminders.open}
+                onSnooze={sessionReminders.schedule}
+                onDismiss={sessionReminders.cancel}
+                onRetry={sessionReminders.refresh}
+                onOpenSettings={() => openSettings("general", "notifications")}
+                onHeightChange={setReminderNoticesHeight}
+              />
+              {manualUpdateOpen && updateStatus.actionable ? (
+                <UpdateAvailableDialog
+                  snapshot={updateStatus.snapshot}
+                  onInstall={updateStatus.install}
+                  onSkip={() => {
+                    setManualUpdateOpen(false);
+                    updateStatus.skipVersion();
+                  }}
+                  onClose={() => setManualUpdateOpen(false)}
+                />
+              ) : null}
+              {whatsNewVersion ? (
+                <WhatsNewDialog
+                  version={whatsNewVersion}
+                  onClose={() => setWhatsNewVersion(null)}
+                />
+              ) : null}
+              {remoteProjectDialogOpen ? (
+                <AddRemoteProjectDialog
+                  onCancel={() => setRemoteProjectDialogOpen(false)}
+                  onOpen={(key) => {
+                    setRemoteProjectDialogOpen(false);
+                    onSelectProject(key);
+                  }}
+                />
+              ) : null}
+              {providerSignInRequest ? (
+                <ProviderSignInDialog
+                  key={providerSignInRequest.key}
+                  harness={providerSignInRequest.harness}
+                  onClose={() => setProviderSignInRequest(null)}
+                />
+              ) : null}
+            </div>
+            <TranscriptPoolOutlet pool={transcriptPool} />
+          </SessionHeaderActionsContext.Provider>
+        </AppViewRendererContext.Provider>
+      </OrchestrationWorkers.Provider>
+    </OrchestrationActions.Provider>
+    </WorkflowActivityContext.Provider>
+    </WorkflowProjectsContext.Provider>
+    </SubagentTabsContext.Provider>
+    </WorkflowAppContext.Provider>
+  );
+}
