@@ -291,6 +291,13 @@ export const SETTINGS_INDEX: SettingsEntry[] = [
     keywords: "dark light system appearance mode",
   },
   {
+    id: "skin",
+    section: "appearance",
+    label: "Skin",
+    keywords:
+      "theme palette openmausbot midnight atelier foundry lagoon graphite linen dusk daylight meadow classic automatic",
+  },
+  {
     id: "ui-font-size",
     section: "appearance",
     label: "Interface font size",

@@ -216,13 +216,13 @@ import {
   type ColorScheme,
 } from "../model/appearance";
 import {
-  DESKTOP_SKIN_IDS,
   DESKTOP_SKIN_INFO,
   loadDesktopSkin,
   normalizeDesktopSkin,
   saveDesktopSkin,
   type DesktopSkinPreference,
 } from "../../../shared/theme/desktopSkin";
+import { SkinPicker } from "./SkinPicker";
 import {
   pickAndSaveChatBackground,
   removeChatBackground,
@@ -2497,24 +2497,13 @@ function AppearancePage({ appearance }: { appearance: AppearanceSettings }) {
         </Row>
         <Row
           id="skin"
+          stacked
           label={uiT("Skin")}
           description={uiT(
             "Automatic uses Midnight in dark mode and Daylight in light mode. A named skin replaces hue and lightness. Classic keeps the original tint.",
           )}
         >
-          <Select
-            label={uiT("Skin")}
-            value={appearance.skin}
-            options={[
-              { value: "classic", label: uiT("Classic") },
-              { value: "auto", label: uiT("Automatic") },
-              ...DESKTOP_SKIN_IDS.map((id) => ({
-                value: id,
-                label: uiT(DESKTOP_SKIN_INFO[id].label),
-              })),
-            ]}
-            onChange={appearance.onSkin}
-          />
+          <SkinPicker value={appearance.skin} onChange={appearance.onSkin} />
         </Row>
         {appearance.separateSchemes ? null : (
           <AccentRow appearance={appearance} />
@@ -5470,12 +5459,15 @@ function Row({
   id,
   label,
   description,
+  stacked = false,
   children,
 }: {
   /** Matches a `SETTINGS_INDEX` id so search can scroll here. */
   id?: string;
   label: ReactNode;
   description?: ReactNode;
+  /** Full-width control under the label (pickers, grids). */
+  stacked?: boolean;
   children?: ReactNode;
 }) {
   const revealed = useContext(RevealedSetting);
@@ -5485,7 +5477,7 @@ function Row({
     <div
       id={id ? settingDomId(id) : undefined}
       data-setting-id={id}
-      className={`settings-row flex items-center gap-6 border-t border-border px-4 py-3 transition-colors first:border-t-0 ${
+      className={`settings-row flex ${stacked ? "flex-col items-stretch gap-3" : "items-center gap-6"} border-t border-border px-4 py-3 transition-colors first:border-t-0 ${
         flash ? "bg-accent/10" : ""
       }`}
     >
@@ -5497,9 +5489,13 @@ function Row({
           </p>
         ) : null}
       </div>
-      <div className="settings-row-control flex min-w-0 max-w-[60%] shrink-0 flex-wrap items-center justify-end gap-2">
-        {children}
-      </div>
+      {stacked ? (
+        children
+      ) : (
+        <div className="settings-row-control flex min-w-0 max-w-[60%] shrink-0 flex-wrap items-center justify-end gap-2">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
