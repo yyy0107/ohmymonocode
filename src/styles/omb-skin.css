@@ -606,6 +606,11 @@ html[data-skin]:not(.has-user-accent) :where(.user-message-row:not(.mobile-deskt
   border-color: transparent;
 }
 
+/* The phone bubble has no outline, with or without a user accent. */
+html[data-skin] :where(.user-message-row:not(.mobile-desktop-transcript *)) .user-message-bubble:not([data-draft="true"]) {
+  border-color: transparent;
+}
+
 html[data-skin] [data-question-card] {
   border-color: var(--color-hairline);
   background: color-mix(in srgb, var(--color-panel) 88%, transparent);

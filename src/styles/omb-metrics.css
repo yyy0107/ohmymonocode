@@ -657,13 +657,14 @@ html[data-skin] input[role="switch"]:checked + span + span {
 }
 
 /* User bubble, as the phone's: 20px corners with a tight tail, body text.
-   Chat layout caps it at 80% of the column, never past 720px. */
+   The row's 18% leading padding already keeps it off the far side, and its
+   parent is fit-content, so a percentage cap here would wrap short text. */
 html[data-skin] :where(.user-message-row:not(.mobile-desktop-transcript *)) .user-message-bubble {
   padding: var(--omb-space-8) 14px;
   border-radius: var(--omb-radius-bubble) var(--omb-radius-bubble) var(--omb-space-6) var(--omb-radius-bubble);
 }
 html[data-skin] :where(.user-message-row:not(.mobile-desktop-transcript *)) .user-message-bubble[data-bubble-layout="chat"] {
-  max-width: min(80%, 720px);
+  max-width: min(100%, 720px);
 }
 html[data-skin] :where(.user-message-row:not(.mobile-desktop-transcript *)) :is(.user-message-bubble > pre, .user-message-with-link) {
   font-size: 15px;
