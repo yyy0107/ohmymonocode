@@ -1,3 +1,5 @@
+import { animate, cancelFrame, frame as motionFrame, type AnimationPlaybackControls } from "motion/react";
+import { duration as motionDuration, panelTransition } from "../motion/tokens";
 import {
   useCallback,
   useLayoutEffect,
@@ -8,7 +10,6 @@ import {
 import { reducedMotionQuery } from "../lib/reducedMotion";
 import { flushSync } from "react-dom";
 import { createDragGhost, setGrabbing, suppressTextSelection } from "../lib/drag";
-import { reorderMotion } from "../lib/motion";
 import { moveItem } from "../lib/reorder";
 
 export type ReorderExternalDrop<T extends string> = {
@@ -119,9 +120,19 @@ export function useAnimatedReorder<T extends string>(
       const pointerId = event.pointerId;
       const startPosition = event[coordinate];
       const reducedMotion = reducedMotionQuery().matches;
-      const { duration: motionDuration, easing } = reorderMotion();
-      const duration = reducedMotion ? 0 : motionDuration;
-      const transition = `transform ${duration}ms ${easing}`;
+      const duration = reducedMotion ? 0 : motionDuration.panel * 1000;
+      const animations = new Map<HTMLElement, AnimationPlaybackControls>();
+      function setTransform(element: HTMLElement, offset: number, complete?: () => void) {
+        const target = transform(offset);
+        const previous = animations.has(element) && typeof getComputedStyle === "function"
+          ? getComputedStyle(element).transform || transform(0)
+          : element.style.transform || transform(0);
+        animations.get(element)?.stop();
+        element.style.transform = target;
+        if (!duration) { complete?.(); return; }
+        const controls = animate(element, { transform: [previous, target] }, { ...panelTransition, onComplete: complete });
+        animations.set(element, controls);
+      }
       let restoreSelection: (() => void) | undefined;
       let previewSource: HTMLElement | undefined;
       let ghost: ReturnType<typeof createDragGhost> | undefined;
@@ -132,7 +143,6 @@ export function useAnimatedReorder<T extends string>(
       let frame = 0;
       let pointerPosition = startPosition;
       let overExternalTarget = false;
-      let finishTimer: ReturnType<typeof setTimeout> | undefined;
       const scroller = nearestScroller(handle, axis);
       let autoScrollFrame = 0;
 
@@ -156,8 +166,9 @@ export function useAnimatedReorder<T extends string>(
         window.removeEventListener("keydown", onKey);
         window.removeEventListener("blur", onCancel);
         window.removeEventListener("scroll", onScroll, true);
-        window.clearTimeout(finishTimer);
-        window.cancelAnimationFrame(frame);
+        for (const controls of animations.values()) controls.stop();
+        animations.clear();
+        cancelFrame(paintFrame);
         stopAutoScroll();
         for (const element of tabs) {
           element.style.removeProperty("transition");
@@ -188,13 +199,11 @@ export function useAnimatedReorder<T extends string>(
                 : index >= to && index < from
                   ? rects[from].end - rects[from - 1].end
                   : 0;
-            tabs[index].style.transform = transform(offset);
+            setTransform(tabs[index], offset);
             continue;
           }
           const slot = reordered.indexOf(items[index]);
-          tabs[index].style.transform = transform(
-            rects[slot].start - rects[index].start,
-          );
+          setTransform(tabs[index], rects[slot].start - rects[index].start);
         }
       }
 
@@ -247,7 +256,7 @@ export function useAnimatedReorder<T extends string>(
       }
 
       function stopAutoScroll() {
-        window.cancelAnimationFrame(autoScrollFrame);
+        cancelFrame(autoScroll);
         autoScrollFrame = 0;
       }
 
@@ -264,14 +273,18 @@ export function useAnimatedReorder<T extends string>(
         scroller[scrollProperty] = Math.max(0, Math.min(limit, previous + speed));
         if (scroller[scrollProperty] === previous) return;
         // Update the drop slots even while the pointer is held still at an edge.
-        window.cancelAnimationFrame(frame);
+        cancelFrame(paintFrame);
         paint();
-        autoScrollFrame = window.requestAnimationFrame(autoScroll);
+        autoScrollFrame = 1;
+        motionFrame.update(autoScroll);
       }
 
+      function paintFrame() { paint(); }
       function onScroll() {
-        if (active && !settling && !overExternalTarget && !frame)
-          frame = window.requestAnimationFrame(() => paint());
+        if (active && !settling && !overExternalTarget && !frame) {
+          frame = 1;
+          motionFrame.render(paintFrame);
+        }
       }
 
       function onMove(ev: globalThis.PointerEvent) {
@@ -325,7 +338,6 @@ export function useAnimatedReorder<T extends string>(
           restoreSelection = suppressTextSelection();
           setGrabbing(true);
           for (const element of tabs) {
-            element.style.transition = transition;
             element.dataset.reordering = "true";
           }
           handle.style.transition = "none";
@@ -337,16 +349,18 @@ export function useAnimatedReorder<T extends string>(
         overExternalTarget =
           external()?.onMove(id, ev) ?? false;
         if (overExternalTarget) {
-          window.cancelAnimationFrame(frame);
+          cancelFrame(paintFrame);
           frame = 0;
           stopAutoScroll();
           preview(from);
           return;
         }
         // Keep the newest position when several input events arrive in one frame.
-        if (!frame) frame = window.requestAnimationFrame(() => paint());
-        if (!autoScrollFrame && autoScrollSpeed())
-          autoScrollFrame = window.requestAnimationFrame(autoScroll);
+        if (!frame) { frame = 1; motionFrame.render(paintFrame); }
+        if (!autoScrollFrame && autoScrollSpeed()) {
+          autoScrollFrame = 1;
+          motionFrame.update(autoScroll);
+        }
       }
 
       function stop(commit: boolean, event?: globalThis.PointerEvent) {
@@ -360,7 +374,7 @@ export function useAnimatedReorder<T extends string>(
           return;
         }
         settling = true;
-        window.cancelAnimationFrame(frame);
+        cancelFrame(paintFrame);
         stopAutoScroll();
         if (commit) paint(false);
         handle.dataset.settling = "true";
@@ -377,11 +391,9 @@ export function useAnimatedReorder<T extends string>(
           ghost.settle(
             rect.left + (axis === "x" ? offset : 0),
             rect.top + (axis === "y" ? offset : 0),
-            transition,
+            panelTransition,
           );
         }
-        handle.style.transition = transition;
-        handle.style.transform = transform(offset);
         const finish = () => {
           // Clear the preview and commit the order before the next browser paint.
           flushSync(() => {
@@ -395,7 +407,7 @@ export function useAnimatedReorder<T extends string>(
         else {
           // Commit before a new press can change the list, including close buttons.
           window.addEventListener("pointerdown", onNextPointerDown, true);
-          finishTimer = setTimeout(finish, duration);
+          setTransform(handle, offset, finish);
         }
       }
 

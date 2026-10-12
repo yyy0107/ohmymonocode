@@ -2,6 +2,13 @@
 import { act, createElement, startTransition, Suspense } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, false) };
+});
+import { duration } from "../motion/tokens";
 import { useAnimatedReorder } from "./useAnimatedReorder";
 
 let container: HTMLDivElement;
@@ -113,7 +120,7 @@ describe("reordering during an uncommitted render", () => {
       expect(pendingRender).toHaveBeenCalled();
       expect(container.querySelector("[data-list]")?.textContent).toBe("abc");
       if (timing === "before the drag") drag();
-      act(() => vi.advanceTimersByTime(160));
+      act(() => vi.advanceTimersByTime(duration.panel * 1000));
 
       expect(onReorder).toHaveBeenCalledExactlyOnceWith(["b", "a", "c"], "a");
       expect(pendingOnReorder).not.toHaveBeenCalled();

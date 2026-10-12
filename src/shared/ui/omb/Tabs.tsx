@@ -1,4 +1,7 @@
-import { useRef, type KeyboardEvent, type ReactNode } from "react";
+import { motion } from "motion/react";
+import { immediateTransition, panelTransition } from "../../motion/tokens";
+import { useMotionPreference } from "../../motion/useMotionPreference";
+import { useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { cx } from "./cx";
 
 export type TabItem = {
@@ -23,6 +26,8 @@ export function Tabs({
   label: string;
   className?: string;
 }) {
+  const indicatorId = useId();
+  const reduced = useMotionPreference();
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const index = items.findIndex((item) => item.id === selected);
@@ -59,12 +64,13 @@ export function Tabs({
             tabIndex={active ? 0 : -1}
             onClick={() => onSelect(item.id)}
             className={cx(
-              "inline-flex h-8 min-w-0 items-center gap-1.5 rounded-lg px-3 text-[13px] font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-focus motion-reduce:transition-none [&_svg]:size-3.5",
+              "relative isolate inline-flex h-8 min-w-0 items-center gap-1.5 rounded-lg px-3 text-[13px] font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-focus motion-reduce:transition-none [&_svg]:size-3.5",
               active
-                ? "bg-raised text-ink"
+                ? "text-ink"
                 : "text-ink-secondary hover:bg-selection-hover hover:text-ink",
             )}
           >
+            {active ? <motion.span layoutId={indicatorId} transition={reduced ? immediateTransition : panelTransition} className="pointer-events-none absolute inset-0 -z-10 rounded-lg bg-raised" /> : null}
             {item.icon}
             <span className="truncate">{item.label}</span>
           </button>

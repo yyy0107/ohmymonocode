@@ -1,5 +1,4 @@
 .rolling-clock {
-  --clock-duration: 320ms;
   display: inline-block;
   flex-shrink: 0;
   color: color-mix(in srgb, var(--color-content, #fff) 65%, transparent);
@@ -29,83 +28,17 @@
   text-align: center;
 }
 
-.rolling-clock-current {
-  display: block;
-}
-
-.rolling-clock-digit[data-rolling] .rolling-clock-current {
-  visibility: hidden;
-}
-
+.rolling-clock-current,
 .rolling-clock-glyph {
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
 
-.rolling-clock-glyph::before {
+.rolling-clock-glyph[data-exiting]::before {
   content: attr(data-glyph);
 }
 
-.rolling-clock-outgoing {
-  animation: rolling-clock-out var(--clock-duration) linear var(--clock-delay, 0ms) both;
-}
-
-.rolling-clock-incoming {
-  animation: rolling-clock-in var(--clock-duration) linear var(--clock-delay, 0ms) both;
-}
-
-.rolling-clock[data-motion="roll"] {
-  --clock-duration: 760ms;
-}
-
-.rolling-clock[data-motion="roll"] .rolling-clock-digit[data-rolling] {
+.rolling-clock[data-motion="roll"] .rolling-clock-digit {
   mask-image: linear-gradient(transparent, #000 12%, #000 88%, transparent);
-}
-
-.rolling-clock[data-motion="fade"] {
-  --clock-duration: 280ms;
-}
-
-.rolling-clock[data-motion="fade"] .rolling-clock-outgoing {
-  animation-name: rolling-clock-fade-out;
-}
-
-.rolling-clock[data-motion="fade"] .rolling-clock-incoming {
-  animation-name: rolling-clock-fade-in;
-}
-
-.rolling-clock[data-motion="cascade"] {
-  --clock-duration: 400ms;
-}
-
-@keyframes rolling-clock-out {
-  from { transform: translateY(0); }
-  to { transform: translateY(-100%); }
-}
-
-@keyframes rolling-clock-in {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-
-@keyframes rolling-clock-fade-out {
-  from { transform: translateY(0); opacity: 1; }
-  to { transform: translateY(-35%); opacity: 0; }
-}
-
-@keyframes rolling-clock-fade-in {
-  from { transform: translateY(35%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .rolling-clock-digit[data-rolling] .rolling-clock-current {
-    visibility: visible;
-  }
-
-  .rolling-clock-glyph {
-    display: none;
-    animation: none;
-  }
 }

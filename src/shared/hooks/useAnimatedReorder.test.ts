@@ -1,6 +1,12 @@
 import { createElement, type PointerEvent as ReactPointerEvent } from "react";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, false) };
+});
 import {
   useAnimatedReorder,
   type ReorderExternalDrop,

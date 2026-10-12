@@ -1,3 +1,6 @@
+import { motion, useIsPresent } from "motion/react";
+import { immediateTransition, popAnimate, popExit, popInitial, popTransition } from "../motion/tokens";
+import { useMotionPreference } from "../motion/useMotionPreference";
 import { useTranslation } from "../i18n/useTranslation";
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -25,13 +28,15 @@ type Props = {
 export function ImageLightbox({ src, alt, onClose }: Props) {
   const { t: uiT } = useTranslation();
   const visible = useSurfaceVisibility();
-  const zoom = useImageZoom(src, visible);
+  const present = useIsPresent();
+  const reduced = useMotionPreference();
+  const zoom = useImageZoom(src, visible && present);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || !present) return;
     const previouslyFocused = document.activeElement;
     closeRef.current?.focus();
     const dismiss = () => onCloseRef.current();
@@ -52,12 +57,18 @@ export function ImageLightbox({ src, alt, onClose }: Props) {
           !previouslyFocused.closest('[inert], [aria-hidden="true"]'))
         previouslyFocused.focus({ preventScroll: true });
     };
-  }, [visible]);
+  }, [visible, present]);
 
   if (!visible) return null;
 
   return createPortal(
-    <div
+    <motion.div
+      initial={reduced ? false : { opacity: popInitial.opacity }}
+      animate={{ opacity: popAnimate.opacity }}
+      exit={{ opacity: popExit.opacity }}
+      transition={reduced ? immediateTransition : popTransition}
+      inert={!present}
+      aria-hidden={!present || undefined}
       role="dialog"
       aria-modal="true"
       aria-label={uiT("Image preview: {value0}", { value0: String(alt) })}
@@ -95,7 +106,7 @@ export function ImageLightbox({ src, alt, onClose }: Props) {
       >
         <X className="size-4" strokeWidth={2} />
       </button>
-    </div>,
+    </motion.div>,
     document.body,
   );
 }

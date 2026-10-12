@@ -1,7 +1,14 @@
+import { completeMotionAnimation } from "../../../tests/helpers/motionDriver";
 // @vitest-environment happy-dom
 import { act, createElement, Fragment } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
+});
 import { AttachmentChip } from "../../features/sessions/ui/AttachmentChip";
 import { dismissImageLightbox, ImageLightbox } from "./ImageLightbox";
 import { SurfaceVisibilityContext } from "./SurfaceVisibility";
@@ -51,6 +58,7 @@ it("dismisses only the foremost image and unregisters every closed preview", () 
   }
   expect(document.querySelectorAll(".image-lightbox")).toHaveLength(2);
   act(() => expect(dismissImageLightbox()).toBe(true));
+  act(() => document.querySelectorAll('.image-lightbox[aria-hidden="true"]').forEach(completeMotionAnimation));
   expect(document.querySelectorAll(".image-lightbox")).toHaveLength(1);
   expect(
     document.querySelector(".image-lightbox img")?.getAttribute("alt"),

@@ -1,10 +1,11 @@
-import { isDesktopDocument } from "../theme/desktopAppearance";
 import { NativePopupHost } from "./NativePopupHost";
 import {
   SurfaceVisibilityContext,
   useSurfaceVisibility,
 } from "./SurfaceVisibility";
-import { useCollapseMotion } from "./AnimatedCollapse";
+import { AnimatePresence, motion, usePresence, type HTMLMotionProps } from "motion/react";
+import { immediateTransition, motionDistance, popAnimate, popExit, popInitial, popTransition } from "../motion/tokens";
+import { useMotionPreference } from "../motion/useMotionPreference";
 import {
   useCallback,
   useContext,
@@ -73,7 +74,8 @@ type Props = Omit<ComponentPropsWithoutRef<"div">, "style"> & {
 };
 
 type SurfaceProps = Omit<Props, "open"> & {
-  motion?: Pick<ReturnType<typeof useCollapseMotion>, "foldState" | "finish">;
+  present?: boolean;
+  onPresenceComplete?: () => void;
 };
 
 const FRAME =
@@ -162,23 +164,39 @@ export function Popover({ open, ...props }: Props) {
   );
 }
 
-function AnimatedPopover({ open, children, ...props }: Props & { open: boolean }) {
+function AnimatedPopover({ open, ...props }: Props & { open: boolean }) {
   const visible = useSurfaceVisibility();
-  const motion = useCollapseMotion(open && visible, isDesktopDocument() ? 100 : 170);
-  const retained = useRef(children);
-  if (open) retained.current = children;
-  if (!visible || (!open && motion.foldState === "closed")) return null;
+  if (!visible) return null;
+  return (
+    <AnimatePresence initial={false}>
+      {visible && open ? <PresentPopover key="popover" {...props} /> : null}
+    </AnimatePresence>
+  );
+}
+
+function PresentPopover({ children, ...props }: Omit<Props, "open">) {
+  const [present, safeToRemove] = usePresence();
+  const reduced = useMotionPreference();
+  useLayoutEffect(() => {
+    if (reduced && !present) safeToRemove?.();
+  }, [reduced, present, safeToRemove]);
+  if (reduced && !present) return null;
   return (
     <PopoverSurface
       {...props}
-      motion={motion}
-      inert={!open || props.inert}
-      aria-hidden={!open || props["aria-hidden"]}
-      autoFocus={open && props.autoFocus}
-      onDismiss={open ? props.onDismiss : undefined}
+      present={present}
+      onPresenceComplete={() => { if (!present) safeToRemove?.(); }}
+      inert={!present || props.inert}
+      aria-hidden={!present || props["aria-hidden"]}
+      autoFocus={present && props.autoFocus}
+      onDismiss={present ? props.onDismiss : undefined}
+      onClickCapture={(event) => {
+        if (!present) { event.preventDefault(); event.stopPropagation(); }
+        else props.onClickCapture?.(event);
+      }}
     >
-      <SurfaceVisibilityContext.Provider value={visible && open}>
-        {open ? children : retained.current}
+      <SurfaceVisibilityContext.Provider value={present}>
+        {children}
       </SurfaceVisibilityContext.Provider>
     </PopoverSurface>
   );
@@ -205,15 +223,15 @@ function NativePopover({
   style,
   autoFocus,
   dismissOnEscape = true,
-  motion,
+  present = true,
+  onPresenceComplete,
   onTransitionEnd,
   ...props
 }: SurfaceProps & { host: HTMLElement }) {
   const visible = useSurfaceVisibility();
   const surface = useRef<HTMLDivElement | null>(null);
-  const canFocus =
-    visible &&
-    (!motion || motion.foldState === "opening" || motion.foldState === "open");
+  const reduced = useMotionPreference();
+  const canFocus = visible && present;
   useEffect(() => {
     if (canFocus && autoFocus) surface.current?.focus({ preventScroll: true });
   }, [canFocus, autoFocus]);
@@ -258,10 +276,15 @@ function NativePopover({
   } = props;
   if (!visible) return null;
   return createPortal(
-    <div
-      {...rest}
+    <motion.div
+      {...rest as HTMLMotionProps<"div">}
       {...frameProps}
-      {...(motion ? { "data-fold-state": motion.foldState } : {})}
+      initial={reduced ? false : popInitial}
+      animate={popAnimate}
+      exit={popExit}
+      transition={reduced ? immediateTransition : popTransition}
+      onAnimationComplete={onPresenceComplete}
+      data-fold-state={present ? "open" : "closing"}
       ref={(el) => {
         surface.current = el;
         if (typeof frameProps?.ref === "function") frameProps.ref(el);
@@ -270,18 +293,11 @@ function NativePopover({
         else if (ref) ref.current = el;
       }}
       style={{ maxHeight: maxHeight ?? 400, ...style }}
-      className={`${motion ? "popover-motion " : ""}relative w-full outline-none ${className ?? ""}`}
-      onTransitionEnd={(event) => {
-        onTransitionEnd?.(event);
-        if (
-          event.target === event.currentTarget &&
-          event.propertyName === "opacity"
-        )
-          motion?.finish();
-      }}
+      className={`relative w-full outline-none ${className ?? ""}`}
+      onTransitionEnd={onTransitionEnd}
     >
       {children}
-    </div>,
+    </motion.div>,
     host,
   );
 }
@@ -307,10 +323,12 @@ function WebPopover({
   ignore,
   ref,
   children,
-  motion,
+  present = true,
+  onPresenceComplete,
   ...rest
 }: SurfaceProps) {
   const visible = useSurfaceVisibility();
+  const reduced = useMotionPreference();
   const frame = useRef<HTMLDivElement | null>(null);
   const surface = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState<PopoverPosition | null>(null);
@@ -357,7 +375,7 @@ function WebPopover({
   const canFocus =
     visible &&
     position !== null &&
-    (!motion || motion.foldState === "opening" || motion.foldState === "open");
+    present;
   useEffect(() => {
     if (canFocus && autoFocus) surface.current?.focus({ preventScroll: true });
   }, [canFocus, autoFocus]);
@@ -424,33 +442,38 @@ function WebPopover({
         : `calc(100vh - ${16 + frameInset}px)`
     : undefined;
 
+  const edgeMotion = {
+    ...popInitial,
+    x: position?.side === "left" ? motionDistance.pop : position?.side === "right" ? -motionDistance.pop : 0,
+    y: position?.side === "top" ? motionDistance.pop : position?.side === "bottom" ? -motionDistance.pop : 0,
+  };
   return createPortal(
-    <div
+    <motion.div
       {...frameProps}
+      initial={reduced ? false : { opacity: popInitial.opacity }}
+      animate={{ opacity: popAnimate.opacity }}
+      exit={{ opacity: popExit.opacity }}
+      transition={reduced ? immediateTransition : popTransition}
+      onAnimationComplete={onPresenceComplete}
       ref={(el) => {
         frame.current = el;
         if (typeof frameProps?.ref === "function") frameProps.ref(el);
         else if (frameProps?.ref) frameProps.ref.current = el;
       }}
       data-popover-side={position?.side ?? side}
-      data-fold-state={motion?.foldState}
-      inert={
-        motion &&
-        (motion.foldState === "closing" || motion.foldState === "closed")
-      }
+      data-fold-state={present ? "open" : "closing"}
+      inert={!present}
       style={{ ...placed, zIndex: dialogLayer(anchor, layer) }}
-      className={`${motion ? "popover-motion " : ""}${bare ? "" : FRAME}` || undefined}
-      onTransitionEnd={(event) => {
-        if (
-          event.target === event.currentTarget &&
-          event.propertyName === "opacity"
-        )
-          motion?.finish();
-      }}
+      className={bare ? undefined : FRAME}
+
     >
       {bare ? null : <GlassBackdrop />}
-      <div
-        {...rest}
+      <motion.div
+        {...rest as HTMLMotionProps<"div">}
+        initial={reduced ? false : edgeMotion}
+        animate={{ ...popAnimate, x: 0 }}
+        exit={edgeMotion}
+        transition={reduced ? immediateTransition : popTransition}
         ref={(el) => {
           surface.current = el;
           if (typeof ref === "function") ref(el);
@@ -462,11 +485,11 @@ function WebPopover({
           transformOrigin: origin(position?.side ?? side, align),
           ...style,
         }}
-        className={`${position ? "popover-open " : ""}relative z-[1] outline-none ${className ?? ""}`}
+        className={`relative z-[1] outline-none ${className ?? ""}`}
       >
         {children}
-      </div>
-    </div>,
+      </motion.div>
+    </motion.div>,
     document.body,
   );
 }

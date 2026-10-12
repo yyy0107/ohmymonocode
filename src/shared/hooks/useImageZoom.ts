@@ -1,3 +1,5 @@
+import { animate as animateValue, cancelFrame, frame, type AnimationPlaybackControls } from "motion/react";
+import { popTransition } from "../motion/tokens";
 import {
   useLayoutEffect,
   useRef,
@@ -21,7 +23,6 @@ const FIT: View = { scale: 1, x: 0, y: 0 };
 const MAX_SCALE = 5;
 const TAP_DISTANCE = 8;
 const DOUBLE_TAP_MS = 300;
-const ZOOM_MS = 200;
 
 /** Zoom only the image, leaving the surrounding dialog and system bars fixed. */
 export function useImageZoom(src: string, visible: boolean) {
@@ -37,10 +38,7 @@ export function useImageZoom(src: string, visible: boolean) {
   const lastPointerType = useRef("");
   const tapStart = useRef<{ point: Point; time: number } | null>(null);
   const lastTap = useRef<{ point: Point; time: number } | null>(null);
-  const frame = useRef<number | undefined>(undefined);
-  const animation = useRef<{ from: View; to: View; started: number } | null>(
-    null,
-  );
+  const animation = useRef<AnimationPlaybackControls | null>(null);
 
   // Measure at mount, resize and gesture start, never while fingers move.
   const measure = () => {
@@ -91,47 +89,37 @@ export function useImageZoom(src: string, visible: boolean) {
     image.style.cursor =
       scale > 1 ? (pointers.current.size ? "grabbing" : "grab") : "zoom-in";
   };
-  const tick = (now: number) => {
-    frame.current = undefined;
-    const motion = animation.current;
-    if (motion) {
-      const progress = Math.max(
-        0,
-        Math.min(1, (now - motion.started) / ZOOM_MS),
-      );
-      const eased = 1 - (1 - progress) ** 3;
-      current.current = {
-        scale:
-          motion.from.scale + (motion.to.scale - motion.from.scale) * eased,
-        x: motion.from.x + (motion.to.x - motion.from.x) * eased,
-        y: motion.from.y + (motion.to.y - motion.from.y) * eased,
-      };
-      if (progress === 1) {
-        current.current = motion.to;
-        animation.current = null;
-      }
-    }
-    paint();
-    if (animation.current) frame.current = requestAnimationFrame(tick);
-  };
-  const schedule = () => {
-    frame.current ??= requestAnimationFrame(tick);
-  };
+  const schedule = () => frame.render(paint);
   const stopMotion = () => {
+    animation.current?.stop();
     animation.current = null;
-    if (frame.current !== undefined) cancelAnimationFrame(frame.current);
-    frame.current = undefined;
+    cancelFrame(paint);
   };
-  const apply = (next: View, animate = false) => {
+  const apply = (next: View, animated = false) => {
     const bounded = constrain(next);
-    animation.current =
-      animate &&
-      !reducedMotionQuery().matches
-        ? { from: current.current, to: bounded, started: performance.now() }
-        : null;
-    if (!animation.current) current.current = bounded;
-    // Coalesce high-frequency pointer events without rerendering the dialog.
-    schedule();
+    stopMotion();
+    if (animated && !reducedMotionQuery().matches) {
+      const from = current.current;
+      animation.current = animateValue(0, 1, {
+        ...popTransition,
+        onUpdate: (progress) => {
+          current.current = {
+            scale: from.scale + (bounded.scale - from.scale) * progress,
+            x: from.x + (bounded.x - from.x) * progress,
+            y: from.y + (bounded.y - from.y) * progress,
+          };
+          paint();
+        },
+        onComplete: () => {
+          current.current = bounded;
+          animation.current = null;
+          paint();
+        },
+      });
+    } else {
+      current.current = bounded;
+      schedule();
+    }
   };
   const snapshot = (): Gesture | null => {
     const [first, second] = [...pointers.current.values()];

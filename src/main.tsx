@@ -1,3 +1,6 @@
+import { animate, MotionConfig } from "motion/react";
+import { defaultTransition, immediateTransition } from "./shared/motion/tokens";
+import { prefersReducedMotion } from "./shared/lib/reducedMotion";
 import { initializeHostPreferences, stopDesktopHostPreferences } from "./features/settings/model/hostPreferences";
 import { installSharedPreferenceEffects } from "./features/settings/model/sharedPreferenceEffects";
 import { SharedStateStatus } from "./features/settings/ui/SharedStateStatus";
@@ -57,22 +60,11 @@ function dismissBootSplash() {
   const splash = document.getElementById("boot-splash");
   if (!splash || splash.dataset.dismissed === "1") return;
   splash.dataset.dismissed = "1";
-  const fade = () => {
-    activateWindowAppearance();
-    splash.classList.add("boot-splash-out");
-    window.setTimeout(() => {
-      splash.remove();
-      performance.mark("monocode:ui-ready");
-      performance.measure("monocode:navigation-to-ui", {
-        start: 0,
-        end: "monocode:ui-ready",
-      });
-    }, 300);
-  };
-  // useLayoutEffect runs before paint. Two frames later the app is on
-  // screen, so the fade reveals UI instead of the desktop blur.
-  requestAnimationFrame(() => {
-    requestAnimationFrame(fade);
+  activateWindowAppearance();
+  void animate(splash, { opacity: 0 }, prefersReducedMotion() ? immediateTransition : defaultTransition).then(() => {
+    splash.remove();
+    performance.mark("monocode:ui-ready");
+    performance.measure("monocode:navigation-to-ui", { start: 0, end: "monocode:ui-ready" });
   });
 }
 
@@ -81,11 +73,11 @@ function BootGate({ children }: { children: React.ReactNode }) {
     dismissBootSplash();
   }, []);
   return (
-    <>
+    <MotionConfig reducedMotion="user" transition={defaultTransition}>
       {children}
       <div style={{ position: "fixed", bottom: 8, right: 8, zIndex: 10000, maxWidth: "70vw" }}><SharedStateStatus /></div>
       <WindowResizeHandles />
-    </>
+    </MotionConfig>
   );
 }
 

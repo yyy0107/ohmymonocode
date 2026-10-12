@@ -2,6 +2,14 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
+});
+import { duration } from "../motion/tokens";
+import { applyReducedMotion } from "../lib/reducedMotion";
 import { Popover } from "./Popover";
 import { NativePopupHost } from "./NativePopupHost";
 import {
@@ -118,7 +126,7 @@ describe.each([false, true])(
       });
       expect(dismiss).not.toHaveBeenCalled();
       expect(document.activeElement).toBe(anchor);
-      act(() => vi.advanceTimersByTime(180));
+      act(() => vi.advanceTimersByTime(duration.pop * 1000));
       expect(document.querySelector("[data-test-popover]")).toBeNull();
     });
 
@@ -132,7 +140,7 @@ describe.each([false, true])(
       render(true);
       expect(document.querySelector("[data-test-popover]")).toBe(surface);
       expect(surface.inert).toBe(false);
-      act(() => vi.advanceTimersByTime(180));
+      act(() => vi.advanceTimersByTime(duration.pop * 1000));
       expect(document.querySelector("[data-test-popover]")).toBe(surface);
       expect(
         surface.closest("[data-fold-state]")?.getAttribute("data-fold-state"),
@@ -149,6 +157,41 @@ describe.each([false, true])(
       render(true);
       render(true, false);
       expect(document.querySelector("[data-test-popover]")).toBeNull();
+    });
+
+    it("keeps an open draft mounted when the reduced-motion preference changes", () => {
+      const draft = () => document.querySelector<HTMLInputElement>("[data-popover-draft]")!;
+      const renderDraft = (open: boolean) => act(() => root.render(
+        createElement(NativePopupHost.Provider, { value: native ? host : null },
+          createElement(Popover, { open, anchor },
+            createElement("input", { "data-popover-draft": "", defaultValue: "Draft" }))),
+      ));
+      renderDraft(true);
+      const input = draft();
+      input.value = "Unsent edit";
+      try {
+        act(() => applyReducedMotion("on"));
+        expect(draft()).toBe(input);
+        expect(draft().value).toBe("Unsent edit");
+        renderDraft(false);
+        expect(draft()).toBeNull();
+      } finally {
+        act(() => applyReducedMotion("system"));
+      }
+    });
+
+    it("blocks action handlers while the exiting menu is retained", () => {
+      const select = vi.fn();
+      const renderAction = (open: boolean) => act(() => root.render(
+        createElement(NativePopupHost.Provider, { value: native ? host : null },
+          createElement(Popover, { open, anchor },
+            createElement("button", { "data-popover-action": "", onClick: select }, "Select"))),
+      ));
+      renderAction(true);
+      const button = document.querySelector<HTMLButtonElement>("[data-popover-action]")!;
+      renderAction(false);
+      act(() => button.click());
+      expect(select).not.toHaveBeenCalled();
     });
   },
 );

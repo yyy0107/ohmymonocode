@@ -40,11 +40,7 @@
   font-size: 14px;
   line-height: 20px;
   pointer-events: auto;
-  transition:
-    background-color 180ms ease,
-    border-color 180ms ease,
-    color 180ms ease;
-  animation: status-toast-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
+
 }
 
 .status-toast[data-tone="success"],
@@ -76,9 +72,7 @@ html:not(.theme-light) .status-toast[data-tone="error"] {
   --status-toast-tint: #f87171;
 }
 
-.status-toast[data-leaving] {
-  animation: status-toast-out 180ms ease-in forwards;
-}
+
 
 .status-toast-icon {
   flex: none;
@@ -124,42 +118,8 @@ html:not(.theme-light) .status-toast[data-tone="error"] {
   }
 }
 
-@keyframes status-toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px) scale(0.98);
-  }
-}
-
-@keyframes status-toast-out {
-  to {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.98);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .status-toast {
-    animation-name: status-toast-fade-in;
-  }
-
-  .status-toast[data-leaving] {
-    animation-name: status-toast-fade-out;
-  }
-
   .status-toast[data-tone="loading"] .status-toast-icon {
     animation: none;
-  }
-}
-
-@keyframes status-toast-fade-in {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes status-toast-fade-out {
-  to {
-    opacity: 0;
   }
 }

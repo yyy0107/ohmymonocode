@@ -1,7 +1,10 @@
+import { motion, useIsPresent } from "motion/react";
+import { immediateTransition, popAnimate, popExit, popInitial, popTransition } from "../motion/tokens";
+import { useMotionPreference } from "../motion/useMotionPreference";
 import { SurfaceAppearance } from "./SurfaceAppearance";
 import { useTranslation } from "../i18n/useTranslation";
 import { NativePopupHost } from "./NativePopupHost";
-import { useSurfaceVisibility } from "./SurfaceVisibility";
+import { SurfaceVisibilityContext, useSurfaceVisibility } from "./SurfaceVisibility";
 import { X } from "./icons";
 import { useContext, useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -49,6 +52,8 @@ export function ModalPanel({
 }: Props) {
   const { t: uiT } = useTranslation();
   const visible = useSurfaceVisibility();
+  const present = useIsPresent();
+  const reduced = useMotionPreference();
   const appearance = useContext(SurfaceAppearance);
   const popupHost = useContext(NativePopupHost);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -58,11 +63,11 @@ export function ModalPanel({
   const descriptionId = description ? `${uid}-desc` : undefined;
 
   useEffect(() => {
-    if (visible && !minimalHeader) closeRef.current?.focus();
-  }, [visible, minimalHeader]);
+    if (visible && present && !minimalHeader) closeRef.current?.focus();
+  }, [visible, present, minimalHeader]);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || !present) return;
     const onKey = (event: KeyboardEvent) => {
       if (
         event.key !== "Escape" ||
@@ -77,7 +82,7 @@ export function ModalPanel({
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [visible, onClose]);
+  }, [visible, present, onClose]);
 
   if (!visible) return null;
 
@@ -90,7 +95,13 @@ export function ModalPanel({
           : `absolute left-1/2 ${fitViewport ? "top-1/2 -translate-y-1/2" : TOP[size]} ${WIDTH[size]} -translate-x-1/2`
       }
     >
-      <div
+      <motion.div
+        initial={reduced ? false : popInitial}
+        animate={popAnimate}
+        exit={popExit}
+        transition={reduced ? immediateTransition : popTransition}
+        inert={!present}
+        aria-hidden={!present || undefined}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -139,10 +150,10 @@ export function ModalPanel({
             ref={lockOverscroll}
             className="min-h-0 flex-1 overflow-y-auto overscroll-none"
           >
-            {children}
+            <SurfaceVisibilityContext.Provider value={visible && present}>{children}</SurfaceVisibilityContext.Provider>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -151,16 +162,22 @@ export function Modal(props: Props) {
   const host = useContext(NativePopupHost);
   const visible = useSurfaceVisibility();
   const appearance = useContext(SurfaceAppearance);
+  const present = useIsPresent();
+  const reduced = useMotionPreference();
   if (!visible) return null;
   if (host) return createPortal(<ModalPanel {...props} />, host);
   return createPortal(
-    <div data-modal-context={appearance} className="fixed inset-0" style={{ zIndex: props.layer ?? LAYER.dialog }}>
+    <motion.div data-modal-context={appearance} className="fixed inset-0" style={{ zIndex: props.layer ?? LAYER.dialog }}
+      initial={reduced ? false : { opacity: popInitial.opacity }}
+      animate={{ opacity: popAnimate.opacity }} exit={{ opacity: popExit.opacity }}
+      transition={reduced ? immediateTransition : popTransition}
+      inert={!present} aria-hidden={!present || undefined}>
       <div
         className="modal-backdrop absolute inset-0 bg-black/60 backdrop-blur-xs"
         onMouseDown={props.onClose}
       />
       <ModalPanel {...props} />
-    </div>,
+    </motion.div>,
     document.body,
   );
 }

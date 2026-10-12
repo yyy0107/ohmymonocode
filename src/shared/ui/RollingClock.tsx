@@ -1,14 +1,7 @@
-import { useState, useSyncExternalStore, type CSSProperties } from "react";
-import { reducedMotionQuery } from "../lib/reducedMotion";
+import { AnimatePresence, motion, useIsPresent } from "motion/react";
+import { duration, immediateTransition, motionGeometry, msgTransition } from "../motion/tokens";
+import { useMotionPreference } from "../motion/useMotionPreference";
 import "./RollingClock.css";
-
-function subscribeMotion(listener: () => void) {
-  const query = reducedMotionQuery();
-  query.addEventListener("change", listener);
-  return () => query.removeEventListener("change", listener);
-}
-const motionReduced = () => reducedMotionQuery().matches;
-const serverMotionReduced = () => true;
 
 export const CLOCK_MOTIONS = ["slide", "roll", "fade", "cascade"] as const;
 export type ClockMotion = typeof CLOCK_MOTIONS[number];
@@ -25,11 +18,11 @@ export function rollingClockMotion(seed: string, startedAt: number): ClockMotion
 }
 
 /** Changed digits move up in one of several styles; units stay still. */
-export function RollingClock({ value, motion = "slide" }: { value: string; motion?: ClockMotion }) {
-  const reduced = useSyncExternalStore(subscribeMotion, motionReduced, serverMotionReduced);
+export function RollingClock({ value, motion: clockMotion = "slide" }: { value: string; motion?: ClockMotion }) {
+  const reduced = useMotionPreference();
   const groups = [...value.matchAll(/(\d+)([^\d]*)/g)];
   return (
-    <span className="rolling-clock" data-motion={motion} role="timer" aria-label={value} aria-live="off" dir="ltr">
+    <span className="rolling-clock" data-motion={clockMotion} role="timer" aria-label={value} aria-live="off" dir="ltr">
       <span className="rolling-clock-face" aria-hidden="true">
         {groups.map((group) => (
           <span className="rolling-clock-group" key={group[2].trim()}>
@@ -38,7 +31,8 @@ export function RollingClock({ value, motion = "slide" }: { value: string; motio
                 key={group[1].length - index}
                 value={digit}
                 reduced={reduced}
-                delay={motion === "cascade" ? (group[1].length - index - 1) * 45 : 0}
+                clockMotion={clockMotion}
+                delay={clockMotion === "cascade" ? (group[1].length - index - 1) * duration.msg : 0}
               />
             ))}
             <span className="rolling-clock-unit">{group[2]}</span>
@@ -49,33 +43,24 @@ export function RollingClock({ value, motion = "slide" }: { value: string; motio
   );
 }
 
-function RollingDigit({ value, reduced, delay }: { value: string; reduced: boolean; delay: number }) {
-  const [frame, setFrame] = useState({ value, previous: value, revision: 0 });
-  if (frame.value !== value) {
-    setFrame({ value, previous: reduced ? value : frame.value, revision: frame.revision + 1 });
-  } else if (reduced && frame.previous !== value) {
-    setFrame({ ...frame, previous: value });
-  }
-  const rolling = !reduced && frame.previous !== frame.value;
+function RollingDigit({ value, reduced, delay, clockMotion }: { value: string; reduced: boolean; delay: number; clockMotion: ClockMotion }) {
+  const fade = clockMotion === "fade";
+  if (reduced) return <span className="rolling-clock-digit"><span className="rolling-clock-current">{value}</span></span>;
   return (
-    <span
-      className="rolling-clock-digit"
-      data-rolling={rolling || undefined}
-      style={{ "--clock-delay": `${delay}ms` } as CSSProperties}
-    >
-      <span className="rolling-clock-current">{value}</span>
-      {rolling && (
-        <span key={frame.revision} className="rolling-clock-transition">
-          <span className="rolling-clock-glyph rolling-clock-outgoing" data-glyph={frame.previous} />
-          <span
-            className="rolling-clock-glyph rolling-clock-incoming"
-            data-glyph={value}
-            onAnimationEnd={() => setFrame(current => current.revision === frame.revision
-              ? { ...current, previous: current.value }
-              : current)}
-          />
-        </span>
-      )}
+    <span className="rolling-clock-digit">
+      <AnimatePresence initial={false}>
+        <ClockGlyph key={value} value={value} reduced={reduced} fade={fade} delay={delay} />
+      </AnimatePresence>
     </span>
   );
+}
+
+function ClockGlyph({ value, reduced, fade, delay }: { value: string; reduced: boolean; fade: boolean; delay: number }) {
+  const present = useIsPresent();
+  return <motion.span className={present ? "rolling-clock-current" : "rolling-clock-glyph"} data-glyph={value} data-exiting={!present || undefined}
+    initial={reduced ? false : { y: fade ? 0 : `${motionGeometry.clockPercent}%`, opacity: fade ? 0 : 1 }}
+    animate={{ y: 0, opacity: 1 }}
+    exit={{ y: reduced || fade ? 0 : `-${motionGeometry.clockPercent}%`, opacity: reduced || fade ? 0 : 1 }}
+    transition={reduced ? immediateTransition : { ...msgTransition, delay }}
+  >{present ? value : null}</motion.span>;
 }

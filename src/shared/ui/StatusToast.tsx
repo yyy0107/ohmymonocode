@@ -1,3 +1,6 @@
+import { AnimatePresence, motion, useIsPresent } from "motion/react";
+import { immediateTransition, popAnimate, popExit, popInitial, popTransition } from "../motion/tokens";
+import { useMotionPreference } from "../motion/useMotionPreference";
 import { useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { translate } from "../i18n/language";
@@ -24,7 +27,6 @@ const DURATION: Record<StatusToastTone, number> = {
   success: 2600,
   error: 5000,
 };
-const EXIT_MS = 180;
 const LIMIT = 3;
 
 let items: Item[] = [];
@@ -92,13 +94,7 @@ export function updateStatusToast(id: number, message: string, tone: StatusToast
 
 function finishLeaving(id: number) {
   clearTimeout(timers.get(id));
-  timers.set(
-    id,
-    setTimeout(() => {
-      timers.delete(id);
-      emit(items.filter((item) => item.id !== id));
-    }, EXIT_MS),
-  );
+  timers.delete(id);
 }
 
 export function dismissStatusToast(id: number) {
@@ -151,23 +147,33 @@ function StatusToastHost() {
   const current = useSyncExternalStore(subscribe, () => items, () => items);
   return (
     <div className="status-toast-stack" style={{ zIndex: LAYER.toast }}>
-      {current.map((item) => (
-        <StatusToastView key={item.id} item={item} />
-      ))}
+      <AnimatePresence onExitComplete={() => emit(items.filter((item) => !item.leaving))}>
+        {current.filter((item) => !item.leaving).map((item) => (
+          <StatusToastView key={item.id} item={item} />
+        ))}
+      </AnimatePresence>
     </div>
   );
 }
 
 function StatusToastView({ item }: { item: Item }) {
+  const present = useIsPresent();
+  const reduced = useMotionPreference();
   const Icon = item.tone === "loading" ? LoaderCircle : item.tone === "error" ? CircleAlert : CircleCheck;
   return (
-    <div
+    <motion.div
+      layout="position"
+      initial={reduced ? false : popInitial}
+      animate={popAnimate}
+      exit={popExit}
+      transition={reduced ? immediateTransition : popTransition}
       className="status-toast"
       data-tone={item.tone}
-      data-leaving={item.leaving || undefined}
+      data-leaving={!present || undefined}
       role={item.tone === "error" ? "alert" : "status"}
       aria-live={item.tone === "error" ? "assertive" : "polite"}
-      inert={item.leaving}
+      inert={!present}
+      aria-hidden={!present || undefined}
     >
       <Icon className="status-toast-icon" aria-hidden="true" />
       <span className="status-toast-message">{item.message}</span>
@@ -181,6 +187,6 @@ function StatusToastView({ item }: { item: Item }) {
           <X aria-hidden="true" />
         </button>
       )}
-    </div>
+    </motion.div>
   );
 }

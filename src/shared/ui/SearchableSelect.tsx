@@ -1,3 +1,6 @@
+import { motion } from "motion/react";
+import { immediateTransition, popTransition } from "../motion/tokens";
+import { useMotionPreference } from "../motion/useMotionPreference";
 import { useTranslation } from "../i18n/useTranslation";
 import {
   useEffect,
@@ -47,6 +50,7 @@ export function SearchableSelect({
   align?: PopoverAlign;
 }) {
   const { t: uiT } = useTranslation();
+  const reduced = useMotionPreference();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -218,9 +222,9 @@ export function SearchableSelect({
         >
           {selected?.label ?? placeholder}
         </span>
-        <ChevronDown
-          className={`desktop-select-arrow shrink-0 text-content/45 transition-transform duration-150 ease-out ${variant === "pill" || variant === "row" ? "size-3" : "size-3.5"} ${open ? "rotate-180" : ""}`}
-        />
+        <motion.span animate={{ rotate: open ? 180 : 0 }} transition={reduced ? immediateTransition : popTransition} className="shrink-0">
+          <ChevronDown className={`desktop-select-arrow text-content/45 ${variant === "pill" || variant === "row" ? "size-3" : "size-3.5"}`} />
+        </motion.span>
       </button>
       <Popover
         open={open}

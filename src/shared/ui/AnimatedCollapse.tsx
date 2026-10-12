@@ -1,36 +1,152 @@
 import {
-  memo,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type CSSProperties,
+  memo, useCallback, useEffect, useLayoutEffect, useRef, useState,
   type ReactNode,
 } from "react";
+import { AnimatePresence, motion as motionElement, usePresence, useMotionValue } from "motion/react";
 import { reducedMotionQuery } from "../lib/reducedMotion";
-import {
-  SurfaceVisibilityContext,
-  useSurfaceVisibility,
-} from "./SurfaceVisibility";
+import { collapseTransition, duration, immediateTransition } from "../motion/tokens";
+import { useMotionPreference } from "../motion/useMotionPreference";
+import { SurfaceVisibilityContext, useSurfaceVisibility } from "./SurfaceVisibility";
 
-// Prop updates can wait while retained content is hidden. Visibility context
-// remains outside this boundary so descendants can dismiss portals and polling.
 const RetainedCollapseContent = memo(
-  function RetainedCollapseContent({
-    children,
-  }: {
+  function RetainedCollapseContent({ children }: {
     visible: boolean;
     children: ReactNode | (() => ReactNode);
   }) {
     return typeof children === "function" ? children() : children;
   },
-  (previous, next) =>
-    previous.visible === next.visible &&
+  (previous, next) => previous.visible === next.visible &&
     (!next.visible || previous.children === next.children),
 );
 
-/** Shared lifetime for disclosures and grid-sized panels. */
+/** Shared Motion lifetime for disclosures and grid-sized panels. */
+function useMotionCollapse(expanded: boolean, durationMs = duration.collapse * 1000) {
+  const reduced = useMotionPreference();
+  const progress = useMotionValue(expanded ? 1 : 0);
+  const [foldState, setFoldState] = useState<"open" | "opening" | "closing" | "closed">(
+    expanded ? "open" : "closed",
+  );
+  const latest = useRef(expanded);
+  latest.current = expanded;
+  const previous = useRef(expanded);
+  const finish = useCallback(() => {
+    progress.jump(latest.current ? 1 : 0);
+    setFoldState(latest.current ? "open" : "closed");
+  }, [progress]);
+  const restart = useCallback((_milliseconds = durationMs) => {
+    if (reduced) finish();
+    else setFoldState(latest.current ? "opening" : "closing");
+  }, [durationMs, reduced, finish]);
+  useLayoutEffect(() => {
+    if (reduced) { finish(); previous.current = expanded; return; }
+    if (previous.current === expanded) return;
+    previous.current = expanded;
+    setFoldState(expanded ? "opening" : "closing");
+  }, [expanded, reduced, finish]);
+  return {
+    foldState, finish, restart, progress,
+    motionProps: {
+      initial: false as const,
+      transition: reduced ? immediateTransition : { ...collapseTransition, duration: durationMs / 1000 },
+      onAnimationComplete: finish,
+    },
+  };
+}
+
+type CollapseProps = {
+  expanded: boolean;
+  className?: string;
+  durationMs?: number;
+  motion?: "grid" | "height";
+  animateContentResize?: boolean;
+  keepMounted?: boolean;
+  onEntered?: () => void;
+  children: ReactNode | (() => ReactNode);
+};
+
+export function AnimatedCollapse({
+  expanded, className, durationMs, animateContentResize = false,
+  keepMounted = false, onEntered, children,
+}: CollapseProps) {
+  const parentVisible = useSurfaceVisibility();
+  const reduced = useMotionPreference();
+  const lifetime = useMotionCollapse(expanded, durationMs);
+  const hasOpened = useRef(expanded);
+  const entered = useRef(expanded);
+  if (expanded) hasOpened.current = true;
+  useEffect(() => {
+    if (!expanded) entered.current = false;
+    else if (lifetime.foldState === "open" && !entered.current) {
+      entered.current = true;
+      onEntered?.();
+    }
+  }, [expanded, lifetime.foldState, onEntered]);
+  const retained = keepMounted && hasOpened.current;
+  const content = (expanded || retained) && (
+        <CollapseBody
+          key="collapse"
+          expanded={expanded}
+          className={className}
+          keepMounted={keepMounted}
+          parentVisible={parentVisible}
+          hidden={!expanded && lifetime.foldState === "closed"}
+          foldState={lifetime.foldState}
+          reduced={reduced}
+          durationMs={durationMs}
+          animateContentResize={animateContentResize}
+          finish={lifetime.finish}
+        >{children}</CollapseBody>
+      );
+  return (
+    <AnimatePresence onExitComplete={lifetime.finish}>{content}</AnimatePresence>
+  );
+}
+
+function CollapseBody({
+  expanded, className, keepMounted, parentVisible, hidden, foldState,
+  durationMs, animateContentResize, finish, children,
+}: Omit<CollapseProps, "onEntered" | "motion"> & {
+  parentVisible: boolean; hidden: boolean;
+  foldState: "open" | "opening" | "closing" | "closed";
+  reduced: boolean; finish: () => void;
+}) {
+  const [present, safeToRemove] = usePresence();
+  const reduced = useMotionPreference();
+  useLayoutEffect(() => {
+    if (reduced && !present) { safeToRemove?.(); finish(); }
+  }, [reduced, present, safeToRemove, finish]);
+  const visible = expanded && present && parentVisible;
+  if (reduced && !present) return null;
+  return (
+    <motionElement.div
+      data-collapse-motion="height"
+      className={`zen-fold-item${className ? ` ${className}` : ""}`}
+      data-fold-state={present ? foldState : "closing"}
+      initial={reduced || foldState === "open" ? false : { height: 0 }}
+      animate={{ height: expanded ? "auto" : 0 }}
+      exit={{ height: 0 }}
+      transition={reduced ? immediateTransition : {
+        ...collapseTransition,
+        ...(durationMs === undefined ? undefined : { duration: durationMs / 1000 }),
+      }}
+      layout={animateContentResize ? "size" : false}
+      style={{ overflow: "hidden", display: hidden ? "none" : undefined }}
+      hidden={hidden}
+      aria-hidden={!visible || undefined}
+      inert={!visible}
+      onAnimationComplete={() => { finish(); if (!present) safeToRemove?.(); }}
+    >
+      <div>
+        <SurfaceVisibilityContext.Provider value={visible}>
+          {keepMounted ? (
+            <RetainedCollapseContent visible={visible}>{children}</RetainedCollapseContent>
+          ) : typeof children === "function" ? children() : children}
+        </SurfaceVisibilityContext.Provider>
+      </div>
+    </motionElement.div>
+  );
+}
+
 export function useCollapseMotion(expanded: boolean, durationMs = 340) {
   const [foldState, setFoldState] = useState<
     "open" | "opening" | "closing" | "closed"
@@ -73,270 +189,4 @@ export function useCollapseMotion(expanded: boolean, durationMs = 340) {
     setFoldState(expanded ? "open" : "closed");
   }, [expanded]);
   return { foldState, finish, restart };
-}
-
-/** Shared vertical disclosure motion; measured height avoids intrinsic Grid sizing. */
-export function AnimatedCollapse({
-  expanded,
-  className,
-  durationMs,
-  motion = "grid",
-  animateContentResize = false,
-  keepMounted = false,
-  onEntered,
-  children,
-}: {
-  expanded: boolean;
-  className?: string;
-  durationMs?: number;
-  motion?: "grid" | "height";
-  animateContentResize?: boolean;
-  /** Retain content after its first opening and pause hidden parent-prop updates. */
-  keepMounted?: boolean;
-  /** Runs after entering, never for an initially expanded mount. */
-  onEntered?: () => void;
-  /** Use a factory to defer expensive content preparation while closed. */
-  children: ReactNode | (() => ReactNode);
-}) {
-  const parentVisible = useSurfaceVisibility();
-  const { foldState, finish, restart } = useCollapseMotion(
-    expanded,
-    durationMs,
-  );
-  const entered = useRef(expanded);
-  const hasOpened = useRef(expanded);
-  if (expanded) hasOpened.current = true;
-  const visibleHeight = useRef<number | undefined>(undefined);
-  useEffect(() => {
-    if (!expanded) entered.current = false;
-    else if (foldState === "open" && !entered.current) {
-      entered.current = true;
-      onEntered?.();
-    }
-  }, [expanded, foldState, onEntered]);
-  const itemRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const heightMotion =
-    motion === "height" &&
-    typeof Element !== "undefined" &&
-    typeof Element.prototype.animate === "function";
-
-  useLayoutEffect(() => {
-    const item = itemRef.current;
-    const content = contentRef.current;
-    if (!item || !content) return;
-    const settled = foldState === "open";
-    const reduced = reducedMotionQuery().matches;
-    if (!heightMotion || reduced || (settled && !animateContentResize)) {
-      item.style.removeProperty("height");
-      item.style.removeProperty("overflow");
-      return;
-    }
-    if (foldState === "closed") {
-      item.style.height = "0px";
-      visibleHeight.current = 0;
-      return;
-    }
-    if (settled ? !expanded : (foldState === "opening") !== expanded) return;
-
-    const duration = durationMs ?? 340;
-    const startedAt = performance.now();
-    const easing =
-      getComputedStyle(item).getPropertyValue("--collapse-easing").trim() ||
-      "cubic-bezier(0.22, 1, 0.36, 1)";
-    let animation: Animation | undefined;
-    let targetHeight = settled ? (visibleHeight.current ?? -1) : -1;
-    const release = () => {
-      if (animation) {
-        animation.onfinish = null;
-        animation.cancel();
-        animation = undefined;
-      }
-      item.style.removeProperty("height");
-      item.style.removeProperty("overflow");
-    };
-    // A display:none ancestor (e.g. the closed sidebar) reports zero height.
-    // That is not a content change; folding to it would replay on reopening.
-    const rendered = () => content.getClientRects().length > 0;
-    const retarget = (nextHeight: number) => {
-      if (
-        settled &&
-        (reducedMotionQuery().matches ||
-          content.querySelector(
-            '.zen-fold-item:is([data-fold-state="opening"], [data-fold-state="closing"])',
-          ))
-      ) {
-        // Nested disclosures already animate the natural height; do not chase them.
-        release();
-        targetHeight = nextHeight;
-        visibleHeight.current = nextHeight;
-        return;
-      }
-      if (nextHeight === targetHeight) {
-        if (settled && !animation) release();
-        return;
-      }
-      const currentHeight =
-        settled && !animation
-          ? targetHeight < 0
-            ? nextHeight
-            : targetHeight
-          : item.getBoundingClientRect().height;
-      const remaining =
-        animation && !animateContentResize
-          ? Math.max(0, duration - (performance.now() - startedAt))
-          : duration;
-      targetHeight = nextHeight;
-      if (animation) {
-        animation.onfinish = null;
-        animation.cancel();
-      }
-      if (settled && currentHeight === nextHeight) {
-        release();
-        visibleHeight.current = nextHeight;
-        return;
-      }
-      item.style.height = `${nextHeight}px`;
-      item.style.overflow = "hidden";
-      if (remaining === 0) {
-        finish();
-        return;
-      }
-      animation = item.animate(
-        [{ height: `${currentHeight}px` }, { height: `${nextHeight}px` }],
-        { duration: remaining, easing, fill: "both" },
-      );
-      void animation.finished.catch(() => undefined);
-      // Late content gets a complete transition, not the last few milliseconds.
-      if (!settled && animateContentResize) restart(remaining);
-      animation.onfinish = () => {
-        if (expanded && rendered()) {
-          const nextHeight = content.getBoundingClientRect().height;
-          if (nextHeight !== targetHeight) {
-            retarget(nextHeight);
-            return;
-          }
-        }
-        if (settled) {
-          visibleHeight.current = targetHeight;
-          release();
-        } else finish();
-      };
-    };
-    const remeasure = () => {
-      if (expanded && !rendered()) return;
-      retarget(expanded ? content.getBoundingClientRect().height : 0);
-    };
-    remeasure();
-    // React's DOM changes arrive before layout/ResizeObserver delivery. Freeze
-    // late content here so it cannot flash or feed back through layout observers.
-    const mutations =
-      expanded &&
-      animateContentResize &&
-      typeof MutationObserver !== "undefined"
-        ? new MutationObserver(remeasure)
-        : undefined;
-    mutations?.observe(content, {
-      childList: true,
-      characterData: true,
-      subtree: true,
-    });
-    const contentStyle = getComputedStyle(content);
-    const observer =
-      expanded && typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver((entries) => {
-            const entry = entries?.find((entry) => entry.target === content);
-            // Older observers may expose one object instead of an array. A
-            // fragmented box cannot describe the full physical height reliably.
-            const sizes = entry?.borderBoxSize as
-              readonly ResizeObserverSize[] | ResizeObserverSize | undefined;
-            const size =
-              sizes &&
-              ("blockSize" in sizes
-                ? sizes
-                : sizes.length === 1
-                  ? sizes[0]
-                  : undefined);
-            const height =
-              size &&
-              (/^(vertical|sideways)-/.test(contentStyle.writingMode)
-                ? size.inlineSize
-                : size.blockSize);
-            if (
-              height === undefined ||
-              !Number.isFinite(height) ||
-              height < 0
-            ) {
-              remeasure();
-              return;
-            }
-            // Positive delivered sizes already imply a rendered box. Only an
-            // actual change to zero needs the hidden-ancestor check; duplicate
-            // reports can return without forcing any geometry measurement.
-            if (height === 0 && height !== targetHeight && !rendered()) return;
-            retarget(height);
-          })
-        : undefined;
-    observer?.observe(content, { box: "border-box" });
-    return () => {
-      mutations?.disconnect();
-      observer?.disconnect();
-      visibleHeight.current = item.getBoundingClientRect().height;
-      if (!animation) return;
-      // Freeze the visible height before cancelling so rapid reversal never jumps.
-      item.style.height = `${visibleHeight.current}px`;
-      animation.onfinish = null;
-      animation.cancel();
-    };
-  }, [
-    expanded,
-    foldState,
-    heightMotion,
-    durationMs,
-    animateContentResize,
-    finish,
-    restart,
-  ]);
-
-  const hidden = !expanded && foldState === "closed";
-  if (hidden && (!keepMounted || !hasOpened.current)) return null;
-  return (
-    <div
-      ref={itemRef}
-      data-collapse-motion={heightMotion ? "height" : undefined}
-      className={`zen-fold-item${className ? ` ${className}` : ""}`}
-      style={
-        {
-          ...(durationMs === undefined
-            ? undefined
-            : { "--collapse-duration": `${durationMs}ms` }),
-          // Fold styles set display explicitly, so the hidden attribute alone
-          // cannot remove retained contents from layout and painting.
-          display: hidden ? "none" : undefined,
-        } as CSSProperties
-      }
-      hidden={hidden}
-      data-fold-state={foldState}
-      aria-hidden={!expanded || undefined}
-      inert={!expanded}
-      onAnimationEnd={(event) => {
-        if (event.target !== event.currentTarget) return;
-        finish();
-      }}
-    >
-      <div ref={contentRef}>
-        <SurfaceVisibilityContext.Provider value={parentVisible && expanded}>
-          {keepMounted ? (
-            <RetainedCollapseContent visible={parentVisible && expanded}>
-              {children}
-            </RetainedCollapseContent>
-          ) : typeof children === "function" ? (
-            children()
-          ) : (
-            children
-          )}
-        </SurfaceVisibilityContext.Provider>
-      </div>
-    </div>
-  );
 }

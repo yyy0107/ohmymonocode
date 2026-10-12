@@ -1,4 +1,7 @@
-import { useRef, type KeyboardEvent, type ReactNode } from "react";
+import { motion } from "motion/react";
+import { immediateTransition, panelTransition } from "../../motion/tokens";
+import { useMotionPreference } from "../../motion/useMotionPreference";
+import { useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { cx } from "./cx";
 
 export type Segment<T extends string> = {
@@ -25,6 +28,8 @@ export function SegmentedControl<T extends string>({
   size?: "sm" | "md";
   className?: string;
 }) {
+  const indicatorId = useId();
+  const reduced = useMotionPreference();
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const step =
@@ -70,13 +75,14 @@ export function SegmentedControl<T extends string>({
             disabled={option.disabled}
             onClick={() => onChange(option.value)}
             className={cx(
-              "inline-flex h-full min-w-0 items-center justify-center gap-1 rounded-md px-2.5 font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-focus motion-reduce:transition-none disabled:opacity-45 [&_svg]:size-3.5",
+              "relative isolate inline-flex h-full min-w-0 items-center justify-center gap-1 rounded-md px-2.5 font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-focus motion-reduce:transition-none disabled:opacity-45 [&_svg]:size-3.5",
               size === "sm" ? "text-[12px]" : "text-[13px]",
               checked
-                ? "bg-raised text-ink shadow-[0_1px_2px_color-mix(in_srgb,black_18%,transparent)]"
+                ? "text-ink"
                 : "text-ink-secondary enabled:hover:text-ink",
             )}
           >
+            {checked ? <motion.span layoutId={indicatorId} transition={reduced ? immediateTransition : panelTransition} className="pointer-events-none absolute inset-0 -z-10 rounded-md bg-raised shadow-[0_1px_2px_color-mix(in_srgb,black_18%,transparent)]" /> : null}
             {option.label}
           </button>
         );

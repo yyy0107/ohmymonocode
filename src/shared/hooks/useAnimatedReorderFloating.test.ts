@@ -2,6 +2,13 @@
 import { act, createElement, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, false) };
+});
+import { duration } from "../motion/tokens";
 import {
   useAnimatedReorder,
   type ReorderExternalDrop,
@@ -192,11 +199,10 @@ describe("floating reorder previews", () => {
     pointer(window, "pointermove", 400, 200);
     act(() => vi.advanceTimersByTime(16));
     pointer(window, "pointerup", 400, 200);
-    expect(ghostCard().style.transition).toContain("transform 160ms");
     expect(ghostCard().style.transform).toBe("translate(40px, 86px)");
     expect(source.dataset.reorderFloating).toBe("true");
     expect(onReorder).not.toHaveBeenCalled();
-    act(() => vi.advanceTimersByTime(160));
+    act(() => vi.advanceTimersByTime(duration.panel * 1000));
     expect(onReorder).toHaveBeenCalledExactlyOnceWith(["b", "c", "a"], "a");
     expect(document.querySelector(".drag-ghost")).toBeNull();
     expect(source.dataset.reorderFloating).toBeUndefined();

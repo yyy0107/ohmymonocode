@@ -1,3 +1,4 @@
+import { animate, type AnimationPlaybackControls, type Transition } from "motion/react";
 import { LAYER } from "./layers";
 
 export const EXPLORER_FILE_POINTER_DRAG_EVENT =
@@ -101,17 +102,23 @@ export function createDragGhost(
   card.style.height = `${rect.height}px`;
   card.style.font = getComputedStyle(source).font;
   card.style.transition = "none";
+  let animation: AnimationPlaybackControls | undefined;
   ghost.append(card);
   document.body.append(ghost);
   return {
     move(x: number, y: number) {
+      animation?.stop();
       card.style.transform = `translate(${x - offsetX}px, ${y - offsetY}px)`;
     },
-    settle(left: number, top: number, transition: string) {
-      card.style.transition = transition;
-      card.style.transform = `translate(${left}px, ${top}px)`;
+    settle(left: number, top: number, transition: Transition) {
+      animation?.stop();
+      const target = `translate(${left}px, ${top}px)`;
+      const previous = card.style.transform;
+      card.style.transform = target;
+      animation = animate(card, { transform: [previous, target] }, transition);
     },
     dispose() {
+      animation?.stop();
       ghost.remove();
     },
   };
