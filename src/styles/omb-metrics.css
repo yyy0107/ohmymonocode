@@ -78,12 +78,12 @@ html[data-skin] .primary-action:not(.composer-send):not(.composer-stop) {
   font-weight: 500;
   line-height: 22px;
 }
-html[data-skin] .ui-button.ui-button-md {
+html[data-skin] :where(.ui-button).ui-button-md {
   min-height: 32px;
   font-size: 13px;
   line-height: 18px;
 }
-html[data-skin] .ui-button.ui-button-sm {
+html[data-skin] :where(.ui-button).ui-button-sm {
   gap: var(--omb-space-4);
   min-height: var(--omb-chrome);
   padding: 0 var(--omb-space-8);
@@ -372,4 +372,118 @@ html[data-skin] [data-composer-layout="desktop"] .composer-footer :is(.composer-
 html[data-skin] [data-composer-layout="desktop"] :is(.composer-send, .composer-stop) > svg {
   width: 20px;
   height: 20px;
+}
+
+/* Question and approval cards, as the phone transcript: 48px options, 36px
+   secondary and 44px primary pills. Selectors keep the skin prefix so the
+   phone's `.mobile-shared-question` rules never meet them. */
+html[data-skin] [data-question-card] {
+  padding: var(--omb-space-12) var(--omb-space-10) var(--omb-space-10);
+  border-radius: var(--omb-radius-card);
+}
+html[data-skin] [data-question-header] {
+  gap: var(--omb-space-6);
+  padding-inline-start: var(--omb-space-6);
+}
+html[data-skin] :is([data-question-title], [data-question-hint], [data-question-navigation] > span) {
+  font-size: 13px;
+  line-height: 18px;
+}
+html[data-skin] [data-question-prompt] {
+  padding-inline: var(--omb-space-6);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+html[data-skin] [data-question-options] {
+  gap: var(--omb-space-6);
+}
+html[data-skin] [data-question-option] {
+  align-items: center;
+  gap: var(--omb-space-12);
+  min-height: 48px;
+  padding: var(--omb-space-10) var(--omb-space-12);
+  border-radius: var(--omb-radius-row);
+}
+html[data-skin] [data-question-label] {
+  font-size: 15px;
+  line-height: 22px;
+}
+html[data-skin] [data-question-description] {
+  font-size: 13px;
+  line-height: 18px;
+}
+html[data-skin] [data-question-card] :is(input, textarea) {
+  min-height: var(--omb-control);
+  padding: var(--omb-space-6) var(--omb-space-12);
+  border-radius: var(--omb-radius-field);
+  font-size: 15px;
+}
+html[data-skin] [data-question-collapse] {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+}
+html[data-skin] [data-question-collapse] svg {
+  width: 20px;
+  height: 20px;
+}
+html[data-skin] [data-question-navigation] > button {
+  width: var(--omb-hit);
+  height: var(--omb-hit);
+  border-radius: 999px;
+}
+html[data-skin] [data-question-navigation] > button svg {
+  width: 18px;
+  height: 18px;
+}
+html[data-skin] [data-question-footer] {
+  margin-top: var(--omb-space-10);
+  padding-inline-start: var(--omb-space-6);
+}
+
+html[data-skin] [data-tool-renderer]:has([data-approval-controls]),
+html[data-skin] [data-monocode-tool-call]:has([data-approval-controls]),
+html[data-skin] [data-approval-host]:has([data-approval-controls]) {
+  margin-block: var(--omb-space-4);
+  padding: var(--omb-space-12) var(--omb-space-10) var(--omb-space-10) var(--omb-space-16);
+  border-radius: var(--omb-radius-card);
+}
+html[data-skin] [data-approval-controls] {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--omb-space-8);
+  margin-top: var(--omb-space-10);
+}
+
+html[data-skin] :is([data-question-submit], [data-approval="allow"]),
+html[data-skin] :is([data-question-secondary], [data-approval="deny"]) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: auto;
+  border-radius: 999px;
+  font-size: 15px;
+  line-height: 22px;
+}
+html[data-skin] :is([data-question-secondary], [data-approval="deny"]) {
+  min-height: var(--omb-control);
+  padding: 0 var(--omb-space-12);
+  font-weight: 500;
+}
+html[data-skin] :is([data-question-submit], [data-approval="allow"]) {
+  min-height: var(--omb-hit);
+  padding: 0 var(--omb-space-22);
+  font-weight: 600;
+}
+
+/* The floating notice is narrow: both pills drop to the 36px control. */
+html[data-skin] .approval-toast {
+  border-radius: var(--omb-radius-card);
+}
+html[data-skin] .approval-toast :is([data-approval="allow"], [data-approval="deny"]) {
+  min-height: var(--omb-control);
+  padding: 0 var(--omb-space-16);
+  font-size: 15px;
 }

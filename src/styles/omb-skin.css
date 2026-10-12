@@ -611,10 +611,21 @@ html[data-skin]:not(.has-user-accent) :where(.user-message-row:not(.mobile-deskt
 }
 
 html[data-skin] [data-question-card] {
-  background: var(--color-card);
   border-color: var(--color-hairline);
-  border-radius: var(--radius-xl, 0.75rem);
+  background: color-mix(in srgb, var(--color-panel) 88%, transparent);
   color: var(--color-ink);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--omb-shadow-float);
+}
+
+html[data-skin] [data-question-title],
+html[data-skin] [data-question-hint] {
+  color: var(--color-ink-tertiary);
+}
+
+html[data-skin] [data-question-option] {
+  border-color: transparent;
+  background: var(--color-inset);
 }
 
 html[data-skin] [data-question-card] :is(input, textarea) {
@@ -626,8 +637,9 @@ html[data-skin] [data-question-card] :is(input, textarea) {
 }
 
 html[data-skin] [data-question-option][aria-pressed="true"] {
-  border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-card));
+  border-color: transparent;
+  background: var(--color-raised);
+  box-shadow: inset 0 0 0 1.5px var(--color-accent);
 }
 
 html[data-skin] [data-question-option][aria-pressed="true"] [data-question-mark] {
@@ -641,34 +653,9 @@ html[data-skin] [data-question-option][aria-pressed="true"] [data-question-mark]
 html[data-skin] [data-tool-renderer]:has([data-approval-controls]),
 html[data-skin] [data-monocode-tool-call]:has([data-approval-controls]),
 html[data-skin] [data-approval-host]:has([data-approval-controls]) {
-  margin-block: 4px;
-  padding: 10px 12px;
   border: 1px solid var(--color-hairline);
-  border-radius: var(--radius-xl, 0.75rem);
   background: var(--color-card);
   color: var(--color-ink);
-}
-
-html[data-skin] [data-approval-controls] {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-html[data-skin] :is([data-question-submit], [data-approval="allow"]),
-html[data-skin] :is([data-question-secondary], [data-approval="deny"]) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 28px;
-  min-height: 28px;
-  padding: 0 12px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 20px;
 }
 
 html[data-skin] :is([data-question-submit], [data-approval="allow"]) {
@@ -678,9 +665,14 @@ html[data-skin] :is([data-question-submit], [data-approval="allow"]) {
 }
 
 html[data-skin] :is([data-question-secondary], [data-approval="deny"]) {
-  border: 1px solid var(--color-hairline);
-  background: var(--color-control);
-  color: var(--color-ink);
+  border: 0;
+  background: transparent;
+  color: var(--color-accent-text);
+}
+
+html[data-skin] :is([data-question-secondary], [data-approval="deny"]):enabled:hover {
+  background: var(--color-raised-hover);
+  color: var(--color-accent-text);
 }
 
 html[data-skin] :is([data-question-submit], [data-approval="allow"]):disabled {
@@ -688,12 +680,11 @@ html[data-skin] :is([data-question-submit], [data-approval="allow"]):disabled {
   opacity: 0.45;
 }
 
-/* Floating approval notice uses the same card and 28px pills. Allow stays
+/* Floating approval notice uses the same card and compact pills. Allow stays
    first in the markup so Classic keeps its split buttons; a skin trails
    the accent pill. */
 html[data-skin] .approval-toast {
   border: 1px solid var(--color-hairline);
-  border-radius: var(--radius-xl, 0.75rem);
   background: var(--color-card);
   color: var(--color-ink);
   box-shadow: 0 12px 32px color-mix(in srgb, black 28%, transparent);
