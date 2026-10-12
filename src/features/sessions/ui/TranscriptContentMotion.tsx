@@ -10,17 +10,21 @@ export function useMessageArrivals(
   animateFrom?: string,
   history?: readonly { id: string }[],
 ) {
-  const seen = useRef<Set<string> | null>(null);
-  if (!seen.current) {
+  const seen = useRef(new Set<string>());
+  const seeded = useRef(false);
+  // An empty loading frame is not the history baseline. Match text reveal by
+  // seeding the first populated snapshot, except output after an explicit send.
+  if (!seeded.current && entries.length > 0) {
     const start = animateFrom ? entries.findIndex(entry => entry.id === animateFrom) : -1;
     seen.current = new Set((start < 0 ? entries : entries.slice(0, start + 1)).map(entry => entry.id));
+    seeded.current = true;
   }
   const wasVisible = useRef(visible);
   if (!visible || !wasVisible.current)
     for (const entry of entries) seen.current.add(entry.id);
   for (const entry of history ?? []) seen.current.add(entry.id);
   useLayoutEffect(() => {
-    for (const entry of entries) seen.current!.add(entry.id);
+    for (const entry of entries) seen.current.add(entry.id);
     wasVisible.current = visible;
   });
   return (id: string) => !seen.current!.has(id);
