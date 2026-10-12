@@ -721,6 +721,9 @@ html[data-skin] .app-view-dialog.omb-slide-panel {
   left: auto;
   width: min(960px, calc(100% - 48px));
   height: 100%;
+  margin: 0;
+  /* Classic centers with inset + auto margins, never a translate, so a
+     skin has no transform to undo and the sheet cannot be left offset. */
   translate: none;
   transform: none;
   border: 0;

@@ -49,7 +49,7 @@ export function AppViewDialog({
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
-          className="app-view-dialog omb-slide-panel absolute left-1/2 top-1/2 isolate flex h-[min(780px,calc(100%-64px))] w-[min(1080px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-content/7 shadow-2xl"
+          className="app-view-dialog omb-slide-panel absolute inset-0 m-auto isolate flex h-[min(780px,calc(100%-64px))] w-[min(1080px,calc(100vw-48px))] flex-col overflow-hidden rounded-2xl border border-content/7 shadow-2xl"
         >
           <GlassBackdrop />
           <div className="modal-panel relative z-[1] flex min-h-0 flex-1 flex-col">
