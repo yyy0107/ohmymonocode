@@ -134,3 +134,164 @@ html[data-skin] :is(.ui-button, .primary-action:not(.composer-send):not(.compose
     transform: none;
   }
 }
+
+/* Sidebar search, as the phone's Home search field. */
+html[data-skin] [data-sidebar-search] {
+  height: auto;
+  padding: var(--omb-space-8);
+}
+html[data-skin] [data-sidebar-search] > div:first-child {
+  height: 40px;
+  border-radius: var(--omb-radius-field);
+}
+html[data-skin] [data-sidebar-search] > div:first-child > svg {
+  left: var(--omb-space-12);
+  width: 16px;
+  height: 16px;
+}
+html[data-skin] [data-sidebar-search] input {
+  padding-inline: calc(var(--omb-space-12) + 16px + var(--omb-space-10)) var(--omb-space-12);
+  font-size: 15px;
+}
+html[data-skin] [data-sidebar-search] > button {
+  width: var(--omb-control);
+  height: var(--omb-control);
+  border-radius: 999px;
+}
+html[data-skin] [data-sidebar-search] > button svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Project rows, as `.mobile-home-project`: the avatar slot becomes a 36px
+   tile and the name reads at body size. */
+html[data-skin] [data-project-header] {
+  align-items: center;
+  gap: var(--omb-space-12);
+  height: auto;
+  min-height: var(--omb-row-project);
+  padding: var(--omb-space-6) var(--omb-space-8);
+  border-radius: var(--omb-radius-row);
+  transition: background-color 150ms var(--omb-ease-out);
+}
+html[data-skin] [data-project-header] > [data-project-tile] {
+  flex: 0 0 var(--omb-control);
+  width: var(--omb-control);
+  height: var(--omb-control);
+  border-radius: var(--omb-radius-row);
+}
+html[data-skin] [data-project-header] > [data-project-tile] :is([data-project-avatar], [data-project-chevron]),
+html[data-skin] [data-project-header] > [data-project-tile][data-project-avatar] > * {
+  width: 20px;
+  height: 20px;
+}
+html[data-skin] [data-project-header] [data-project-select] {
+  padding-inline-start: 0;
+}
+html[data-skin] [data-project-header] .project-name {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+}
+html[data-skin] [data-project-header] [data-project-machine] {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* Session groups inside a project line their icon up with the row avatars. */
+html[data-skin] [data-session-group-row] {
+  gap: var(--omb-space-12);
+  height: 40px;
+  padding-inline: var(--omb-space-8);
+  border-radius: var(--omb-radius-row);
+}
+html[data-skin] [data-session-group-row] > span:first-child {
+  width: var(--omb-control);
+}
+html[data-skin] [data-session-group-row] > span:nth-child(2) {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+/* Session rows, as the phone's Home row: one line, 36px agent avatar,
+   body-size title, recency or state at the end. Rows inside a session group
+   keep a small indent so the nesting still reads. */
+html[data-skin] [data-session-dense] {
+  align-items: center;
+  gap: var(--omb-space-12);
+  height: auto;
+  min-height: var(--omb-row);
+  padding: var(--omb-space-8);
+  border-radius: var(--omb-radius-row);
+}
+html[data-skin] [data-session-dense][data-density="compact"] {
+  padding-inline-start: var(--omb-space-28);
+}
+html[data-skin] [data-session-dense] [data-session-select] > span {
+  gap: var(--omb-space-12);
+}
+html[data-skin] [data-session-dense] [data-session-avatar] {
+  display: grid;
+  flex: 0 0 var(--omb-control);
+  width: var(--omb-control);
+  height: var(--omb-control);
+  padding: 9px;
+  place-items: center;
+  border-radius: 999px;
+}
+html[data-skin] [data-session-dense] [data-session-avatar] svg {
+  width: 18px;
+  height: 18px;
+}
+html[data-skin] [data-session-dense] [data-session-select] .text-ui-caption {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+}
+html[data-skin] [data-session-dense] [data-session-select] > span > svg {
+  width: 14px;
+  height: 14px;
+}
+html[data-skin] [data-session-dense] [data-session-select] > span > span:last-child {
+  gap: var(--omb-space-6);
+}
+html[data-skin] [data-session-dense] [data-session-select] > span > span:last-child > :is(svg, [role="img"]) {
+  width: 18px;
+  height: 18px;
+}
+html[data-skin] [data-session-dense] [data-session-select] > span > span:last-child > [role="img"] > * {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+html[data-skin] [data-session-dense] [data-session-time] {
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+html[data-skin] [data-session-dense] > [role="img"][aria-label] {
+  flex: 0 0 9px;
+  width: 9px;
+  height: 9px;
+}
+/* Hover actions float over the row end instead of reserving width. */
+html[data-skin] [data-session-dense] [data-session-archive] {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: var(--omb-space-8);
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--color-panel);
+  transform: translateY(-50%);
+}
+html[data-skin] [data-session-dense] :is([data-session-archive], [data-orchestration-icon]) svg {
+  width: 16px;
+  height: 16px;
+}
+html[data-skin] [data-session-dense] [data-orchestration-icon] {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+}

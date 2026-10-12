@@ -553,122 +553,12 @@ html[data-skin] .ui-icon-button:disabled {
   }
 }
 
-/* Hidden until a skin is on, so Classic keeps the original row. */
-.omb-bot-avatar {
-  display: none;
-}
-
-html[data-skin] [data-session-card].omb-session {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
-  column-gap: 10px;
-  row-gap: 2px;
-  align-items: center;
-  padding: 8px 10px;
-  border-color: transparent;
-  border-radius: var(--radius-lg, 0.5rem);
-  background: transparent;
-}
-
-html[data-skin] [data-session-card].omb-session[data-density="compact"] {
-  grid-template-columns: 36px minmax(0, 1fr);
-  padding: 6px 8px;
-}
-
-html[data-skin] [data-session-card].omb-session > :not(.omb-bot-avatar) {
-  grid-column: 2;
-  min-width: 0;
-}
-
-html[data-skin] [data-session-card].omb-session > .omb-bot-avatar {
-  display: grid;
-  grid-column: 1;
-  grid-row: 1 / -1;
-  align-self: center;
-  position: relative;
-  width: 44px;
-  height: 44px;
-  place-items: center;
-  border-radius: 999px;
-  background: var(--color-raised);
-  color: var(--color-ink);
-}
-
-html[data-skin] [data-session-card].omb-session[data-density="compact"] > .omb-bot-avatar {
-  width: 36px;
-  height: 36px;
-}
-
-html[data-skin] .omb-bot-avatar::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: var(--color-ink-tertiary);
-  box-shadow: 0 0 0 2px var(--color-panel);
-}
-
-html[data-skin] .omb-bot-avatar[data-presence="live"]::after {
-  background: var(--color-success);
-  animation: status-pulse 1.6s steps(2, jump-none) infinite;
-}
-
-html[data-skin] .omb-bot-avatar[data-presence="away"]::after {
-  background: var(--color-warning);
-}
-
-html[data-skin] .omb-session [data-session-harness-mark] {
-  display: none;
-}
-
-html[data-skin] .omb-session .font-semibold {
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 20px;
-}
-
-html[data-skin] .omb-session [data-session-preview] {
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--color-ink-secondary);
-}
-
-html[data-skin] .omb-session:hover {
-  background: color-mix(in srgb, var(--color-raised) 65%, transparent);
-}
-
-html[data-skin] .omb-session[data-session-active="true"],
-html[data-skin] .omb-session[data-session-selected="true"] {
-  background: var(--color-raised);
-}
-
-html[data-skin] .omb-session[data-session-waiting="true"] {
-  box-shadow: inset 0 0 0 1px var(--color-warning);
-}
-
-html[data-skin] .omb-session .bg-sky-500 {
-  width: 8px;
-  height: 8px;
-  background-color: var(--color-accent);
-}
-
 html[data-skin] [data-sidebar-search] {
-  height: auto;
-  padding: 8px;
   border-bottom: 1px solid var(--color-hairline);
 }
 
 html[data-skin] [data-sidebar-search] > div:first-child {
-  height: 36px;
-  border-radius: var(--radius-lg, 8px);
   background: var(--color-inset);
-}
-
-html[data-skin] [data-sidebar-search] input {
-  font-size: 13px;
 }
 
 html[data-skin] [data-composer-layout="desktop"] .composer-surface-with-workspace {
@@ -875,7 +765,6 @@ html[data-skin] .app-view-dialog.omb-slide-panel .modal-panel {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html[data-skin] .omb-bot-avatar[data-presence="live"]::after,
   html[data-skin] .omb-slide-panel {
     animation: none;
   }
@@ -899,40 +788,60 @@ html[data-skin] [data-sidebar-section-header]:hover [data-sidebar-section-toggle
   color: var(--color-ink-secondary);
 }
 
-html[data-skin] [data-session-card]:not(.omb-session) {
-  height: var(--row-h-compact);
-  border-radius: var(--radius-row);
+/* Dense session rows; sizes live in omb-metrics.css. */
+html[data-skin] [data-session-dense] {
   transition: background-color 150ms ease;
 }
 
-html[data-skin] [data-session-card]:not(.omb-session)[data-session-active="true"]:not([data-session-selected="true"]) {
+html[data-skin] [data-session-dense][data-session-active="true"]:not([data-session-selected="true"]) {
   background: var(--color-raised);
 }
 
-html[data-skin] [data-session-card]:not(.omb-session):not([data-session-active="true"]):not([data-session-selected="true"]):not([data-session-waiting="true"]):hover {
+html[data-skin] [data-session-dense]:not([data-session-active="true"]):not([data-session-selected="true"]):not([data-session-waiting="true"]):hover {
   background: color-mix(in srgb, var(--color-raised) 65%, transparent);
 }
 
+html[data-skin] [data-session-dense][data-session-waiting="true"] {
+  box-shadow: inset 0 0 0 1px var(--color-warning);
+}
+
 html[data-skin] [data-session-card] [data-session-avatar] {
-  display: grid;
-  width: 22px;
-  height: 22px;
-  place-items: center;
-  border-radius: 999px;
   background: var(--color-raised);
+  color: var(--color-ink);
 }
 
 html[data-skin] [data-session-card][data-session-active="true"] [data-session-avatar] {
   background: var(--color-raised-hover);
 }
 
-html[data-skin] [data-session-card]:not(.omb-session) [data-session-select] .text-ui-caption {
-  font-size: 13px;
+html[data-skin] [data-session-dense] [data-session-select] .text-ui-caption {
   color: var(--color-ink);
 }
 
+html[data-skin] [data-session-dense] [data-session-time] {
+  color: var(--color-ink-tertiary);
+}
+
+html[data-skin] [data-session-dense] .bg-sky-500 {
+  background-color: var(--color-accent);
+}
+
+/* The skinned row shows recency like the phone's Home list. */
+html:not([data-skin]) [data-session-time] {
+  display: none;
+}
+
+html[data-skin] [data-project-header] > [data-project-tile] {
+  background: var(--color-raised);
+  color: var(--color-ink-secondary);
+}
+
+html[data-skin] [data-project-header] [data-project-machine] {
+  color: var(--color-ink-tertiary);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  html[data-skin] [data-session-card]:not(.omb-session) {
+  html[data-skin] [data-session-dense] {
     transition: none;
   }
 }

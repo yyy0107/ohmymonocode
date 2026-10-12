@@ -1539,7 +1539,7 @@ function ProjectCard({
     machine
       ? "min-w-0 max-w-[75%] shrink-0 truncate text-ui-base font-medium leading-tight"
       : nameClassName
-  ).replace("font-medium", tree ? "font-normal" : "font-medium");
+  ).replace("font-medium", tree ? "font-normal" : "font-medium") + " project-name";
   const treeAvatar = tree ? (
     <ProjectAvatar
       path={item.path}
@@ -1650,6 +1650,7 @@ function ProjectCard({
               tree.pendingActivation.current = undefined;
             tree.onToggleProject?.(item.path);
           }}
+          data-project-tile
           className="grid w-4 shrink-0 place-items-center rounded-sm text-content/55 outline-none hover:text-content"
         >
           <span
@@ -1666,6 +1667,7 @@ function ProjectCard({
       ) : tree ? (
         <span
           data-project-avatar
+          data-project-tile
           className="project-card-logo grid w-4 shrink-0 place-items-center"
         >
           {treeAvatar}
@@ -1727,7 +1729,10 @@ function ProjectCard({
               <span className={labelClassName}>{name}</span>
             )}
             {machine ? (
-              <span className="min-w-0 flex-1 truncate text-[11px] leading-tight text-content/45">
+              <span
+                data-project-machine
+                className="min-w-0 flex-1 truncate text-[11px] leading-tight text-content/45"
+              >
                 {machine.name}
               </span>
             ) : null}

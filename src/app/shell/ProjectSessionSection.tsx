@@ -1471,6 +1471,7 @@ function SessionGroupRow({
       type="button"
       title={label}
       aria-expanded={expanded}
+      data-session-group-row={dense ? "" : undefined}
       data-tauri-drag-region="false"
       onClick={onToggle}
       className={`group relative flex w-full touch-none items-center gap-1.5 ${dense ? "pl-8 pr-2" : "px-2"} h-8 text-left ${
@@ -2062,6 +2063,7 @@ const SessionCard = memo(function SessionCard({
         data-session-active={isActive ? "true" : undefined}
         data-session-waiting={waitingFor ? "true" : undefined}
         data-density={compact ? "compact" : "comfort"}
+        data-session-dense={dense && !shortcut ? "" : undefined}
         data-tauri-drag-region="false"
         onPointerDown={onPointerDown}
         onPointerEnter={(event) => {
@@ -2085,7 +2087,7 @@ const SessionCard = memo(function SessionCard({
               }
             : undefined
         }
-        className={`relative border flex w-full ${dense ? "" : "omb-session"} ${sidebarReorder ? "cursor-grab" : "cursor-default"} select-none touch-none rounded-lg text-left ${dense ? `h-8 flex-row items-center gap-1 ${shortcut ? "px-2" : compact ? "pl-[54px] pr-2" : "pl-8 pr-2"}` : `flex-col px-2.5 ${cardPaddingY}`} ${
+        className={`relative border flex w-full ${sidebarReorder ? "cursor-grab" : "cursor-default"} select-none touch-none rounded-lg text-left ${dense ? `h-8 flex-row items-center gap-1 ${shortcut ? "px-2" : compact ? "pl-[54px] pr-2" : "pl-8 pr-2"}` : `flex-col px-2.5 ${cardPaddingY}`} ${
           isSelected
             ? `bg-accent/15 text-content ${draft ? "border-content/30 border-dashed" : "border-transparent"}`
             : waitingFor
@@ -2101,15 +2103,6 @@ const SessionCard = memo(function SessionCard({
                     }`
         }`}
       >
-        {!dense ? (
-          <span
-            className="omb-bot-avatar"
-            data-presence={busy ? "live" : waitingFor ? "away" : "idle"}
-            aria-hidden="true"
-          >
-            <HarnessIcon harness={session.harness} className="size-5" />
-          </span>
-        ) : null}
         <div
           role="button"
           tabIndex={0}
@@ -2190,6 +2183,14 @@ const SessionCard = memo(function SessionCard({
                 {linkedUpdateDot}
                 <SessionWorktreeIcon session={session} />
                 {dense ? denseStatus : status}
+                {dense && !denseStatus ? (
+                  <time
+                    data-session-time
+                    dateTime={new Date(sessionRecencyAt(session)).toISOString()}
+                  >
+                    {time}
+                  </time>
+                ) : null}
               </span>
             ) : null}
             {!dense ? unreadDot : null}
@@ -2229,6 +2230,7 @@ const SessionCard = memo(function SessionCard({
                 type="button"
                 data-no-drag
                 data-tauri-drag-region="false"
+                data-session-archive
                 title={archiveLabel}
                 aria-label={`${archiveLabel} ${title}`}
                 onPointerDown={(event) => event.stopPropagation()}
