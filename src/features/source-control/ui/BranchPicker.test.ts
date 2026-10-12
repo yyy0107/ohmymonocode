@@ -1,3 +1,4 @@
+import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver";
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -221,4 +222,38 @@ it("checks out the highlighted matching branch when Enter is pressed", async () 
     "/repo-enter-existing",
     "picker",
   );
+});
+
+it("starts a fresh branch-name draft when the create dialog reopens before its exit completes", async () => {
+  await act(async () => root.render(createElement(BranchPicker, { cwd: "/draft-reopen", branch: "main" })));
+  const trigger = container.querySelector<HTMLButtonElement>("button")!;
+  const live = <T extends Element>(selector: string) => [...document.querySelectorAll<T>(selector)].find(node => !node.closest("[inert]"))!;
+  const openCreate = async () => {
+    await act(async () => trigger.click());
+    const picker = live<HTMLElement>("[data-branch-picker]");
+    const create = [...picker.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "New branch")!;
+    await act(async () => create.click());
+  };
+  await openCreate();
+  await act(async () => completeMotionAnimation(document.body));
+  const original = live<HTMLInputElement>('input[aria-label="Branch name"]');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(original, "unsaved/draft");
+    original.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  const cancel = [...live<HTMLElement>('[role="dialog"]').querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Cancel")!;
+  await act(async () => cancel.click());
+  expect(original.isConnected).toBe(true);
+  expect(original.closest<HTMLElement>('[role="dialog"]')?.inert).toBe(true);
+  await openCreate();
+  const reopened = live<HTMLInputElement>('input[aria-label="Branch name"]');
+  expect(reopened).not.toBe(original);
+  expect(reopened.value).toBe("");
+  expect(original.value).toBe("unsaved/draft");
+});
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
 });

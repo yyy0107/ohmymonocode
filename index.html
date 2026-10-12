@@ -96,15 +96,10 @@
         justify-content: center;
         pointer-events: none;
         color: #fff;
-        transition: opacity 260ms ease;
       }
 
       html.theme-light #boot-splash {
         color: #000;
-      }
-
-      #boot-splash.boot-splash-out {
-        opacity: 0;
       }
 
       /* Keep the native drag region available before the bundle runs. */
@@ -126,27 +121,6 @@
         height: 72px;
         display: block;
         transform: scale(1);
-        transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
-      }
-
-      #boot-splash.boot-splash-out svg {
-        transform: scale(1.06);
-      }
-
-      .boot-pop,
-      .boot-center {
-        transform-box: fill-box;
-        transform-origin: center;
-        animation: boot-pop-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
-      }
-
-      .boot-pop {
-        animation-delay: calc(var(--i) * 25ms);
-      }
-
-      .boot-center {
-        animation-name: boot-center-in;
-        animation-delay: 120ms;
       }
 
       .boot-ring {
@@ -156,28 +130,6 @@
 
       .boot-cursor {
         animation: boot-cursor-blink 1s step-end infinite;
-      }
-
-      @keyframes boot-pop-in {
-        from {
-          opacity: 0;
-          transform: scale(0.6);
-        }
-        to {
-          opacity: 1;
-          transform: scale(1);
-        }
-      }
-
-      @keyframes boot-center-in {
-        from {
-          opacity: 0;
-          transform: scale(0.85);
-        }
-        to {
-          opacity: 1;
-          transform: scale(1);
-        }
       }
 
       @keyframes boot-ring-glow {
@@ -219,17 +171,9 @@
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .boot-pop,
-        .boot-center,
         .boot-ring,
         .boot-cursor {
           animation: none;
-        }
-
-        #boot-splash svg,
-        #boot-splash.boot-splash-out svg {
-          transform: none;
-          transition: none;
         }
       }
     </style>

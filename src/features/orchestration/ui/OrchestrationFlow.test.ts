@@ -392,12 +392,12 @@ describe("orchestration composer and card", () => {
       document.querySelector('[aria-label="Model for Settings UI"]')!,
     );
     const workerTwo = [...document.querySelectorAll('[role="option"]')].find(
-      (row) => row.textContent?.includes("Worker Two"),
+      (row) => !row.closest("[inert]") && row.textContent?.includes("Worker Two"),
     )!;
     await hover(workerTwo);
-    const effortMenu = document.querySelector(
+    const effortMenu = [...document.querySelectorAll(
       '[role="menu"][aria-label="Worker Two effort"]',
-    )!;
+    )].find((menu) => !menu.closest("[inert]"))!;
     expect(effortMenu).toBeTruthy();
     await click(
       [...effortMenu.querySelectorAll('[role="menuitemradio"]')].find(

@@ -73,8 +73,9 @@ beforeEach(() => {
     let resolve!: () => void;
     const finished = new Promise<void>(done => { resolve = done; });
     const cancel = vi.fn(resolve);
+    const complete = vi.fn(() => { options?.onComplete?.(); resolve(); });
     return { then: finished.then.bind(finished), finished, time: 0,
-      finish: () => { options?.onComplete?.(); resolve(); }, cancel, stop: cancel };
+      finish: complete, complete, cancel, stop: cancel };
   });
   container = document.createElement("div");
   document.body.append(container);
@@ -156,7 +157,7 @@ describe.each([undefined, "mobile"] as const)("shared prompt rise (motion=%s)", 
     const handed = slides().find(value => value.element === bubble)!;
     expect(handed.keyframes).toEqual(original.keyframes); expect(handed.transition).toEqual(original.transition);
     expect(handed.playback.time).toBe(original.playback.time);
-    for (const playback of running) expect(playback.cancel).not.toHaveBeenCalled();
+    for (const playback of running) expect(playback.complete).not.toHaveBeenCalled();
     expect(bubble.closest<HTMLElement>("[data-prompt-anchor]")!.dataset.sending).toBeUndefined();
     await finish(original.playback); expect(turn("u2").dataset.promptRise).toBe("revealing");
   });
@@ -177,7 +178,7 @@ describe.each([undefined, "mobile"] as const)("shared prompt rise (motion=%s)", 
     render(first, false); render([...first, { id: "sending:1", role: "user", text: "Next", sending: true }], false); await start();
     const calls = animate.mock.calls.length; const running = slides().map(value => value.playback);
     render(first, false); await start(); expect(animate.mock.calls).toHaveLength(calls);
-    for (const playback of running) expect(playback.cancel).toHaveBeenCalledTimes(1);
+    for (const playback of running) expect(playback.complete).toHaveBeenCalledTimes(1);
   });
   it.each([[true, "Caption"], [false, "Caption"], [true, ""], [false, ""]] as const)("slides sent images with their caption and supports image-only sends (anchor=%s, text=%s)", async (anchor, text) => {
     appearance.anchor = anchor; render(first, false);
@@ -217,15 +218,15 @@ describe.each([undefined, "mobile"] as const)("shared prompt rise (motion=%s)", 
     await finish(animate.mock.results.at(-1)!.value); expect(turn("u2").dataset.promptRise).toBeUndefined();
     const calls = animate.mock.calls.length; render(second, false, { promptMotion, animateFrom: "u2" }); expect(animate).toHaveBeenCalledTimes(calls);
   });
-  it("cancels the previous slide on the next send without revealing the old turn", async () => {
+  it("lands the previous slide on the next send without revealing the old turn", async () => {
     render(first, false); render(second); await start(); const oldTurn = turn("u2"); const previous = slides().map(value => value.playback);
     render([...second, { id: "u3", role: "user", text: "Again" }]); await start(); expect(oldTurn.dataset.promptRise).toBeUndefined();
-    for (const playback of previous) expect(playback.cancel).toHaveBeenCalledTimes(1); expect(turn("u3").dataset.promptRise).toBe("rising");
+    for (const playback of previous) expect(playback.complete).toHaveBeenCalledTimes(1); expect(turn("u3").dataset.promptRise).toBe("rising");
   });
-  it("cancels a slide when hidden and does not replay it when shown", async () => {
+  it("lands a slide when hidden and does not replay it when shown", async () => {
     render([], false); render(first); await start(); const slide = slides()[0].playback;
     await act(async () => root.render(createElement(AgentTranscript, { blocks: first, busy: true, visible: false })));
-    expect(slide.cancel).toHaveBeenCalledTimes(1); expect(turn("u1").dataset.promptRise).toBeUndefined();
+    expect(slide.complete).toHaveBeenCalledTimes(1); expect(turn("u1").dataset.promptRise).toBeUndefined();
     const calls = animate.mock.calls.length; render(first); await start(); expect(animate).toHaveBeenCalledTimes(calls);
   });
   it("cancels a pending entrance when the transcript unmounts", async () => {

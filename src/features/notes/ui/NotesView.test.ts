@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { invalidateNotes, loadNotes, NOTES_CHANGED_EVENT, type Note, type NoteUpsert } from "../notes";
 import { NotesView } from "./NotesView";
 import { savePinnedProjects, saveProjectRailOrder } from "../../projects/model/recents";
+import { finishMotion, startMotionClock, stopMotionClock } from "../../../../tests/helpers/sharedMotionClock";
 
 const invoke = vi.hoisted(() => vi.fn());
 const assistant = vi.hoisted(() => ({
@@ -46,6 +47,7 @@ beforeEach(() => {
   assistant.rpc.mockReset();
   invalidateNotes();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  startMotionClock();
   const storage = new Map<string, string>();
   vi.stubGlobal("localStorage", {
     getItem: (key: string) => storage.get(key) ?? null,
@@ -84,6 +86,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
+  stopMotionClock();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -335,7 +338,7 @@ async function chooseProject() {
     ...document.querySelectorAll<HTMLButtonElement>(
       '[aria-label="Project picker"] button[title]',
     ),
-  ].find((element) => element.title === "/work/portognjeeen");
+  ].find((element) => element.title === "/work/portognjeeen" && !element.closest("[inert]"));
   expect(item).toBeDefined();
   await act(async () => item!.click());
 }
@@ -379,6 +382,7 @@ it("closes the project menu with Escape without leaving Notes", async () => {
       }),
     ),
   );
+  await act(async () => finishMotion());
   expect(document.querySelector('[aria-label="Project picker"]')).toBeNull();
   expect(onClose).not.toHaveBeenCalled();
 });
@@ -667,7 +671,7 @@ it("clears a failed move error when the saved project is selected again", async 
     ...document.querySelectorAll<HTMLButtonElement>(
       '[aria-label="Project picker"] button[title]',
     ),
-  ].find((item) => item.title === "/work/Edefyn");
+  ].find((item) => item.title === "/work/Edefyn" && !item.closest("[inert]"));
   expect(original).toBeDefined();
   await act(async () => original!.click());
 

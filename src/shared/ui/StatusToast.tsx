@@ -1,5 +1,5 @@
-import { AnimatePresence, motion, useIsPresent } from "motion/react";
-import { immediateTransition, popAnimate, popExit, popInitial, popTransition } from "../motion/tokens";
+import { AnimatePresence, MotionConfig, motion, useIsPresent } from "motion/react";
+import { defaultTransition, immediateTransition, popAnimate, popExit, popInitial, popTransition } from "../motion/tokens";
 import { useMotionPreference } from "../motion/useMotionPreference";
 import { useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
@@ -59,7 +59,11 @@ function ensureHost() {
   const host = document.createElement("div");
   host.dataset.statusToastHost = "";
   document.body.appendChild(host);
-  createRoot(host).render(<StatusToastHost />);
+  createRoot(host).render(
+    <MotionConfig reducedMotion="user" transition={defaultTransition}>
+      <StatusToastHost />
+    </MotionConfig>,
+  );
 }
 
 export function showStatusToast(message: string, tone: StatusToastTone = "success"): number {

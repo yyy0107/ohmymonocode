@@ -29,6 +29,7 @@ vi.mock("../../sessions/ui/useComposerSkills", () => ({
 }));
 
 import { SkillPromptField } from "./SkillPromptField";
+import { startMotionClock, stopMotionClock, finishMotion } from "../../../../tests/helpers/sharedMotionClock";
 
 describe("SkillPromptField", () => {
   let container: HTMLDivElement;
@@ -36,6 +37,7 @@ describe("SkillPromptField", () => {
   let onChange: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    startMotionClock();
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(
       () => undefined,
@@ -63,6 +65,7 @@ describe("SkillPromptField", () => {
 
   afterEach(() => {
     act(() => root.unmount());
+    stopMotionClock();
     container.remove();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
@@ -82,7 +85,7 @@ describe("SkillPromptField", () => {
     return field;
   }
 
-  it("opens the shared picker for slash input and inserts a keyboard selection", () => {
+  it("opens the shared picker for slash input and inserts a keyboard selection", async () => {
     const field = type("/rev");
 
     const picker = document.querySelector<HTMLElement>("[data-skill-picker]");
@@ -110,6 +113,7 @@ describe("SkillPromptField", () => {
     });
 
     expect(field.value).toBe("/review ");
+    await act(async () => finishMotion());
     expect(document.querySelector("[data-skill-picker]")).toBeNull();
     expect(container.querySelector(".text-skill")?.textContent).toBe("/review");
   });
@@ -128,7 +132,7 @@ describe("SkillPromptField", () => {
     expect(container.querySelector(".text-skill")?.textContent).toBe("/deploy");
   });
 
-  it("keeps the picker dismissed after Escape", () => {
+  it("keeps the picker dismissed after Escape", async () => {
     const field = type("/rev");
 
     act(() => {
@@ -144,6 +148,7 @@ describe("SkillPromptField", () => {
       );
     });
 
+    await act(async () => finishMotion());
     expect(document.querySelector("[data-skill-picker]")).toBeNull();
     expect(field.value).toBe("/rev");
   });

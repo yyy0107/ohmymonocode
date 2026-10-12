@@ -23,7 +23,7 @@ export function slidePromptIn(message: (HTMLElement | null | undefined)[], dista
   const finished = new Promise<void>(done => { resolve = done; });
   const lead = animations[0];
   void lead.then(() => { landed = true; resolve(); });
-  const release = () => { if (released) return; released = true; for (const animation of animations) animation.cancel(); resolve(); };
+  const release = () => { if (released) return; released = true; for (const animation of animations) animation.complete(); resolve(); };
   const follow = (next: HTMLElement[]) => {
     if (released || landed || !dy) return false;
     for (const element of next) {

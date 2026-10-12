@@ -72,7 +72,7 @@ function button(label: string): HTMLButtonElement {
     ...document.querySelectorAll<HTMLButtonElement>("button"),
   ].find(
     (item) =>
-      item.getAttribute("aria-label") === label || item.textContent === label,
+      !item.closest("[inert]") && (item.getAttribute("aria-label") === label || item.textContent === label),
   );
   expect(found, label).toBeDefined();
   return found!;

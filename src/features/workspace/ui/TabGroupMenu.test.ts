@@ -5,11 +5,13 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { notificationMuteActions } from "../../notifications/ui/notificationMuteActions";
 import { TabGroupMenu } from "./TabGroupMenu";
 import { BellOff } from "../../../shared/ui/icons";
+import { startMotionClock, stopMotionClock, finishMotion } from "../../../../tests/helpers/sharedMotionClock";
 
 let container: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
+  startMotionClock();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   container = document.createElement("div");
   document.body.append(container);
@@ -18,6 +20,7 @@ beforeEach(() => {
 
 afterEach(() => {
   act(() => root.unmount());
+  stopMotionClock();
   container.remove();
   vi.useRealTimers();
   vi.unstubAllGlobals();
@@ -26,9 +29,9 @@ afterEach(() => {
 function button(label: string): HTMLButtonElement {
   const result = [...document.querySelectorAll("button")].find(
     (item) =>
-      item.textContent === label ||
+      !item.closest("[inert]") && (item.textContent === label ||
       item.getAttribute("aria-label") === label ||
-      item.textContent?.startsWith(label),
+      item.textContent?.startsWith(label)),
   );
   expect(result, `Button ${label}`).toBeDefined();
   return result as HTMLButtonElement;
@@ -93,7 +96,7 @@ it("fully expands the context menu without an internal scroll region", () => {
   expect(menu.dataset.popoverSide).toBe("right");
 });
 
-it("closes the mute submenu when the pointer enters the leading action", () => {
+it("closes the mute submenu when the pointer enters the leading action", async () => {
   renderMenu();
 
   hover("Mute notifications");
@@ -102,16 +105,18 @@ it("closes the mute submenu when the pointer enters the leading action", () => {
   ).not.toBeNull();
 
   hover("Resume notifications");
+  await act(async () => finishMotion());
   expect(
     document.querySelector('[role="menu"][aria-label="Mute notifications"]'),
   ).toBeNull();
 });
 
-it("closes the mute submenu on a standard action and allows reopening it", () => {
+it("closes the mute submenu on a standard action and allows reopening it", async () => {
   const onExtraPick = renderMenu();
 
   hover("Mute notifications");
   hover("New tab in group");
+  await act(async () => finishMotion());
   expect(
     document.querySelector('[role="menu"][aria-label="Mute notifications"]'),
   ).toBeNull();
@@ -126,7 +131,7 @@ it("closes the mute submenu on a standard action and allows reopening it", () =>
 
 it.each(["Tab group actions", "Mute notifications"])(
   "closes only the submenu after the pointer leaves %s and stays outside both panels",
-  (panelLabel) => {
+  async (panelLabel) => {
     vi.useFakeTimers();
     renderMenu();
     hover("Mute notifications");
@@ -164,6 +169,8 @@ it.each(["Tab group actions", "Mute notifications"])(
     act(() => vi.advanceTimersByTime(179));
     expect(submenu.isConnected).toBe(true);
     act(() => vi.advanceTimersByTime(1));
+    expect(submenu.closest("[inert]")).not.toBeNull();
+    await act(async () => finishMotion());
     expect(submenu.isConnected).toBe(false);
     expect(main.isConnected).toBe(true);
     expect(button("Mute notifications").getAttribute("aria-expanded")).toBe("false");

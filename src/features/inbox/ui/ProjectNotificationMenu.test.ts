@@ -10,6 +10,7 @@ import { ProjectList } from "../../../app/shell/ProjectList";
 import { ActivityBar } from "../../../app/shell/ActivityBar";
 import { invoke } from "@tauri-apps/api/core";
 import { rememberNotificationProjects } from "../../notifications/model/notificationProjects";
+import { startMotionClock, stopMotionClock, finishMotion } from "../../../../tests/helpers/sharedMotionClock";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (command: string) => {
@@ -35,6 +36,7 @@ vi.mock("../../source-control/hooks/useProjectDiffStats", () => ({
 let container: HTMLDivElement;
 let root: Root;
 beforeEach(() => {
+  startMotionClock();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   localStorage.clear();
   container = document.createElement("div");
@@ -43,6 +45,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   act(() => root.unmount());
+  stopMotionClock();
   container.remove();
   vi.useRealTimers();
   vi.unstubAllGlobals();
@@ -50,8 +53,8 @@ afterEach(() => {
 
 function button(label: string) {
   const result = [...document.querySelectorAll("button")].find(
-    (item) => (item.getAttribute("aria-label") ?? item.textContent) === label
-      || (/^\d+ hours?$/.test(label) && item.textContent?.startsWith(`${label} (`)),
+    (item) => !item.closest("[inert]") && ((item.getAttribute("aria-label") ?? item.textContent) === label
+      || (/^\d+ hours?$/.test(label) && item.textContent?.startsWith(`${label} (`))),
   );
   expect(result, label).toBeDefined();
   return result!;
@@ -159,6 +162,7 @@ it("shows persisted mute status on the project and in its reopened menu", async 
   })));
   expect(button("Resume notifications").textContent).toContain(timedIndicator!.getAttribute("title"));
   await act(async () => vi.advanceTimersByTimeAsync(1000));
+  await act(async () => finishMotion());
   expect(container.querySelector('[role="img"][aria-label^="Muted until "]')).toBeNull();
   expect(button("Mute notifications").textContent).not.toContain("Muted until");
   expect(document.querySelector('[aria-label="Resume notifications"]')).toBeNull();
@@ -275,6 +279,7 @@ it("opens notification settings for all projects from the Inbox context menu", a
   );
   act(() => button("Notification settings…").click());
   expect(onOpenNotificationSettings).toHaveBeenCalledWith();
+  await act(async () => finishMotion());
   expect(
     document.querySelector('[role="menu"][aria-label="Inbox actions"]'),
   ).toBeNull();

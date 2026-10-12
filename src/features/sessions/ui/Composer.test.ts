@@ -300,7 +300,7 @@ describe("Composer question focus", () => {
     expect(workspaceBar.lastElementChild?.contains(meter)).toBe(true);
     expect(meter.closest(".composer-footer")).toBeNull();
     await act(async () => meter.click());
-    const compactAction = () => [...document.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Compact now")!;
+    const compactAction = () => [...document.querySelectorAll<HTMLButtonElement>("button")].find((button) => !button.closest("[inert]") && button.textContent === "Compact now")!;
     await act(async () => compactAction().click());
     expect(onCompactContext).toHaveBeenCalledOnce();
 

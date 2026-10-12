@@ -121,9 +121,10 @@ async function accountMenuItem(
       .querySelector<HTMLButtonElement>(`[aria-label="Actions for ${account}"]`)!
       .click(),
   );
+  act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
   return [
     ...document.body.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
-  ].find((button) => button.textContent?.includes(item));
+  ].find((button) => !button.closest("[inert]") && button.textContent?.includes(item));
 }
 
 /** A row signs in from its button when logged out, else from the ⋯ menu. */

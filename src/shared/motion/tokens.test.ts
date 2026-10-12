@@ -27,6 +27,7 @@ describe("shared Motion vocabulary", () => {
       .flatMap(entry => entry.isDirectory() ? sources(`${directory}/${entry.name}`) : [`${directory}/${entry.name}`]);
     for (const path of sources("src").filter(path => /\.tsx?$/.test(path) && !path.includes(".test.") && path !== "src/shared/motion/tokens.ts")) {
       const source = readFileSync(path, "utf8");
+      expect(source, path).not.toMatch(/\b[A-Z_]*(?:COLLAPSE|TRANSITION|ANIMATION)_DURATION_MS\s*=\s*\d/);
       if (/from ["\'](?:motion(?:\/react)?|[^"\']*\/motion\/tokens)["\']/.test(source))
         expect(source, path).not.toMatch(/\b(?:duration|stiffness|damping)\s*:\s*\d/);
     }

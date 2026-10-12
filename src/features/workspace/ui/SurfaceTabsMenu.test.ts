@@ -53,9 +53,9 @@ function openSecondMenu() {
       }),
     );
   });
-  return document.querySelector<HTMLElement>(
+  return [...document.querySelectorAll<HTMLElement>(
     '[role="menu"][aria-label="File tab actions"]',
-  )!;
+  )].find((menu) => !menu.closest("[inert]"))!;
 }
 
 async function pick(label: string) {

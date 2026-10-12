@@ -1,5 +1,5 @@
-import { AnimatePresence, motion } from "motion/react";
-import { popTransition, immediateTransition, motionDistance } from "../../../../../shared/motion/tokens";
+import { AnimatePresence, MotionConfig, motion, useIsPresent } from "motion/react";
+import { defaultTransition, popTransition, immediateTransition, motionDistance } from "../../../../../shared/motion/tokens";
 import { useMotionPreference } from "../../../../../shared/motion/useMotionPreference";
 /**
  * 轻量 toast 提示
@@ -81,7 +81,11 @@ function ensureHost() {
   host.id = "workflow-toast-host";
   document.body.appendChild(host);
   const root = createRoot(host);
-  root.render(<ToastContainer />);
+  root.render(
+    <MotionConfig reducedMotion="user" transition={defaultTransition}>
+      <ToastContainer />
+    </MotionConfig>,
+  );
 }
 
 function ToastContainer() {
@@ -135,36 +139,36 @@ function ToastContainer() {
     <>
       {/* 顶部居中 */}
       <div className={resolveToastStackClassName("top-center")}>
-        {topCenterItems.map((item) => (
+        <AnimatePresence>{topCenterItems.map((item) => (
           <ToastMessage key={item.id} item={item} onDone={handleRemove} />
-        ))}
+        ))}</AnimatePresence>
       </div>
       {/* 右上角：与表单状态相关的可操作提示。 */}
       <div className={resolveToastStackClassName("top-right")}>
-        {topRightItems.map((item) => (
+        <AnimatePresence>{topRightItems.map((item) => (
           <ToastMessage key={item.id} item={item} onDone={handleRemove} />
-        ))}
+        ))}</AnimatePresence>
       </div>
       {/* 左下角 */}
       <div className={resolveToastStackClassName("bottom-left")}>
-        {bottomLeftItems.map((item) => (
+        <AnimatePresence>{bottomLeftItems.map((item) => (
           <ToastMessage key={item.id} item={item} onDone={handleRemove} isBottom />
-        ))}
+        ))}</AnimatePresence>
       </div>
       {/* 底部居中：保存和连通性等操作结果固定在窗口底部，不随设置内容滚动。 */}
       <div className={resolveToastStackClassName("bottom-center")}>
-        {bottomCenterItems.map((item) => (
+        <AnimatePresence>{bottomCenterItems.map((item) => (
           <ToastMessage key={item.id} item={item} onDone={handleRemove} isBottom />
-        ))}
+        ))}</AnimatePresence>
       </div>
-      {[...anchoredTopCenterItems].map(([anchorId, anchorItems]) => (
+      <AnimatePresence>{[...anchoredTopCenterItems].map(([anchorId, anchorItems]) => (
         <AnchoredToastStack
           key={anchorId}
           anchorId={anchorId}
           items={anchorItems}
           onDone={handleRemove}
         />
-      ))}
+      ))}</AnimatePresence>
     </>
   );
 }
@@ -182,6 +186,7 @@ export function AnchoredToastStack({
   items: ToastItem[];
   onDone: (id: number) => void;
 }) {
+  const present = useIsPresent();
   const [left, setLeft] = useState<number | null>(null);
 
   useEffect(() => {
@@ -224,9 +229,9 @@ export function AnchoredToastStack({
       className={cn(resolveToastStackClassName("top-center"))}
       style={left === null ? undefined : { left }}
     >
-      {items.map((item) => (
+      <AnimatePresence propagate>{present ? items.map((item) => (
         <ToastMessage key={item.id} item={item} onDone={onDone} />
-      ))}
+      )) : null}</AnimatePresence>
     </div>
   );
 }
@@ -240,6 +245,7 @@ function ToastMessage({
   onDone: (id: number) => void;
   isBottom?: boolean;
 }) {
+  const present = useIsPresent();
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
@@ -269,7 +275,7 @@ function ToastMessage({
   };
 
   return (
-    <AnimatePresence onExitComplete={() => onDone(item.id)}>{visible ? <ToastMessageView
+    <AnimatePresence propagate onExitComplete={() => onDone(item.id)}>{visible && present ? <ToastMessageView
       item={item}
       visible={visible}
       isBottom={isBottom}
@@ -298,6 +304,7 @@ export function ToastMessageView({
   onAction?: () => void;
   onDismiss?: () => void;
 }) {
+  const present = useIsPresent();
   const isUpdate = item.variant === "update";
   const isNotice = item.variant === "info" || item.variant === "warning";
   const isTopRight = item.position === "top-right";
@@ -312,6 +319,14 @@ export function ToastMessageView({
       animate={{ opacity: visible ? 1 : 0, x: 0, y: 0 }}
       exit={{ opacity: 0, x: isTopRight ? "100%" : 0, y: isTopRight ? 0 : isBottom ? motionDistance.pop : -motionDistance.pop }}
       transition={reduced ? immediateTransition : popTransition}
+      inert={!present}
+      aria-hidden={!present || undefined}
+      onClickCapture={(event) => {
+        if (!present) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
       className={cn(
         "rounded-2xl border bg-toast/60 text-ui-base shadow-lg backdrop-blur-xl",
         isUpdate
@@ -339,6 +354,7 @@ export function ToastMessageView({
           {item.actionLabel ? (
             <button
               type="button"
+              disabled={!present}
               onClick={onAction ?? item.onAction}
               className="h-7 max-w-14 shrink-0 truncate rounded-md bg-secondary px-2 text-ui-base font-medium text-foreground transition-colors hover:bg-hover"
             >
@@ -367,6 +383,7 @@ export function ToastMessageView({
             {item.actionLabel ? (
               <button
                 type="button"
+                disabled={!present}
                 onClick={onAction ?? item.onAction}
                 // 长团队名等具体目标不能把窄屏 Toast 撑出视口；保留完整名称并允许换行。
                 className="max-w-1/2 self-center shrink-0 whitespace-normal break-words text-left font-medium leading-snug text-foreground underline underline-offset-2 hover:text-foreground-subtle"
@@ -378,6 +395,7 @@ export function ToastMessageView({
           {item.dismissible ? (
             <button
               type="button"
+              disabled={!present}
               onClick={onDismiss}
               aria-label={item.dismissLabel ?? "Close"}
               className="flex size-6 shrink-0 items-center justify-center rounded-md text-foreground-subtle hover:bg-hover hover:text-foreground"

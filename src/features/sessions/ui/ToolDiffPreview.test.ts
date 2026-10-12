@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
+import { startMotionClock, stopMotionClock, finishMotion, motionFrame } from "../../../../tests/helpers/sharedMotionClock";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { previewFromTool } from "../../../integrations/harness/providers/claude/claudeProtocol";
@@ -20,6 +21,7 @@ const preview = previewFromTool("Edit", {
 
 beforeEach(() => {
   vi.useFakeTimers();
+  startMotionClock();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   container = document.createElement("div");
   document.body.append(container);
@@ -29,6 +31,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  stopMotionClock();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -68,12 +71,25 @@ function pointer(
 }
 
 function advance(ms: number) {
-  act(() => vi.advanceTimersByTime(ms));
+  act(() => { vi.advanceTimersByTime(ms); motionFrame(ms); });
 }
 
-const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]');
+// Closing portals remain painted but cannot receive interaction.
+const dialog = () => [...document.querySelectorAll<HTMLElement>('[role="dialog"]')].find(node => !node.closest("[inert]")) ?? null;
 
 describe("tool diff popovers", () => {
+  it("retains an inert preview until its Motion exit completes", async () => {
+    const { trigger } = renderPreview();
+    act(() => trigger.focus());
+    await act(async () => finishMotion());
+    const previewDialog = dialog()!;
+    act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(dialog()).toBeNull();
+    expect(previewDialog.isConnected).toBe(true);
+    expect(previewDialog.closest("[inert]")).not.toBeNull();
+    await act(async () => finishMotion());
+    expect(previewDialog.isConnected).toBe(false);
+  });
   it("keeps mobile file navigation without opening a preview on focus or hover", () => {
     const onOpenDiff = vi.fn();
     act(() => root.render(createElement(TranscriptPlatformContext.Provider, {

@@ -1,3 +1,4 @@
+import { duration } from "../../shared/motion/tokens";
 import { PresenceBoundary } from "../../shared/ui/PresenceBoundary";
 import { DisclosureChevron } from "../../shared/ui/DisclosureChevron";
 import { usePreferenceState } from "../../features/settings/model/usePreferenceState";
@@ -162,7 +163,7 @@ export type ProjectListProps = {
   onProjectHoverOpen?: (path: string) => void;
 };
 
-const PROJECT_COLLAPSE_DURATION_MS = 280;
+const PROJECT_COLLAPSE_DURATION_MS = duration.collapse * 1000;
 
 function collapsedProjectHeaderSize(_id: string, node: HTMLElement) {
   return (

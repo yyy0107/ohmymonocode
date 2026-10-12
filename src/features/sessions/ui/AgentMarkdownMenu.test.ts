@@ -41,9 +41,9 @@ function openMenu(element: Element) {
     clientY: 80,
   });
   act(() => element.dispatchEvent(event));
-  return document.querySelector<HTMLElement>(
+  return [...document.querySelectorAll<HTMLElement>(
     '[role="menu"][aria-label="File link actions"]',
-  );
+  )].find((menu) => !menu.closest("[inert]")) ?? null;
 }
 
 async function pick(label: string, link = container.querySelector("a")!) {
