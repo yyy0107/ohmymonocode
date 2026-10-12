@@ -21,6 +21,7 @@ vi.mock("../hooks/useTranscriptAnchor", () => ({
 let container: HTMLDivElement;
 let root: Root;
 let animate: ReturnType<typeof vi.fn>;
+let promptMotion: "mobile" | undefined;
 
 const first: Block[] = [{ id: "u1", role: "user", text: "Hello" }];
 const second: Block[] = [
@@ -29,7 +30,7 @@ const second: Block[] = [
   { id: "u2", role: "user", text: "Next" },
 ];
 
-function render(blocks: Block[], busy = true, options: { promptMotion?: "mobile"; animateFrom?: string } = { promptMotion: "mobile" }) {
+function render(blocks: Block[], busy = true, options: { promptMotion?: "mobile"; animateFrom?: string } = { promptMotion }) {
   act(() =>
     root.render(
       createElement(AgentTranscript, { blocks, busy, visible: true, ...options }),
@@ -96,10 +97,10 @@ function risenPrompts() {
   ];
 }
 
-describe("desktop messages appear in place", () => {
+describe("desktop prompt entrances", () => {
   it.each([
     ["chat", true], ["chat", false], ["full", true], ["full", false],
-  ] as const)("does not slide new user or AI messages (layout=%s, anchor=%s)", (layout, anchor) => {
+  ] as const)("slides chat prompts without changing AI entrances (layout=%s, anchor=%s)", (layout, anchor) => {
     appearance.layout = layout;
     appearance.anchor = anchor;
     const desktop = { promptMotion: undefined };
@@ -111,15 +112,22 @@ describe("desktop messages appear in place", () => {
     render(second, true, desktop);
     act(() => vi.advanceTimersByTime(20));
 
-    expect(animate).not.toHaveBeenCalled();
-    expect(container.querySelector("[data-prompt-rise]")).toBeNull();
+    if (layout === "chat") {
+      expect(animate).toHaveBeenCalled();
+      expect(container.querySelector('[data-prompt-anchor="u2"]')!
+        .closest<HTMLElement>(".transcript-turn")!.dataset.promptRise).toBe("rising");
+    } else {
+      expect(animate).not.toHaveBeenCalled();
+      expect(container.querySelector("[data-prompt-rise]")).toBeNull();
+    }
     expect(container.querySelector("[data-transcript-content-motion]")).toBeNull();
     expect(container.querySelector<HTMLElement>('[data-prompt-anchor="u2"]')!.style.visibility).toBe("");
     expect(container.querySelector(".agent-markdown")).not.toBeNull();
   });
 });
 
-describe("mobile prompt rise in the chat layout", () => {
+describe.each([undefined, "mobile"] as const)("shared prompt rise (motion=%s)", (motion) => {
+  beforeEach(() => { promptMotion = motion; });
   it("slides the first prompt up from the dock and settles it from a pending tint", () => {
     render([], false);
     render(first);
@@ -266,13 +274,13 @@ describe("mobile prompt rise in the chat layout", () => {
     [true, "Caption"], [false, "Caption"], [true, ""], [false, ""],
   ] as const)("slides sent images with their caption and supports image-only sends (anchor=%s, text=%s)", async (anchor, text) => {
     appearance.anchor = anchor;
-    render(first, false, { promptMotion: "mobile" });
+    render(first, false);
     render([...first, {
       id: "u2", role: "user", text,
       attachments: ["one", "two"].map(id => ({
         id, name: `${id}.png`, kind: "image", mimeType: "image/png", data: "aGVsbG8=", size: 5,
       })),
-    }], true, { promptMotion: "mobile" });
+    }]);
     const row = container.querySelector<HTMLElement>('[data-prompt-anchor="u2"]')!;
     const bubble = row.querySelector<HTMLElement>(".user-message-bubble")!;
     const media = row.querySelector<HTMLElement>(".user-message-media")!;
@@ -319,10 +327,10 @@ describe("mobile prompt rise in the chat layout", () => {
     expect(risenPrompts()).toEqual(["u3"]);
   });
 
-  it("preserves the default mount behavior when an explicit submission marker is supplied", () => {
-    render(second, true, { promptMotion: undefined, animateFrom: "u2" });
+  it("introduces an explicitly marked submission when the transcript first mounts", () => {
+    render(second, true, { promptMotion, animateFrom: "u2" });
     act(() => vi.advanceTimersByTime(20));
-    expect(animate).not.toHaveBeenCalled();
+    expect(risenPrompts()).toEqual(["u2"]);
   });
 
   it("stays still in the full-width layout", () => {
@@ -334,8 +342,8 @@ describe("mobile prompt rise in the chat layout", () => {
     expect(animate).not.toHaveBeenCalled();
   });
 
-  it("starts mobile sends above the dock after layout, including a reply completed before sync", async () => {
-    render(second, false, { promptMotion: "mobile", animateFrom: "u2" });
+  it("starts sends above the dock after layout, including a reply completed before sync", async () => {
+    render(second, false, { promptMotion, animateFrom: "u2" });
     const row = container.querySelector<HTMLElement>('[data-prompt-anchor="u2"]')!;
     const scroller = container.querySelector<HTMLElement>(".agent-transcript")!;
     scroller.style.paddingBottom = "128px";
@@ -352,7 +360,7 @@ describe("mobile prompt rise in the chat layout", () => {
     expect(turn.dataset.promptRise).toBe("revealing");
     act(() => vi.advanceTimersByTime(180));
     expect(turn.dataset.promptRise).toBeUndefined();
-    render(second, false, { promptMotion: "mobile", animateFrom: "u2" });
+    render(second, false, { promptMotion, animateFrom: "u2" });
     expect(animate).toHaveBeenCalledTimes(2);
   });
 
@@ -383,7 +391,7 @@ describe("mobile prompt rise in the chat layout", () => {
     expect(animate).toHaveBeenCalledTimes(2);
   });
 
-  it.each([undefined, "mobile"] as const)("cancels a pending entrance when the transcript unmounts (motion=%s)", (promptMotion) => {
+  it("cancels a pending entrance when the transcript unmounts", () => {
     vi.useFakeTimers();
     try {
       render([], false, { promptMotion });
@@ -398,9 +406,7 @@ describe("mobile prompt rise in the chat layout", () => {
     }
   });
 
-  it.each([
-    [undefined, true], ["mobile", true], [undefined, false], ["mobile", false],
-  ] as const)("keeps history and reduced-motion sends still (motion=%s, anchor=%s)", (promptMotion, anchor) => {
+  it.each([true, false])("keeps history and reduced-motion sends still (anchor=%s)", (anchor) => {
     appearance.anchor = anchor;
     render(second, false, { promptMotion });
     act(() => vi.advanceTimersByTime(20));

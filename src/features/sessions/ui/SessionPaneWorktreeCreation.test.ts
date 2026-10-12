@@ -37,7 +37,8 @@ import {
   completeWorktreeCreation,
   startWorktreeCreation,
 } from "../../source-control/model/worktreeCreation";
-import { SessionPane } from "./SessionPane";
+import { SessionPane, type SessionPaneProps } from "./SessionPane";
+import { saveTranscriptLayout } from "../../settings/model/appearance";
 
 let container: HTMLDivElement;
 let root: Root;
@@ -52,12 +53,13 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
 const noop = () => {};
 
-async function render(session: Session) {
+async function render(session: Session, extra: Partial<SessionPaneProps> = {}) {
   await act(async () => {
     root.render(
       createElement(SessionPane, {
@@ -90,6 +92,7 @@ async function render(session: Session) {
         onOpenPlan: noop,
         onBuildPlan: noop,
         onNewTerminal: noop,
+        ...extra,
       }),
     );
   });
@@ -100,6 +103,35 @@ const draft: Session = {
   workspaceMode: "worktree",
   worktreeBase: "main",
 };
+
+it.each([true, false, "hidden"] as const)("introduces the first prompt only after a visible accepted send (%s)", async accepted => {
+  saveTranscriptLayout("chat");
+  const onSubmit = vi.fn(() => accepted !== false);
+  await render(draft, { onSubmit });
+  const textarea = container.querySelector<HTMLTextAreaElement>("textarea")!;
+  act(() => {
+    textarea.value = "Fix login";
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await act(async () => textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+  expect(onSubmit).toHaveBeenCalledTimes(1);
+  if (accepted === "hidden") await render(draft, { visible: false });
+
+  const sent: Session = {
+    ...draft, busy: true,
+    blocks: [{ id: "user-1", role: "user", text: "Fix login" }],
+  };
+  await render(sent);
+  const row = container.querySelector<HTMLElement>('[data-prompt-anchor="user-1"]')!;
+  expect(row.dataset.promptMotion).toBe(accepted === true ? "smooth" : undefined);
+
+  // Opening an already-running conversation never replays its send.
+  act(() => root.unmount());
+  root = createRoot(container);
+  await render(sent);
+  expect(container.querySelector<HTMLElement>('[data-prompt-anchor="user-1"]')!
+    .dataset.promptMotion).toBeUndefined();
+});
 
 it("shows the creation record under the message that started it", async () => {
   await render(draft);

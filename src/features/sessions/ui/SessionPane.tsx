@@ -360,6 +360,16 @@ const LocalSessionPane = memo(function LocalSessionPane({
   );
   const title = sessionDisplayTitle(session.title, session.harness);
   const isEmpty = session.blocks.length === 0;
+  // The transcript mounts only after the first send. Mark that local submit
+  // so its prompt can enter without replaying a restored running session.
+  const firstSend = useRef<string | null>(null);
+  const animateFrom = visible && firstSend.current === session.id
+    ? session.blocks.find(block => block.role === "user" && !block.draft)?.id
+    : undefined;
+  useEffect(() => {
+    if (!isEmpty || !visible || firstSend.current !== session.id)
+      firstSend.current = null;
+  }, [isEmpty, visible, session.id]);
   const recallLastTurnRef = useRef<(() => void) | null>(null);
   const remote = remoteSession;
   const editLastTurnSupported = !remote && canEditLastTurn(session);
@@ -748,7 +758,10 @@ const LocalSessionPane = memo(function LocalSessionPane({
       }
       onSubmit={(text, attachments, options) => {
         if (!dockComposer) composerDockMotion.captureLaunch();
-        return onSubmit(session.id, text, attachments, options);
+        if (isEmpty) firstSend.current = session.id;
+        const accepted = onSubmit(session.id, text, attachments, options);
+        if (accepted === false) firstSend.current = null;
+        return accepted;
       }}
       onBtwCommand={btw.openWith}
       onStop={() => onStop(session.id)}
@@ -944,6 +957,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
                   clockOffsetMs={clockOffsetMs}
                   blocks={session.blocks}
                   historyEntries={transcriptHistory}
+                  animateFrom={animateFrom}
                   onOpenAgent={openSubagent}
                   // No working clock until the worktree exists and the agent has the message.
                   busy={

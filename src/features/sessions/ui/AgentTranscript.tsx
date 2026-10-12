@@ -265,7 +265,7 @@ type Props = {
   touchScroll?: boolean;
   /** A just-submitted turn whose first response may already have arrived. */
   animateFrom?: string;
-  /** Opt into phone prompt entrances, including `animateFrom` after a Host round trip. */
+  /** Phone viewport changes pin immediately while the keyboard animates. */
   promptMotion?: "mobile";
   /** The conversation this transcript belongs to, for its workflow run cards. */
   workflowParent?: WorkflowRunParent;
@@ -412,7 +412,7 @@ function AgentTranscriptComponent({
   // the tab is a new visit: the remount uses the true transcript height so
   // the latest reply sits near the composer instead of a hole of empty space.
   const [anchorTurn, setAnchorTurn] = useState(
-    !!busy || (promptMotion === "mobile" && !!animateFrom),
+    !!busy || !!animateFrom,
   );
   // Parking detaches the scroller, which drops its scroll offset.
   const restoreScroll = useRef(false);
@@ -455,7 +455,7 @@ function AgentTranscriptComponent({
         : "recorded";
     if (lastUserSending && !wasSending) beforeSending.current = seenUserId.current;
     seenUserId.current = lastUserId;
-    priorTurn.current = promptMotion === "mobile" && promptChange.current === "sent"
+    priorTurn.current = promptChange.current === "sent"
       ? measureLastTurn(scroller.current)
       : undefined;
     if (lastUserId && !anchorTurn) setAnchorTurn(true);
@@ -729,9 +729,9 @@ function AgentTranscriptComponent({
     pinTranscript(el);
   }, [lastUserId, pinTranscript, setShowJump]);
 
-  // Phone prompts slide into their laid-out rows; desktop messages appear in
-  // place. A mount may be an existing running session, so only an explicitly
-  // marked phone submission introduces its prompt on mount.
+  // Both clients slide sent prompts into their laid-out rows. A mount may be
+  // an existing running session, so only an explicitly marked submission
+  // introduces its prompt on mount.
   const introducePrompt = useRef({ chat: false, visible });
   introducePrompt.current = {
     chat: transcriptLayout === "chat",
@@ -765,12 +765,8 @@ function AgentTranscriptComponent({
       return;
     }
     const { chat, visible } = introducePrompt.current;
-    if (!lastUserId || !chat || !visible || promptMotion !== "mobile") return;
-    if (
-      mounting &&
-      !(promptMotion === "mobile" && animateFrom === lastUserId)
-    )
-      return;
+    if (!lastUserId || !chat || !visible) return;
+    if (mounting && animateFrom !== lastUserId) return;
     const prior = priorTurn.current;
     priorTurn.current = undefined;
     const rise = riseIntoAnchor(scroller.current, lastUserId, prior);
