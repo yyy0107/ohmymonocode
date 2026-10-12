@@ -28,6 +28,7 @@ const BLUR_KEY = "monocode.sidebarBlur";
 const PROJECT_RAIL_OPEN_KEY = "monocode.projectRailOpen";
 const SESSION_SIDEBAR_OPEN_KEY = "monocode.sessionSidebarOpen";
 const BODY_KEY = "monocode.bodyGlass";
+const COMPACT_SIDEBAR_KEY = "monocode.compactSidebar";
 const SCHEME_KEY = "monocode.colorScheme";
 const SIDEBAR_TAB_ORDER_KEY = "monocode.sidebarTabOrder";
 const SIDEBAR_WIDTH_KEY = "monocode.sidebarWidth";
@@ -186,6 +187,8 @@ export const SIDEBAR_WIDTH_MAX = 560;
 export const SIDEBAR_WIDTH_DEFAULT = 264;
 
 export const BODY_GLASS_DEFAULT = !IS_LINUX;
+/** Skinned sidebars use the phone's 56px rows unless this is on. */
+export const COMPACT_SIDEBAR_DEFAULT = false;
 
 export const CHAT_BACKGROUND_OPACITY_MIN = 0.05;
 export const CHAT_BACKGROUND_OPACITY_MAX = 1;
@@ -362,6 +365,7 @@ export function initAppearance() {
   applyPanelOpacity(loadPanelOpacity());
   applySidebarBlur(loadSidebarBlur());
   applyBodyGlass(loadBodyGlass());
+  applyCompactSidebar(loadCompactSidebar());
   applyChatBackground(loadChatBackgroundPath());
   applyChatBackgroundEmptyOpacity(loadChatBackgroundEmptyOpacity());
   applyChatBackgroundSessionOpacity(loadChatBackgroundSessionOpacity());
@@ -673,6 +677,19 @@ export function saveBodyGlass(value: boolean) {
 
 export function applyBodyGlass(value: boolean) {
   document.documentElement.classList.toggle("glass-body", value);
+  return value;
+}
+
+export function loadCompactSidebar(): boolean {
+  return readFlag(COMPACT_SIDEBAR_KEY) ?? COMPACT_SIDEBAR_DEFAULT;
+}
+
+export function saveCompactSidebar(value: boolean) {
+  writeFlag(COMPACT_SIDEBAR_KEY, value);
+}
+
+export function applyCompactSidebar(value: boolean) {
+  document.documentElement.classList.toggle("compact-sidebar", value);
   return value;
 }
 

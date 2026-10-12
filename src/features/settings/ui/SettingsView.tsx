@@ -118,6 +118,7 @@ import {
   applyPanelOpacity,
   applyAccentColor,
   applyBodyGlass,
+  applyCompactSidebar,
   applyPopoverOpacity,
   applySidebarBlur,
   applySidebarOpacity,
@@ -125,6 +126,7 @@ import {
   applyThemePreference,
   applyThemeTint,
   BODY_GLASS_DEFAULT,
+  COMPACT_SIDEBAR_DEFAULT,
   ACCENT_COLOR_DEFAULT,
   ACCENT_COLOR_PRESET_LABELS,
   ACCENT_COLOR_PRESETS,
@@ -137,6 +139,7 @@ import {
   THEME_PREFERENCE_DEFAULT,
   chatBackgroundSrc,
   loadBodyGlass,
+  loadCompactSidebar,
   loadPopoverOpacity,
   loadWindowOpacity,
   loadPanelOpacity,
@@ -156,6 +159,7 @@ import {
   loadTranscriptLayout,
   loadTranscriptAnchor,
   saveBodyGlass,
+  saveCompactSidebar,
   savePopoverOpacity,
   saveWindowOpacity,
   savePanelOpacity,
@@ -2049,6 +2053,7 @@ function useAppearanceSettings() {
     loadThemeDarkLightness,
   );
   const [bodyGlass, setBodyGlass] = usePreferenceState(loadBodyGlass);
+  const [compactSidebar, setCompactSidebar] = usePreferenceState(loadCompactSidebar);
   const [showExcludedFiles, setShowExcludedFiles] = usePreferenceState(
     loadShowExcludedFiles,
   );
@@ -2220,6 +2225,12 @@ function useAppearanceSettings() {
     setThemeDarkLightness(next);
   }, []);
 
+  const onCompactSidebar = useCallback((next: boolean) => {
+    applyCompactSidebar(next);
+    saveCompactSidebar(next);
+    setCompactSidebar(next);
+  }, []);
+
   const onBodyGlass = useCallback((next: boolean) => {
     applyBodyGlass(next);
     saveBodyGlass(next);
@@ -2356,6 +2367,7 @@ function useAppearanceSettings() {
     onTint(THEME_HUE_DEFAULT, THEME_SATURATION_DEFAULT);
     onDarkLightness(THEME_DARK_LIGHTNESS_DEFAULT);
     onBodyGlass(BODY_GLASS_DEFAULT);
+    onCompactSidebar(COMPACT_SIDEBAR_DEFAULT);
     onShowExcludedFiles(SHOW_EXCLUDED_FILES_DEFAULT);
     onChatBackgroundEmptyOpacity(
       Math.round(CHAT_BACKGROUND_EMPTY_OPACITY_DEFAULT * 100),
@@ -2375,6 +2387,7 @@ function useAppearanceSettings() {
     onSeparateSchemes,
     onBlur,
     onBodyGlass,
+    onCompactSidebar,
     onChatBackgroundEmptyOpacity,
     onChatBackgroundSessionOpacity,
     onChatBackgroundScope,
@@ -2419,6 +2432,7 @@ function useAppearanceSettings() {
     previewTint,
     themeDarkLightness,
     bodyGlass,
+    compactSidebar,
     showExcludedFiles,
     chatBackgroundPath,
     chatBackgroundEmptyOpacity,
@@ -2439,6 +2453,7 @@ function useAppearanceSettings() {
     onTint,
     onDarkLightness,
     onBodyGlass,
+    onCompactSidebar,
     onShowExcludedFiles,
     onChooseChatBackground,
     onClearChatBackground,
@@ -2505,6 +2520,21 @@ function AppearancePage({ appearance }: { appearance: AppearanceSettings }) {
         >
           <SkinPicker value={appearance.skin} onChange={appearance.onSkin} />
         </Row>
+        {appearance.skin === "classic" ? null : (
+          <Row
+            id="compact-sidebar"
+            label={uiT("Compact sidebar")}
+            description={uiT(
+              "Show projects and conversations in short rows with small icons, so more fit on screen.",
+            )}
+          >
+            <Toggle
+              label={uiT("Compact sidebar")}
+              on={appearance.compactSidebar}
+              onChange={appearance.onCompactSidebar}
+            />
+          </Row>
+        )}
         {appearance.separateSchemes ? null : (
           <AccentRow appearance={appearance} />
         )}

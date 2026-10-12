@@ -298,6 +298,12 @@ export const SETTINGS_INDEX: SettingsEntry[] = [
       "theme palette openmausbot midnight atelier foundry lagoon graphite linen dusk daylight meadow classic automatic",
   },
   {
+    id: "compact-sidebar",
+    section: "appearance",
+    label: "Compact sidebar",
+    keywords: "dense rows density list conversations projects smaller",
+  },
+  {
     id: "ui-font-size",
     section: "appearance",
     label: "Interface font size",

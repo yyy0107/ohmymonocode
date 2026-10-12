@@ -163,90 +163,132 @@ html[data-skin] [data-sidebar-search] > button svg {
   height: 16px;
 }
 
-/* Project rows, as `.mobile-home-project`: the avatar slot becomes a 36px
-   tile and the name reads at body size. */
+/* Sidebar row scale. The default follows the phone's Home list; the
+   Compact sidebar setting (`html.compact-sidebar`) keeps the same layout at
+   desktop density so more rows fit. */
+html[data-skin] {
+  --omb-side-project-row: var(--omb-row-project);
+  --omb-side-project-pad: var(--omb-space-6);
+  --omb-side-row: var(--omb-row);
+  --omb-side-row-pad: var(--omb-space-8);
+  --omb-side-gap: var(--omb-space-12);
+  --omb-side-avatar: var(--omb-control);
+  --omb-side-avatar-icon: 18px;
+  --omb-side-tile-icon: 20px;
+  --omb-side-tile-radius: var(--omb-radius-row);
+  --omb-side-group-row: 40px;
+  --omb-side-nest: var(--omb-space-28);
+  --omb-side-title: 15px;
+  --omb-side-title-line: 22px;
+  --omb-side-title-weight: 600;
+  --omb-side-meta: 12px;
+  --omb-side-state: 18px;
+  --omb-side-action: 32px;
+}
+html[data-skin].compact-sidebar {
+  --omb-side-project-row: 36px;
+  --omb-side-project-pad: var(--omb-space-4);
+  --omb-side-row: 36px;
+  --omb-side-row-pad: var(--omb-space-4);
+  --omb-side-gap: var(--omb-space-8);
+  --omb-side-avatar: 24px;
+  --omb-side-avatar-icon: 14px;
+  --omb-side-tile-icon: 14px;
+  --omb-side-tile-radius: 8px;
+  --omb-side-group-row: 32px;
+  --omb-side-nest: var(--omb-space-20);
+  --omb-side-title: 13px;
+  --omb-side-title-line: 18px;
+  --omb-side-title-weight: 500;
+  --omb-side-meta: 11px;
+  --omb-side-state: 14px;
+  --omb-side-action: 24px;
+}
+
+/* Project rows, as `.mobile-home-project`: the avatar slot becomes a tile
+   and the name reads at body size. */
 html[data-skin] [data-project-header] {
   align-items: center;
-  gap: var(--omb-space-12);
+  gap: var(--omb-side-gap);
   height: auto;
-  min-height: var(--omb-row-project);
-  padding: var(--omb-space-6) var(--omb-space-8);
+  min-height: var(--omb-side-project-row);
+  padding: var(--omb-side-project-pad) var(--omb-space-8);
   border-radius: var(--omb-radius-row);
   transition: background-color 150ms var(--omb-ease-out);
 }
 html[data-skin] [data-project-header] > [data-project-tile] {
-  flex: 0 0 var(--omb-control);
-  width: var(--omb-control);
-  height: var(--omb-control);
-  border-radius: var(--omb-radius-row);
+  flex: 0 0 var(--omb-side-avatar);
+  width: var(--omb-side-avatar);
+  height: var(--omb-side-avatar);
+  border-radius: var(--omb-side-tile-radius);
 }
 html[data-skin] [data-project-header] > [data-project-tile] :is([data-project-avatar], [data-project-chevron]),
 html[data-skin] [data-project-header] > [data-project-tile][data-project-avatar] > * {
-  width: 20px;
-  height: 20px;
+  width: var(--omb-side-tile-icon);
+  height: var(--omb-side-tile-icon);
 }
 html[data-skin] [data-project-header] [data-project-select] {
   padding-inline-start: 0;
 }
 html[data-skin] [data-project-header] .project-name {
-  font-size: 15px;
+  font-size: var(--omb-side-title);
   font-weight: 600;
-  line-height: 22px;
+  line-height: var(--omb-side-title-line);
 }
 html[data-skin] [data-project-header] [data-project-machine] {
-  font-size: 12px;
+  font-size: var(--omb-side-meta);
   line-height: 16px;
 }
 
 /* Session groups inside a project line their icon up with the row avatars. */
 html[data-skin] [data-session-group-row] {
-  gap: var(--omb-space-12);
-  height: 40px;
+  gap: var(--omb-side-gap);
+  height: var(--omb-side-group-row);
   padding-inline: var(--omb-space-8);
   border-radius: var(--omb-radius-row);
 }
 html[data-skin] [data-session-group-row] > span:first-child {
-  width: var(--omb-control);
+  width: var(--omb-side-avatar);
 }
 html[data-skin] [data-session-group-row] > span:nth-child(2) {
   font-size: 13px;
   line-height: 18px;
 }
 
-/* Session rows, as the phone's Home row: one line, 36px agent avatar,
-   body-size title, recency or state at the end. Rows inside a session group
-   keep a small indent so the nesting still reads. */
+/* Session rows, as the phone's Home row: one line, round agent avatar,
+   title, recency or state at the end. Rows inside a session group keep a
+   small indent so the nesting still reads. */
 html[data-skin] [data-session-dense] {
   align-items: center;
-  gap: var(--omb-space-12);
+  gap: var(--omb-side-gap);
   height: auto;
-  min-height: var(--omb-row);
-  padding: var(--omb-space-8);
+  min-height: var(--omb-side-row);
+  padding: var(--omb-side-row-pad) var(--omb-space-8);
   border-radius: var(--omb-radius-row);
 }
 html[data-skin] [data-session-dense][data-density="compact"] {
-  padding-inline-start: var(--omb-space-28);
+  padding-inline-start: calc(var(--omb-space-8) + var(--omb-side-nest));
 }
 html[data-skin] [data-session-dense] [data-session-select] > span {
-  gap: var(--omb-space-12);
+  gap: var(--omb-side-gap);
 }
 html[data-skin] [data-session-dense] [data-session-avatar] {
   display: grid;
-  flex: 0 0 var(--omb-control);
-  width: var(--omb-control);
-  height: var(--omb-control);
-  padding: 9px;
+  flex: 0 0 var(--omb-side-avatar);
+  width: var(--omb-side-avatar);
+  height: var(--omb-side-avatar);
+  padding: 0;
   place-items: center;
   border-radius: 999px;
 }
 html[data-skin] [data-session-dense] [data-session-avatar] svg {
-  width: 18px;
-  height: 18px;
+  width: var(--omb-side-avatar-icon);
+  height: var(--omb-side-avatar-icon);
 }
 html[data-skin] [data-session-dense] [data-session-select] .text-ui-caption {
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 22px;
+  font-size: var(--omb-side-title);
+  font-weight: var(--omb-side-title-weight);
+  line-height: var(--omb-side-title-line);
 }
 html[data-skin] [data-session-dense] [data-session-select] > span > svg {
   width: 14px;
@@ -256,17 +298,17 @@ html[data-skin] [data-session-dense] [data-session-select] > span > span:last-ch
   gap: var(--omb-space-6);
 }
 html[data-skin] [data-session-dense] [data-session-select] > span > span:last-child > :is(svg, [role="img"]) {
-  width: 18px;
-  height: 18px;
+  width: var(--omb-side-state);
+  height: var(--omb-side-state);
 }
 html[data-skin] [data-session-dense] [data-session-select] > span > span:last-child > [role="img"] > * {
-  width: 18px;
-  height: 18px;
-  font-size: 18px;
+  width: var(--omb-side-state);
+  height: var(--omb-side-state);
+  font-size: var(--omb-side-state);
 }
 html[data-skin] [data-session-dense] [data-session-time] {
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: var(--omb-side-meta);
   line-height: 16px;
   font-variant-numeric: tabular-nums;
 }
@@ -275,13 +317,18 @@ html[data-skin] [data-session-dense] > [role="img"][aria-label] {
   width: 9px;
   height: 9px;
 }
+html[data-skin].compact-sidebar [data-session-dense] > [role="img"][aria-label] {
+  flex-basis: 6px;
+  width: 6px;
+  height: 6px;
+}
 /* Hover actions float over the row end instead of reserving width. */
 html[data-skin] [data-session-dense] [data-session-archive] {
   position: absolute;
   inset-block-start: 50%;
   inset-inline-end: var(--omb-space-8);
-  width: 32px;
-  height: 32px;
+  width: var(--omb-side-action);
+  height: var(--omb-side-action);
   border-radius: 999px;
   background: var(--color-panel);
   transform: translateY(-50%);
@@ -291,8 +338,8 @@ html[data-skin] [data-session-dense] :is([data-session-archive], [data-orchestra
   height: 16px;
 }
 html[data-skin] [data-session-dense] [data-orchestration-icon] {
-  width: 32px;
-  height: 32px;
+  width: var(--omb-side-action);
+  height: var(--omb-side-action);
   border-radius: 999px;
 }
 
@@ -549,21 +596,6 @@ html[data-skin] .settings-row > div:first-child > p {
   font-size: 13px;
   line-height: 18px;
 }
-html[data-skin] .settings-row [data-slot="switch"][data-size="default"] {
-  width: 51px;
-  height: 31px;
-  padding: 2px;
-  transition: background-color var(--omb-motion-feedback) var(--omb-ease-out);
-}
-html[data-skin] .settings-row [data-slot="switch"][data-size="default"] > [data-slot="switch-thumb"] {
-  width: 27px;
-  height: 27px;
-  translate: 0 0;
-  transition: translate var(--omb-spring-snappy-duration) var(--omb-spring-snappy);
-}
-html[data-skin] .settings-row [data-slot="switch"][data-size="default"][data-state="checked"] > [data-slot="switch-thumb"] {
-  translate: 20px 0;
-}
 html[data-skin] [data-settings-segmented] {
   gap: var(--omb-space-2);
   height: var(--omb-control);
@@ -577,9 +609,43 @@ html[data-skin] [data-settings-segmented] > button {
   font-weight: 500;
 }
 
+/* Switches, as the phone's: one 51x31 track with a 27px thumb wherever a
+   switch appears. Covers the shared Radix switch, hand-built
+   `button[role="switch"]` tracks and the checkbox-plus-spans variant; every
+   thumb is pinned to the leading edge and travels by `translate`, which also
+   overrides Tailwind's `translate-x-*` utilities. */
+html[data-skin] :is(button[role="switch"], [data-slot="switch"]),
+html[data-skin] input[role="switch"] + span {
+  position: relative;
+  flex-shrink: 0;
+  width: 51px;
+  min-width: 51px;
+  height: 31px;
+  padding: 0;
+  border-radius: 999px;
+  transition: background-color var(--omb-motion-feedback) var(--omb-ease-out);
+}
+html[data-skin] :is(button[role="switch"], [data-slot="switch"]) > span,
+html[data-skin] input[role="switch"] + span + span {
+  position: absolute;
+  inset-block-start: 2px;
+  inset-inline-start: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 999px;
+  translate: 0 0;
+  transition: translate var(--omb-spring-snappy-duration) var(--omb-spring-snappy);
+}
+html[data-skin] :is(button[role="switch"][aria-checked="true"], [data-slot="switch"][data-state="checked"]) > span,
+html[data-skin] input[role="switch"]:checked + span + span {
+  translate: 20px 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  html[data-skin] .settings-row [data-slot="switch"],
-  html[data-skin] .settings-row [data-slot="switch-thumb"] {
+  html[data-skin] :is(button[role="switch"], [data-slot="switch"]),
+  html[data-skin] :is(button[role="switch"], [data-slot="switch"]) > span,
+  html[data-skin] input[role="switch"] + span,
+  html[data-skin] input[role="switch"] + span + span {
     transition: none;
   }
 }
