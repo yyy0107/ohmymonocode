@@ -337,7 +337,7 @@ export function QuickOpen({
         data-file-picker
         data-quick-open-mode={mode}
         onMouseDown={(e) => e.stopPropagation()}
-        className="popover-backdrop absolute left-1/2 top-[max(24px,calc(50%-310px))] flex w-[min(760px,calc(100vw-48px))] -translate-x-1/2 flex-col overflow-hidden rounded-xl border border-content/10 shadow-2xl backdrop-blur-xl"
+        className="quick-open-panel popover-backdrop absolute left-1/2 top-[max(24px,calc(50%-310px))] flex w-[min(760px,calc(100vw-48px))] -translate-x-1/2 flex-col overflow-hidden rounded-xl border border-content/10 shadow-2xl backdrop-blur-xl"
       >
         <div className="pb-1.5">
           <label className="flex items-center gap-2.5 border-b border-stroke px-3.5 py-3.5 text-content/50">

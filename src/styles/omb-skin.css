@@ -1009,3 +1009,45 @@ html[data-skin] [data-composer-layout="desktop"] .composer-stop {
 html[data-skin] [data-composer-layout="desktop"] .composer-stop:hover {
   background: color-mix(in srgb, var(--color-ink) 85%, var(--color-app));
 }
+
+/* Overlay surfaces: popovers, composer menus, dialogs and quick open share
+   one glass panel — 14–16px corners, the skin's sheet shadow, and a frosted
+   menu fill that still follows Panel opacity. Open/close and focus stay with
+   the owning component. */
+html[data-skin] :is(.popover-frame, .composer-popover, .modal-frame, .quick-open-panel) {
+  border-color: color-mix(in srgb, var(--color-hairline) 70%, transparent);
+  box-shadow: var(--shadow-sheet);
+}
+
+html[data-skin] :is(.popover-frame, .composer-popover) {
+  border-radius: 14px;
+}
+
+html[data-skin] :is(.modal-frame, .quick-open-panel) {
+  border-radius: var(--radius-sheet);
+  max-height: 85vh;
+}
+
+html[data-skin] :is(.popover-frame, .modal-frame) > .popover-backdrop,
+html[data-skin] :is(.composer-popover, .quick-open-panel) {
+  background: color-mix(
+    in srgb,
+    var(--color-menu) calc(var(--panel-opacity, 1) * 88%),
+    transparent
+  );
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+}
+
+html[data-skin] :is(.popover-frame, .composer-popover)
+  :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="option"]),
+html[data-skin] .composer-popover > button {
+  border-radius: 8px;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-skin] :is(.popover-frame, .modal-frame) > .popover-backdrop,
+  html[data-skin] :is(.composer-popover, .quick-open-panel) {
+    background: var(--color-menu);
+  }
+}

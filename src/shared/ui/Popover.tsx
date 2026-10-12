@@ -76,7 +76,7 @@ type SurfaceProps = Omit<Props, "open"> & {
 };
 
 const FRAME =
-  "isolate overflow-hidden rounded-lg border border-stroke shadow-md";
+  "popover-frame isolate overflow-hidden rounded-lg border border-stroke shadow-md";
 
 /** Which corner the open animation grows from, so it reads as anchored. */
 function origin(side: PopoverSide, align: PopoverAlign): string {
