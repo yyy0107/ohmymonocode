@@ -1051,3 +1051,15 @@ html[data-skin] .composer-popover > button {
     background: var(--color-menu);
   }
 }
+
+/* Popovers open on the OpenMausBot pop-in timing. */
+html[data-skin] .popover-open {
+  animation-duration: var(--duration-pop);
+  animation-timing-function: var(--ease-omb);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-skin] .popover-open {
+    animation: none;
+  }
+}
