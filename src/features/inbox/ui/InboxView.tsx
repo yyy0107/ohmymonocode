@@ -899,7 +899,7 @@ export function InboxView({
       ref={resize.setPaneRef}
       className="relative flex h-full min-h-0 shrink-0 flex-col border-r border-stroke"
     >
-      <div className="flex h-9 shrink-0 items-center gap-px border-b border-stroke px-2">
+      <div className="desktop-toolbar flex h-9 shrink-0 items-center gap-px border-b border-stroke px-2">
         {visibleSources.length > 0 ? (
           <div
             role="tablist"
@@ -938,7 +938,7 @@ export function InboxView({
         ) : null}
       </div>
       {noSourcesConnected ? null : (
-        <div className="flex h-9 shrink-0 items-center gap-1 border-b border-stroke px-2">
+        <div className="desktop-toolbar flex h-9 shrink-0 items-center gap-1 border-b border-stroke px-2">
           <div className="relative flex h-7 min-w-0 flex-1 items-center">
             <Search className="pointer-events-none absolute left-2 size-3 shrink-0 opacity-50" />
             <input
@@ -1937,7 +1937,7 @@ export function GithubPrActions({
           className="p-3"
         >
           <div className="flex flex-col gap-1">
-            <h2 className="text-[13px] font-medium text-content">
+            <h2 className="desktop-pane-heading text-[13px] font-medium text-content">
               {confirmCopy.title}
             </h2>
             <p className="text-[12px] leading-snug text-content/55">

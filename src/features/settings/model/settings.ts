@@ -75,7 +75,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     group: "app",
     label: "Appearance",
     description:
-      "Theme, tint, translucency, workspace layout, and conversation backgrounds.",
+      "Theme, typography, translucency, workspace layout, and conversation backgrounds.",
     keywords:
       "theme dark light color accent glass blur zoom scale wallpaper rail sidebar",
   },
@@ -291,13 +291,6 @@ export const SETTINGS_INDEX: SettingsEntry[] = [
     keywords: "dark light system appearance mode",
   },
   {
-    id: "skin",
-    section: "appearance",
-    label: "Skin",
-    keywords:
-      "theme palette openmausbot midnight atelier foundry lagoon graphite linen dusk daylight meadow classic automatic",
-  },
-  {
     id: "compact-sidebar",
     section: "appearance",
     label: "Compact sidebar",
@@ -362,24 +355,6 @@ export const SETTINGS_INDEX: SettingsEntry[] = [
     section: "appearance",
     label: "Accent color",
     keywords: "highlight bubble send button tint",
-  },
-  {
-    id: "hue",
-    section: "appearance",
-    label: "Hue",
-    keywords: "tint color chrome",
-  },
-  {
-    id: "saturation",
-    section: "appearance",
-    label: "Saturation",
-    keywords: "tint color neutral grey gray",
-  },
-  {
-    id: "dark-lightness",
-    section: "appearance",
-    label: "Dark-mode lightness",
-    keywords: "black brightness contrast background",
   },
   {
     id: "window-opacity",

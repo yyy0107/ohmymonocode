@@ -1095,7 +1095,7 @@ function DiffChunkNav({
   const { t: uiT } = useTranslation();
   return (
     <header
-      className="flex h-8 shrink-0 items-center justify-between gap-3 border-b border-stroke px-3 pr-1"
+      className="desktop-toolbar flex h-8 shrink-0 items-center justify-between gap-3 border-b border-stroke px-3 pr-1"
       role="toolbar"
       aria-label={uiT("Jump between changes")}
     >

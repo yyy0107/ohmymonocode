@@ -68,7 +68,7 @@ function Card({
     >
       <div className="flex items-end gap-4 pb-2.5">
         <div className="min-w-0 flex-1">
-          <h2 className="text-[15px] font-semibold text-content">{title}</h2>
+          <h2 className="desktop-pane-heading text-[15px] font-semibold text-content">{title}</h2>
           {description ? (
             <p className="mt-1 text-[12px] leading-relaxed text-content/45">
               {description}
@@ -77,7 +77,7 @@ function Card({
         </div>
         {action ? <div className="shrink-0 pb-0.5">{action}</div> : null}
       </div>
-      <div className="overflow-hidden rounded-xl border border-content/10 bg-content/3">
+      <div className="desktop-card overflow-hidden rounded-xl border border-content/10 bg-content/3">
         {children}
       </div>
     </section>

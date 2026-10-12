@@ -2305,7 +2305,7 @@ const SessionCard = memo(function SessionCard({
       </div>
       <HoverSummary hover={metadataHover} role="tooltip">
         <div className="flex items-start gap-3">
-          <h3 className="min-w-0 flex-1 break-words text-ui-caption font-semibold leading-snug text-content [overflow-wrap:anywhere]">
+          <h3 className="desktop-section-heading min-w-0 flex-1 break-words text-ui-caption font-semibold leading-snug text-content [overflow-wrap:anywhere]">
             {title}
           </h3>
           {summaryStatus}

@@ -58,7 +58,7 @@ export function QuestionHistoryCard({
   if (answered && answeredQuestionsInline)
     return (
       <div
-        className="question-history question-history-inline mx-4 my-2 space-y-3 rounded-xl border border-content/10 px-4 py-3 font-sans @md:mx-6"
+        className="desktop-card question-history question-history-inline mx-4 my-2 space-y-3 rounded-xl border border-content/10 px-4 py-3 font-sans @md:mx-6"
         data-question-history={blockId}
       >
         {question.questions.map((item) => {
@@ -82,7 +82,7 @@ export function QuestionHistoryCard({
     );
   return (
     <div
-      className="question-history mx-4 my-2 overflow-hidden rounded-xl border border-content/10 bg-content/[0.025] font-sans @md:mx-6"
+      className="desktop-card question-history mx-4 my-2 overflow-hidden rounded-xl border border-content/10 bg-content/[0.025] font-sans @md:mx-6"
       data-question-history={blockId}
     >
       <button

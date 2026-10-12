@@ -127,7 +127,7 @@ export function AddRemoteProjectDialog({
         className="popover-backdrop absolute left-1/2 top-[16%] flex max-h-[70vh] w-[min(480px,calc(100vw-24px))] -translate-x-1/2 flex-col gap-3 rounded-lg border border-content/10 p-4 shadow-xl backdrop-blur-xl"
       >
         <div className="flex flex-col gap-1">
-          <h2 className="text-[13px] font-medium leading-tight text-content">
+          <h2 className="desktop-pane-heading text-[13px] font-medium leading-tight text-content">
             {uiT("Open folder on a machine")}
           </h2>
           <p className="text-[12px] leading-snug text-content/55">
@@ -185,7 +185,7 @@ export function AddRemoteProjectDialog({
             )}
             <input
               aria-label={uiT("Folder path on the machine")}
-              className="h-8 shrink-0 rounded-md border border-content/10 bg-content/3 px-2.5 font-mono text-[12px] text-content outline-none focus:border-content/25"
+              className="desktop-field h-8 shrink-0 rounded-md border border-content/10 bg-content/3 px-2.5 font-mono text-[12px] text-content outline-none focus:border-content/25"
               placeholder="/home/me/code/my-app"
               value={path}
               spellCheck={false}

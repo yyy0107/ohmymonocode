@@ -381,7 +381,7 @@ export function SearchView({
       data-app-search
       className="flex min-h-0 min-w-0 flex-1 flex-col text-content"
     >
-      <div className="flex h-10 shrink-0 select-none items-center border-b border-stroke">
+      <div className="desktop-toolbar flex h-10 shrink-0 select-none items-center border-b border-stroke">
         <label className="flex min-w-0 flex-1 items-center gap-2 px-3 text-content/50">
           <Search className="size-3.5 shrink-0" />
           <input
@@ -405,7 +405,7 @@ export function SearchView({
         </label>
       </div>
 
-      <div className="flex h-9 shrink-0 items-center gap-px border-b border-stroke px-3">
+      <div className="desktop-toolbar flex h-9 shrink-0 items-center gap-px border-b border-stroke px-3">
         {SCOPES.map((item) => {
           const selected = scope === item.id;
           return (

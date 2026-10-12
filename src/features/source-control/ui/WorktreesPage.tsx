@@ -138,7 +138,7 @@ export function WorktreesPage({
           {uiT("Add a project to manage its worktrees.")}
         </p>
       ) : !data && loadError && isNotGitRepositoryError(loadError) ? (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-stroke px-4 py-8 text-center">
+        <div className="desktop-card flex flex-col items-center gap-2 rounded-xl border border-stroke px-4 py-8 text-center">
           <FolderTree className="size-5 text-content/35" />
           <p className="text-[13px] font-medium">
             {uiT("This project is not a Git repository")}
@@ -159,7 +159,7 @@ export function WorktreesPage({
           {uiT("Loading worktrees…")}
         </p>
       ) : !worktrees.length ? (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-stroke px-4 py-8 text-center">
+        <div className="desktop-card flex flex-col items-center gap-2 rounded-xl border border-stroke px-4 py-8 text-center">
           <FolderTree className="size-5 text-content/35" />
           <p className="text-[13px] font-medium">
             {uiT("No additional worktrees")}
@@ -171,7 +171,7 @@ export function WorktreesPage({
           </p>
         </div>
       ) : (
-        <div className="divide-y divide-stroke overflow-hidden rounded-xl border border-stroke">
+        <div className="desktop-card divide-y divide-stroke overflow-hidden rounded-xl border border-stroke">
           {worktrees.map((tree) => {
             const count = worktreeSessionIds(tree, liveSessions).length;
             const blocked = tree.locked

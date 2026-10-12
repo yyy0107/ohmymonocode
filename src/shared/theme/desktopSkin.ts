@@ -1,14 +1,7 @@
 import { preferenceStorage } from "../../features/settings/model/sharedPreferences";
 
-/**
- * Desktop skins follow OpenMausBot: a `data-skin` attribute selects a block
- * in `src/styles/omb-skin.css`. This module only chooses the skin. Colours
- * stay in CSS.
- *
- * `auto` maps the existing Dark/Light preference onto Midnight and Daylight.
- * `classic` removes the attribute so hue, saturation and lightness keep
- * painting the original surfaces.
- */
+/** Compatibility IDs for persisted legacy skins. Runtime paints only the new
+ * light/dark pair; old IDs remain readable for migration and old callers. */
 export const DESKTOP_SKIN_IDS = [
   "midnight",
   "atelier",
@@ -58,14 +51,13 @@ export function normalizeDesktopSkin(value: unknown): DesktopSkinPreference {
   return DESKTOP_SKIN_DEFAULT;
 }
 
-/** `null` means Classic: do not stamp `data-skin`. */
+/** Legacy named values select their scheme, never their former palette. */
 export function resolveDesktopSkin(
   preference: DesktopSkinPreference,
   light: boolean,
 ): DesktopSkinId | null {
-  if (preference === "classic") return null;
-  if (preference === "auto") return light ? "daylight" : "midnight";
-  return preference;
+  const scheme = isDesktopSkinId(preference) ? DESKTOP_SKIN_INFO[preference].scheme : light ? "light" : "dark";
+  return scheme === "light" ? "daylight" : "midnight";
 }
 
 export function loadDesktopSkin(): DesktopSkinPreference {
@@ -86,11 +78,10 @@ export function saveDesktopSkin(value: DesktopSkinPreference) {
 
 /**
  * Stamp the document skin. Call after the theme class is set.
- * Returns the scheme the skin enforces, or null when Classic leaves the
- * theme preference in charge.
+ * Legacy callers resolve to the new pair. Mobile returns null and owns its scheme.
  */
 export function applyDesktopSkin(
-  preference = loadDesktopSkin(),
+  preference: DesktopSkinPreference = "auto",
 ): "light" | "dark" | null {
   if (typeof document === "undefined") return null;
   const root = document.documentElement;
@@ -98,6 +89,7 @@ export function applyDesktopSkin(
   // Remove stale desktop markers so the imported desktop CSS stays inactive.
   if (root.dataset.mobileSkin !== undefined) {
     delete root.dataset.skin;
+    delete root.dataset.desktopVisual;
     root.style.colorScheme = "";
     return null;
   }
@@ -105,11 +97,13 @@ export function applyDesktopSkin(
   const skin = resolveDesktopSkin(preference, light);
   if (!skin) {
     delete root.dataset.skin;
+    delete root.dataset.desktopVisual;
     root.style.colorScheme = "";
     return null;
   }
   const scheme = DESKTOP_SKIN_INFO[skin].scheme;
   root.dataset.skin = skin;
+  root.dataset.desktopVisual = "grok-static-v1";
   root.classList.toggle("theme-light", scheme === "light");
   root.style.colorScheme = scheme;
   return scheme;

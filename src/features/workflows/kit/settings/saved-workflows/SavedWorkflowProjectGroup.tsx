@@ -357,7 +357,7 @@ export function SavedWorkflowProjectGroup({
       className="mt-8 first:mt-0"
     >
       <div className="flex items-center justify-between gap-3">
-        <h3 className="flex items-center gap-2 text-ui-base font-medium leading-5 text-foreground">
+        <h3 className="desktop-pane-heading flex items-center gap-2 text-ui-base font-medium leading-5 text-foreground">
           <span className="truncate">{project.label}</span>
           {isCurrent ? (
             <span className="rounded-sm border border-border px-1.5 py-0.5 text-ui-xs leading-none text-foreground-subtlest">

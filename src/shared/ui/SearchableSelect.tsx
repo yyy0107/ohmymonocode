@@ -193,6 +193,7 @@ export function SearchableSelect({
         aria-label={`${label}: ${selected?.label ?? placeholder}`}
         aria-expanded={open}
         aria-haspopup="dialog"
+        data-desktop-select-trigger={variant}
         onClick={() => (open ? close() : openMenu())}
         onKeyDown={(event) => {
           if (open || (event.key !== "ArrowDown" && event.key !== "ArrowUp"))
@@ -218,103 +219,103 @@ export function SearchableSelect({
           {selected?.label ?? placeholder}
         </span>
         <ChevronDown
-          className={`shrink-0 text-content/45 transition-transform duration-150 ease-out ${variant === "pill" || variant === "row" ? "size-3" : "size-3.5"} ${open ? "rotate-180" : ""}`}
+          className={`desktop-select-arrow shrink-0 text-content/45 transition-transform duration-150 ease-out ${variant === "pill" || variant === "row" ? "size-3" : "size-3.5"} ${open ? "rotate-180" : ""}`}
         />
       </button>
-      {open ? (
-        <Popover
-          anchor={root}
-          side="bottom"
-          align={align}
-          gap={4}
-          width={menuWidth}
-          maxHeight={longMenu ? 240 : undefined}
-          constrainHeight={longMenu}
-          layer={popoverLayer}
-          role="dialog"
-          aria-label={uiT("{value0} options", { value0: String(label) })}
-          data-dialog-popover
-          onDismiss={(reason) => close(reason === "escape")}
-          className="flex flex-col overflow-hidden"
+      <Popover
+        open={open}
+        anchor={root}
+        side="bottom"
+        align={align}
+        gap={4}
+        width={menuWidth}
+        maxHeight={longMenu ? 240 : undefined}
+        constrainHeight={longMenu}
+        layer={popoverLayer}
+        role="dialog"
+        aria-label={uiT("{value0} options", { value0: String(label) })}
+        data-dialog-popover
+        onDismiss={(reason) => close(reason === "escape")}
+        className="flex flex-col overflow-hidden"
+      >
+        {searchable ? (
+          <label className="flex h-8 shrink-0 items-center gap-2 border-b border-stroke px-2.5 text-content/45 focus-within:text-content/70">
+            <Search className="size-3.5 shrink-0" />
+            <span className="sr-only">{searchPlaceholder}</span>
+            <input
+              ref={search}
+              role="combobox"
+              aria-label={searchPlaceholder}
+              aria-expanded="true"
+              aria-autocomplete="list"
+              aria-controls={listId}
+              aria-activedescendant={activeId}
+              value={query}
+              placeholder={searchPlaceholder}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setActive(0);
+              }}
+              onKeyDown={onSearchKeyDown}
+              className="min-w-0 flex-1 bg-transparent text-[12px] text-content outline-none placeholder:text-content/35"
+            />
+          </label>
+        ) : null}
+        <div
+          ref={list}
+          id={listId}
+          role="listbox"
+          aria-label={label}
+          aria-activedescendant={searchable ? undefined : activeId}
+          tabIndex={searchable ? undefined : 0}
+          onKeyDown={searchable ? undefined : onSearchKeyDown}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-none p-1 outline-none"
         >
-          {searchable ? (
-            <label className="flex h-8 shrink-0 items-center gap-2 border-b border-stroke px-2.5 text-content/45 focus-within:text-content/70">
-              <Search className="size-3.5 shrink-0" />
-              <span className="sr-only">{searchPlaceholder}</span>
-              <input
-                ref={search}
-                role="combobox"
-                aria-label={searchPlaceholder}
-                aria-expanded="true"
-                aria-autocomplete="list"
-                aria-controls={listId}
-                aria-activedescendant={activeId}
-                value={query}
-                placeholder={searchPlaceholder}
-                autoComplete="off"
-                spellCheck={false}
-                onChange={(event) => {
-                  setQuery(event.target.value);
-                  setActive(0);
-                }}
-                onKeyDown={onSearchKeyDown}
-                className="min-w-0 flex-1 bg-transparent text-[12px] text-content outline-none placeholder:text-content/35"
-              />
-            </label>
-          ) : null}
-          <div
-            ref={list}
-            id={listId}
-            role="listbox"
-            aria-label={label}
-            aria-activedescendant={searchable ? undefined : activeId}
-            tabIndex={searchable ? undefined : 0}
-            onKeyDown={searchable ? undefined : onSearchKeyDown}
-            className="min-h-0 flex-1 overflow-y-auto overscroll-none p-1 outline-none"
-          >
-            {filtered.length > 0 ? (
-              filtered.map((option, index) => {
-                const highlighted = index === active;
-                const isSelected = option.value === value;
-                return (
-                  <button
-                    key={option.value}
-                    ref={highlighted ? activeOption : undefined}
-                    id={`${listId}-option-${index}`}
-                    type="button"
-                    role="option"
-                    tabIndex={-1}
-                    aria-selected={isSelected}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onMouseEnter={() => setActive(index)}
-                    onClick={() => pick(option.value)}
-                    className={`flex w-full items-center gap-2 rounded-md px-2 text-left leading-none ${
-                      compact ? "h-7 text-[12px]" : "h-8 text-[13px]"
-                    } ${
-                      highlighted
-                        ? "bg-selection text-content"
-                        : "text-content/75 hover:bg-content/3 hover:text-content"
-                    }`}
-                  >
-                    <span className="grid size-3.5 shrink-0 place-items-center">
-                      {isSelected ? (
-                        <Check className="size-3" strokeWidth={2} />
-                      ) : null}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate leading-normal">
-                      {option.label}
-                    </span>
-                  </button>
-                );
-              })
-            ) : (
-              <p className="px-2 py-3 text-center text-[12px] text-content/45">
-                {emptyLabel}
-              </p>
-            )}
-          </div>
-        </Popover>
-      ) : null}
+          {filtered.length > 0 ? (
+            filtered.map((option, index) => {
+              const highlighted = index === active;
+              const isSelected = option.value === value;
+              return (
+                <button
+                  key={option.value}
+                  ref={highlighted ? activeOption : undefined}
+                  id={`${listId}-option-${index}`}
+                  type="button"
+                  role="option"
+                  data-desktop-select-option
+                  tabIndex={-1}
+                  aria-selected={isSelected}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onMouseEnter={() => setActive(index)}
+                  onClick={() => pick(option.value)}
+                  className={`flex w-full items-center gap-2 rounded-md px-2 text-left leading-none ${
+                    compact ? "h-7 text-[12px]" : "h-8 text-[13px]"
+                  } ${
+                    highlighted
+                      ? "bg-selection text-content"
+                      : "text-content/75 hover:bg-content/3 hover:text-content"
+                  }`}
+                >
+                  <span className="grid size-3.5 shrink-0 place-items-center">
+                    {isSelected ? (
+                      <Check className="size-3" strokeWidth={2} />
+                    ) : null}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate leading-normal">
+                    {option.label}
+                  </span>
+                </button>
+              );
+            })
+          ) : (
+            <p className="px-2 py-3 text-center text-[12px] text-content/45">
+              {emptyLabel}
+            </p>
+          )}
+        </div>
+      </Popover>
     </div>
   );
 }

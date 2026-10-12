@@ -1,3 +1,4 @@
+import { applyDesktopSkin } from "../../src/shared/theme/desktopSkin";
 // Synthetic, offline data. No provider/Host calls or reference-app conversations.
 import { useState } from "react";
 import { BotMemoryDialog } from "../../src/features/bots/ui/BotMemoryDialog";
@@ -9,6 +10,7 @@ import type { BotRpc } from "../../src/features/bots/model/botRpc";
 import { setUiLanguage } from "../../src/shared/i18n/language";
 import "../../src/styles/index.css";
 setUiLanguage("en");
+applyDesktopSkin();
 const query = new URLSearchParams(location.search);
 const now = Date.UTC(2026, 9, 12, 12);
 const bots: BotView[] = Array.from({ length: 60 }, (_, i) => ({

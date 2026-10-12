@@ -177,7 +177,7 @@ export function ProjectSearch({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center gap-1 border-b border-stroke px-1.5 py-1">
+      <div className="desktop-toolbar flex shrink-0 items-center gap-1 border-b border-stroke px-1.5 py-1">
         <button
           type="button"
           onClick={onClose}
@@ -231,7 +231,7 @@ export function ProjectSearch({
           placeholder={uiT("files to include")}
           aria-label={uiT("files to include")}
           spellCheck={false}
-          className="w-full rounded-md border border-content/10 bg-content/5 px-2 py-1.5 text-[11px] text-content outline-none placeholder:text-content/35"
+          className="desktop-field w-full rounded-md border border-content/10 bg-content/5 px-2 py-1.5 text-[11px] text-content outline-none placeholder:text-content/35"
         />
         <input
           value={exclude}
@@ -239,7 +239,7 @@ export function ProjectSearch({
           placeholder={uiT("files to exclude")}
           aria-label={uiT("files to exclude")}
           spellCheck={false}
-          className="w-full rounded-md border border-content/10 bg-content/5 px-2 py-1.5 text-[11px] text-content outline-none placeholder:text-content/35"
+          className="desktop-field w-full rounded-md border border-content/10 bg-content/5 px-2 py-1.5 text-[11px] text-content outline-none placeholder:text-content/35"
         />
       </div>
 

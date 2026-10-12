@@ -260,7 +260,7 @@ export function ConnectionsSettings() {
     <div data-setting-id="remote-machines" className="flex flex-col gap-5">
       <section className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
-        <h2 className="min-w-0 flex-1 text-ui-lg font-semibold text-foreground">
+        <h2 className="desktop-pane-heading min-w-0 flex-1 text-ui-lg font-semibold text-foreground">
           {uiT("Your machines")}
         </h2>
         <button
@@ -284,7 +284,7 @@ export function ConnectionsSettings() {
           "Run agents on another computer and return to them from your laptop. The host keeps working when you close MonoCode here.",
         )}
       </p>
-      <div className="divide-y divide-border overflow-hidden rounded-xl border border-border panel-card">
+      <div className="desktop-card divide-y divide-border overflow-hidden rounded-xl border border-border panel-card">
         {!loaded ? (
           <div className="flex items-center gap-2 px-4 py-4 text-ui-base text-foreground-subtle">
             <Loader className="size-4 animate-spin" />
@@ -449,7 +449,7 @@ export function ConnectionsSettings() {
       </div>
       {directory.pending && <p role="status" className="text-ui-caption text-foreground-subtle">{uiT("Not yet synced")}</p>}
       {directory.error && <p role="status" className="text-ui-caption text-foreground-subtle">{directory.error}</p>}
-      {unpaired.length > 0 && <div className="divide-y divide-border overflow-hidden rounded-xl border border-border panel-card" aria-label={uiT("Shared connections")}>
+      {unpaired.length > 0 && <div className="desktop-card divide-y divide-border overflow-hidden rounded-xl border border-border panel-card" aria-label={uiT("Shared connections")}>
         {unpaired.map((entry) => <div key={entry.id} className="flex items-center gap-3 px-4 py-3">
           <Internet className="size-5 shrink-0 text-foreground-subtle" />
           <div className="min-w-0 flex-1">
@@ -480,7 +480,7 @@ export function ConnectionsSettings() {
           }}
         >
           <div className="flex items-center justify-between">
-            <h3 className="text-ui-base font-semibold text-foreground">
+            <h3 className="desktop-pane-heading text-ui-base font-semibold text-foreground">
               {uiT("Connect through SSH")}
             </h3>
             <span className="rounded-full bg-selection px-2 py-0.5 text-ui-caption text-foreground-subtle">
@@ -576,7 +576,7 @@ export function ConnectionsSettings() {
       </AnimatedCollapse>
       {busy && jobId && (
         <div
-          className="flex flex-col gap-3 rounded-xl border border-border panel-card p-4"
+          className="desktop-card flex flex-col gap-3 rounded-xl border border-border panel-card p-4"
           role="status"
           ref={progress}
         >

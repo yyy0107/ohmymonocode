@@ -1,4 +1,6 @@
 {
+  "Theme, typography, translucency, workspace layout, and conversation backgrounds.": "主题、字体、半透明效果、工作区布局与对话背景。",
+  "Dark and light share the same typography and accent settings.": "浅色和深色模式共用字体与强调色设置。",
   "What's new in MonoCode {version}": "MonoCode {version} 更新内容",
   "Host returned invalid account metadata.": "Host 返回的账号信息无效。",
   "v{version} Release notes": "v{version} 更新日志",

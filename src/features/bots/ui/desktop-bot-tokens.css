@@ -5,13 +5,13 @@
   --bots-inspector-width: 320px; /* S078 */
   --bots-row-height: 54px;
   --bots-row-radius: 10px;
-  --bots-card-radius: 12px;
-  --bots-bubble-radius: 18px;
-  --bots-composer-radius: 22px;
-  --bots-control-size: 28px;
+  --bots-card-radius: var(--desktop-radius-card, 12px);
+  --bots-bubble-radius: var(--desktop-radius-bubble, 18px);
+  --bots-composer-radius: var(--desktop-radius-composer, 22px);
+  --bots-control-size: var(--desktop-icon-md, 28px);
   --bots-page-inset: 16px;
-  --bots-dark-fill: var(--color-brand-foreground);
-  --bots-light-ink: var(--color-brand);
+  --bots-dark-fill: var(--color-bubble-user, var(--color-brand-foreground));
+  --bots-light-ink: var(--color-bubble-user-ink, var(--color-brand));
   --bots-agent-fill: var(--color-surface-hover);
   --bots-hover: var(--color-surface-hover);
   --bots-selected: color-mix(in srgb, var(--color-content) 14%, transparent);

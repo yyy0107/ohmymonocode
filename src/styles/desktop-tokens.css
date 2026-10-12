@@ -1,0 +1,52 @@
+/* Grok Bot 0.30 static definitions: S026–S036, S061–S067, SC*, M03–M15.
+ * CSS px, not measured screen pixels. Dark is the existing Midnight adaptation.
+ * Keep this scope on html: portals and native popup documents share the contract.
+ */
+html[data-skin] {
+  --text-desktop-h1: 26px;
+  --text-desktop-h2: 22px;
+  --text-desktop-h3: 17px;
+  --text-desktop-body: 14px;
+  --text-desktop-ui: 13px;
+  --text-desktop-label: 12px;
+  --text-desktop-caption: 11px;
+  --desktop-icon-xs: 20px;
+  --desktop-icon-sm: 24px;
+  --desktop-icon-md: 28px;
+  --desktop-icon-lg: 32px;
+  --desktop-radius-field: 8px;
+  --desktop-radius-card: 12px;
+  --desktop-radius-dialog: 14px;
+  --desktop-radius-bubble: 18px;
+  --desktop-radius-composer: 22px;
+  --desktop-border: 0.5px;
+  --desktop-switch-width: 32px;
+  --desktop-switch-height: 20px;
+  --desktop-switch-thumb: 16px;
+  --desktop-switch-travel: 12px;
+  --desktop-settings-nav: 198px;
+  --desktop-feedback: 120ms;
+  --desktop-feedback-normal: 150ms;
+  --desktop-popup-duration: 100ms;
+  --desktop-popup-ease: cubic-bezier(.16, 1, .3, 1);
+  --desktop-primary: #fcfcfc;
+  --desktop-on-primary: #070707;
+  --desktop-control-track: #fcfcfc26;
+  --desktop-control-checked: #fcfcfc;
+  --desktop-control-knob: #070707;
+  --desktop-control-disabled: #77777726;
+  --desktop-popup-x: 0px;
+  --desktop-popup-y: 0px;
+}
+
+/* settings-tokens.csv :root,.sand-1wuigm2. Root values are light evidence only. */
+html[data-skin].theme-light {
+  --desktop-primary: #070707;
+  --desktop-on-primary: #fcfcfc;
+  --desktop-control-track: #1414141a;
+  --desktop-control-checked: #070707;
+  --desktop-control-knob: #fcfcfc;
+  --desktop-control-disabled: #77777710;
+  --color-hover-fill: #77777717;
+  --color-surface-hover: #77777717;
+}

@@ -1,3 +1,4 @@
+import { SurfaceAppearance } from "../../../shared/ui/SurfaceAppearance";
 import { activePreferenceStore } from "../model/sharedPreferences";
 import { uploadPreferenceBackground } from "../model/preferenceAssets";
 import { usePreferenceState } from "../model/usePreferenceState";
@@ -200,14 +201,8 @@ import {
   POPOVER_OPACITY_MAX,
   POPOVER_OPACITY_MIN,
   THEME_DARK_LIGHTNESS_DEFAULT,
-  THEME_DARK_LIGHTNESS_MAX,
-  THEME_DARK_LIGHTNESS_MIN,
   THEME_HUE_DEFAULT,
-  THEME_HUE_MAX,
-  THEME_HUE_MIN,
   THEME_SATURATION_DEFAULT,
-  THEME_SATURATION_MAX,
-  THEME_SATURATION_MIN,
   type ThemePreference,
   type ChatBackgroundScope,
   type ChatBackgroundArea,
@@ -219,14 +214,6 @@ import {
   type TranscriptLayout,
   type ColorScheme,
 } from "../model/appearance";
-import {
-  DESKTOP_SKIN_INFO,
-  loadDesktopSkin,
-  normalizeDesktopSkin,
-  saveDesktopSkin,
-  type DesktopSkinPreference,
-} from "../../../shared/theme/desktopSkin";
-import { SkinPicker } from "./SkinPicker";
 import {
   pickAndSaveChatBackground,
   removeChatBackground,
@@ -600,6 +587,7 @@ export function SettingsView({
   }, [active]);
 
   return (
+    <SurfaceAppearance.Provider value="settings">
     <div
       role="region"
       aria-label={uiT("Settings")}
@@ -609,7 +597,7 @@ export function SettingsView({
       <div
         data-tauri-drag-region="deep"
         onMouseDownCapture={startWindowDrag}
-        className="flex h-10 shrink-0 select-none items-center border-b border-stroke"
+        className="desktop-toolbar flex h-10 shrink-0 select-none items-center border-b border-stroke"
       >
         <div className="flex min-w-0 flex-1 items-center gap-2 px-3 text-[13px]">
           <span className="shrink-0 text-content/45">{uiT("Settings")}</span>
@@ -637,7 +625,7 @@ export function SettingsView({
 
       <div className="flex min-h-0 min-w-0 flex-1">
         <SettingsNav section={section} onSelect={selectSection} />
-        <div className="settings-panel m-3 ml-1 flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border border-stroke">
+        <div className="desktop-card settings-panel m-3 ml-1 flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border border-stroke">
           {section === "skills" ? (
             <SkillsPage
               key={cwd}
@@ -719,6 +707,7 @@ export function SettingsView({
         </div>
       </div>
     </div>
+    </SurfaceAppearance.Provider>
   );
 }
 
@@ -785,49 +774,48 @@ function SettingsSearch({
         containerClassName="w-56"
         className="h-8 rounded-lg"
       />
-      {open ? (
-        <Popover
-          anchor={root}
-          side="bottom"
-          align="end"
-          width={300}
-          maxHeight={320}
-          onDismiss={(reason) => {
-            setQuery("");
-            if (reason === "escape") input.current?.focus();
-          }}
-          id={listId}
-          role="listbox"
-          aria-label={uiT("Settings search results")}
-          className="overflow-y-auto overscroll-contain p-1"
-        >
-          {results.length === 0 ? (
-            <p className="px-2 py-1.5 text-ui-base text-foreground-subtle">
-              {uiT("No matching settings")}
-            </p>
-          ) : (
-            results.map((result, index) => (
-              <button
-                key={`${result.section}:${result.settingId ?? "*"}`}
-                type="button"
-                role="option"
-                aria-selected={index === active}
-                onMouseDown={(event) => event.preventDefault()}
-                onMouseEnter={() => setActive(index)}
-                onClick={() => go(result)}
-                className={`flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-ui-base text-foreground ${
-                  index === active ? "bg-menu-hover" : ""
-                }`}
-              >
-                <span className="min-w-0 flex-1 truncate">{result.label}</span>
-                <span className="shrink-0 text-ui-sm text-foreground-subtlest">
-                  {result.settingId ? result.sectionLabel : uiT("Page")}
-                </span>
-              </button>
-            ))
-          )}
-        </Popover>
-      ) : null}
+      <Popover
+        open={open}
+        anchor={root}
+        side="bottom"
+        align="end"
+        width={300}
+        maxHeight={320}
+        onDismiss={(reason) => {
+          setQuery("");
+          if (reason === "escape") input.current?.focus();
+        }}
+        id={listId}
+        role="listbox"
+        aria-label={uiT("Settings search results")}
+        className="overflow-y-auto overscroll-contain p-1"
+      >
+        {results.length === 0 ? (
+          <p className="px-2 py-1.5 text-ui-base text-foreground-subtle">
+            {uiT("No matching settings")}
+          </p>
+        ) : (
+          results.map((result, index) => (
+            <button
+              key={`${result.section}:${result.settingId ?? "*"}`}
+              type="button"
+              role="option"
+              aria-selected={index === active}
+              onMouseDown={(event) => event.preventDefault()}
+              onMouseEnter={() => setActive(index)}
+              onClick={() => go(result)}
+              className={`flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-ui-base text-foreground ${
+                index === active ? "bg-menu-hover" : ""
+              }`}
+            >
+              <span className="min-w-0 flex-1 truncate">{result.label}</span>
+              <span className="shrink-0 text-ui-sm text-foreground-subtlest">
+                {result.settingId ? result.sectionLabel : uiT("Page")}
+              </span>
+            </button>
+          ))
+        )}
+      </Popover>
     </div>
   );
 }
@@ -2040,7 +2028,6 @@ type AppearanceSettings = ReturnType<typeof useAppearanceSettings>;
 function useAppearanceSettings() {
   const [themePreference, setThemePreference] =
     usePreferenceState<ThemePreference>(loadThemePreference);
-  const [skin, setSkin] = usePreferenceState<DesktopSkinPreference>(loadDesktopSkin);
   const [accentColor, setAccentColor] = usePreferenceState(loadAccentColor);
   const [opacity, setOpacity] = usePreferenceState(loadSidebarOpacity);
   const [popoverOpacity, setPopoverOpacity] = usePreferenceState(loadPopoverOpacity);
@@ -2141,30 +2128,9 @@ function useAppearanceSettings() {
   );
 
   const onThemePreference = useCallback((next: ThemePreference) => {
-    // A named skin owns the scheme. Dark/Light returns to Auto so the two
-    // controls cannot disagree.
-    const current = loadDesktopSkin();
-    if (current !== "auto" && current !== "classic") {
-      saveDesktopSkin("auto");
-      setSkin("auto");
-    }
     applyThemePreference(next);
     saveThemePreference(next);
     setThemePreference(next);
-  }, []);
-
-  const onSkin = useCallback((value: string) => {
-    const next = normalizeDesktopSkin(value);
-    saveDesktopSkin(next);
-    setSkin(next);
-    if (next !== "auto" && next !== "classic") {
-      const scheme = DESKTOP_SKIN_INFO[next].scheme;
-      saveThemePreference(scheme);
-      setThemePreference(scheme);
-      applyThemePreference(scheme);
-      return;
-    }
-    applyThemePreference(loadThemePreference());
   }, []);
 
   const onAccentColor = useCallback((value: string | null) => {
@@ -2408,8 +2374,6 @@ function useAppearanceSettings() {
 
   return {
     themePreference,
-    skin,
-    onSkin,
     accentColor: separateSchemes ? profile.accentColor : accentColor,
     opacity,
     popoverOpacity,
@@ -2490,7 +2454,7 @@ function AppearancePage({ appearance }: { appearance: AppearanceSettings }) {
                 "Dark and light keep their own colors, fonts and contrast; edit each mode below.",
               )
             : uiT(
-                "Dark and light share the same tint, so the color settings below apply to both.",
+                "Dark and light share the same typography and accent settings.",
               )
         }
       >
@@ -2510,17 +2474,6 @@ function AppearancePage({ appearance }: { appearance: AppearanceSettings }) {
             onChange={appearance.onThemePreference}
           />
         </Row>
-        <Row
-          id="skin"
-          stacked
-          label={uiT("Skin")}
-          description={uiT(
-            "Automatic uses Midnight in dark mode and Daylight in light mode. A named skin replaces hue and lightness. Classic keeps the original tint.",
-          )}
-        >
-          <SkinPicker value={appearance.skin} onChange={appearance.onSkin} />
-        </Row>
-        {appearance.skin === "classic" ? null : (
           <Row
             id="compact-sidebar"
             label={uiT("Compact sidebar")}
@@ -2534,54 +2487,12 @@ function AppearancePage({ appearance }: { appearance: AppearanceSettings }) {
               onChange={appearance.onCompactSidebar}
             />
           </Row>
-        )}
         {appearance.separateSchemes ? null : (
           <AccentRow appearance={appearance} />
         )}
       </Group>
 
       <TypographyCards appearance={appearance} />
-
-      <Group
-        title={uiT("Color")}
-        description={
-          appearance.skin === "classic"
-            ? uiT(
-                "Hue and saturation tint every surface. Lightness only moves the dark theme.",
-              )
-            : uiT(
-                "This skin supplies the palette. Classic restores hue, saturation and dark-mode lightness.",
-              )
-        }
-      >
-        {appearance.separateSchemes ? null : (
-          <TintRows appearance={appearance} />
-        )}
-        <Row
-          id="dark-lightness"
-          label={uiT("Dark-mode lightness")}
-          description={
-            glassDisabled
-              ? uiT(
-                  "This only affects dark mode. Your dark-mode value is preserved.",
-                )
-              : uiT(
-                  "Base brightness of the dark theme. Lower values are darker; zero is true black.",
-                )
-          }
-        >
-          <LiveSlider
-            label={uiT("Dark-mode lightness")}
-            value={appearance.themeDarkLightness}
-            format={(value) => `${value}%`}
-            min={THEME_DARK_LIGHTNESS_MIN}
-            max={THEME_DARK_LIGHTNESS_MAX}
-            preview={applyThemeDarkLightness}
-            onChange={appearance.onDarkLightness}
-            disabled={glassDisabled || appearance.skin !== "classic"}
-          />
-        </Row>
-      </Group>
 
       <Group
         title={uiT("Translucency")}
@@ -2751,52 +2662,6 @@ function AccentRow({ appearance }: { appearance: AppearanceSettings }) {
         onChange={appearance.onAccentColor}
       />
     </Row>
-  );
-}
-
-function TintRows({ appearance }: { appearance: AppearanceSettings }) {
-  const { t: uiT } = useTranslation();
-  return (
-    <>
-      <Row
-        id="hue"
-        label={uiT("Hue")}
-        description={uiT("Base hue for accents and tinted surfaces.")}
-      >
-        <LiveSlider
-          label={uiT("Hue")}
-          value={appearance.themeHue}
-          format={(value) => `${value}°`}
-          min={THEME_HUE_MIN}
-          max={THEME_HUE_MAX}
-          preview={(value) =>
-            appearance.previewTint(value, appearance.themeSaturation)
-          }
-          onChange={(value) =>
-            appearance.onTint(value, appearance.themeSaturation)
-          }
-          disabled={appearance.skin !== "classic"}
-        />
-      </Row>
-      <Row
-        id="saturation"
-        label={uiT("Saturation")}
-        description={uiT(
-          "How strongly the hue tints the interface. Zero keeps it neutral.",
-        )}
-      >
-        <LiveSlider
-          label={uiT("Saturation")}
-          value={appearance.themeSaturation}
-          format={(value) => `${value}%`}
-          min={THEME_SATURATION_MIN}
-          max={THEME_SATURATION_MAX}
-          preview={(value) => appearance.previewTint(appearance.themeHue, value)}
-          onChange={(value) => appearance.onTint(appearance.themeHue, value)}
-          disabled={appearance.skin !== "classic"}
-        />
-      </Row>
-    </>
   );
 }
 
@@ -3022,7 +2887,6 @@ function TypographyCards({ appearance }: { appearance: AppearanceSettings }) {
         {appearance.separateSchemes ? (
           <>
             <AccentRow appearance={appearance} />
-            <TintRows appearance={appearance} />
           </>
         ) : null}
         <Row id="ui-font-weight" label={uiT("Interface font")}>
@@ -3806,203 +3670,202 @@ function ProviderBinaryControl({
       >
         <FolderOpen className="size-3.5" />
       </button>
-      {open ? (
-        <Popover
-          id={`${provider}-binary-popover`}
-          role="dialog"
-          aria-label={uiT("{value0} CLI details", { value0: String(title) })}
-          aria-busy={working}
-          tabIndex={-1}
-          anchor={root}
-          side="bottom"
-          align="start"
-          width={440}
-          className="p-3"
-          autoFocus
-          onKeyDown={(event) => {
-            if (event.key !== "Tab") return;
-            const focusable = Array.from(
-              event.currentTarget.querySelectorAll<HTMLElement>(
-                'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
-              ),
-            );
-            const first = focusable[0];
-            const last = focusable[focusable.length - 1];
-            if (!first || !last) return;
-            if (event.shiftKey && document.activeElement === first) {
-              event.preventDefault();
-              last.focus();
-            } else if (!event.shiftKey && document.activeElement === last) {
-              event.preventDefault();
-              first.focus();
-            }
-          }}
-          onDismiss={(reason) => dismiss(reason === "escape")}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-[12px] font-medium text-content">
-              {title} {uiT("CLI")}
+      <Popover
+        open={open}
+        id={`${provider}-binary-popover`}
+        role="dialog"
+        aria-label={uiT("{value0} CLI details", { value0: String(title) })}
+        aria-busy={working}
+        tabIndex={-1}
+        anchor={root}
+        side="bottom"
+        align="start"
+        width={440}
+        className="p-3"
+        autoFocus
+        onKeyDown={(event) => {
+          if (event.key !== "Tab") return;
+          const focusable = Array.from(
+            event.currentTarget.querySelectorAll<HTMLElement>(
+              'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+            ),
+          );
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (!first || !last) return;
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        }}
+        onDismiss={(reason) => dismiss(reason === "escape")}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[12px] font-medium text-content">
+            {title} {uiT("CLI")}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="rounded-full bg-content/10 px-1.5 py-0.5 text-[10px] text-content/50">
+              {uiT("Global path")}
             </span>
-            <div className="flex items-center gap-1.5">
-              <span className="rounded-full bg-content/10 px-1.5 py-0.5 text-[10px] text-content/50">
-                {uiT("Global path")}
+            <span className="rounded-full bg-content/10 px-1.5 py-0.5 text-[10px] text-content/50">
+              {error
+                ? uiT("Needs attention")
+                : restartRequired
+                  ? uiT("Restart required")
+                  : overridden
+                    ? uiT("Configured")
+                    : uiT("Auto-detected")}
+            </span>
+          </div>
+        </div>
+        {editing ? (
+          <form className="mt-2" onSubmit={submit}>
+            <label
+              htmlFor={`${provider}-binary-path`}
+              className="text-[11px] text-content/50"
+            >
+              {uiT("CLI path")}
+            </label>
+            <input
+              id={`${provider}-binary-path`}
+              ref={editInput}
+              type="text"
+              value={draft}
+              placeholder={inspection?.path ?? uiT("Auto-detected path")}
+              disabled={working}
+              autoFocus
+              onChange={(event) => setDraft(event.target.value)}
+              className="desktop-field mt-1.5 h-8 w-full rounded-md border border-content/10 bg-content/[0.04] px-2 font-mono text-[11px] text-content outline-none placeholder:font-sans placeholder:text-content/35 focus:border-accent/45 disabled:opacity-50"
+            />
+            <p className="mt-1.5 text-[10px] text-content/40">
+              {uiT(
+                "Enter the absolute path to the CLI executable. Changes apply after restarting MonoCode.",
+              )}
+            </p>
+            {error ? (
+              <span
+                role="alert"
+                className="mt-1.5 block text-[11px] text-red-400"
+              >
+                {error}
               </span>
-              <span className="rounded-full bg-content/10 px-1.5 py-0.5 text-[10px] text-content/50">
-                {error
-                  ? uiT("Needs attention")
-                  : restartRequired
-                    ? uiT("Restart required")
-                    : overridden
-                      ? uiT("Configured")
-                      : uiT("Auto-detected")}
+            ) : null}
+            <div className="mt-3 flex justify-end gap-2">
+              <SecondaryButton
+                disabled={working}
+                onClick={() => {
+                  setDraft(loadProviderBinaryPath(provider) ?? "");
+                  setEditing(false);
+                  queueMicrotask(() => trigger.current?.focus());
+                }}
+              >
+                {uiT("Cancel")}
+              </SecondaryButton>
+              {overridden ? (
+                <SecondaryButton
+                  disabled={working}
+                  onClick={() => void useAuto()}
+                >
+                  {uiT("Use auto-detected path")}
+                </SecondaryButton>
+              ) : null}
+              <SecondaryButton type="submit" disabled={working}>
+                {uiT("Save path")}
+              </SecondaryButton>
+            </div>
+          </form>
+        ) : (
+          <>
+            <div className="mt-2 rounded-md border border-content/10 bg-content/[0.03] px-2.5 py-2">
+              <span className="block max-h-12 overflow-y-auto whitespace-pre-wrap break-all font-mono text-[10px] text-content/65">
+                {inspection?.path ??
+                  (error
+                    ? uiT("CLI could not be resolved")
+                    : uiT("Checking the selected CLI…"))}
+              </span>
+              <span className="mt-1 block max-h-10 overflow-y-auto whitespace-pre-wrap break-words text-[10px] text-content/40">
+                {inspection?.version ??
+                  (error
+                    ? uiT("Retry to check this CLI")
+                    : uiT("Checking version…"))}
               </span>
             </div>
-          </div>
-          {editing ? (
-            <form className="mt-2" onSubmit={submit}>
-              <label
-                htmlFor={`${provider}-binary-path`}
-                className="text-[11px] text-content/50"
+            {error ? (
+              <span
+                role="alert"
+                title={error}
+                className="mt-1.5 block max-h-20 overflow-y-auto whitespace-pre-wrap break-words text-[10px] leading-4 text-red-400"
               >
-                {uiT("CLI path")}
-              </label>
-              <input
-                id={`${provider}-binary-path`}
-                ref={editInput}
-                type="text"
-                value={draft}
-                placeholder={inspection?.path ?? uiT("Auto-detected path")}
+                {error}
+              </span>
+            ) : null}
+            {revealError ? (
+              <span
+                role="alert"
+                className="mt-1.5 block max-h-20 overflow-y-auto whitespace-pre-wrap break-words text-[10px] leading-4 text-red-400"
+              >
+                {uiT("Could not open the CLI location: ")}
+                {revealError}
+              </span>
+            ) : null}
+            <div className="mt-3 flex justify-end gap-2">
+              {error ? (
+                <SecondaryButton
+                  disabled={working}
+                  aria-label={uiT("Retry {value0} {value1}", {
+                    value0: String(title),
+                    value1: String(
+                      overridden ? "configured path" : "auto-detect",
+                    ),
+                  })}
+                  onClick={() =>
+                    void inspect(overridden ? draft.trim() || null : null)
+                  }
+                >
+                  <RefreshCw className="size-3.5" />
+                  {overridden
+                    ? uiT("Retry configured path")
+                    : uiT("Retry auto-detect")}
+                </SecondaryButton>
+              ) : null}
+              <SecondaryButton
+                aria-label={uiT("Open {value0} CLI location", {
+                  value0: String(title),
+                })}
+                disabled={!inspection}
+                onClick={() => {
+                  if (inspection) {
+                    void revealPath(inspection.path).catch((cause) => {
+                      setRevealError(
+                        cause instanceof Error
+                          ? cause.message
+                          : String(cause),
+                      );
+                    });
+                  }
+                }}
+              >
+                <ExternalLink className="size-3.5" />
+                {uiT("Open location")}
+              </SecondaryButton>
+              <SecondaryButton
+                aria-label={uiT("Edit {value0} CLI path", {
+                  value0: String(title),
+                })}
                 disabled={working}
-                autoFocus
-                onChange={(event) => setDraft(event.target.value)}
-                className="mt-1.5 h-8 w-full rounded-md border border-content/10 bg-content/[0.04] px-2 font-mono text-[11px] text-content outline-none placeholder:font-sans placeholder:text-content/35 focus:border-accent/45 disabled:opacity-50"
-              />
-              <p className="mt-1.5 text-[10px] text-content/40">
-                {uiT(
-                  "Enter the absolute path to the CLI executable. Changes apply after restarting MonoCode.",
-                )}
-              </p>
-              {error ? (
-                <span
-                  role="alert"
-                  className="mt-1.5 block text-[11px] text-red-400"
-                >
-                  {error}
-                </span>
-              ) : null}
-              <div className="mt-3 flex justify-end gap-2">
-                <SecondaryButton
-                  disabled={working}
-                  onClick={() => {
-                    setDraft(loadProviderBinaryPath(provider) ?? "");
-                    setEditing(false);
-                    queueMicrotask(() => trigger.current?.focus());
-                  }}
-                >
-                  {uiT("Cancel")}
-                </SecondaryButton>
-                {overridden ? (
-                  <SecondaryButton
-                    disabled={working}
-                    onClick={() => void useAuto()}
-                  >
-                    {uiT("Use auto-detected path")}
-                  </SecondaryButton>
-                ) : null}
-                <SecondaryButton type="submit" disabled={working}>
-                  {uiT("Save path")}
-                </SecondaryButton>
-              </div>
-            </form>
-          ) : (
-            <>
-              <div className="mt-2 rounded-md border border-content/10 bg-content/[0.03] px-2.5 py-2">
-                <span className="block max-h-12 overflow-y-auto whitespace-pre-wrap break-all font-mono text-[10px] text-content/65">
-                  {inspection?.path ??
-                    (error
-                      ? uiT("CLI could not be resolved")
-                      : uiT("Checking the selected CLI…"))}
-                </span>
-                <span className="mt-1 block max-h-10 overflow-y-auto whitespace-pre-wrap break-words text-[10px] text-content/40">
-                  {inspection?.version ??
-                    (error
-                      ? uiT("Retry to check this CLI")
-                      : uiT("Checking version…"))}
-                </span>
-              </div>
-              {error ? (
-                <span
-                  role="alert"
-                  title={error}
-                  className="mt-1.5 block max-h-20 overflow-y-auto whitespace-pre-wrap break-words text-[10px] leading-4 text-red-400"
-                >
-                  {error}
-                </span>
-              ) : null}
-              {revealError ? (
-                <span
-                  role="alert"
-                  className="mt-1.5 block max-h-20 overflow-y-auto whitespace-pre-wrap break-words text-[10px] leading-4 text-red-400"
-                >
-                  {uiT("Could not open the CLI location: ")}
-                  {revealError}
-                </span>
-              ) : null}
-              <div className="mt-3 flex justify-end gap-2">
-                {error ? (
-                  <SecondaryButton
-                    disabled={working}
-                    aria-label={uiT("Retry {value0} {value1}", {
-                      value0: String(title),
-                      value1: String(
-                        overridden ? "configured path" : "auto-detect",
-                      ),
-                    })}
-                    onClick={() =>
-                      void inspect(overridden ? draft.trim() || null : null)
-                    }
-                  >
-                    <RefreshCw className="size-3.5" />
-                    {overridden
-                      ? uiT("Retry configured path")
-                      : uiT("Retry auto-detect")}
-                  </SecondaryButton>
-                ) : null}
-                <SecondaryButton
-                  aria-label={uiT("Open {value0} CLI location", {
-                    value0: String(title),
-                  })}
-                  disabled={!inspection}
-                  onClick={() => {
-                    if (inspection) {
-                      void revealPath(inspection.path).catch((cause) => {
-                        setRevealError(
-                          cause instanceof Error
-                            ? cause.message
-                            : String(cause),
-                        );
-                      });
-                    }
-                  }}
-                >
-                  <ExternalLink className="size-3.5" />
-                  {uiT("Open location")}
-                </SecondaryButton>
-                <SecondaryButton
-                  aria-label={uiT("Edit {value0} CLI path", {
-                    value0: String(title),
-                  })}
-                  disabled={working}
-                  onClick={() => setEditing(true)}
-                >
-                  <Pencil className="size-3.5" />
-                  {uiT("Edit path")}
-                </SecondaryButton>
-              </div>
-            </>
-          )}
-        </Popover>
-      ) : null}
+                onClick={() => setEditing(true)}
+              >
+                <Pencil className="size-3.5" />
+                {uiT("Edit path")}
+              </SecondaryButton>
+            </div>
+          </>
+        )}
+      </Popover>
     </span>
   );
 }
@@ -4960,7 +4823,7 @@ function ProviderAccountEditor({
             ? (editor.provider === "codex" ? "~/.codex" : "~/.claude")
             : (editor.provider === "codex" ? "~/.codex-work" : "~/.claude-work")}
           onChange={event => onDataHome?.(event.target.value)}
-          className="mt-1 h-8 w-full rounded-md border border-content/10 bg-content/[0.04] px-2.5 font-mono text-[12px] text-content outline-none focus:border-accent/45 disabled:opacity-50"
+          className="desktop-field mt-1 h-8 w-full rounded-md border border-content/10 bg-content/[0.04] px-2.5 font-mono text-[12px] text-content outline-none focus:border-accent/45 disabled:opacity-50"
         />
         <span className="mt-1 block text-[10px] text-content/40">
           {uiT(editor.accountId
@@ -5455,6 +5318,7 @@ function Group({
     <section
       id={id ? settingDomId(id) : undefined}
       data-setting-id={id}
+      data-revealed={flash || undefined}
       data-settings-group
       className={title || description || action ? "pt-8 first:pt-0" : "pt-5 first:pt-0"}
     >
@@ -5508,14 +5372,16 @@ function Row({
     <div
       id={id ? settingDomId(id) : undefined}
       data-setting-id={id}
+      data-stacked={stacked || undefined}
+      data-revealed={flash || undefined}
       className={`settings-row flex ${stacked ? "flex-col items-stretch gap-3" : "items-center gap-6"} border-t border-border px-4 py-3 transition-colors first:border-t-0 ${
         flash ? "bg-accent/10" : ""
       }`}
     >
       <div className="min-w-0 flex-1">
-        <div className="text-ui-base font-medium text-foreground">{label}</div>
+        <div className="settings-row-label text-ui-base font-medium text-foreground">{label}</div>
         {description ? (
-          <p className="mt-0.5 text-ui-caption leading-5 text-foreground-subtle">
+          <p className="settings-row-description mt-0.5 text-ui-caption leading-5 text-foreground-subtle">
             {description}
           </p>
         ) : null}
@@ -5835,21 +5701,20 @@ function AccentColorPicker({
         }}
         onToggleCustom={() => setOpen((current) => !current)}
       />
-      {open ? (
-        <Popover
-          anchor={root}
-          side="bottom"
-          align="end"
-          width={248}
-          onDismiss={() => setOpen(false)}
-          className="px-2 pb-2"
-        >
-          <ColorPickerPopover
-            value={value ?? ACCENT_COLOR_PRESETS[0]}
-            onChange={onChange}
-          />
-        </Popover>
-      ) : null}
+      <Popover
+        open={open}
+        anchor={root}
+        side="bottom"
+        align="end"
+        width={248}
+        onDismiss={() => setOpen(false)}
+        className="px-2 pb-2"
+      >
+        <ColorPickerPopover
+          value={value ?? ACCENT_COLOR_PRESETS[0]}
+          onChange={onChange}
+        />
+      </Popover>
     </div>
   );
 }
@@ -5998,7 +5863,7 @@ function Select({
         aria-expanded={open}
         aria-haspopup="listbox"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex h-8 w-full items-center justify-between gap-1.5 rounded-lg border border-input-border bg-input pl-3 pr-2 text-left text-ui-base text-foreground outline-none transition-colors hover:border-input-border-hover focus-visible:border-input-border-focused aria-expanded:border-input-border-hover"
+        className="desktop-field flex h-8 w-full items-center justify-between gap-1.5 rounded-lg border border-input-border bg-input pl-3 pr-2 text-left text-ui-base text-foreground outline-none transition-colors hover:border-input-border-hover focus-visible:border-input-border-focused aria-expanded:border-input-border-hover"
       >
         <span className="flex min-w-0 flex-1 items-center gap-1.5">
           {selected?.icon ? (
@@ -6011,61 +5876,61 @@ function Select({
           </span>
         </span>
         <ChevronDown
-          className={`size-3.5 shrink-0 text-foreground-subtle transition-transform ${open ? "rotate-180" : ""}`}
+          className={`desktop-select-arrow size-3.5 shrink-0 text-foreground-subtle transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
-      {open ? (
-        <Popover
-          anchor={root}
-          side="bottom"
-          align="end"
-          width={280}
-          maxHeight={320}
-          autoFocus
-          onDismiss={(reason) => {
-            setOpen(false);
-            if (reason === "escape") trigger.current?.focus();
-          }}
-          role="listbox"
-          aria-label={label}
-          aria-activedescendant={activeId}
-          tabIndex={-1}
-          onKeyDown={onMenuKey}
-          className="overflow-y-auto overscroll-contain p-1"
-        >
-          {options.map((option, index) => {
-            const isSelected = option.value === value;
-            const highlighted = index === active;
-            return (
-              <button
-                key={option.value}
-                ref={highlighted ? activeOption : undefined}
-                type="button"
-                id={`${listId}-opt-${index}`}
-                role="option"
-                tabIndex={-1}
-                aria-selected={isSelected}
-                onMouseDown={(e) => e.preventDefault()}
-                onMouseEnter={() => setActive(index)}
-                onClick={() => pick(option.value)}
-                className={`flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-ui-base text-foreground ${
-                  highlighted ? "bg-menu-hover" : ""
-                }`}
-              >
-                {option.icon ? (
-                  <span className="grid size-4 shrink-0 place-items-center">
-                    {option.icon}
-                  </span>
-                ) : null}
-                <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                {isSelected ? (
-                  <Check className="size-4 shrink-0 text-foreground-subtle" />
-                ) : null}
-              </button>
-            );
-          })}
-        </Popover>
-      ) : null}
+      <Popover
+        open={open}
+        anchor={root}
+        side="bottom"
+        align="end"
+        width={280}
+        maxHeight={320}
+        autoFocus
+        onDismiss={(reason) => {
+          setOpen(false);
+          if (reason === "escape") trigger.current?.focus();
+        }}
+        role="listbox"
+        aria-label={label}
+        aria-activedescendant={activeId}
+        tabIndex={-1}
+        onKeyDown={onMenuKey}
+        className="overflow-y-auto overscroll-contain p-1"
+      >
+        {options.map((option, index) => {
+          const isSelected = option.value === value;
+          const highlighted = index === active;
+          return (
+            <button
+              key={option.value}
+              ref={highlighted ? activeOption : undefined}
+              type="button"
+              id={`${listId}-opt-${index}`}
+              role="option"
+              data-desktop-select-option
+              tabIndex={-1}
+              aria-selected={isSelected}
+              onMouseDown={(e) => e.preventDefault()}
+              onMouseEnter={() => setActive(index)}
+              onClick={() => pick(option.value)}
+              className={`flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-ui-base text-foreground ${
+                highlighted ? "bg-menu-hover" : ""
+              }`}
+            >
+              {option.icon ? (
+                <span className="grid size-4 shrink-0 place-items-center">
+                  {option.icon}
+                </span>
+              ) : null}
+              <span className="min-w-0 flex-1 truncate">{option.label}</span>
+              {isSelected ? (
+                <Check className="size-4 shrink-0 text-foreground-subtle" />
+              ) : null}
+            </button>
+          );
+        })}
+      </Popover>
     </div>
   );
 }

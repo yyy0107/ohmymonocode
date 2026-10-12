@@ -13,7 +13,7 @@ export function AppPageHeader({
 }) {
   const { t } = useTranslation();
   return (
-    <div className="flex h-10 shrink-0 select-none items-center gap-2 border-b border-stroke px-3 text-[13px]">
+    <div className="desktop-toolbar flex h-10 shrink-0 select-none items-center gap-2 border-b border-stroke px-3 text-[13px]">
       {onBack ? (
         <button
           type="button"

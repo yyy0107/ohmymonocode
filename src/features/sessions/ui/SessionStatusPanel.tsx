@@ -557,7 +557,7 @@ function Section({
           <HoverIcon className="col-start-1 row-start-1 size-3.5 text-content/75 opacity-0 transition-opacity duration-150 group-hover/status-section:opacity-100 group-focus-visible/status-section:opacity-100 motion-reduce:transition-none" />
         ) : null}
       </span>
-      <h3 className="min-w-0 flex-1 truncate text-left text-[11.5px] leading-4 font-medium text-content/70">
+      <h3 className="desktop-pane-heading min-w-0 flex-1 truncate text-left text-[11.5px] leading-4 font-medium text-content/70">
         {title}
       </h3>
       {meta ? (

@@ -80,7 +80,7 @@ export function UpdateAvailableDialog({
             className="size-12 shrink-0 rounded-xl bg-neutral-900 object-contain p-1.5"
           />
           <div className="min-w-0">
-            <h3 className="text-[16px] font-medium">
+            <h3 className="desktop-pane-heading text-[16px] font-medium">
               {t("New version available  v{version}", {
                 version: formatBuildVersion(version),
               })}

@@ -1,3 +1,4 @@
+import { DESKTOP_SCHEME_KEY } from "../../shared/theme/desktopAppearance";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -47,6 +48,9 @@ function applyAppearance() {
 
 initUiLanguage();
 applyAppearance();
+window.addEventListener("storage", (event) => {
+  if (event.key === DESKTOP_SCHEME_KEY || event.key === null) applyAppearance();
+});
 subscribeSharedPreferences(() => {
   applyAppearance();
   refreshUiLanguage();

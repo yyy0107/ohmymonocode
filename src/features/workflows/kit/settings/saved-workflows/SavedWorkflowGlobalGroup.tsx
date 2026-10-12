@@ -167,7 +167,7 @@ export function SavedWorkflowGlobalGroup(props: SavedWorkflowGlobalGroupProps) {
   return (
     <div data-testid={TID_WORKFLOW_GLOBAL_GROUP} className="mt-8 first:mt-0">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="flex items-center gap-2 text-ui-base font-medium leading-5 text-foreground">
+        <h3 className="desktop-pane-heading flex items-center gap-2 text-ui-base font-medium leading-5 text-foreground">
           <span className="truncate">
             {intl.formatMessage({ id: "workflows.hub.global.title" })}
           </span>

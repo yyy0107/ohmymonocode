@@ -1,9 +1,7 @@
-/* OpenMausBot desktop metrics. Compact desktop sizes, spacing and radii,
-   with the existing shared springs and skin materials. Colors stay in
-   omb-skin.css. Every rule starts with `html[data-skin]`: Classic never sets
-   it and the phone shell removes it, so neither sees these values. Tailwind's
-   `--radius-lg` / `--radius-xl` stay per-skin; new radii use `--omb-radius-*`.
-   omb-metrics.test.ts guards both. */
+/* Existing desktop workspace geometry, now backed by the unified static tokens.
+   Source-matched controls live in desktop-controls.css. Professional pane sizes
+   and business springs without Grok evidence remain project adaptations.
+   Every rule stays behind html[data-skin], which mobile explicitly removes. */
 
 html[data-skin] {
   --omb-space-2: 2px;
@@ -20,24 +18,24 @@ html[data-skin] {
 
   /* Standard desktop actions/rows, compact controls and small options. */
   --omb-hit: 32px;
-  --omb-control: 28px;
-  --omb-control-sm: 24px;
+  --omb-control: var(--desktop-icon-md);
+  --omb-control-sm: var(--desktop-icon-sm);
   --omb-chrome: 28px;
   --omb-row: 32px;
   --omb-row-project: 32px;
   --omb-option: 36px;
   --omb-settings-row: 44px;
-  --omb-switch-width: 32px;
-  --omb-switch-height: 18px;
-  --omb-switch-thumb: 14px;
+  --omb-switch-width: var(--desktop-switch-width);
+  --omb-switch-height: var(--desktop-switch-height);
+  --omb-switch-thumb: var(--desktop-switch-thumb);
   --omb-switch-inset: 2px;
-  --omb-switch-travel: 14px;
+  --omb-switch-travel: var(--desktop-switch-travel);
 
-  --omb-radius-field: 8px;
+  --omb-radius-field: var(--desktop-radius-field);
   --omb-radius-row: 8px;
-  --omb-radius-card: 12px;
+  --omb-radius-card: var(--desktop-radius-card);
   --omb-radius-sheet: 16px;
-  --omb-radius-bubble: 16px;
+  --omb-radius-bubble: var(--desktop-radius-bubble);
   --omb-radius-capsule: 999px;
   --omb-radius-composer: 18px;
 
@@ -71,80 +69,6 @@ html[data-skin].theme-light {
     --omb-spring-snappy: linear(0, 0.037, 0.125, 0.238, 0.358, 0.474, 0.579, 0.672, 0.749, 0.813, 0.864, 0.904, 0.935, 0.958, 0.974, 0.986, 0.994, 0.999, 1.002, 1.004, 1.005, 1.005, 1.005, 1.004, 1);
     --omb-spring-smooth: linear(0, 0.036, 0.12, 0.227, 0.341, 0.452, 0.553, 0.643, 0.719, 0.783, 0.834, 0.876, 0.909, 0.934, 0.953, 0.968, 0.979, 0.986, 0.992, 0.996, 0.998, 1, 1.001, 1.001, 1);
     --omb-spring-release: linear(0, 0.041, 0.139, 0.264, 0.396, 0.522, 0.635, 0.731, 0.81, 0.872, 0.92, 0.955, 0.979, 0.996, 1.006, 1.012, 1.015, 1.015, 1.014, 1.013, 1.011, 1.009, 1.007, 1.005, 1);
-  }
-}
-
-/* Buttons. Unlayered so they win over Tailwind size utilities on the same
-   node (`h-7`, `px-2.5`, `rounded-md`...). `.ui-icon-button` is window chrome
-   and keeps its 28px square. */
-html[data-skin] .ui-button,
-html[data-skin] .primary-action:not(.composer-send):not(.composer-stop) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--omb-space-8);
-  height: auto;
-  min-height: var(--omb-hit);
-  padding: 0 var(--omb-space-12);
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 18px;
-}
-html[data-skin] :where(.ui-button).ui-button-md {
-  min-height: var(--omb-control);
-  font-size: 13px;
-  line-height: 18px;
-}
-html[data-skin] :where(.ui-button).ui-button-sm {
-  gap: var(--omb-space-4);
-  min-height: var(--omb-control-sm);
-  padding: 0 var(--omb-space-8);
-  font-size: 13px;
-  line-height: 18px;
-}
-html[data-skin] .ui-button-primary,
-html[data-skin] .primary-action:not(.composer-send):not(.composer-stop) {
-  font-weight: 600;
-}
-html[data-skin] .ui-icon-button {
-  width: var(--omb-chrome);
-  height: var(--omb-chrome);
-  min-height: var(--omb-chrome);
-  padding: 0;
-  border-radius: 8px;
-}
-html[data-skin] .ui-icon-button svg {
-  width: 16px;
-  height: 16px;
-}
-
-html[data-skin] :is(.ui-button, .primary-action:not(.composer-send):not(.composer-stop)):focus-visible {
-  outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
-}
-
-/* Press: shrink fast on press, spring back on release. */
-html[data-skin] :is(.ui-button, .primary-action:not(.composer-send):not(.composer-stop)) {
-  transition:
-    background-color var(--omb-motion-feedback) var(--omb-ease-out),
-    color var(--omb-motion-feedback) var(--omb-ease-out),
-    transform var(--omb-spring-release-duration) var(--omb-spring-release);
-}
-html[data-skin] :is(.ui-button, .primary-action:not(.composer-send):not(.composer-stop)):enabled:active {
-  transform: scale(var(--omb-motion-press-scale));
-  transition:
-    background-color var(--omb-motion-feedback) var(--omb-ease-out),
-    color var(--omb-motion-feedback) var(--omb-ease-out),
-    transform var(--omb-motion-press) var(--omb-ease-out);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html[data-skin] :is(.ui-button, .primary-action:not(.composer-send):not(.composer-stop)) {
-    transition: none;
-  }
-  html[data-skin] :is(.ui-button, .primary-action:not(.composer-send):not(.composer-stop)):enabled:active {
-    transform: none;
   }
 }
 
@@ -537,7 +461,7 @@ html[data-skin] .approval-toast :is([data-approval="allow"], [data-approval="den
 /* Menus: 12px cards with 4px insets and 32px rows. Listbox options
    in pickers keep their own density. */
 html[data-skin] :is(.popover-frame, .composer-popover) {
-  max-width: min(420px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
   max-height: calc(100dvh - 32px);
   border-radius: var(--omb-radius-card);
 }
@@ -567,97 +491,6 @@ html[data-skin] :is(.popover-frame, .composer-popover) [role="option"] {
 /* Right-hand sheet: only the leading corners round. */
 html[data-skin] .app-view-dialog.omb-slide-panel {
   border-radius: var(--omb-radius-sheet) 0 0 var(--omb-radius-sheet);
-}
-
-/* Settings: a 720px column, 44px minimum rows, compact switches and
-   a 28px segmented control. Descriptions may grow rows naturally. */
-html[data-skin] [data-settings-content] {
-  max-width: 720px;
-}
-html[data-skin] [data-settings-title] {
-  font-size: 17px;
-  font-weight: 700;
-  line-height: 22px;
-}
-html[data-skin] [data-settings-group] {
-  padding-top: var(--omb-space-28);
-}
-html[data-skin] [data-settings-group]:first-child {
-  padding-top: 0;
-}
-html[data-skin] [data-settings-group-title] {
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.5;
-}
-html[data-skin] [data-settings-group] .settings-card {
-  border-radius: var(--omb-radius-card);
-}
-html[data-skin] .settings-row {
-  min-height: var(--omb-settings-row);
-  padding: var(--omb-space-6) var(--omb-space-12);
-}
-html[data-skin] .settings-row > div:first-child > div:first-child {
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 20px;
-}
-html[data-skin] .settings-row > div:first-child > p {
-  font-size: 12px;
-  line-height: 16px;
-}
-html[data-skin] [data-settings-segmented] {
-  gap: var(--omb-space-2);
-  height: var(--omb-control);
-  padding: var(--omb-space-2);
-  border-radius: 999px;
-}
-html[data-skin] [data-settings-segmented] > button {
-  height: var(--omb-control-sm);
-  padding-inline: var(--omb-space-12);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-/* Switches: one 32x18 track with a 14px thumb and 2px inset wherever a
-   switch appears. Covers the shared Radix switch, hand-built
-   `button[role="switch"]` tracks and the checkbox-plus-spans variant; every
-   thumb is pinned to the leading edge and travels by `translate`, which also
-   overrides Tailwind's `translate-x-*` utilities. */
-html[data-skin] :is(button[role="switch"], [data-slot="switch"]),
-html[data-skin] input[role="switch"] + span {
-  position: relative;
-  flex-shrink: 0;
-  width: var(--omb-switch-width);
-  min-width: var(--omb-switch-width);
-  height: var(--omb-switch-height);
-  padding: 0;
-  border-radius: 999px;
-  transition: background-color var(--omb-motion-feedback) var(--omb-ease-out);
-}
-html[data-skin] :is(button[role="switch"], [data-slot="switch"]) > span,
-html[data-skin] input[role="switch"] + span + span {
-  position: absolute;
-  inset-block-start: var(--omb-switch-inset);
-  inset-inline-start: var(--omb-switch-inset);
-  width: var(--omb-switch-thumb);
-  height: var(--omb-switch-thumb);
-  border-radius: 999px;
-  translate: 0 0;
-  transition: translate var(--omb-spring-snappy-duration) var(--omb-spring-snappy);
-}
-html[data-skin] :is(button[role="switch"][aria-checked="true"], [data-slot="switch"][data-state="checked"]) > span,
-html[data-skin] input[role="switch"]:checked + span + span {
-  translate: var(--omb-switch-travel) 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html[data-skin] :is(button[role="switch"], [data-slot="switch"]),
-  html[data-skin] :is(button[role="switch"], [data-slot="switch"]) > span,
-  html[data-skin] input[role="switch"] + span,
-  html[data-skin] input[role="switch"] + span + span {
-    transition: none;
-  }
 }
 
 /* User bubble: 16px corners with a tight tail and 14px body text.
@@ -810,9 +643,9 @@ html[data-skin] [data-empty-state] > p {
   line-height: 1.5;
 }
 html[data-skin] [data-empty-title] {
-  font-size: 18px;
-  font-weight: 650;
-  line-height: 24px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.411765;
   letter-spacing: -0.3px;
 }
 

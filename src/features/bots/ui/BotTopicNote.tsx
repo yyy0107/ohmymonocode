@@ -48,7 +48,7 @@ export function BotTopicNote({
       <div className="flex shrink-0 items-start gap-3 border-b border-stroke p-4">
         <div className="min-w-0 flex-1">
           <p className="text-[12px] text-content/50">{note.source.name} · {t("Read only")}</p>
-          <h2 className="break-words text-lg font-semibold">{note.name}</h2>
+          <h2 className="desktop-pane-heading break-words text-lg font-semibold">{note.name}</h2>
         </div>
         <button
           type="button"

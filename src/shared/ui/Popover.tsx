@@ -1,3 +1,4 @@
+import { isDesktopDocument } from "../theme/desktopAppearance";
 import { NativePopupHost } from "./NativePopupHost";
 import {
   SurfaceVisibilityContext,
@@ -163,7 +164,7 @@ export function Popover({ open, ...props }: Props) {
 
 function AnimatedPopover({ open, children, ...props }: Props & { open: boolean }) {
   const visible = useSurfaceVisibility();
-  const motion = useCollapseMotion(open && visible, 170);
+  const motion = useCollapseMotion(open && visible, isDesktopDocument() ? 100 : 170);
   const retained = useRef(children);
   if (open) retained.current = children;
   if (!visible || (!open && motion.foldState === "closed")) return null;

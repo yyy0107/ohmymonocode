@@ -170,14 +170,14 @@ export function InboxComments({
       <div className="flex items-center gap-2 text-[12px] text-content/50">
         {thread.commits ? (
           <>
-            <h2 className="text-content/70">{uiT("Activity")}</h2>
+            <h2 className="desktop-pane-heading text-content/70">{uiT("Activity")}</h2>
             <span>
               {label}
               {commitCount > 0 ? ` · ${commitLabel}` : ""}
             </span>
           </>
         ) : (
-          <h2 className="text-content/70">{label}</h2>
+          <h2 className="desktop-pane-heading text-content/70">{label}</h2>
         )}
         {thread.truncated ? (
           <span>

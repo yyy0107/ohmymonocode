@@ -620,7 +620,7 @@ export function InboxPrChecks({
         <div className="min-w-0">
           {rows.length ? (
             <>
-              <h2 className="text-[18px] font-medium leading-snug tracking-[-0.35px] @max-[420px]/checks:text-[16px]">
+              <h2 className="desktop-pane-heading text-[18px] font-medium leading-snug tracking-[-0.35px] @max-[420px]/checks:text-[16px]">
                 {headline}
               </h2>
               {summary ? (
@@ -764,7 +764,7 @@ export function InboxPrChecks({
                 hidden={group.hidden}
                 className={group.hidden ? "hidden" : ""}
               >
-                <h3 className="mb-1.5 mt-3 flex items-center gap-2 px-2 text-[12px] font-normal text-content/55">
+                <h3 className="desktop-section-heading mb-1.5 mt-3 flex items-center gap-2 px-2 text-[12px] font-normal text-content/55">
                   {checkStateLabel(group.state)}
                   <span className="text-[10px] text-content/35">
                     {group.rows.length}

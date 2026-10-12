@@ -1,3 +1,4 @@
+import { SurfaceAppearance } from "./SurfaceAppearance";
 import { useTranslation } from "../i18n/useTranslation";
 import { NativePopupHost } from "./NativePopupHost";
 import { useSurfaceVisibility } from "./SurfaceVisibility";
@@ -48,6 +49,7 @@ export function ModalPanel({
 }: Props) {
   const { t: uiT } = useTranslation();
   const visible = useSurfaceVisibility();
+  const appearance = useContext(SurfaceAppearance);
   const popupHost = useContext(NativePopupHost);
   const closeRef = useRef<HTMLButtonElement>(null);
   const lockOverscroll = useLockOverscroll<HTMLDivElement>();
@@ -81,6 +83,7 @@ export function ModalPanel({
 
   return (
     <div
+      data-modal-context={appearance}
       className={
         popupHost
           ? "relative w-full"
@@ -109,7 +112,7 @@ export function ModalPanel({
             >
               <h2
                 id={titleId}
-                className="text-ui-lg font-medium leading-tight text-content"
+                className="desktop-pane-heading text-ui-lg font-medium leading-tight text-content"
               >
                 {title}
               </h2>
@@ -127,7 +130,7 @@ export function ModalPanel({
               type="button"
               aria-label={uiT("Close")}
               onClick={onClose}
-              className="grid size-7 shrink-0 place-items-center rounded-lg text-foreground-subtle transition-colors hover:bg-surface-hover hover:text-content focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-hover"
+              className="desktop-icon-button desktop-modal-close grid size-7 shrink-0 place-items-center rounded-lg text-foreground-subtle transition-colors hover:bg-surface-hover hover:text-content focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-hover"
             >
               <X className="size-3.5" />
             </button>
@@ -147,10 +150,11 @@ export function ModalPanel({
 export function Modal(props: Props) {
   const host = useContext(NativePopupHost);
   const visible = useSurfaceVisibility();
+  const appearance = useContext(SurfaceAppearance);
   if (!visible) return null;
   if (host) return createPortal(<ModalPanel {...props} />, host);
   return createPortal(
-    <div className="fixed inset-0" style={{ zIndex: props.layer ?? LAYER.dialog }}>
+    <div data-modal-context={appearance} className="fixed inset-0" style={{ zIndex: props.layer ?? LAYER.dialog }}>
       <div
         className="modal-backdrop absolute inset-0 bg-black/60 backdrop-blur-xs"
         onMouseDown={props.onClose}

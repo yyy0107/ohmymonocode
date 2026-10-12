@@ -35,7 +35,7 @@ export function ProviderSignInPanel({
       <span className="grid size-16 place-items-center rounded-2xl bg-content/[0.06] text-content ring-1 ring-inset ring-content/[0.08] shadow-sm">
         <HarnessIcon harness={harness} className="size-9" />
       </span>
-      <h2 className="mt-3.5 text-[15px] font-medium leading-5 text-content">
+      <h2 className="desktop-pane-heading mt-3.5 text-[15px] font-medium leading-5 text-content">
         {complete
           ? uiT("Signed in to {value0}", { value0: String(title) })
           : uiT("Authentication required")}

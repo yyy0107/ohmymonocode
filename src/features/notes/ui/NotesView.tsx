@@ -274,7 +274,7 @@ export function NotesView({
       ref={resize.setPaneRef}
       className="relative flex h-full min-h-0 shrink-0 flex-col border-r border-stroke"
     >
-      <div className="flex h-9 shrink-0 items-center gap-1 border-b border-stroke px-2">
+      <div className="desktop-toolbar flex h-9 shrink-0 items-center gap-1 border-b border-stroke px-2">
         <div className="relative flex h-7 min-w-0 flex-1 items-center">
           <Search className="pointer-events-none absolute left-2 size-3 shrink-0 opacity-50" />
           <input
@@ -351,7 +351,7 @@ export function NotesView({
         )}
         {topicSources.length > 0 && (
           <section className="border-t border-stroke p-1.5" aria-label={uiT("Assistant memory")}>
-            <h2 className="px-2.5 py-2 text-[11px] font-medium text-content/50">{uiT("Assistant memory")}</h2>
+            <h2 className="desktop-section-heading px-2.5 py-2 text-[11px] font-medium text-content/50">{uiT("Assistant memory")}</h2>
             {topics.loading && <p role="status" className="px-2.5 py-2 text-[12px] text-content/50">{uiT("Loading notes…")}</p>}
             {topics.errors.map(({ source, error }) => (
               <p key={source.key} role="alert" className="px-2.5 py-2 text-[12px] text-content/50">
@@ -919,7 +919,7 @@ function NoteEditor({
             }}
             onKeyDown={onTitleKeyDown}
             aria-label={uiT("Note title")}
-            className="w-full border-0 bg-transparent p-0 text-[20px] font-semibold leading-tight text-content outline-none placeholder:text-content/35"
+            className="desktop-field w-full border-0 bg-transparent p-0 text-[20px] font-semibold leading-tight text-content outline-none placeholder:text-content/35"
             placeholder={uiT("Untitled")}
           />
           {time ? (
@@ -1175,7 +1175,7 @@ function NoteTagsEditor({
           placeholder={uiT("Add tag…")}
           spellCheck={false}
           autoComplete="off"
-          className="h-6 min-w-20 flex-1 border-0 bg-transparent px-1 text-[11px] text-content outline-none placeholder:text-content/35"
+          className="desktop-field h-6 min-w-20 flex-1 border-0 bg-transparent px-1 text-[11px] text-content outline-none placeholder:text-content/35"
         />
       ) : null}
     </div>

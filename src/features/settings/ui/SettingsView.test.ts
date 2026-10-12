@@ -718,9 +718,11 @@ describe("settings pages", () => {
 
     const save = async (provider: "Codex" | "OpenCode", path: string) => {
       const id = `${provider.toLowerCase()}-binary-path`;
+      const edit = () => [...document.querySelectorAll<HTMLButtonElement>(`[aria-label="Edit ${provider} CLI path"]`)]
+        .find(button => !button.closest('[aria-hidden="true"]'));
       if (!document.querySelector(`#${id}`)) {
         if (
-          !document.querySelector(`[aria-label="Edit ${provider} CLI path"]`)
+          !edit()
         ) {
           await act(async () =>
             container
@@ -731,11 +733,7 @@ describe("settings pages", () => {
           );
         }
         await act(async () =>
-          document
-            .querySelector<HTMLButtonElement>(
-              `[aria-label="Edit ${provider} CLI path"]`,
-            )!
-            .click(),
+          edit()!.click(),
         );
       }
       const input = document.querySelector<HTMLInputElement>(`#${id}`)!;
@@ -1137,9 +1135,8 @@ describe("settings search", () => {
   }
 
   function options(): HTMLButtonElement[] {
-    return Array.from(
-      document.querySelectorAll<HTMLButtonElement>('[role="option"]'),
-    );
+    return Array.from(document.querySelectorAll<HTMLButtonElement>('[role="option"]'))
+      .filter(option => !option.closest('[aria-hidden="true"]'));
   }
 
   it("finds a setting that lives on another page", async () => {

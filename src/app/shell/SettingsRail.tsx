@@ -49,10 +49,10 @@ export function SettingsNav({ section, onSelect }: Props) {
     <nav
       ref={lockOverscroll}
       aria-label={uiT("Settings")}
-      className="flex min-h-0 w-44 shrink-0 flex-col gap-5 overflow-y-auto overscroll-none border-r border-stroke px-2 py-3"
+      className="settings-nav flex min-h-0 shrink-0 flex-col overflow-y-auto overscroll-none border-r border-stroke"
     >
       {settingsSectionsByGroup().map((group) => (
-        <div key={group.id} className="flex flex-col gap-px">
+        <div key={group.id} className="settings-nav-group flex flex-col">
           <div className="px-2 pb-1 text-xs font-semibold text-content/35">
             {group.label}
           </div>
@@ -87,14 +87,14 @@ function NavRow({
       type="button"
       onClick={onClick}
       aria-current={active ? "true" : undefined}
-      className={`flex h-8 w-full items-center gap-2 rounded-xl px-2 text-left ${
+      className={`settings-nav-item flex w-full items-center text-left ${
         active
           ? "bg-surface-hover text-content"
           : "text-foreground-subtle hover:bg-surface-hover hover:text-content"
       }`}
     >
-      <Icon className="size-4 shrink-0 opacity-70" />
-      <span className="min-w-0 flex-1 truncate text-sm font-medium leading-tight">
+      <Icon className="settings-nav-icon shrink-0 opacity-70" />
+      <span className="settings-nav-label min-w-0 flex-1 truncate font-medium">
         {label}
       </span>
     </button>

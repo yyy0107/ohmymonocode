@@ -1,5 +1,5 @@
 // Record before edits and after edits using the same server, viewport and synthetic data.
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 import fs from 'node:fs/promises';
 const phase = process.argv[2] ?? 'before';
 const browser = await chromium.launch({executablePath:process.env.CHROME_PATH || '/usr/bin/google-chrome',headless:true,args:['--no-sandbox']});
@@ -12,6 +12,11 @@ metrics.geometry = await page.evaluate(()=>Object.fromEntries(['.desktop-bots-na
 await page.screenshot({path:`build/bots-rea/${phase}-light.png`});
 await page.getByRole('button',{name:'Bot details',exact:true}).click();await page.waitForTimeout(450);await page.screenshot({path:`build/bots-rea/${phase}-settings.png`});
 await page.getByRole('button',{name:'Hide bot details',exact:true}).click();await page.waitForTimeout(450);
+await page.evaluate(async()=>{document.documentElement.classList.remove('theme-light');(await import('/src/shared/theme/desktopSkin.ts')).applyDesktopSkin();});await page.waitForTimeout(400);
+metrics.darkUserBubble=await page.locator('.assistant-message-user').first().evaluate(e=>({background:getComputedStyle(e).backgroundColor,color:getComputedStyle(e).color}));
+expect(metrics.darkUserBubble).toEqual({background:'rgb(90, 90, 90)',color:'rgb(252, 252, 252)'});
+await page.screenshot({path:`build/bots-rea/${phase}-dark.png`});
+await page.evaluate(async()=>{document.documentElement.classList.add('theme-light');(await import('/src/shared/theme/desktopSkin.ts')).applyDesktopSkin();});
 const cdp=await page.context().newCDPSession(page);await cdp.send('Performance.enable');
 await page.evaluate(()=>window.botsFixture.long()); await page.waitForTimeout(2300);
 const initial=await cdp.send('Performance.getMetrics');
@@ -19,5 +24,4 @@ metrics.frames=await page.evaluate(async()=>{const frames=[];let last=performanc
 const final=await cdp.send('Performance.getMetrics');metrics.performance=Object.fromEntries(['TaskDuration','LayoutDuration','RecalcStyleDuration','LayoutCount','RecalcStyleCount'].map(name=>[name,final.metrics.find(m=>m.name===name).value-initial.metrics.find(m=>m.name===name).value]));
 await page.screenshot({path:`build/bots-rea/${phase}-long.png`});
 await page.setViewportSize({width:680,height:800});await page.waitForTimeout(500);await page.screenshot({path:`build/bots-rea/${phase}-narrow.png`});
-await page.setViewportSize({width:1280,height:800});await page.evaluate(()=>document.documentElement.classList.remove('theme-light'));await page.waitForTimeout(400);await page.screenshot({path:`build/bots-rea/${phase}-dark.png`});
 await fs.writeFile(`build/bots-rea/${phase}.json`,JSON.stringify(metrics,null,2));console.log(JSON.stringify(metrics));await browser.close();

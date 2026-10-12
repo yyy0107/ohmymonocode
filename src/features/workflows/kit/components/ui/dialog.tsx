@@ -1,3 +1,4 @@
+import { SurfaceAppearance } from "../../../../../shared/ui/SurfaceAppearance";
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 
@@ -28,6 +29,7 @@ function DialogOverlay({
   return (
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
+      data-modal-context={React.useContext(SurfaceAppearance)}
       className={cn(
         // Linux 旧标题栏避让让模态遮罩从 48px 以下开始，窗口顶部仍保持高亮且 tooltip 可见。
         // renderer 自绘窗控位于同一窗口，模态态应与其它平台一致覆盖完整视口。
@@ -57,6 +59,7 @@ function DialogContent({
       {showOverlay ? <DialogOverlay className={overlayClassName} /> : null}
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        data-modal-context={React.useContext(SurfaceAppearance)}
         className={cn(
           // Electron 自绘标题栏下，弹窗可能会落进窗口顶部的 drag 区域。
           // 如果不把弹窗内容整体标成 no-drag，右上角关闭按钮这类交互会被窗口拖拽命中吞掉。

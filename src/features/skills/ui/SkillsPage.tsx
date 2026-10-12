@@ -568,7 +568,7 @@ export function SkillsPage({
           >
             <SurfaceVisibilityContext.Provider value={previewVisible}>
               <header className="flex shrink-0 items-start gap-2 px-4 pt-4 pb-2">
-                <h2 className="min-w-0 flex-1 break-words text-[16px] font-semibold text-content">
+                <h2 className="desktop-pane-heading min-w-0 flex-1 break-words text-[16px] font-semibold text-content">
                   {previewSkill.name}
                 </h2>
                 <button

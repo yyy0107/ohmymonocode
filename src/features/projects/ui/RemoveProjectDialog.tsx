@@ -67,7 +67,7 @@ export function RemoveProjectDialog({
         className="popover-backdrop absolute left-1/2 top-[22%] flex w-[min(420px,calc(100vw-24px))] -translate-x-1/2 flex-col gap-3 rounded-lg border border-content/10 p-4 shadow-xl backdrop-blur-xl"
       >
         <div className="flex flex-col gap-1">
-          <h2 className="text-[13px] font-medium leading-tight text-content">
+          <h2 className="desktop-pane-heading text-[13px] font-medium leading-tight text-content">
             {uiT("Delete “")}
             {name}”?
           </h2>

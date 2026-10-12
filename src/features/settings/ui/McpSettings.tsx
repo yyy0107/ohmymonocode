@@ -104,64 +104,63 @@ function McpPicker<T extends string>({
           className={`size-3.5 shrink-0 text-content/50 transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
-      {open ? (
-        <Popover
-          anchor={anchor}
-          side="bottom"
-          align="start"
-          width={240}
-          maxHeight={320}
-          layer={LAYER.dialogPopover}
-          autoFocus
-          onDismiss={() => setOpen(false)}
-          role="listbox"
-          aria-label={label}
-          data-dialog-popover
-          onKeyDown={(event) => {
-            if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-            event.preventDefault();
-            const choices = Array.from(
-              event.currentTarget.querySelectorAll<HTMLButtonElement>(
-                '[role="option"]',
-              ),
-            );
-            if (choices.length === 0) return;
-            const current = choices.indexOf(
-              document.activeElement as HTMLButtonElement,
-            );
-            const direction = event.key === "ArrowDown" ? 1 : -1;
-            const next =
-              current < 0
-                ? direction === 1
-                  ? 0
-                  : choices.length - 1
-                : (current + direction + choices.length) % choices.length;
-            choices[next].focus();
-          }}
-          className="overflow-y-auto overscroll-contain p-1"
-        >
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="option"
-              aria-selected={value === option.value}
-              onClick={() => {
-                onChange(option.value);
-                setOpen(false);
-                trigger.current?.focus();
-              }}
-              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] focus-visible:outline-2 focus-visible:outline-accent ${value === option.value ? "bg-selection text-content" : "text-content hover:bg-content/3"}`}
-            >
-              {option.icon}
-              <span className="min-w-0 flex-1 truncate">{option.label}</span>
-              {value === option.value ? (
-                <Check className="size-3.5 shrink-0" />
-              ) : null}
-            </button>
-          ))}
-        </Popover>
-      ) : null}
+      <Popover
+        open={open}
+        anchor={anchor}
+        side="bottom"
+        align="start"
+        width={240}
+        maxHeight={320}
+        layer={LAYER.dialogPopover}
+        autoFocus
+        onDismiss={() => setOpen(false)}
+        role="listbox"
+        aria-label={label}
+        data-dialog-popover
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+          event.preventDefault();
+          const choices = Array.from(
+            event.currentTarget.querySelectorAll<HTMLButtonElement>(
+              '[role="option"]',
+            ),
+          );
+          if (choices.length === 0) return;
+          const current = choices.indexOf(
+            document.activeElement as HTMLButtonElement,
+          );
+          const direction = event.key === "ArrowDown" ? 1 : -1;
+          const next =
+            current < 0
+              ? direction === 1
+                ? 0
+                : choices.length - 1
+              : (current + direction + choices.length) % choices.length;
+          choices[next].focus();
+        }}
+        className="overflow-y-auto overscroll-contain p-1"
+      >
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="option"
+            aria-selected={value === option.value}
+            onClick={() => {
+              onChange(option.value);
+              setOpen(false);
+              trigger.current?.focus();
+            }}
+            className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] focus-visible:outline-2 focus-visible:outline-accent ${value === option.value ? "bg-selection text-content" : "text-content hover:bg-content/3"}`}
+          >
+            {option.icon}
+            <span className="min-w-0 flex-1 truncate">{option.label}</span>
+            {value === option.value ? (
+              <Check className="size-3.5 shrink-0" />
+            ) : null}
+          </button>
+        ))}
+      </Popover>
     </div>
   );
 }
@@ -261,7 +260,7 @@ function AddServerModal({
             value={name}
             pattern={provider === "opencode" ? undefined : "[A-Za-z0-9_-]*"}
             onChange={(event) => setName(event.target.value)}
-            className="mt-1 block w-full rounded-md border border-stroke bg-content/5 px-2 py-1.5 text-sm text-content outline-none placeholder:text-content/35 focus:border-accent/50 focus:ring-2 focus:ring-accent/15"
+            className="desktop-field mt-1 block w-full rounded-md border border-stroke bg-content/5 px-2 py-1.5 text-sm text-content outline-none placeholder:text-content/35 focus:border-accent/50 focus:ring-2 focus:ring-accent/15"
             placeholder="my-server"
           />
         </label>
@@ -472,7 +471,7 @@ function McpConnections({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-sm font-semibold">{uiT("MCP connections")}</h2>
+            <h2 className="desktop-pane-heading text-sm font-semibold">{uiT("MCP connections")}</h2>
             {projectPicker}
           </div>
           <p className="mt-1 text-xs text-content/55">
@@ -573,7 +572,7 @@ function McpConnections({
           {uiT("No MCP servers configured for this provider.")}
         </p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-content/10 bg-content/3">
+        <div className="desktop-card overflow-hidden rounded-xl border border-content/10 bg-content/3">
           {visible.map((server) => {
             const key = mcpServerKey(server);
             const open = expanded.has(key);

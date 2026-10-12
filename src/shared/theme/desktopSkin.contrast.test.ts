@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { DESKTOP_SKIN_IDS, DESKTOP_SKIN_INFO } from "./desktopSkin";
+import { DESKTOP_SKIN_INFO } from "./desktopSkin";
 
 // WCAG 2.x contrast over the parsed desktop skin blocks, so palette edits are
 // gated. The phone palette is checked separately in src/mobile/theme.
@@ -40,7 +40,7 @@ function contrast(fg: string, bg: string) {
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
 
-describe.each(DESKTOP_SKIN_IDS)("%s desktop skin", (skin) => {
+describe.each(["midnight", "daylight"] as const)("%s desktop skin", (skin) => {
   const t = tokens(skin);
   it("matches the ground the native window and splash paint", () => {
     expect(t.app.toLowerCase()).toBe(DESKTOP_SKIN_INFO[skin].app);
@@ -48,8 +48,9 @@ describe.each(DESKTOP_SKIN_IDS)("%s desktop skin", (skin) => {
   it.each(["app", "panel", "card", "raised", "composer", "inset"])(
     "keeps body and secondary ink at AA on %s",
     (surface) => {
-      expect(contrast(t.ink, t[surface])).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(t["ink-secondary"], t[surface])).toBeGreaterThanOrEqual(4.5);
+      const background = "#" + over(t[surface], t.app).map(v => Math.round(v).toString(16).padStart(2, "0")).join("");
+      expect(contrast(t.ink, background)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(t["ink-secondary"], background)).toBeGreaterThanOrEqual(4.5);
     },
   );
   it("keeps user bubble text at AA", () => {

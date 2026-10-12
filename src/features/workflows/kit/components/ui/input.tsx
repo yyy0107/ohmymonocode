@@ -37,6 +37,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
       type={type}
       size={htmlSize}
       data-slot="input"
+      data-size={size}
       className={cn(inputVariants({ size }), className)}
       {...props}
     />

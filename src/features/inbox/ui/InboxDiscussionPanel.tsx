@@ -77,7 +77,7 @@ export function InboxDiscussionPanel({
         onDoubleClick={resize.onDoubleClick}
         className="max-[1100px]:hidden"
       />
-      <header className="flex h-11 shrink-0 items-center border-b border-stroke px-3">
+      <header className="desktop-toolbar flex h-11 shrink-0 items-center border-b border-stroke px-3">
         <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
           {uiT("Ask · ")}
           {inboxItemRef(item)}

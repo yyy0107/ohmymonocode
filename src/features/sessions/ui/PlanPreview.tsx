@@ -296,7 +296,7 @@ export function PlanDecision({
               onChange={(event) => setFeedback(event.target.value)}
               placeholder={uiT("No, describe what to change")}
               aria-label={uiT("No, describe what to change")}
-              className="w-full rounded-md border border-content/15 bg-transparent px-2 py-1 text-[12px] text-content outline-none placeholder:text-content/35 focus:border-content/30"
+              className="desktop-field w-full rounded-md border border-content/15 bg-transparent px-2 py-1 text-[12px] text-content outline-none placeholder:text-content/35 focus:border-content/30"
             />
           </div>
         </div>

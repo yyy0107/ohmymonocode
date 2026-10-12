@@ -105,7 +105,7 @@ export function QuickGitPopup({ onShown }: { onShown: () => void }) {
   return (
     <div
       ref={setHost}
-      className="max-h-[520px] overflow-y-auto rounded-xl border border-content/10 bg-background-base/45 text-content"
+      className="desktop-card max-h-[520px] overflow-y-auto rounded-xl border border-content/10 bg-background-base/45 text-content"
     >
       <p
         ref={errorRef}

@@ -78,7 +78,7 @@ export function WorkflowRunCard({ block, parent: session }: { block: Block; pare
     };
     return (
       <TooltipProvider delayDuration={300}>
-        <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3 font-sans" data-workflow-approval>
+        <div className="desktop-card flex flex-col gap-3 rounded-xl border border-border bg-surface p-3 font-sans" data-workflow-approval>
           <WorkflowPermissionBlock request={request} />
           {meta.commands?.length ? (
             <p className="text-ui-xs text-foreground-subtle">

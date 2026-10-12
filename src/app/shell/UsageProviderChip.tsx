@@ -322,7 +322,7 @@ export function UsageProviderChip({
             <span className="grid size-6 shrink-0 place-items-center rounded-md bg-content/[0.06] ring-1 ring-inset ring-content/[0.07]">
               <HarnessIcon harness={iconHarness} className="size-3.5" />
             </span>
-            <h2 className="min-w-0 flex-1 truncate text-[13px] font-medium leading-4">
+            <h2 className="desktop-pane-heading min-w-0 flex-1 truncate text-[13px] font-medium leading-4">
               {providerLabel} {uiT("usage")}
             </h2>
             {limits.status === "fetching" ? (
@@ -576,7 +576,7 @@ function ProviderAccountPicker({
         >
           <ArrowLeft className="size-3.5" aria-hidden />
         </button>
-        <h2 className="text-[13px] font-medium">
+        <h2 className="desktop-pane-heading text-[13px] font-medium">
           {providerLabel} {uiT("accounts")}
         </h2>
       </div>
@@ -779,7 +779,7 @@ function AddProviderAccount({
         >
           <ArrowLeft className="size-3.5" aria-hidden />
         </button>
-        <h2 className="text-[13px] font-medium">
+        <h2 className="desktop-pane-heading text-[13px] font-medium">
           {uiT("Add ")}
           {providerLabel} {uiT("account")}
         </h2>
@@ -798,7 +798,7 @@ function AddProviderAccount({
           value={label}
           disabled={running}
           placeholder={uiT("Work or Personal")}
-          className="mt-1.5 h-8 w-full rounded-lg border border-content/10 bg-content/[0.04] px-2.5 text-[11px] text-content outline-none placeholder:text-content/25 focus:border-accent/45 disabled:opacity-55"
+          className="desktop-field mt-1.5 h-8 w-full rounded-lg border border-content/10 bg-content/[0.04] px-2.5 text-[11px] text-content outline-none placeholder:text-content/25 focus:border-accent/45 disabled:opacity-55"
           onChange={(event) => setLabel(event.target.value)}
         />
       </label>
@@ -864,7 +864,7 @@ function UsageWindowRow({
   return (
     <section>
       <div className="flex items-baseline gap-2">
-        <h3 className="shrink-0 text-[11px] font-medium text-content/70">
+        <h3 className="desktop-section-heading shrink-0 text-[11px] font-medium text-content/70">
           {uiT(title)}
         </h3>
         <span
@@ -950,7 +950,7 @@ function BankedResets({
       <div className="relative min-h-[78px] overflow-hidden rounded-lg bg-content/[0.04] px-3 py-3 pr-[84px] ring-1 ring-inset ring-content/[0.06]">
         <div className="relative z-10 min-w-0">
           <div className="flex items-center gap-1.5">
-            <h3 className="text-[11px] font-medium">{uiT("Banked resets")}</h3>
+            <h3 className="desktop-section-heading text-[11px] font-medium">{uiT("Banked resets")}</h3>
             <span className="rounded-full bg-content/[0.07] px-1.5 py-px text-[9px] font-medium tabular-nums text-content/65 ring-1 ring-inset ring-content/[0.07]">
               {count}
             </span>

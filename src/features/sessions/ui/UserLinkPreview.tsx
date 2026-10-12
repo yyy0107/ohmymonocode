@@ -363,7 +363,7 @@ function GithubWorkItemCard({
 
       {item ? (
         <>
-          <h3 className="mt-2 line-clamp-2 text-[13px] font-semibold leading-[1.35] text-content">
+          <h3 className="desktop-pane-heading mt-2 line-clamp-2 text-[13px] font-semibold leading-[1.35] text-content">
             {item.title}
           </h3>
           {summary ? (
@@ -376,7 +376,7 @@ function GithubWorkItemCard({
         <GithubWorkItemCardSkeleton />
       ) : (
         <div className="mt-2">
-          <h3 className="text-[13px] font-semibold text-content">
+          <h3 className="desktop-pane-heading text-[13px] font-semibold text-content">
             {parsed.kind === "pr" ? uiT("Pull request") : uiT("Issue")} #
             {parsed.number}
           </h3>

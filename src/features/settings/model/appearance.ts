@@ -1,3 +1,4 @@
+import { DESKTOP_SCHEME_KEY, isDesktopDocument, loadDesktopTheme } from "../../../shared/theme/desktopAppearance";
 import { activePreferenceStore, SHARED_PREFERENCES_CHANGED } from "./sharedPreferences";
 import { parsePreferenceAsset, preferenceAssetUrl, PREFERENCE_ASSET_READY } from "./preferenceAssets";
 import { preferenceStorage } from "./sharedPreferences";
@@ -381,7 +382,8 @@ function isThemePreference(value: unknown): value is ThemePreference {
 export function loadThemePreference(): ThemePreference {
   try {
     const raw = preferenceStorage.getItem(SCHEME_KEY);
-    return isThemePreference(raw) ? raw : THEME_PREFERENCE_DEFAULT;
+    const fallback = isThemePreference(raw) ? raw : THEME_PREFERENCE_DEFAULT;
+    return isDesktopDocument() ? loadDesktopTheme(fallback) : fallback;
   } catch {
     return THEME_PREFERENCE_DEFAULT;
   }
@@ -389,7 +391,7 @@ export function loadThemePreference(): ThemePreference {
 
 export function saveThemePreference(value: ThemePreference) {
   try {
-    preferenceStorage.setItem(SCHEME_KEY, value);
+    preferenceStorage.setItem(isDesktopDocument() ? DESKTOP_SCHEME_KEY : SCHEME_KEY, value);
   } catch {
     // private mode / quota
   }
@@ -415,9 +417,8 @@ export function isLightScheme(): boolean {
 export function applyThemePreference(value: ThemePreference): ColorScheme {
   const next = resolveColorScheme(value);
   document.documentElement.classList.toggle("theme-light", next === "light");
-  // A named skin can move the scheme (Meadow is light even if Dark was saved).
-  // Classic returns null and leaves the preference in charge.
-  const scheme = applyDesktopSkin() ?? next;
+  // Desktop palette follows the resolved local mode; mobile owns its palette.
+  const scheme = applyDesktopSkin("auto") ?? next;
   if (nativeGlassReady) syncNativeGlass(scheme);
   window.dispatchEvent(
     new CustomEvent<ColorScheme>(SCHEME_CHANGE_EVENT, { detail: scheme }),
@@ -533,6 +534,10 @@ export function watchSystemColorScheme() {
   const query = systemQuery();
   if (!query) return;
   watchingSystemScheme = true;
+  window.addEventListener("storage", (event) => {
+    if (isDesktopDocument() && (event.key === DESKTOP_SCHEME_KEY || event.key === null))
+      applyThemePreference(loadThemePreference());
+  });
   query.addEventListener("change", () => {
     const preference = loadThemePreference();
     if (preference === "system") applyThemePreference(preference);

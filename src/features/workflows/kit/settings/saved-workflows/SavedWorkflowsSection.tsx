@@ -257,7 +257,7 @@ export function SavedWorkflowsSection({
       {header}
 
       <div className="mt-8 flex items-center justify-between">
-        <h2 className="text-ui-base font-medium leading-5 text-foreground-subtle">
+        <h2 className="desktop-pane-heading text-ui-base font-medium leading-5 text-foreground-subtle">
           {intl.formatMessage({ id: "workflows.hub.sectionTitle" })}
           {totalCount > 0 ? (
             <span className="ml-1 font-normal text-foreground-subtlest">{totalCount}</span>
@@ -300,7 +300,7 @@ export function SavedWorkflowsSection({
         ) : allProjectsEmpty ? (
           <div
             data-testid={TID_WORKFLOWS_EMPTY}
-            className="mt-8 flex h-[226px] w-full items-center justify-center rounded-2xl border border-card-border bg-background px-4"
+            className="desktop-card mt-8 flex h-[226px] w-full items-center justify-center rounded-2xl border border-card-border bg-background px-4"
           >
             <div className="flex translate-y-2 flex-col items-center gap-5">
               <div className="flex flex-col items-center gap-1.5 text-center">

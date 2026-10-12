@@ -48,7 +48,7 @@ export function SessionRenamePopover({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onFocus={(event) => event.currentTarget.select()}
-          className="h-8 w-full rounded-md border border-content/15 bg-transparent px-2 text-[13px] text-content outline-none focus:border-accent"
+          className="desktop-field h-8 w-full rounded-md border border-content/15 bg-transparent px-2 text-[13px] text-content outline-none focus:border-accent"
         />
       </form>
     </Popover>

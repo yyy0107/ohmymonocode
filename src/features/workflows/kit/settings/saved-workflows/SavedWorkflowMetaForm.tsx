@@ -57,7 +57,7 @@ export function SavedWorkflowMetaForm({
   const { intl } = useWorkflowIntl();
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-ui-base font-medium leading-5 text-foreground-subtle">
+      <h2 className="desktop-pane-heading text-ui-base font-medium leading-5 text-foreground-subtle">
         {intl.formatMessage({ id: "workflows.hub.detail.basics" })}
       </h2>
       <div className="flex flex-col gap-1.5">

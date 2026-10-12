@@ -14,7 +14,7 @@ const groups: Record<PreferenceKind, readonly string[]> = {
 const deviceLocalGroups: Record<PreferenceKind, readonly string[]> = {
   flag: ["closeToTray", "menuBarVisible", "projectRailOpen", "sessionSidebarOpen", "bodyGlass", "sounds", "notifications", "sessionsShowArchived"],
   number: ["windowOpacity", "sidebarBlur", "sidebarWidth", "uiScale", "soundsEnabledAt"],
-  string: ["modelPickerTab", "desktopSkin"],
+  string: ["modelPickerTab", "desktopSkin", "desktopColorScheme", "desktopAppearanceBackup.v1"],
   object: ["projectSidebarTabs.v1", "pinnedSessionsCollapsed", "reminderSessionsCollapsed", "sessionSidebarFilters"],
   array: ["sidebarSectionsCollapsed.v1", "projectTreeExpanded.v1"],
 };

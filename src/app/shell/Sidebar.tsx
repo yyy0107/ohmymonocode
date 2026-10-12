@@ -1225,7 +1225,7 @@ function SidebarComponent(props: SidebarProps) {
         {tab === "sessions" ? (
           <div
             data-sidebar-search
-            className="flex h-9 shrink-0 items-center gap-1 border-b border-stroke px-2"
+            className="desktop-toolbar flex h-9 shrink-0 items-center gap-1 border-b border-stroke px-2"
           >
             <div className="relative flex h-7 min-w-0 flex-1 items-center">
               <Search className="pointer-events-none absolute left-2 size-3 shrink-0 opacity-50" />

@@ -362,7 +362,7 @@ function AutomationsContent({
   return (
     <div className="flex min-h-0 min-w-0 flex-1 text-content">
       <aside className="flex w-[280px] shrink-0 flex-col border-r border-stroke">
-        <div className="flex h-9 shrink-0 items-center gap-1 border-b border-stroke px-2">
+        <div className="desktop-toolbar flex h-9 shrink-0 items-center gap-1 border-b border-stroke px-2">
           <label className="relative flex h-7 min-w-0 flex-1 items-center">
             <Search className="pointer-events-none absolute left-2 size-3 shrink-0 text-content/40" />
             <span className="sr-only">{uiT("Filter automations")}</span>
@@ -607,7 +607,7 @@ function AutomationPicker({
       className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-none"
     >
       <div className="mx-auto w-full max-w-5xl px-8 pt-5 pb-10">
-        <h1 className="text-[20px] font-semibold leading-tight text-content">
+        <h1 className="desktop-page-heading text-[20px] font-semibold leading-tight text-content">
           {uiT("New automation")}
         </h1>
         <p className="mt-1.5 text-[13px] text-content/50">
@@ -1499,7 +1499,7 @@ function PromptField({
 
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
-    <h2 className="px-1 text-[12px] font-medium text-content/50">{children}</h2>
+    <h2 className="desktop-section-heading px-1 text-[12px] font-medium text-content/50">{children}</h2>
   );
 }
 

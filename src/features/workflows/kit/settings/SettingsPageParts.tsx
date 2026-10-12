@@ -22,7 +22,7 @@ export function SettingsRow({
   controlLayout?: "default" | "wide";
 }) {
   return (
-    <div className="border-t border-border px-4 py-3 first:border-t-0">
+    <div className="settings-row border-t border-border px-4 py-3 first:border-t-0">
       <div
         className={cn(
           "grid items-center gap-4",
@@ -32,9 +32,9 @@ export function SettingsRow({
         )}
       >
         <div className="min-w-0">
-          <div className="text-ui-base font-medium text-foreground">{label}</div>
+          <div className="settings-row-label text-ui-base font-medium text-foreground">{label}</div>
           {description ? (
-            <div className="mt-1 text-ui-base leading-6 text-foreground-subtle">{description}</div>
+            <div className="settings-row-description mt-1 text-ui-base leading-6 text-foreground-subtle">{description}</div>
           ) : null}
         </div>
         <div className="flex w-full flex-nowrap items-center justify-end gap-2">
@@ -49,7 +49,7 @@ export function SettingsRow({
 
 export function SettingsGroupCard({ children }: { children: ReactNode }) {
   return (
-    <Card className="overflow-hidden rounded-xl border border-border panel-card py-0 shadow-none">
+    <Card className="settings-card overflow-hidden rounded-xl border border-border panel-card py-0 shadow-none">
       <CardContent className="space-y-0 px-0">{children}</CardContent>
     </Card>
   );

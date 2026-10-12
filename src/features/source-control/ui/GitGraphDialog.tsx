@@ -134,7 +134,7 @@ export function GitGraphDialog({
         <header
           data-tauri-drag-region="deep"
           onMouseDownCapture={startWindowDrag}
-          className="flex h-10 shrink-0 select-none items-center gap-2 border-b border-stroke px-3"
+          className="desktop-toolbar flex h-10 shrink-0 select-none items-center gap-2 border-b border-stroke px-3"
         >
           <GitBranch className="size-4 shrink-0 text-content/65" />
           <span className="shrink-0 text-[13px] font-medium">

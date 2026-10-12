@@ -31,39 +31,19 @@
             var o = Math.max(0.15, Math.min(1, Number(opacity) || 0.85));
             root.style.setProperty("--sidebar-opacity", String(o));
           }
-          var scheme = localStorage.getItem("monocode.colorScheme");
-          if (scheme === "system") {
-            scheme = window.matchMedia("(prefers-color-scheme: light)").matches
-              ? "light"
-              : "dark";
+          var scheme = localStorage.getItem("monocode.desktopColorScheme");
+          if (scheme === null) {
+            var legacy = localStorage.getItem("monocode.desktopSkin");
+            var skinSchemes = { midnight: "dark", atelier: "light", foundry: "dark", lagoon: "light", graphite: "dark", linen: "light", dusk: "dark", daylight: "light", meadow: "light" };
+            scheme = Object.prototype.hasOwnProperty.call(skinSchemes, legacy)
+              ? skinSchemes[legacy]
+              : legacy && legacy !== "auto" && legacy !== "classic" ? "dark" : localStorage.getItem("monocode.colorScheme");
           }
-          if (scheme === "light") {
-            root.classList.add("theme-light");
-          }
-          // OpenMausBot skins. `auto` (the default) follows Dark/Light.
-          // `classic` leaves the tint variables above in charge.
-          var skinSchemes = {
-            midnight: "dark",
-            atelier: "light",
-            foundry: "dark",
-            lagoon: "light",
-            graphite: "dark",
-            linen: "light",
-            dusk: "dark",
-            daylight: "light",
-            meadow: "light",
-          };
-          var skin = localStorage.getItem("monocode.desktopSkin");
-          if (skin !== "classic") {
-            var resolved = Object.prototype.hasOwnProperty.call(skinSchemes, skin)
-              ? skin
-              : scheme === "light"
-                ? "daylight"
-                : "midnight";
-            root.dataset.skin = resolved;
-            if (skinSchemes[resolved] === "light") root.classList.add("theme-light");
-            else root.classList.remove("theme-light");
-          }
+          var light = scheme === "light" || scheme === "system" && window.matchMedia("(prefers-color-scheme: light)").matches;
+          root.classList.toggle("theme-light", light);
+          root.dataset.skin = light ? "daylight" : "midnight";
+          root.dataset.desktopVisual = "grok-static-v1";
+          root.style.colorScheme = light ? "light" : "dark";
           var bodyGlass = localStorage.getItem("monocode.bodyGlass");
           if (bodyGlass == null || bodyGlass === "1" || bodyGlass === "true") {
             root.classList.add("glass-body");
@@ -96,14 +76,7 @@
       /* Skin grounds (`--color-app` in omb-skin.css) so the splash matches
          the first paint instead of flashing the Classic tint. */
       html[data-skin="midnight"] { --color-background-base: #070707; }
-      html[data-skin="atelier"] { --color-background-base: #f5f1eb; }
-      html[data-skin="foundry"] { --color-background-base: #100e0b; }
-      html[data-skin="lagoon"] { --color-background-base: #dfeceb; }
-      html[data-skin="graphite"] { --color-background-base: #111214; }
-      html[data-skin="linen"] { --color-background-base: #eceff3; }
-      html[data-skin="dusk"] { --color-background-base: #121014; }
       html[data-skin="daylight"] { --color-background-base: #fcfcfc; }
-      html[data-skin="meadow"] { --color-background-base: #ffffff; }
 
       html,
       body,

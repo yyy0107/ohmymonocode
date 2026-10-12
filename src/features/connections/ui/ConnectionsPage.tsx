@@ -150,7 +150,7 @@ function ControlThisComputer() {
   return (
     <section data-setting-id="controlling-devices" className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
-        <h2 className="min-w-0 flex-1 text-ui-lg font-semibold text-foreground">
+        <h2 className="desktop-pane-heading min-w-0 flex-1 text-ui-lg font-semibold text-foreground">
           {t("Devices that can control this computer")}
         </h2>
         <button
@@ -172,7 +172,7 @@ function ControlThisComputer() {
           {t("Add")}
         </button>
       </div>
-      <div className="overflow-hidden rounded-xl border border-border panel-card">
+      <div className="desktop-card overflow-hidden rounded-xl border border-border panel-card">
         {!machineId ? (
           <p className="px-4 py-4 text-ui-base text-foreground-subtle">
             {t("The conversation service on this computer is not running.")}

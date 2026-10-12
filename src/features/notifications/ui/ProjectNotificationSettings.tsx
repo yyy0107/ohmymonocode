@@ -135,7 +135,7 @@ export function ProjectNotificationSettings({
     >
       <div className="flex flex-wrap items-end gap-4 pb-2.5">
         <div className="min-w-[min(100%,240px)] flex-1">
-          <h2 className="text-[13px] font-semibold text-content">
+          <h2 className="desktop-pane-heading text-[13px] font-semibold text-content">
             {uiT("Project notifications")}
           </h2>
           <p className="mt-1 text-[12px] leading-relaxed text-content/45">

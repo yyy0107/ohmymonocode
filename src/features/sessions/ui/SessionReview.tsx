@@ -168,7 +168,7 @@ export function SessionReview({
     // whether a review exists, so an empty result must not flash a loading card.
     return loadNotice ? (
       <div className="px-4 pt-1 pb-2 font-sans" data-session-review-shell>
-        <div className="rounded-xl border border-content/12 bg-content/3">
+        <div className="desktop-card rounded-xl border border-content/12 bg-content/3">
           {loadNotice}
         </div>
       </div>
@@ -221,7 +221,7 @@ export function SessionReview({
   return (
     <div className="px-4 pt-1 pb-2 font-sans" data-session-review-shell>
       <div
-        className="overflow-hidden rounded-xl border border-content/12 bg-content/3"
+        className="desktop-card overflow-hidden rounded-xl border border-content/12 bg-content/3"
         data-session-review
       >
         {loadNotice}

@@ -67,7 +67,7 @@ export function EmptySession({
           <div className="pointer-events-auto mb-4 px-2.5">
             <h1
               data-empty-title
-              className="truncate text-lg text-content"
+              className="desktop-page-heading truncate text-lg text-content"
               title={project ? cwd : undefined}
             >
               {title}

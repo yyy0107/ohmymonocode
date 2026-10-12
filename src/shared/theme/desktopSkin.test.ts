@@ -23,11 +23,11 @@ describe("desktop skin preference", () => {
     expect(normalizeDesktopSkin("classic")).toBe("classic");
   });
 
-  it("maps auto onto Midnight and Daylight and leaves Classic unstamped", () => {
+  it("maps every legacy skin onto the new light/dark pair", () => {
     expect(resolveDesktopSkin("auto", false)).toBe("midnight");
     expect(resolveDesktopSkin("auto", true)).toBe("daylight");
-    expect(resolveDesktopSkin("classic", true)).toBeNull();
-    expect(resolveDesktopSkin("foundry", true)).toBe("foundry");
+    expect(resolveDesktopSkin("classic", true)).toBe("daylight");
+    expect(resolveDesktopSkin("foundry", true)).toBe("midnight");
   });
 
   it("persists a named skin and ignores a broken store", () => {
@@ -72,12 +72,12 @@ describe("desktop skin preference", () => {
       },
     });
     expect(applyDesktopSkin("meadow")).toBe("light");
-    expect(dataset.skin).toBe("meadow");
+    expect(dataset.skin).toBe("daylight");
     expect(classNames.has("theme-light")).toBe(true);
     expect(style.colorScheme).toBe("light");
 
-    expect(applyDesktopSkin("classic")).toBeNull();
-    expect(dataset.skin).toBeUndefined();
-    expect(style.colorScheme).toBe("");
+    expect(applyDesktopSkin("classic")).toBe("light");
+    expect(dataset.skin).toBe("daylight");
+    expect(style.colorScheme).toBe("light");
   });
 });

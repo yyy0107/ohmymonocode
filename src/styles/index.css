@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "./omb-skin.css";
+@import "./desktop-tokens.css";
+@import "./desktop-controls.css";
+@import "./desktop-workspaces.css";
 @import "./omb-metrics.css";
 @import "../shared/ui/omb/omb.css";
 @import "../features/workflows/workflows.css";

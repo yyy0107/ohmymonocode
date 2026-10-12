@@ -16,7 +16,7 @@ export function WorkflowsView({ cwd }: { cwd: string }) {
       data-app-workflows
       className="flex min-h-0 min-w-0 flex-1 flex-col text-content"
     >
-      <div className="flex h-10 shrink-0 select-none items-center border-b border-stroke">
+      <div className="desktop-toolbar flex h-10 shrink-0 select-none items-center border-b border-stroke">
         <div className="flex min-w-0 flex-1 items-center gap-2 px-3 text-[13px]">
           <Workflow className="size-3.5 shrink-0 text-content/45" />
           <span className="min-w-0 truncate text-content">{t("Workflows")}</span>

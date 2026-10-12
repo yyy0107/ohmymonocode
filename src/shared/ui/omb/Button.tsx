@@ -2,7 +2,7 @@ import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cx, PRESSABLE } from "./cx";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
-export type ButtonSize = "sm" | "md" | "lg";
+export type ButtonSize = "xs" | "sm" | "md" | "lg" | "xl";
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary:
@@ -16,6 +16,8 @@ const VARIANT: Record<ButtonVariant, string> = {
 };
 
 const SIZE: Record<ButtonSize, string> = {
+  xs: "h-6 gap-1 px-2 text-[12px]",
+  xl: "h-10 gap-2 px-4 text-[14px]",
   sm: "h-7 gap-1 px-2.5 text-[12px]",
   md: "h-8 gap-1.5 px-3 text-[13px]",
   lg: "h-9 gap-2 px-4 text-[14px]",
@@ -44,7 +46,10 @@ export function Button({
     <button
       {...props}
       type={type}
+      data-size={size}
+      data-treatment={pill || variant !== "ghost" ? "pill" : "content"}
       className={cx(
+        "desktop-button",
         "inline-flex shrink-0 items-center justify-center font-medium leading-5 whitespace-nowrap select-none",
         pill ? "rounded-full" : "rounded-lg",
         VARIANT[variant],
@@ -66,7 +71,7 @@ export type IconButtonProps = Omit<
   /** Accessible name; also the tooltip unless `tooltip` is false. */
   label: string;
   tooltip?: boolean;
-  size?: "sm" | "md";
+  size?: "xs" | "sm" | "md" | "lg";
   shape?: "round" | "square";
   /** Pressed / open state, rendered on the raised surface. */
   active?: boolean;
@@ -91,8 +96,10 @@ export function IconButton({
       aria-label={label}
       title={tooltip ? label : undefined}
       data-active={active || undefined}
+      data-size={size}
+      data-shape={shape}
       className={cx(
-        "inline-flex shrink-0 items-center justify-center text-ink-secondary enabled:hover:bg-selection-hover enabled:hover:text-ink data-[active]:bg-raised data-[active]:text-ink",
+        "desktop-icon-button inline-flex shrink-0 items-center justify-center text-ink-secondary enabled:hover:bg-selection-hover enabled:hover:text-ink data-[active]:bg-raised data-[active]:text-ink",
         size === "sm" ? "size-7 [&_svg]:size-3.5" : "size-8 [&_svg]:size-4",
         shape === "round" ? "rounded-full" : "rounded-lg",
         PRESSABLE,

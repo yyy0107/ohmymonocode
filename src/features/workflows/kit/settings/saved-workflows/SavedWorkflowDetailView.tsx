@@ -390,7 +390,7 @@ export function SavedWorkflowDetailView({
 
           <section className="flex flex-col gap-4">
             <div className="flex flex-wrap items-baseline justify-between gap-3">
-              <h2 className="text-ui-base font-medium leading-5 text-foreground-subtle">
+              <h2 className="desktop-pane-heading text-ui-base font-medium leading-5 text-foreground-subtle">
                 {intl.formatMessage({ id: "workflows.hub.detail.script" })}
               </h2>
               <p className="text-ui-sm text-foreground-subtle">

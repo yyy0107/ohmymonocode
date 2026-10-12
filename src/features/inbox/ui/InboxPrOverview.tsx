@@ -143,7 +143,7 @@ export function InboxPrChangesGlance({
   return (
     <section data-inbox-pr-glance className="flex flex-col gap-2">
       <div className="flex items-center gap-2 text-[12px] text-content/50">
-        <h2 className="text-content/70">{uiT("Changed files")}</h2>
+        <h2 className="desktop-pane-heading text-content/70">{uiT("Changed files")}</h2>
         {diff ? (
           <>
             <span className="tabular-nums">
