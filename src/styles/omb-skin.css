@@ -889,9 +889,43 @@ html[data-skin] [data-settings-segmented] {
   background: var(--color-inset);
 }
 
+/* One indicator paints the selection; the checked option stays clear. */
 html[data-skin] [data-settings-segmented] > button[aria-checked="true"] {
+  background: transparent;
+}
+
+html[data-skin] [data-segment-indicator] {
   background: var(--color-raised);
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+}
+
+html:not([data-skin]) [data-segment-indicator] {
+  display: none;
+}
+
+/* Two spring positions for the segmented indicator, local to it so the
+   animation never invalidates the options. */
+@property --omb-segment-start {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+@property --omb-segment-end {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+/* Send: 0.86 → 1.08 → 1 as a message leaves. */
+@keyframes omb-send-kick {
+  0% { transform: scale(0.86); }
+  45% { transform: scale(1.08); }
+  100% { transform: none; }
+}
+
+/* Empty states and transcript images. */
+html[data-skin] [data-empty-state] > p {
+  color: var(--color-ink-tertiary);
 }
 
 /* Session tab strip: pill tabs on the panel; sizes live in omb-metrics.css. */

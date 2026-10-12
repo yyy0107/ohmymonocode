@@ -5544,16 +5544,37 @@ function Segmented<T extends string>({
   onChange: (value: T) => void;
   optionIdPrefix?: string;
 }) {
+  const index = Math.max(
+    0,
+    options.findIndex((option) => option.value === value),
+  );
+  // Skins draw one indicator whose leading edge outruns its trailing edge.
+  // The direction must land in the same render as the new index, or the
+  // transition starts with the previous timing.
+  const travel = useRef({ index, direction: undefined as "forward" | "back" | undefined });
+  if (travel.current.index !== index) {
+    travel.current = {
+      index,
+      direction: index > travel.current.index ? "forward" : "back",
+    };
+  }
+  const direction = travel.current.direction;
   return (
     <div
       role="radiogroup"
       aria-label={label}
       data-settings-segmented
+      data-direction={direction}
       className="inline-grid max-w-full shrink-0 gap-1 text-ui-base"
-      style={{
-        gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`,
-      }}
+      style={
+        {
+          gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`,
+          "--segment-count": options.length,
+          "--segment-index": index,
+        } as CSSProperties
+      }
     >
+      <span data-segment-indicator aria-hidden="true" />
       {options.map((option) => (
         <button
           id={

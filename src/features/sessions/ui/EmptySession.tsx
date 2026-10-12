@@ -66,6 +66,7 @@ export function EmptySession({
         <div className="pointer-events-none relative z-10 mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center px-1.5 py-12">
           <div className="pointer-events-auto mb-4 px-2.5">
             <h1
+              data-empty-title
               className="truncate text-lg text-content"
               title={project ? cwd : undefined}
             >

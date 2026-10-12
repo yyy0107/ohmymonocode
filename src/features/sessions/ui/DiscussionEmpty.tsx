@@ -47,7 +47,10 @@ const GLOW_PATH = mascotPath(GLOW);
 /** Empty state for a discussion that has no messages yet. */
 export function DiscussionEmpty({ message }: { message: string }) {
   return (
-    <div className="flex min-h-full flex-col items-center justify-center gap-5 px-6 py-10 text-center">
+    <div
+      data-empty-state
+      className="flex min-h-full flex-col items-center justify-center gap-5 px-6 py-10 text-center"
+    >
       <svg
         aria-hidden
         viewBox={`0 0 ${GRID_W} ${BUBBLES.length}`}

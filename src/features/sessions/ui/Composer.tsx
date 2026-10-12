@@ -354,6 +354,9 @@ function ToolButton({
   );
 }
 
+/** Matches the `omb-send-kick` animation in omb-metrics.css. */
+const SEND_KICK_MS = 320;
+
 export function Composer({
   enabled = true,
   focused,
@@ -516,6 +519,13 @@ export function Composer({
     () => restoredAttachments?.attachments ?? [],
   );
   const [pasteError, setPasteError] = useState<string | null>(null);
+  // Skins play a short kick on the send control as a message leaves.
+  const [sendKick, setSendKick] = useState(false);
+  useEffect(() => {
+    if (!sendKick) return;
+    const timer = window.setTimeout(() => setSendKick(false), SEND_KICK_MS);
+    return () => window.clearTimeout(timer);
+  }, [sendKick]);
   const [fileDrag, setFileDrag] = useState(false);
   const [plusOpen, setPlusOpen] = useState(false);
   const [planSelected, setPlanSelected] = useState(false);
@@ -1622,6 +1632,7 @@ export function Composer({
       return;
     }
     pasteGenerationRef.current += 1;
+    setSendKick(true);
     if (ref.current) {
       ref.current.value = "";
       resizeComposer(ref.current);
@@ -2741,7 +2752,10 @@ export function Composer({
                   {modelControlElements}
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-1">
+              <div
+                data-send-kick={sendKick || undefined}
+                className="flex shrink-0 items-center gap-1"
+              >
                 <ComposerAction
                   busy={busy}
                   disabled={disabled}

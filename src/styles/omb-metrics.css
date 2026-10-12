@@ -765,3 +765,115 @@ html[data-skin] [data-session-status] [data-status-task] > span:last-child {
   font-size: 13px;
   line-height: 1.5;
 }
+
+/* Send kick, as the phone's composer. */
+html[data-skin] [data-composer-layout="desktop"] [data-send-kick] > :is(.composer-send, .composer-stop) {
+  animation: omb-send-kick 320ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+/* Jump to latest: a 36px disc 12px above the composer. */
+html[data-skin] :has(> [data-jump-to-bottom]) {
+  bottom: var(--omb-space-12);
+}
+html[data-skin] [data-jump-to-bottom] {
+  width: var(--omb-control);
+  height: var(--omb-control);
+  border-radius: 999px;
+  box-shadow: var(--omb-shadow-float);
+}
+html[data-skin] [data-jump-to-bottom] svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Empty states, as `.mobile-empty`. */
+html[data-skin] [data-empty-state] {
+  gap: var(--omb-space-20);
+  min-height: max(100%, 260px);
+  padding: 48px var(--omb-space-28);
+}
+html[data-skin] [data-empty-state] > p {
+  max-width: 320px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+html[data-skin] [data-empty-title] {
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 28px;
+  letter-spacing: -0.3px;
+}
+
+/* Transcript images: capped at 300px tall with 12px corners; inline images
+   inside text keep their natural shape. */
+html[data-skin] .agent-markdown img {
+  max-width: 100%;
+  max-height: 300px;
+  width: auto;
+  height: auto;
+}
+html[data-skin] .agent-markdown p > img:only-child {
+  border-radius: var(--omb-radius-row);
+}
+html[data-skin] .user-message-media .attachment-chip-image button {
+  border-radius: var(--omb-radius-row);
+}
+
+/* A terminal docked right floats as a sheet-radius card. */
+html[data-skin] .project-terminal-card.omb-slide-panel {
+  border-radius: var(--omb-radius-sheet);
+}
+
+/* Segmented indicator, as `.mobile-segmented`: the leading edge runs on the
+   snappy spring and the trailing edge on the smooth one, so the capsule
+   stretches toward the new option and settles. */
+html[data-skin] [data-settings-segmented] {
+  --segment-pad: var(--omb-space-2);
+  --segment-gap: var(--omb-space-2);
+  --segment-cell: calc(
+    (100% - 2 * var(--segment-pad) - (var(--segment-count) - 1) * var(--segment-gap)) /
+      var(--segment-count)
+  );
+  position: relative;
+  isolation: isolate;
+}
+html[data-skin] [data-segment-indicator] {
+  --omb-segment-start: var(--segment-index);
+  --omb-segment-end: var(--segment-index);
+  --omb-segment-sign: 1;
+  position: absolute;
+  z-index: -1;
+  inset-block: var(--segment-pad);
+  inset-inline-start: var(--segment-pad);
+  width: var(--segment-cell);
+  border-radius: 999px;
+  transform-origin: left center;
+  transform:
+    translateX(calc(var(--omb-segment-sign) * var(--omb-segment-start) * (100% + var(--segment-gap))))
+    scaleX(calc(1 + var(--omb-segment-end) - var(--omb-segment-start)));
+  pointer-events: none;
+  transition:
+    --omb-segment-start var(--omb-spring-smooth-duration) var(--omb-spring-smooth),
+    --omb-segment-end var(--omb-spring-smooth-duration) var(--omb-spring-smooth);
+}
+html[data-skin] [data-settings-segmented]:dir(rtl) > [data-segment-indicator] {
+  --omb-segment-sign: -1;
+  transform-origin: right center;
+}
+html[data-skin] [data-settings-segmented][data-direction="forward"] > [data-segment-indicator] {
+  transition-duration: var(--omb-spring-smooth-duration), var(--omb-spring-snappy-duration);
+  transition-timing-function: var(--omb-spring-smooth), var(--omb-spring-snappy);
+}
+html[data-skin] [data-settings-segmented][data-direction="back"] > [data-segment-indicator] {
+  transition-duration: var(--omb-spring-snappy-duration), var(--omb-spring-smooth-duration);
+  transition-timing-function: var(--omb-spring-snappy), var(--omb-spring-smooth);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-skin] [data-composer-layout="desktop"] [data-send-kick] > :is(.composer-send, .composer-stop) {
+    animation: none;
+  }
+  html[data-skin] [data-segment-indicator] {
+    transition: none;
+  }
+}
