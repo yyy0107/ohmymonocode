@@ -865,6 +865,7 @@ export function ModelPicker({
               <ModelBrowser
                 autoFocusSearch
                 onBack={goBack}
+                onBackHover={() => setListNavigated(false)}
                 harnesses={pickerHarnesses}
                 tab={visibleTab}
                 models={visibleModels}
@@ -885,6 +886,7 @@ export function ModelPicker({
                 <BackHeader
                   label={settingLabel(submenu.setting)}
                   onBack={goBack}
+                  onHover={() => setListNavigated(false)}
                 />
                 {submenu.setting.options.map((option, index) => {
                   const selected =
@@ -1382,6 +1384,7 @@ type ModelBrowserProps = {
   autoFocusSearch?: boolean;
   /** Shows a back button that returns to the settings menu. */
   onBack?: () => void;
+  onBackHover?: () => void;
   harnesses: HarnessId[];
   tab: ModelPickerTab;
   models: AgentModel[];
@@ -1444,9 +1447,11 @@ function ModelFlyout({
 function BackHeader({
   label,
   onBack,
+  onHover,
 }: {
   label: string;
   onBack: () => void;
+  onHover?: () => void;
 }) {
   const { t: uiT } = useTranslation();
   // The whole row is the back target, not just the chevron.
@@ -1456,6 +1461,7 @@ function BackHeader({
       title={uiT("Back")}
       aria-label={uiT("Back")}
       onMouseDown={(event) => event.preventDefault()}
+      onMouseEnter={onHover}
       onClick={onBack}
       className="mb-1 flex h-8 w-full shrink-0 items-center gap-1.5 rounded-lg px-2 text-left text-[12px] text-content/55 hover:bg-content/5 hover:text-content"
     >
@@ -1468,6 +1474,7 @@ function BackHeader({
 function ModelBrowser({
   autoFocusSearch = false,
   onBack,
+  onBackHover,
   harnesses,
   tab,
   models,
@@ -1576,7 +1583,11 @@ function ModelBrowser({
     >
       {onBack ? (
         <div className="shrink-0 p-1 pb-0">
-          <BackHeader label={uiT("Model")} onBack={onBack} />
+          <BackHeader
+            label={uiT("Model")}
+            onBack={onBack}
+            onHover={onBackHover}
+          />
         </div>
       ) : null}
       <label className="flex shrink-0 items-center gap-2 border-b border-stroke px-3 py-2 text-content/50">

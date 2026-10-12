@@ -167,6 +167,67 @@ function inputText(input: HTMLInputElement, value: string) {
 }
 
 describe("model picker", () => {
+  it.each(["Model", "Reasoning"])("clears the %s list highlight when hovering Back", (label) => {
+    const settings: ModelSetting[] = [{
+      id: "reasoningEffort", label: "Reasoning", kind: "select", value: "high",
+      options: [
+        { value: "low", label: "Low" },
+        { value: "medium", label: "Medium" },
+        { value: "high", label: "High" },
+      ],
+    }];
+    setHarnessModels("codex", [
+      { id: "codex:first", name: "First", harness: "codex", settings },
+      { id: "codex:second", name: "Second", harness: "codex", settings },
+      { id: "codex:third", name: "Third", harness: "codex", settings },
+    ]);
+    const onChange = vi.fn();
+    const onSettingsChange = vi.fn();
+    act(() => root.render(createElement(ModelPicker, {
+      harness: "codex", model: "codex:third", values: { reasoningEffort: "high" },
+      onChange, onSettingsChange,
+    })));
+    press(container.querySelector<HTMLButtonElement>("[data-model-picker-trigger]")!);
+    const menu = container.querySelector<HTMLElement>("[data-model-picker]")!;
+    press([...menu.querySelectorAll<HTMLButtonElement>("button")]
+      .find((button) => button.textContent?.startsWith(label))!);
+    const back = menu.querySelector<HTMLButtonElement>('button[aria-label="Back"]')!;
+    const options = [...menu.querySelectorAll<HTMLButtonElement>(
+      label === "Model" ? '[role="option"]' : '[role="menuitemradio"]',
+    )];
+    const rows = options.map((option) => label === "Model" ? option.parentElement! : option);
+    const hover = (target: HTMLElement, relatedTarget: HTMLElement | null = null) => act(() => {
+      relatedTarget?.dispatchEvent(new MouseEvent("mouseout", { bubbles: true, relatedTarget: target }));
+      target.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, relatedTarget }));
+    });
+    const expectNoHighlight = () => {
+      expect(rows.filter((row) => row.classList.contains("bg-selection"))).toHaveLength(0);
+      expect(options[2].getAttribute(label === "Model" ? "aria-selected" : "aria-checked")).toBe("true");
+    };
+
+    hover(back);
+    expectNoHighlight();
+    for (const option of options.slice(0, 2)) {
+      hover(option, back);
+      expect(rows[options.indexOf(option)].classList.contains("bg-selection")).toBe(true);
+      hover(back, option);
+      expectNoHighlight();
+    }
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onSettingsChange).not.toHaveBeenCalled();
+
+    // Clearing the hover must retain the last row for keyboard navigation.
+    keyDown(menu, "ArrowUp");
+    expect(rows[0].classList.contains("bg-selection")).toBe(true);
+    hover(back);
+    expectNoHighlight();
+    keyDown(menu, "ArrowDown");
+    expect(rows[1].classList.contains("bg-selection")).toBe(true);
+    keyDown(menu, "Enter");
+    if (label === "Model") expect(onChange).toHaveBeenCalledWith("codex", "codex:second");
+    else expect(onSettingsChange).toHaveBeenCalledWith({ reasoningEffort: "medium" });
+  });
+
   it.each(["pointer", "keyboard"])("keeps the combined picker open for consecutive settings and model changes by %s", (input) => {
     const settings: ModelSetting[] = [
       {
