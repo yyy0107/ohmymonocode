@@ -55,7 +55,21 @@
    - 随后执行 `npx tsc --noEmit`：通过，无诊断。
    - 核对真实 Popover 层级后只调整菜单 padding 落点，复跑 `npx vitest run src/styles/omb-metrics.test.ts`：3 项通过。此后仅 CSS/文档变化，不重复全组检查。
    - `git diff --check`：通过。没有构建、推送、合并或发布。
-2. **双引擎样例测量与最终复核**：结果在下一提交记录；不将静态样例替代真实 Tauri 窗口验收。
+2. **双引擎样例测量与最终复核**（独立文档提交）：
+   - 用组件实际类名、data 钩子及 Popover 内容层构造本地样例，套真实 Vite 样式。`tauri:stable` 不监听文件变化；每次单独请求 `/src/styles/omb-skin.css?direct&t=<时间戳>` 与 `/src/styles/omb-metrics.css?direct&t=<时间戳>`，覆盖旧 `index.css` 中的缓存。
+   - 浏览器面板：Chromium **154.0.0.0**。WebKitGTK：系统包 **2.52.6-0ubuntu0.26.04.1**，通过 `xvfb-run -a /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/MiniBrowser http://127.0.0.1:18765/` 启动；页面将测量结果 POST 到本地 Python HTTP 服务。脚本、样例与 JSON 留在 `/tmp/monocode-desktop-density/`，不加入应用入口。
+   - 覆盖全部九种皮肤 × 默认/紧凑两档，每种情形采集 99 个节点的尺寸和计算样式。39 类目标高度逐项跨引擎比较，**18 组全部一致，最终 0 项目标偏差**。菜单外框 padding 0、内容层 padding 4；输入框与镜像的字号、行高、四边 padding 一致。
+   - Radix default/sm、手写 `button[role="switch"]`、checkbox + spans 都为 **32×18 / 14px 滑块**；滑块关闭距左 2、开启距左 16，实际行程 **14px**，两种引擎一致。
+   - 分段块高 **24px**；前进、后退时的两个弹簧位置不同，保留拉伸；落点与按钮对齐。Chromium 最大横向差约 **0.025px**，WebKitGTK 为 0。发送关键帧实测 **0.92 / 1.04 / 1**。开启应用的减少动态效果偏好后，开关与分段 transition 为 **0s**、发送 animation 为 **none**；系统 `prefers-reduced-motion` 分支保持同样规则。
+   - 九种皮肤的颜色、浮动阴影、玻璃滤镜以及 `--radius-lg/xl` 令牌前后相同。移除 `data-skin` 的 Classic 样例、设置手机标记且移除 `data-skin` 的样例，前后尺寸/字体/圆角等采集值没有差异；手机入口清除桌面属性另由 `desktopSkin.mobile.test.ts` 两项测试覆盖。
+   - 首轮测量发现并修正：进度外框的边框额外撑高、带分段控件的设置行被 padding 撑高、嵌套项目图标未随图标位缩小、分段方向样式覆盖减少动态效果。"展开更多"样例最初误加了 `py-1`，按真实组件的类名修正后符合 28/24px，无需改组件。
+   - **实际偏差/限制**：有说明的设置行自然增高（样例 Chromium **50.8px**、WebKitGTK **51px**），而最小高仍为 44；非固定尺寸的边框与文字布局存在亚像素差异，不强行裁剪说明。xvfb 下有 GTK 模块/DRI3 加速警告，但页面加载、POST 及尺寸检查完成；这不验证原生窗口或滚动性能。
+
+### 真实窗口待用户确认
+
+代码、指定测试与双引擎静态样例检查已完成；**没有启动或验收真实 Tauri 窗口，没有在实体手机上操作**。请用户重启 `tauri:stable`（其 Vite 禁用文件监听），依次检查侧栏默认/紧凑两档、输入框、问题卡/审批、设置开关与分段控件、菜单；再切到 Classic。已有的进度和折叠动画、原生玻璃及 WebKitGTK 滚动体验仍以真实窗口为准。
+
+本次分两步提交：尺寸/动画实现（`eef4f4c6`，含规格和自动检查记录），以及本节双引擎验证记录。没有修改或提交用户已有的 `MenuBar.tsx`、`WindowChrome.tsx` 改动与未跟踪交接文件；未构建、推送、合并或发布。
 
 ## 历史方案与实施记录（已被上文尺寸取代）
 
