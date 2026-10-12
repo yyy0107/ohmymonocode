@@ -54,10 +54,10 @@ test("Windows snapshots contain current uncommitted inputs, exclude credentials/
   await write(".env", "secret");
   await write("build/output", "generated");
   await write("mobile/android/source", "mobile");
-  await write("host/assistant/eval/datasets/tracked.jsonl", "evaluation data");
-  execFileSync("git", ["add", "host/assistant/eval"], { cwd: root });
-  await write("host/assistant/eval/public/untracked.json", "evaluation data");
-  await write("host/assistant/eval/run.ts", "evaluation runner");
+  await write("host/bots/eval/datasets/tracked.jsonl", "evaluation data");
+  execFileSync("git", ["add", "host/bots/eval"], { cwd: root });
+  await write("host/bots/eval/public/untracked.json", "evaluation data");
+  await write("host/bots/eval/run.ts", "evaluation runner");
   await write("eval/legacy.json", "legacy evaluation data");
   // The desktop tsc project also checks src/mobile/updates.ts.
   await write("mobile/update-config.json", "{}");

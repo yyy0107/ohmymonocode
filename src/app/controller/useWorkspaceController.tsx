@@ -1,6 +1,6 @@
 import { loadSharedAgentDefaults } from "../../features/settings/model/agentPreferences";
 import { selectComposerConfiguration,sessionComposerConfiguration } from "../../features/sessions/model/composerConfiguration";
-import { DesktopAssistantButton } from "../../features/assistant/ui/DesktopAssistantButton";
+import { DesktopBotsButton } from "../../features/bots/ui/DesktopBotsButton";
 import { translate } from "../../shared/i18n/language";
 import { usePreferenceState } from "../../features/settings/model/usePreferenceState";
 import {
@@ -12,7 +12,7 @@ workflowActivityIndex
 import { WorkflowSidebarSection } from "../../features/workflows/ui/WorkflowSidebarSection";
 import { WorkflowsView } from "../../features/workflows/ui/WorkflowsView";
 import { useTranslation } from "../../shared/i18n/useTranslation";
-import { DesktopAssistant } from "../../features/assistant/ui/DesktopAssistant";
+import { DesktopBots } from "../../features/bots/ui/DesktopBots";
 import {
 type AppViewRenderer
 } from "../../features/workspace/ui/AppViewHost";
@@ -11255,7 +11255,7 @@ export function useWorkspaceController({
     switch (kind) {
       case "assistant":
         return (
-          <DesktopAssistant
+          <DesktopBots
             selectedMachineId={assistantMachineId}
             onSelectMachine={setAssistantMachineId}
             onLocalSession={onSelectHistorySession}
@@ -11400,7 +11400,7 @@ export function useWorkspaceController({
     ) : null;
 
   const windowLeading = (
-    <DesktopAssistantButton
+    <DesktopBotsButton
       active={activeAppView === "assistant"}
       selectedMachineId={assistantMachineId}
       onOpen={onOpenAssistant}

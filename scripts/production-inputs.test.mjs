@@ -17,9 +17,9 @@ test("Git source archives exclude both evaluation directories", async (t) => {
   execFileSync("git", ["init", "-q"], { cwd: root });
   await copyFile(new URL("../.gitattributes", import.meta.url), join(root, ".gitattributes"));
   for (const path of [
-    "host/assistant/index.ts",
-    "host/assistant/eval/run.ts",
-    "host/assistant/eval/datasets/cases.jsonl",
+    "host/bots/thread/index.ts",
+    "host/bots/eval/run.ts",
+    "host/bots/eval/datasets/cases.jsonl",
     "eval/legacy.json",
   ]) {
     await mkdir(dirname(join(root, path)), { recursive: true });
@@ -30,14 +30,14 @@ test("Git source archives exclude both evaluation directories", async (t) => {
   const archive = execFileSync("git", ["archive", tree], { cwd: root });
   const entries = execFileSync("tar", ["-tf", "-"], { input: archive, encoding: "utf8" })
     .trim().split("\n");
-  assert.ok(entries.includes("host/assistant/index.ts"));
-  assert.ok(entries.every((path) => !/^(?:host\/assistant\/)?eval(?:\/|$)/.test(path)));
+  assert.ok(entries.includes("host/bots/thread/index.ts"));
+  assert.ok(entries.every((path) => !/^(?:host\/bots\/)?eval(?:\/|$)/.test(path)));
 });
 
 test("Host bundling refuses static and dynamic evaluation imports before producing output", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "monocode-production-inputs-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  for (const path of ["host/assistant/eval/data.json", "eval/legacy.json"]) {
+  for (const path of ["host/bots/eval/data.json", "eval/legacy.json"]) {
     await mkdir(dirname(join(root, path)), { recursive: true });
     await writeFile(join(root, path), '{"privateCase":"evaluation only"}');
     for (const contents of [
@@ -77,8 +77,8 @@ test("desktop/mobile Vite guards reject evaluation modules and raw assets with q
   const plugin = excludeEvaluationVite();
   plugin.configResolved({ root });
   for (const path of [
-    "host/assistant/eval/run.ts",
-    "host/assistant/eval/datasets/cases.jsonl?raw",
+    "host/bots/eval/run.ts",
+    "host/bots/eval/datasets/cases.jsonl?raw",
     "eval/public/cases.json?url",
   ]) {
     assert.equal(isEvaluationInput(path, root), true);
@@ -87,7 +87,7 @@ test("desktop/mobile Vite guards reject evaluation modules and raw assets with q
       /Evaluation files must not enter production bundles/,
     );
   }
-  for (const path of ["host/assistant/index.ts", "src/evaluate.ts", "vendor/eval/parser.js"]) {
+  for (const path of ["host/bots/thread/index.ts", "src/evaluate.ts", "vendor/eval/parser.js"]) {
     assert.equal(isEvaluationInput(path, root), false);
     assert.equal(plugin.load(join(root, path)), null);
   }

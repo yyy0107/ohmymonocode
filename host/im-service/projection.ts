@@ -1,4 +1,4 @@
-import type { AssistantMessage } from "../../src/features/assistant/model/assistant";
+import type { BotMessage } from "../../src/features/bots/model/botView";
 import { translate, type UiLanguage } from "../../src/shared/i18n/language";
 
 /** Conservative byte budget, including room for JSON escaping on the wire. */
@@ -16,7 +16,7 @@ export function splitImText(text: string): string[] {
 }
 
 /** Only already-public assistant messages enter a platform projection. */
-export function messageText(message: AssistantMessage, language: UiLanguage): string | undefined {
+export function messageText(message: BotMessage, language: UiLanguage): string | undefined {
   switch (message.kind) {
     case "user": return undefined;
     case "assistant": return message.streaming ? undefined : message.text;

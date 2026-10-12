@@ -2205,6 +2205,73 @@ html.has-user-accent
   border-color: var(--user-accent-color, var(--color-accent));
 }
 
+/* Desktop question panel docked above the composer. */
+.question-dock {
+  border-color: var(--composer-border);
+  border-radius: 16px;
+  background: color-mix(
+    in srgb,
+    var(--composer-input) calc(var(--panel-opacity) * 100%),
+    transparent
+  );
+  color: var(--color-content);
+}
+
+.question-dock [data-question-dock-mark] {
+  border-color: var(--composer-border);
+  background: var(--composer-surface);
+  color: var(--composer-muted);
+  transition:
+    background-color var(--motion-feedback-duration),
+    border-color var(--motion-feedback-duration),
+    color var(--motion-feedback-duration);
+}
+
+.question-dock [data-question-dock-option][aria-pressed="true"] {
+  background: color-mix(in srgb, var(--color-content) 5%, transparent);
+}
+
+.question-dock [data-question-dock-option][aria-pressed="true"] [data-question-dock-mark] {
+  border-color: var(--user-accent-color, var(--color-accent));
+  background: var(--user-accent-color, var(--color-accent));
+  color: #fff;
+}
+
+.question-dock .question-dock-skip {
+  border-color: var(--composer-border);
+  background: transparent;
+  color: var(--color-content);
+  transition: background-color var(--motion-feedback-duration);
+}
+
+.question-dock .question-dock-skip:enabled:hover {
+  background: var(--composer-hover);
+}
+
+.question-dock .question-dock-submit {
+  background: var(--user-accent-color, var(--color-accent));
+  color: #fff;
+  transition:
+    background-color var(--motion-feedback-duration),
+    opacity var(--motion-feedback-duration);
+}
+
+.question-dock .question-dock-submit:enabled:hover {
+  opacity: 0.88;
+}
+
+.question-dock .question-dock-submit:disabled {
+  cursor: not-allowed;
+  background: color-mix(in srgb, var(--color-content) 18%, transparent);
+  color: color-mix(in srgb, var(--color-content) 55%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .question-dock :is([data-question-dock-mark], .question-dock-skip, .question-dock-submit) {
+    transition: none;
+  }
+}
+
 [data-composer-layout="desktop"] .composer-input-shell.edit-last-turn-composer {
   border-color: color-mix(
     in srgb,

@@ -622,6 +622,41 @@ html[data-skin] [data-question-card] {
   box-shadow: var(--omb-shadow-float);
 }
 
+html[data-skin] .question-dock {
+  border-color: var(--color-composer-ring);
+  border-radius: var(--omb-radius-composer);
+  background: var(--color-composer);
+  color: var(--color-ink);
+  box-shadow: var(--omb-shadow-float);
+}
+
+html[data-skin] .question-dock [data-question-dock-mark] {
+  border-color: var(--color-hairline);
+  background: var(--color-inset);
+  color: var(--color-ink-tertiary);
+}
+
+html[data-skin] .question-dock [data-question-dock-option][aria-pressed="true"] [data-question-dock-mark] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+
+html[data-skin] .question-dock .question-dock-skip {
+  border-color: var(--color-hairline);
+  color: var(--color-ink);
+}
+
+html[data-skin] .question-dock .question-dock-submit:enabled {
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+
+html[data-skin] .question-dock .question-dock-submit:disabled {
+  background: var(--color-control);
+  color: var(--color-ink-tertiary);
+}
+
 html[data-skin] [data-question-title],
 html[data-skin] [data-question-hint] {
   color: var(--color-ink-tertiary);

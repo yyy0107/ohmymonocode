@@ -5,7 +5,11 @@ import {
 } from "../../../integrations/harness/core/apply";
 import { sanitizeSessionForPersist } from "../data/sessionStore";
 import { newSession } from "./session";
-import { questionFollowUp, recordQuestionAnswer } from "./questionHistory";
+import {
+  latestAnswerableQuestionId,
+  questionFollowUp,
+  recordQuestionAnswer,
+} from "./questionHistory";
 import type { QuestionAnswer, UserQuestion } from "./userQuestion";
 
 const questions: UserQuestion[] = [
@@ -35,6 +39,23 @@ const answer = (blockId: string): QuestionAnswer => ({
 });
 
 describe("question history", () => {
+  it("docks only the newest unanswered saved question until the user writes past it", () => {
+    const live = ask();
+    expect(latestAnswerableQuestionId(live)).toBeUndefined();
+    const saved = stopStreaming(live);
+    const id = saved.blocks[0].id;
+    expect(latestAnswerableQuestionId(saved)).toBe(id);
+    expect(
+      latestAnswerableQuestionId(recordQuestionAnswer(saved, answer(id))),
+    ).toBeUndefined();
+    expect(
+      latestAnswerableQuestionId({
+        ...saved,
+        blocks: [...saved.blocks, { id: "u", role: "user", text: "Other" }],
+      }),
+    ).toBeUndefined();
+  });
+
   it("preserves missed async questions through persistence without restoring a timer", () => {
     const live = ask();
     const saved = sanitizeSessionForPersist(live);

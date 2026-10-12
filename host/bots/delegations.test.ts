@@ -6,10 +6,10 @@ import { HostStore } from "../store";
 import { HostEngine } from "../engine";
 import type { HostProvider } from "../providers";
 import type { SendTurnInput } from "../../src/integrations/harness/core/types";
-import type { AssistantPatch } from "../../src/features/assistant/model/assistant";
-import type { BotDelegation, BotDelegations, BotScope, BotThread, BotView } from "../../src/features/assistant/model/bots";
-import { executeAssistantAction } from "../assistant/control";
-import { AssistantStore } from "../assistant/store";
+import type { BotPatch } from "../../src/features/bots/model/botView";
+import type { BotDelegation, BotDelegations, BotScope, BotThread, BotView } from "../../src/features/bots/model/bots";
+import { executeBotAction } from "./thread/control";
+import { BotThreadStore } from "./thread/store";
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => { vi.useRealTimers(); for (const close of cleanup.splice(0)) await close(); });
@@ -30,12 +30,12 @@ async function setup() {
   };
   await start();
   cleanup.push(async () => { await engine.close(); store.close(); rmSync(directory, { recursive: true, force: true }); });
-  const bot = async (name: string, patch: AssistantPatch = {}): Promise<BotScope> => {
+  const bot = async (name: string, patch: BotPatch = {}): Promise<BotScope> => {
     const result = await engine.bots.rpc("bots.create", { commandId: `bot-${name}`, patch: { name, harness: "codex", model: "test",
       triggers: { user: true, event: false, schedule: false }, ...patch } }) as { bot: BotView; thread: BotThread };
     return { botId: result.bot.id, threadId: result.thread.id };
   };
-  const configure = (scope: BotScope, patch: AssistantPatch, commandId = String(Math.random())) => engine.bots.rpc("bots.configure", {
+  const configure = (scope: BotScope, patch: BotPatch, commandId = String(Math.random())) => engine.bots.rpc("bots.configure", {
     botId: scope.botId, commandId, expectedRevision: engine.bots.store.getBot(scope.botId)!.revision, patch,
   });
   const send = async (scope: BotScope) => {
@@ -63,13 +63,13 @@ it("admits once from trusted source identity, uses target permissions, and publi
   const input = { botId: targetScope.botId, prompt: "Investigate deployment carefully" };
   const value = await s.engine.bots.delegations.submit(source, "stable", input);
   expect(value.status).toBe("running");
-  expect(new AssistantStore(s.store, value.source).scope).toEqual(sourceScope);
+  expect(new BotThreadStore(s.store, value.source).scope).toEqual(sourceScope);
   expect(await s.engine.bots.delegations.submit(source, "stable", input)).toEqual(value);
   await expect(s.engine.bots.delegations.submit(source, "stable", { ...input, prompt: "Changed" })).rejects.toThrow(/different input/);
   const target = s.engine.bots.assistant({ botId: targetScope.botId, threadId: value.target.threadId! });
   await vi.waitFor(() => expect(target.currentRun?.status).toBe("running"));
   expect(s.engine.bots.store.getThread(target.store.botId, target.store.threadId)?.kind).toBe("delegation");
-  await expect(executeAssistantAction(target, "target-policy", "projects.list", {}, () => true)).rejects.toThrow(/Permission denied/);
+  await expect(executeBotAction(target, "target-policy", "projects.list", {}, () => true)).rejects.toThrow(/Permission denied/);
   const firstSourceRevision = source.store.get()!.chatRevision, firstTargetRevision = target.store.get()!.chatRevision;
   const turn = s.turns.find(turn => turn.input.sessionId === target.currentRun?.brainSessionId)!;
   expect(turn.input.text).not.toContain("PRIVATE_DIRECT_HISTORY");
@@ -228,10 +228,10 @@ it.each(["cancelled", "timed_out", "revoked", "thread_cancelled"])("revokes queu
   await vi.waitFor(() => expect(runtime.currentRun?.status).toBe("running"));
   const directory = join(s.directory, "project"); mkdirSync(directory);
   const project = s.store.addProject(directory, "Delegated project");
-  const target = await executeAssistantAction(runtime, "create", "sessions.create", { projectId: project.id, harness: "codex", model: "test" }, () => true) as { sessionId: string };
+  const target = await executeBotAction(runtime, "create", "sessions.create", { projectId: project.id, harness: "codex", model: "test" }, () => true) as { sessionId: string };
   s.engine.command({ type: "send", commandId: "user-work", sessionId: target.sessionId, text: "Independent user work" });
   await vi.waitFor(() => expect(s.turns.some(turn => turn.input.sessionId === target.sessionId)).toBe(true));
-  await executeAssistantAction(runtime, "queue", "sessions.send", { projectId: project.id, sessionId: target.sessionId, text: "Revoked delegated project work" }, () => true);
+  await executeBotAction(runtime, "queue", "sessions.send", { projectId: project.id, sessionId: target.sessionId, text: "Revoked delegated project work" }, () => true);
   const origin = s.store.session(target.sessionId).session.queuedMessages![0].origin!;
   expect(s.engine.authorizeAssistantQueued!(origin, project.id, target.sessionId)).toBe(true);
   const original = s.engine.stopAssistantBrain.bind(s.engine);
@@ -271,10 +271,10 @@ it("keeps accepted project work authorized after both delegated and source turns
   await vi.waitFor(() => expect(runtime.currentRun?.status).toBe("running"));
   const directory = join(s.directory, "project"); mkdirSync(directory);
   const project = s.store.addProject(directory, "Delegated project");
-  const target = await executeAssistantAction(runtime, "create", "sessions.create", { projectId: project.id, harness: "codex", model: "test" }, () => true) as { sessionId: string };
+  const target = await executeBotAction(runtime, "create", "sessions.create", { projectId: project.id, harness: "codex", model: "test" }, () => true) as { sessionId: string };
   s.engine.command({ type: "send", commandId: "user-work", sessionId: target.sessionId, text: "Independent user work" });
   await vi.waitFor(() => expect(s.turns.some(turn => turn.input.sessionId === target.sessionId)).toBe(true));
-  await executeAssistantAction(runtime, "queue", "sessions.send", { projectId: project.id, sessionId: target.sessionId, text: "Accepted project work" }, () => true);
+  await executeBotAction(runtime, "queue", "sessions.send", { projectId: project.id, sessionId: target.sessionId, text: "Accepted project work" }, () => true);
   const origin = s.store.session(target.sessionId).session.queuedMessages![0].origin!;
   const complete = (sessionId: string) => {
     const turn = s.turns.find(turn => turn.input.sessionId === sessionId)!;

@@ -5,16 +5,16 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SurfaceVisibilityContext } from "../shared/ui/SurfaceVisibility";
 import { MobileAssistant, type MobileAssistantHandle } from "./MobileAssistant";
 import {
-  fullAssistantPolicy,
-  type AssistantMessage,
-  type AssistantView,
-} from "../features/assistant/model/assistant";
-import type { AssistantRpc } from "../features/assistant/model/assistantClient";
+  fullBotPolicy as fullAssistantPolicy,
+  type BotMessage as AssistantMessage,
+  type BotConfiguration as AssistantView,
+} from "../features/bots/model/botView";
+import type { BotRpc as AssistantRpc } from "../features/bots/model/botRpc";
 import { setUiLanguage } from "../shared/i18n/language";
 import { KEYBOARD_EVENT, installKeyboardMotion } from "./keyboardMotion";
 
-vi.mock("../features/assistant/ui/AssistantWorkerDetails", () => ({
-  AssistantWorkerDetails: () => null,
+vi.mock("../features/bots/ui/BotWorkerDetails", () => ({
+  BotWorkerDetails: () => null,
 }));
 let root: Root, node: HTMLDivElement;
 beforeEach(() => {

@@ -1,5 +1,5 @@
-import { delegateDesktopSession } from "../../features/assistant/model/delegateDesktopSession";
-vi.mock("../../features/assistant/model/delegateDesktopSession", () => ({ delegateDesktopSession: vi.fn(async () => {}) }));
+import { delegateDesktopSession } from "../../features/bots/model/delegateDesktopSession";
+vi.mock("../../features/bots/model/delegateDesktopSession", () => ({ delegateDesktopSession: vi.fn(async () => {}) }));
 // @vitest-environment happy-dom
 import { savePinnedProjects } from "../../features/projects/model/recents";
 import { act, createElement, type ComponentProps } from "react";

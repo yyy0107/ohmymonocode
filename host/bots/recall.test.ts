@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { HostStore } from "../store";
-import { AssistantStore } from "../assistant/store";
+import { BotThreadStore } from "./thread/store";
 import { BotStore } from "./store";
 import { clipRecall, formatRecall, recallBotMemory, type TopicDocument } from "./recall";
 
@@ -26,8 +26,8 @@ it("recalls only same-Bot topics and other direct public conversations", () => {
   const archived = bots.createThread(scope.botId);
   bots.updateThread(archived.botId, archived.threadId, { archivedAt: Date.now() });
   for (const [index, target] of [scope, sibling, other, room, archived].entries())
-    new AssistantStore(host, target).message({ id: `message-${index}`, kind: "assistant", text: `部署发布流程 secret-${index}` });
-  const store = new AssistantStore(host, sibling);
+    new BotThreadStore(host, target).message({ id: `message-${index}`, kind: "assistant", text: `部署发布流程 secret-${index}` });
+  const store = new BotThreadStore(host, sibling);
   store.message({ id: "streaming", kind: "assistant", text: "部署发布流程 streaming secret", streaming: true });
   store.enqueue({ id: "automatic", kind: "schedule", text: "部署发布流程", rootCauseId: "auto", state: "completed", createdAt: 1, attempts: 1 }, "automatic");
   store.message({ id: "automatic-message", kind: "assistant", text: "部署发布流程 automatic secret", wakeupId: "automatic" });
@@ -57,7 +57,7 @@ it("counts Unicode characters, finds late topic passages and clips without broke
 
 it("limits topics and conversations separately and the complete quoted payload to 6000 characters", () => {
   const { host, bots, scope } = setup(), sibling = bots.createThread(scope.botId);
-  const store = new AssistantStore(host, sibling);
+  const store = new BotThreadStore(host, sibling);
   for (let index = 0; index < 7; index++) store.message({ id: `chat-${index}`, kind: "user", text: `deployment procedures ${"🙂".repeat(1400)}` });
   const topics = Array.from({ length: 7 }, (_, index) => topic(`memory/topic-${index}.md`, `deployment procedures ${"🙂".repeat(1400)}`));
   const hits = recallBotMemory(host, scope, topics, "deployment procedures", direct);

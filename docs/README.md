@@ -14,7 +14,7 @@
 
 - [贡献指南](../CONTRIBUTING.md)与[仓库约定](../AGENTS.md)。
 - [本地化](localization.md)、[手动刷新开发环境](../scripts/dev-refresh.md)。
-- [IM 适配器](../host/im/README.md)、[助理评测](../host/assistant/eval/README.md)。
+- [IM 适配器](../host/im/README.md)、[助理评测](../host/bots/eval/README.md)。
 - [更新记录](../CHANGELOG.md)、[截图来源](screenshots/README.md)。
 
-已替换的设计记录和演示截图见[历史归档](archive/README.md)。评测数据、许可和历史证据的存放方式由[评测指南](../host/assistant/eval/README.md)单独说明。
+已替换的设计记录和演示截图见[历史归档](archive/README.md)。评测数据、许可和历史证据的存放方式由[评测指南](../host/bots/eval/README.md)单独说明。
