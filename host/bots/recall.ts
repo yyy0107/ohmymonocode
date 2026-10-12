@@ -1,7 +1,7 @@
 import type { HostStore } from "../store";
-import type { BotScope, BotThread } from "../../src/features/assistant/model/bots";
-import type { AssistantMessage } from "../../src/features/assistant/model/assistant";
-import { bm25Scores, tokenizeMemorySearch } from "../assistant/memorySearch";
+import type { BotScope, BotThread } from "../../src/features/bots/model/bots";
+import type { AssistantMessage } from "../../src/features/bots/model/assistant";
+import { bm25Scores, tokenizeMemorySearch } from "./thread/memorySearch";
 
 export type TopicDocument = { path: string; text: string; revision: number; hash: string };
 export type RecallHit = {

@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HostStore } from "./store";
-import { AssistantStore } from "./assistant/store";
+import { AssistantStore } from "./bots/thread/store";
 import { BotStore } from "./bots/store";
 import { writeAttachmentChunk, saveGeneratedImageAttachment, readAttachmentChunk } from "./attachments";
 

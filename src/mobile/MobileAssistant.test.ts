@@ -8,12 +8,12 @@ import {
   fullAssistantPolicy,
   type AssistantMessage,
   type AssistantView,
-} from "../features/assistant/model/assistant";
-import type { AssistantRpc } from "../features/assistant/model/assistantClient";
+} from "../features/bots/model/assistant";
+import type { AssistantRpc } from "../features/bots/model/assistantClient";
 import { setUiLanguage } from "../shared/i18n/language";
 import { KEYBOARD_EVENT, installKeyboardMotion } from "./keyboardMotion";
 
-vi.mock("../features/assistant/ui/AssistantWorkerDetails", () => ({
+vi.mock("../features/bots/ui/AssistantWorkerDetails", () => ({
   AssistantWorkerDetails: () => null,
 }));
 let root: Root, node: HTMLDivElement;

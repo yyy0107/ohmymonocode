@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { MobileApp } from "./MobileApp";
 import type { HostSessionSummary } from "../features/connections/model/protocol";
-import type { SessionReference } from "../features/assistant/model/assistant";
+import type { SessionReference } from "../features/bots/model/assistant";
 import { setUiLanguage } from "../shared/i18n/language";
 
 const mocked = vi.hoisted(() => ({

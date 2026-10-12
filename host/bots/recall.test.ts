@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { HostStore } from "../store";
-import { AssistantStore } from "../assistant/store";
+import { AssistantStore } from "./thread/store";
 import { BotStore } from "./store";
 import { clipRecall, formatRecall, recallBotMemory, type TopicDocument } from "./recall";
 

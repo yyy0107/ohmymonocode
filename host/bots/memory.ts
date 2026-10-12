@@ -3,8 +3,8 @@ import { constants, closeSync, fstatSync, fsyncSync, lstatSync, mkdirSync, mkdte
 import { dirname, join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import type { HostStore } from "../store";
-import type { BotMemoryBudget, BotMemoryChange, BotMemoryContext, BotMemoryDocument, BotMemoryExpected, BotMemoryFile, BotMemoryKind, BotMemoryList } from "../../src/features/assistant/model/botMemory";
-import { MEMORY_MAX_BYTES, MEMORY_MAX_LINES, redactSecrets, validMemoryName } from "../assistant/memory";
+import type { BotMemoryBudget, BotMemoryChange, BotMemoryContext, BotMemoryDocument, BotMemoryExpected, BotMemoryFile, BotMemoryKind, BotMemoryList } from "../../src/features/bots/model/botMemory";
+import { MEMORY_MAX_BYTES, MEMORY_MAX_LINES, redactSecrets, validMemoryName } from "./thread/memory";
 
 const FILE_LIMIT = 1024 * 1024;
 const FILE_COUNT_LIMIT = 2000;

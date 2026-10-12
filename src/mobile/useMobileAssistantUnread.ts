@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useReducer, useState } from "react";
-import type { AssistantMessage, AssistantMessages, AssistantView } from "../features/assistant/model/assistant";
-import { mergeAssistantMessages, type AssistantRpc } from "../features/assistant/model/assistantClient";
+import type { AssistantMessage, AssistantMessages, AssistantView } from "../features/bots/model/assistant";
+import { mergeAssistantMessages, type AssistantRpc } from "../features/bots/model/assistantClient";
 import {
   assistantReadRevision,
   subscribeAssistantRead,
   unreadAssistantMessages,
-} from "../features/assistant/model/assistantUnread";
+} from "../features/bots/model/assistantUnread";
 
 /** Keep the current Host's unread messages ready for the drawer. */
 export function useMobileAssistantUnread(

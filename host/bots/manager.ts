@@ -1,15 +1,15 @@
 import { dirname, join } from "node:path";
 import type { HostEngine } from "../engine";
-import { HostAssistant, type AssistantRuntimeOptions } from "../assistant";
-import { AssistantStore, signature } from "../assistant/store";
-import { fields, id, object } from "../assistant/policy";
+import { HostAssistant, type AssistantRuntimeOptions } from "./thread";
+import { AssistantStore, signature } from "./thread/store";
+import { fields, id, object } from "./thread/policy";
 import { BotStore } from "./store";
 import { HostResourceGuard } from "./resources";
 import { DelegationService } from "./delegations";
 import { RoomService } from "./rooms";
 import { TeamService } from "./teams";
-import type { AssistantRecord } from "../assistant/store";
-import type { BotRun, BotScope, BotsSnapshot } from "../../src/features/assistant/model/bots";
+import type { AssistantRecord } from "./thread/store";
+import type { BotRun, BotScope, BotsSnapshot } from "../../src/features/bots/model/bots";
 import type { HostModelCatalog, HostSession, RemoteProvider } from "../../src/features/connections/model/protocol";
 import type { TurnOrigin } from "../../src/features/sessions/model/session";
 

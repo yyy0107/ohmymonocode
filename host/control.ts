@@ -3,7 +3,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir, writeFile, chmod } from "node:fs/promises";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
-import { assistantErrorCode } from "./assistant/errors";
+import { assistantErrorCode } from "./bots/thread/errors";
 
 const ACTIONS = ["list", "delegate", "get", "message", "retry", "cancel", "wait", "review", "finish", "steer", "respond", "answer"];
 export const CONTROL_HELP = `MonoCode Host control — supervise this orchestration run.

@@ -1,6 +1,6 @@
 import { loadSharedAgentDefaults } from "../../features/settings/model/agentPreferences";
 import { selectComposerConfiguration,sessionComposerConfiguration } from "../../features/sessions/model/composerConfiguration";
-import { DesktopAssistantButton } from "../../features/assistant/ui/DesktopAssistantButton";
+import { DesktopAssistantButton } from "../../features/bots/ui/DesktopAssistantButton";
 import { translate } from "../../shared/i18n/language";
 import { usePreferenceState } from "../../features/settings/model/usePreferenceState";
 import {
@@ -12,7 +12,7 @@ workflowActivityIndex
 import { WorkflowSidebarSection } from "../../features/workflows/ui/WorkflowSidebarSection";
 import { WorkflowsView } from "../../features/workflows/ui/WorkflowsView";
 import { useTranslation } from "../../shared/i18n/useTranslation";
-import { DesktopAssistant } from "../../features/assistant/ui/DesktopAssistant";
+import { DesktopAssistant } from "../../features/bots/ui/DesktopAssistant";
 import {
 type AppViewRenderer
 } from "../../features/workspace/ui/AppViewHost";

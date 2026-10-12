@@ -4,7 +4,7 @@ import { HostResourceGuard } from "./bots/resources";
 import { selectComposerConfiguration } from "../src/features/sessions/model/composerConfiguration";
 import { createHash, randomUUID } from "node:crypto";
 import { HostOrchestration, type HostOrchestrationOptions } from "./orchestration";
-import type { HostAssistant } from "./assistant";
+import type { HostAssistant } from "./bots/thread";
 import { BotManager } from "./bots/manager";
 import { HostImService, type HostImOptions } from "./im-service";
 import { HostWorkflows } from "./workflows/service";

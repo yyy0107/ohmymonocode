@@ -6,10 +6,10 @@ import { HostStore } from "../store";
 import { HostEngine } from "../engine";
 import type { HostProvider } from "../providers";
 import type { SendTurnInput } from "../../src/integrations/harness/core/types";
-import type { AssistantPatch } from "../../src/features/assistant/model/assistant";
-import type { BotDelegation, BotScope, BotThread, BotView } from "../../src/features/assistant/model/bots";
-import { executeAssistantAction } from "../assistant/control";
-import type { BotTeam, BotTeamPatch } from "../../src/features/assistant/model/botTeams";
+import type { AssistantPatch } from "../../src/features/bots/model/assistant";
+import type { BotDelegation, BotScope, BotThread, BotView } from "../../src/features/bots/model/bots";
+import { executeAssistantAction } from "./thread/control";
+import type { BotTeam, BotTeamPatch } from "../../src/features/bots/model/botTeams";
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => { vi.useRealTimers(); for (const close of cleanup.splice(0)) await close(); });

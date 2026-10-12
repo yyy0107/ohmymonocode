@@ -1,7 +1,7 @@
 import { configureSharedHost } from "../../connections/model/remoteProjects";
 import { rememberRemoteSession } from "../../connections/model/connections";
-import { delegateDesktopSession } from "../../assistant/model/delegateDesktopSession";
-vi.mock("../../assistant/model/delegateDesktopSession", () => ({ delegateDesktopSession: vi.fn(async () => {}) }));
+import { delegateDesktopSession } from "../../bots/model/delegateDesktopSession";
+vi.mock("../../bots/model/delegateDesktopSession", () => ({ delegateDesktopSession: vi.fn(async () => {}) }));
 // @vitest-environment happy-dom
 import { act, createElement, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";

@@ -2,9 +2,9 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import type { AssistantMessage } from "../features/assistant/model/assistant";
-import type { AssistantRpc } from "../features/assistant/model/assistantClient";
-import { markAssistantRead } from "../features/assistant/model/assistantUnread";
+import type { AssistantMessage } from "../features/bots/model/assistant";
+import type { AssistantRpc } from "../features/bots/model/assistantClient";
+import { markAssistantRead } from "../features/bots/model/assistantUnread";
 import { useMobileAssistantUnread } from "./useMobileAssistantUnread";
 
 let root: Root, node: HTMLDivElement;

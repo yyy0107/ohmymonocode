@@ -21,9 +21,9 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { useMarkdownMode } from "../../sessions/ui/MarkdownModeToggle";
-import { useDesktopAssistantHosts } from "../../assistant/model/useDesktopAssistantHosts";
-import { useAssistantTopicNotes } from "../../assistant/model/useAssistantTopicNotes";
-import { AssistantTopicNote } from "../../assistant/ui/AssistantTopicNote";
+import { useDesktopAssistantHosts } from "../../bots/model/useDesktopAssistantHosts";
+import { useAssistantTopicNotes } from "../../bots/model/useAssistantTopicNotes";
+import { AssistantTopicNote } from "../../bots/ui/AssistantTopicNote";
 import { remoteRequest } from "../../connections/model/connections";
 import { ProjectLogoIcon } from "../../projects/ui/ProjectLogoIcon";
 import { ProjectMascot } from "../../projects/ui/ProjectMascot";

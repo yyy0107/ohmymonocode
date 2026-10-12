@@ -4,10 +4,10 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, expect, it } from "vitest";
 import { HostStore } from "../store";
-import { AssistantStore, signature, type AssistantRecord } from "../assistant/store";
+import { AssistantStore, signature, type AssistantRecord } from "./thread/store";
 import { BotStore, type MigrationPhase } from "./store";
-import { assistantErrorCode } from "../assistant/errors";
-import { fullAssistantPolicy, type AssistantAction } from "../../src/features/assistant/model/assistant";
+import { assistantErrorCode } from "./thread/errors";
+import { fullAssistantPolicy, type AssistantAction } from "../../src/features/bots/model/assistant";
 
 const cleanup: (() => void)[] = [];
 afterEach(() => cleanup.splice(0).forEach(fn => fn()));

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { takeAssistantNotification } from "../features/assistant/model/assistantNotifications";
+import { takeAssistantNotification } from "../features/bots/model/assistantNotifications";
 import type { MobileClient } from "./client";
 import type { SessionSnapshotStore } from "./sessionSnapshotStore";
 import { pendingSessionInputKey } from "../features/sessions/model/sessionActivity";
@@ -23,7 +23,7 @@ import {
 import { translate } from "../shared/i18n/language";
 import { NativeActivitySync } from "./nativeActivitySync";
 import type { HostSessionSummary } from "../features/connections/model/protocol";
-import type { AssistantNotificationActivity } from "../features/assistant/model/assistantNotifications";
+import type { AssistantNotificationActivity } from "../features/bots/model/assistantNotifications";
 
 const ENABLED_KEY = "monocode.mobileNotifications";
 

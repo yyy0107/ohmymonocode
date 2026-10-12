@@ -1,10 +1,10 @@
 import { lightImpact, attentionHaptic } from "./haptics";
 import { useTranscriptHaptics } from "./useTranscriptHaptics";
-import type { AssistantFeedbackProps } from "../features/assistant/ui/AssistantChatChrome";
+import type { AssistantFeedbackProps } from "../features/bots/ui/AssistantChatChrome";
 import type { Block } from "../features/sessions/model/session";
 import { MobileSpinner } from "./MobileSpinner";
 import { AttachmentList } from "../features/sessions/ui/AttachmentList";
-import { AssistantAttachmentPreview } from "../features/assistant/ui/AssistantAttachmentPreview";
+import { AssistantAttachmentPreview } from "../features/bots/ui/AssistantAttachmentPreview";
 import {
   createContext,
   useContext,
@@ -18,7 +18,7 @@ import {
   type Ref,
   type ReactNode,
 } from "react";
-import { AssistantChat } from "../features/assistant/ui/AssistantChat";
+import { AssistantChat } from "../features/bots/ui/AssistantChat";
 import { TranscriptPlatformContext } from "../features/sessions/ui/TranscriptPlatform";
 import { mobileTranscriptPlatform } from "./transcriptPlatform";
 import type {
@@ -30,7 +30,7 @@ import type {
   AssistantMessageMenuProps,
   AssistantSelectProps,
   AssistantSettingsPanelProps,
-} from "../features/assistant/ui/AssistantChatChrome";
+} from "../features/bots/ui/AssistantChatChrome";
 import { AnimatedCollapse } from "../shared/ui/AnimatedCollapse";
 import { Shimmer } from "../shared/ui/Shimmer";
 import { useTranslation } from "../shared/i18n/useTranslation";

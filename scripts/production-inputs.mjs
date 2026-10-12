@@ -7,7 +7,7 @@ export function isEvaluationInput(path, root = process.cwd()) {
   const clean = path.replace(/[?#].*$/, "");
   const local = relative(root, isAbsolute(clean) ? clean : resolve(root, clean))
     .replaceAll("\\", "/");
-  return /^(?:host\/assistant\/)?eval(?:\/|$)/.test(local);
+  return /^(?:host\/bots\/)?eval(?:\/|$)/.test(local);
 }
 
 function rejectEvaluationInput(path, root) {

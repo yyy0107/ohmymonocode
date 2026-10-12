@@ -11,7 +11,7 @@ const assistant = vi.hoisted(() => ({
   hosts: [] as { id: string; environmentId: string; name: string }[],
   rpc: vi.fn(),
 }));
-vi.mock("../../assistant/model/useDesktopAssistantHosts", () => ({
+vi.mock("../../bots/model/useDesktopAssistantHosts", () => ({
   useDesktopAssistantHosts: () => assistant.hosts,
 }));
 vi.mock("../../connections/model/connections", async (original) => ({

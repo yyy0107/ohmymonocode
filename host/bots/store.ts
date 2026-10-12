@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import { chmodSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { HostStore } from "../store";
-import type { AssistantRecord } from "../assistant/store";
-import { defaultAssistantPersona, fullAssistantPolicy, type AssistantPatch } from "../../src/features/assistant/model/assistant";
-import type { BotModelOverride, BotRun, BotRunCursor, BotRuns, BotScope, BotThread, BotThreadKind, BotView } from "../../src/features/assistant/model/bots";
-import { memoryLines } from "../assistant/memory";
+import type { AssistantRecord } from "./thread/store";
+import { defaultAssistantPersona, fullAssistantPolicy, type AssistantPatch } from "../../src/features/bots/model/assistant";
+import type { BotModelOverride, BotRun, BotRunCursor, BotRuns, BotScope, BotThread, BotThreadKind, BotView } from "../../src/features/bots/model/bots";
+import { memoryLines } from "./thread/memory";
 
 const RUNTIME_FIELDS = new Set<keyof AssistantRecord>([
   "chatRevision", "lifecycle", "brainGeneration", "brainSessionId", "brainBaseline",

@@ -81,7 +81,7 @@ test("fingerprints additions, edits and deletions in mobile/shared inputs, ignor
     "mobile/android/app/src/main/assets/public/index.html",
     "dist-mobile/index.html",
     "src/features/desktop/OnlyDesktop.tsx",
-    "host/assistant/eval/datasets/cases.jsonl",
+    "host/bots/eval/datasets/cases.jsonl",
     "eval/legacy.json",
   ])
     await write(path, "generated or unrelated");

@@ -159,5 +159,5 @@ open read-only details. Removing read permission or project scope disables the
 card's navigation.
 
 For the separate assistant evaluation tools and their scope, see the
-[assistant evaluation guide](../host/assistant/eval/README.md). Historical local
+[assistant evaluation guide](../host/bots/eval/README.md). Historical local
 `specs/` verification notes are not included in this repository.

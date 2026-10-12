@@ -18,7 +18,7 @@ import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { ExplorerMenu } from "../../files/ui/ExplorerMenu";
 import type { Session } from "../../sessions/model/session";
 import { useSessionHeaderActions } from "./SessionHeaderActions";
-import { delegateDesktopSession } from "../../assistant/model/delegateDesktopSession";
+import { delegateDesktopSession } from "../../bots/model/delegateDesktopSession";
 import { remoteProjectFor } from "../../connections/model/remoteProjects";
 import { remoteSessionFor } from "../../connections/model/connections";
 

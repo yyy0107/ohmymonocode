@@ -4,11 +4,11 @@ import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import { HostStore } from "../store";
 import { HostEngine } from "../engine";
-import { executeAssistantAction } from "../assistant/control";
+import { executeAssistantAction } from "./thread/control";
 import type { HostProvider } from "../providers";
 import type { SendTurnInput } from "../../src/integrations/harness/core/types";
-import type { BotScope, BotThread, BotView } from "../../src/features/assistant/model/bots";
-import type { BotRoom, BotRoomMessages, BotRoomRound, BotRoomState } from "../../src/features/assistant/model/botRooms";
+import type { BotScope, BotThread, BotView } from "../../src/features/bots/model/bots";
+import type { BotRoom, BotRoomMessages, BotRoomRound, BotRoomState } from "../../src/features/bots/model/botRooms";
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => { vi.restoreAllMocks(); for (const close of cleanup.splice(0)) await close(); });

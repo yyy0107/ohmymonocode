@@ -6,10 +6,10 @@ import { HostStore } from "../store";
 import { HostEngine } from "../engine";
 import type { HostProvider } from "../providers";
 import type { SendTurnInput } from "../../src/integrations/harness/core/types";
-import type { BotRuns, BotScope, BotThread, BotView, BotsSnapshot } from "../../src/features/assistant/model/bots";
-import { AssistantStore } from "../assistant/store";
+import type { BotRuns, BotScope, BotThread, BotView, BotsSnapshot } from "../../src/features/bots/model/bots";
+import { AssistantStore } from "./thread/store";
 import { BotStore } from "./store";
-import type { BotMemoryChange, BotMemoryDocument } from "../../src/features/assistant/model/botMemory";
+import type { BotMemoryChange, BotMemoryDocument } from "../../src/features/bots/model/botMemory";
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0)) await cleanup(); });

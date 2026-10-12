@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type { HostAssistant } from "../assistant";
-import { signature } from "../assistant/store";
-import { fields, id, object } from "../assistant/policy";
+import type { HostAssistant } from "./thread";
+import { signature } from "./thread/store";
+import { fields, id, object } from "./thread/policy";
 import type { BotManager } from "./manager";
-import type { BotDelegation } from "../../src/features/assistant/model/bots";
-import type { BotCoordination, BotTeam, BotTeams } from "../../src/features/assistant/model/botTeams";
+import type { BotDelegation } from "../../src/features/bots/model/bots";
+import type { BotCoordination, BotTeam, BotTeams } from "../../src/features/bots/model/botTeams";
 
 type CoordinationPlan = { id: string; teamId: string; source: BotCoordination["source"]; requestId: string;
   botIds: string[]; prompt: string; timeoutMs: number; createdAt: number; deadlineAt: number };

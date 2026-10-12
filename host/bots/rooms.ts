@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { AssistantStore, signature } from "../assistant/store";
-import { fields, id, object } from "../assistant/policy";
+import { AssistantStore, signature } from "./thread/store";
+import { fields, id, object } from "./thread/policy";
 import type { BotManager } from "./manager";
-import type { BotRun, BotScope } from "../../src/features/assistant/model/bots";
-import type { BotRoom, BotRoomMessage, BotRoomMessages, BotRoomRound, BotRoomSpeaker, BotRoomState, BotRooms } from "../../src/features/assistant/model/botRooms";
+import type { BotRun, BotScope } from "../../src/features/bots/model/bots";
+import type { BotRoom, BotRoomMessage, BotRoomMessages, BotRoomRound, BotRoomSpeaker, BotRoomState, BotRooms } from "../../src/features/bots/model/botRooms";
 
 const terminal = new Set(["completed", "failed", "timed_out", "cancelled", "interrupted"]);
 const active = (round: BotRoomRound) => round.status === "queued" || round.status === "running";

@@ -1,7 +1,7 @@
 import { MobileSpinner } from "../MobileSpinner";
 import { saveConnectionAppearance } from "../connectionAppearance";
-import { resolveAssistantTarget } from "../../features/assistant/model/assistantNavigation";
-import { delegateSession } from "../../features/assistant/model/delegateSession";
+import { resolveAssistantTarget } from "../../features/bots/model/assistantNavigation";
+import { delegateSession } from "../../features/bots/model/delegateSession";
 import { type ReactNode, type MouseEvent, type RefObject } from "react";
 import {
   ArrowLeft,

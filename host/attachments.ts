@@ -13,7 +13,7 @@ import { decodeGeneratedPng } from "../src/integrations/harness/core/generatedIm
 import { join } from "node:path";
 import type { Attachment } from "../src/features/sessions/model/session";
 import type { RemoteAttachment } from "../src/features/connections/model/protocol";
-import { AssistantStore } from "./assistant/store";
+import { AssistantStore } from "./bots/thread/store";
 import type { HostStore } from "./store";
 
 export const MAX_REMOTE_ATTACHMENT_BYTES = 20 * 1024 * 1024;

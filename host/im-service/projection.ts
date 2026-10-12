@@ -1,4 +1,4 @@
-import type { AssistantMessage } from "../../src/features/assistant/model/assistant";
+import type { AssistantMessage } from "../../src/features/bots/model/assistant";
 import { translate, type UiLanguage } from "../../src/shared/i18n/language";
 
 /** Conservative byte budget, including room for JSON escaping on the wire. */

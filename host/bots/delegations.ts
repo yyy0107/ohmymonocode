@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import type { HostAssistant } from "../assistant";
-import { AssistantStore, signature } from "../assistant/store";
-import { fields, id, object } from "../assistant/policy";
+import type { HostAssistant } from "./thread";
+import { AssistantStore, signature } from "./thread/store";
+import { fields, id, object } from "./thread/policy";
 import type { BotManager } from "./manager";
-import type { BotDelegation, BotDelegations, BotDelegationStatus, BotRun, BotScope } from "../../src/features/assistant/model/bots";
+import type { BotDelegation, BotDelegations, BotDelegationStatus, BotRun, BotScope } from "../../src/features/bots/model/bots";
 
 const MAX_WAIT_MS = 240_000;
 const terminalText: Record<BotDelegationStatus, string> = {
