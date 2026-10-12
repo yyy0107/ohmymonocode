@@ -1,3 +1,5 @@
+import { RotatingIcon } from "../../../shared/ui/RotatingIcon";
+import { motionGeometry } from "../../../shared/motion/tokens";
 // Adapted from ZCode (Apache-2.0).
 import {
   memo,
@@ -76,18 +78,7 @@ export const GitReviewChangeCard = memo(function GitReviewChangeCard({
   useEffect(() => {
     if (expanded && !diffState) loadDiff(file.relative);
   }, [diffState, expanded, file.relative, loadDiff]);
-  // Mount the diff two frames into the open animation: the motion starts
-  // without waiting on diff layout, and content still arrives while opening.
-  // Cards mounted already expanded (e.g. scrolled back into view) render at once.
-  const [entered, setEntered] = useState(expanded);
-  if (!expanded && entered) setEntered(false);
-  useEffect(() => {
-    if (!expanded || entered) return;
-    let frame = window.requestAnimationFrame(() => {
-      frame = window.requestAnimationFrame(() => setEntered(true));
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [entered, expanded]);
+  const entered = expanded;
   const toggle = () => onToggle(file);
   // Start fetching on press so the diff is often ready when the card opens.
   const prefetch = () => {
@@ -158,9 +149,7 @@ export const GitReviewChangeCard = memo(function GitReviewChangeCard({
                 -{deletions}
               </span>
             </span>
-            <ChevronDown
-              className={`size-4 shrink-0 text-foreground-subtle transition-transform duration-300 motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`}
-            />
+            <RotatingIcon icon={ChevronDown} angle={expanded ? motionGeometry.flipAngle : 0} className="size-4 shrink-0 text-foreground-subtle" />
           </span>
         </button>
       </header>

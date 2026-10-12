@@ -1,4 +1,5 @@
-import { ChevronRight as ChevronRightIcon } from "../../../shared/ui/icons";
+import { DisclosureChevron } from "../../../shared/ui/DisclosureChevron";
+import { } from "../../../shared/ui/icons";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import type { MonocodePermissionRequest } from "./_shims/shared.js";
 import { CodeBlock } from "./components/ai-elements/code-block.js";
@@ -7,7 +8,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "./components/ui/collapsible.js";
-import { cn } from "./components/lib/utils.js";
 import { buildWorkflowTimeline } from "./components/workflow-timeline/timeline-model.js";
 import { workflowPhasesDetail } from "./components/workflow-timeline/timeline-summary.js";
 import { WorkflowCardHeader } from "./components/workflow-timeline/WorkflowCardChrome.js";
@@ -271,9 +271,7 @@ export function WorkflowPermissionBlock({
       {scriptText ? (
         <Collapsible open={scriptOpen} onOpenChange={setScriptOpen}>
           <CollapsibleTrigger className="flex min-w-0 items-center gap-1 rounded-md py-0.5 text-left text-ui-xs font-medium text-foreground-subtlest transition-colors hover:text-foreground-subtle">
-            <ChevronRightIcon
-              className={cn("size-3.5 shrink-0 transition-transform", scriptOpen && "rotate-90")}
-            />
+            <DisclosureChevron expanded={scriptOpen} className="size-3.5 shrink-0" />
             <span className="min-w-0 truncate">{scriptToggleLabel}</span>
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-1.5">

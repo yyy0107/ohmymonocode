@@ -1,4 +1,7 @@
 // @vitest-environment happy-dom
+import { completeMotionAnimation, motionTestDriver } from "../../../../tests/helpers/motionDriver";
+import { duration } from "../../../shared/motion/tokens";
+vi.mock("motion/react", async (importOriginal) => { const actual = await importOriginal<typeof import("motion/react")>(); return { ...actual, ...motionTestDriver(actual, true) }; });
 import {
   act,
   createElement,
@@ -209,13 +212,7 @@ const pane = (id: string) =>
   container.querySelector<HTMLElement>(`[data-pane-id="${id}"]`)!;
 const click = (element: Element) =>
   act(() => element.dispatchEvent(new MouseEvent("click", { bubbles: true })));
-const settleGrid = () => {
-  const event = new Event("transitionend");
-  Object.defineProperty(event, "propertyName", {
-    value: "grid-template-columns",
-  });
-  act(() => layout().dispatchEvent(event));
-};
+const settleGrid = () => act(() => completeMotionAnimation(layout()));
 
 describe("session surface layout", () => {
   const headerActions = (): SessionHeaderActions => ({
@@ -323,6 +320,7 @@ describe("session surface layout", () => {
     expect(container.querySelector("[data-surface-mode-toggle]")).toBeNull();
 
     render({ surfaceMode: "unified" });
+    settleGrid();
     expect(
       container.querySelector("[data-session-chat-tab]")?.textContent,
     ).toBe("My session");
@@ -376,6 +374,7 @@ describe("session surface layout", () => {
       },
       editorPanes: [terminalPane("first"), terminalPane("second")],
     });
+    settleGrid();
     const inputs = [...container.querySelectorAll("input")];
     // A non-zero duration must not turn a tab selection into a pane resize.
     layout().style.transitionDuration = "0.34s";
@@ -442,7 +441,7 @@ describe("session surface layout", () => {
     render({ surfaceMode: "unified", focusedId: "chat" });
     act(() => vi.advanceTimersByTime(200));
     render({ surfaceMode: "split" });
-    act(() => vi.advanceTimersByTime(150));
+    act(() => vi.advanceTimersByTime(duration.panel * 1000 / 2));
     expect(pane("tools").dataset.foldState).toBe("opening");
     expect(pane("tools").inert).toBe(false);
     act(() => vi.advanceTimersByTime(200));
@@ -451,7 +450,7 @@ describe("session surface layout", () => {
     vi.spyOn(window, "matchMedia").mockImplementation(
       (query) =>
         ({
-          matches: query === "(prefers-reduced-motion: reduce)",
+          matches: query === "(prefers-reduced-motion: reduce)", addEventListener() {}, removeEventListener() {},
         }) as MediaQueryList,
     );
     render({ surfaceMode: "unified", focusedId: "chat" });
@@ -677,7 +676,7 @@ describe("session surface layout", () => {
   it("switches full-view chrome immediately when grid transitions are disabled", () => {
     render();
     layout().style.transitionDuration = "0.34s";
-    layout().style.transitionProperty = "none";
+    vi.spyOn(window, "matchMedia").mockImplementation((query) => ({ matches: query === "(prefers-reduced-motion: reduce)", addEventListener() {}, removeEventListener() {} }) as unknown as MediaQueryList);
     render({ surfaceMode: "unified" });
     expect(layout().dataset.surfaceMode).toBe("unified");
     expect(isPaneResizing()).toBe(false);
@@ -689,7 +688,7 @@ describe("session surface layout", () => {
     vi.spyOn(window, "matchMedia").mockImplementation(
       (query) =>
         ({
-          matches: query === "(prefers-reduced-motion: reduce)",
+          matches: query === "(prefers-reduced-motion: reduce)", addEventListener() {}, removeEventListener() {},
         }) as MediaQueryList,
     );
     render({ surfaceMode: "unified" });
@@ -717,15 +716,15 @@ describe("session surface layout", () => {
     render();
     layout().style.transitionDuration = "0.34s";
     render({ surfaceMode: "unified" });
-    act(() => vi.advanceTimersByTime(300));
+    act(() => vi.advanceTimersByTime(duration.panel * 1000 / 2));
     render({ focusedId: "chat" });
-    act(() => vi.advanceTimersByTime(140));
+    act(() => vi.advanceTimersByTime(duration.panel * 1000 / 2 - 1));
     expect(layout().dataset.surfaceMode).toBe("split");
     expect(isPaneResizing()).toBe(true);
     expect(layout().style.gridTemplateColumns).toBe(
       "minmax(0, 1fr) minmax(0, 0fr)",
     );
-    act(() => vi.advanceTimersByTime(300));
+    act(() => vi.advanceTimersByTime(duration.panel * 1000 / 2 + 1));
     expect(layout().dataset.surfaceMode).toBe("unified");
     expect(isPaneResizing()).toBe(false);
   });

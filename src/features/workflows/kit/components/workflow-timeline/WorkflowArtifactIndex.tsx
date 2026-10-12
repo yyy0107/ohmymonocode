@@ -1,4 +1,5 @@
-import type { CSSProperties } from "react";
+import { motion as motionElement } from "motion/react";
+import { workflowEntry } from "./workflow-motion.js";
 import { ArrowUpRight as ArrowUpRightIcon, Ellipsis as EllipsisIcon } from "../../../../../shared/ui/icons";
 import {
   ArtifactDetail,
@@ -33,14 +34,9 @@ import { PILL_STAGGER_MS } from "./WorkflowTimeline.js";
  *
  * ⚠ 术语：artifact = 脚本经 `artifact.*` 发布给用户看的产出。
  */
-function enterStyle(enterDelayMs: number | undefined): CSSProperties | undefined {
-  return enterDelayMs === undefined || enterDelayMs <= 0
-    ? undefined
-    : { animationDelay: `${enterDelayMs}ms`, animationFillMode: "backwards" };
-}
 
 const LINE_CLASS =
-  "wf-line wf-arrive -mx-1.5 flex h-[26px] min-w-0 items-center gap-2 rounded-md bg-transparent px-1.5 text-left text-ui-sm outline-none";
+  "wf-line  -mx-1.5 flex h-[26px] min-w-0 items-center gap-2 rounded-md bg-transparent px-1.5 text-left text-ui-sm outline-none";
 
 function WorkflowArtifactLine({
   artifact,
@@ -67,7 +63,7 @@ function WorkflowArtifactLine({
   const showVersion = version >= 2;
 
   return (
-    <button
+    <motionElement.button {...workflowEntry(enterDelayMs)}
       aria-label={
         openable
           ? `${intl.formatMessage({ id: "chat.toolCall.workflow.run.artifacts.open" })}: ${title}`
@@ -82,7 +78,6 @@ function WorkflowArtifactLine({
       data-variant="line"
       disabled={!openable}
       onClick={openable ? () => onOpen(artifact.id) : undefined}
-      style={enterStyle(enterDelayMs)}
       title={tooltip ?? `${kindLabel} · ${title}`}
       type="button"
     >
@@ -102,8 +97,8 @@ function WorkflowArtifactLine({
       {showVersion || openable ? (
         <span className="grid size-3 shrink-0 place-items-center [&>*]:col-start-1 [&>*]:row-start-1">
           {showVersion ? (
-            // 按版本重挂：同 id 再发布时尾槽弹入一次（wf-mark 的进场），悬停时让位给 ↗。
-            <span
+            // 按版本重挂：同 id 再发布时尾槽弹入一次（的进场），悬停时让位给 ↗。
+            <motionElement.span {...workflowEntry(enterDelayMs)}
               className="wf-mark font-mono text-ui-xs leading-none tabular-nums text-foreground-subtlest"
               data-testid="workflow-artifact-tile-version"
               key={version}
@@ -116,7 +111,7 @@ function WorkflowArtifactLine({
                 { id: "chat.toolCall.workflow.run.artifacts.versionTail" },
                 { version: String(version) },
               )}
-            </span>
+            </motionElement.span>
           ) : null}
           {openable ? (
             <span
@@ -129,7 +124,7 @@ function WorkflowArtifactLine({
           ) : null}
         </span>
       ) : null}
-    </button>
+    </motionElement.button>
   );
 }
 
@@ -151,13 +146,12 @@ function WorkflowArtifactMoreLine({
   const { intl } = useWorkflowIntl();
   const openable = onOpen !== undefined;
   return (
-    <button
+    <motionElement.button {...workflowEntry(enterDelayMs)}
       className={cn(LINE_CLASS, openable ? "wf-line-open cursor-pointer" : "cursor-default")}
       data-testid={testId}
       data-variant="more"
       disabled={!openable}
       onClick={onOpen}
-      style={enterStyle(enterDelayMs)}
       title={intl.formatMessage({ id: "chat.toolCall.workflow.openRunDetails" })}
       type="button"
     >
@@ -180,7 +174,7 @@ function WorkflowArtifactMoreLine({
           </span>
         </span>
       ) : null}
-    </button>
+    </motionElement.button>
   );
 }
 

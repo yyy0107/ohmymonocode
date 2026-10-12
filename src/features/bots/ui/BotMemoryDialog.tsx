@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useLayoutEffect, useState } from "react";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { Modal } from "../../../shared/ui/Modal";
@@ -22,10 +23,9 @@ export function BotMemoryDialog({
   useLayoutEffect(() => {
     if (open) setDraft(text);
   }, [open, text]);
-  if (!open) return null;
   const changed = !!draft.trim() && draft !== text;
   return (
-    <Modal
+    <PresenceBoundary>{open ? <Modal
       title={t("Memory")}
       description={meta}
       size="sm"
@@ -80,6 +80,6 @@ export function BotMemoryDialog({
           </button>
         </footer>
       </div>
-    </Modal>
+    </Modal> : null}</PresenceBoundary>
   );
 }

@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../shared/ui/PresenceBoundary";
 import { translate } from "../shared/i18n/language";
 import {
 WorkflowAppContext
@@ -662,7 +663,7 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
                 />
               ) : null}
 
-              {appDialog ? (
+              <PresenceBoundary>{appDialog ? (
                 <AppViewDialog
                   title={translate(appViewTitle(appDialog))}
                   onClose={closeAppDialog}
@@ -672,8 +673,8 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
                 >
                   {renderAppView(appDialog, true)}
                 </AppViewDialog>
-              ) : null}
-              {sessionDeleteDialog && (
+              ) : null}</PresenceBoundary>
+              <PresenceBoundary>{sessionDeleteDialog && (
                 <DeleteSessionDialog
                   title={sessionDeleteDialog.title}
                   unusedWorktree={sessionDeleteDialog.unusedWorktree}
@@ -682,7 +683,7 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
                     setSessionDeleteDialog(undefined);
                   }}
                 />
-              )}
+              )}</PresenceBoundary>
               <HarnessUpdateNotice
                 topOffset={
                   12 + (reminderNoticesHeight ? reminderNoticesHeight + 8 : 0)
@@ -712,7 +713,7 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
                 onOpenSettings={() => openSettings("general", "notifications")}
                 onHeightChange={setReminderNoticesHeight}
               />
-              {manualUpdateOpen && updateStatus.actionable ? (
+              <PresenceBoundary>{manualUpdateOpen && updateStatus.actionable ? (
                 <UpdateAvailableDialog
                   snapshot={updateStatus.snapshot}
                   onInstall={updateStatus.install}
@@ -722,14 +723,14 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
                   }}
                   onClose={() => setManualUpdateOpen(false)}
                 />
-              ) : null}
-              {whatsNewVersion ? (
+              ) : null}</PresenceBoundary>
+              <PresenceBoundary>{whatsNewVersion ? (
                 <WhatsNewDialog
                   version={whatsNewVersion}
                   onClose={() => setWhatsNewVersion(null)}
                 />
-              ) : null}
-              {remoteProjectDialogOpen ? (
+              ) : null}</PresenceBoundary>
+              <PresenceBoundary>{remoteProjectDialogOpen ? (
                 <AddRemoteProjectDialog
                   onCancel={() => setRemoteProjectDialogOpen(false)}
                   onOpen={(key) => {
@@ -737,14 +738,14 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
                     onSelectProject(key);
                   }}
                 />
-              ) : null}
-              {providerSignInRequest ? (
+              ) : null}</PresenceBoundary>
+              <PresenceBoundary>{providerSignInRequest ? (
                 <ProviderSignInDialog
                   key={providerSignInRequest.key}
                   harness={providerSignInRequest.harness}
                   onClose={() => setProviderSignInRequest(null)}
                 />
-              ) : null}
+              ) : null}</PresenceBoundary>
             </div>
             <TranscriptPoolOutlet pool={transcriptPool} />
           </SessionHeaderActionsContext.Provider>

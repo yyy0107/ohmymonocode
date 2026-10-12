@@ -1,3 +1,7 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
+import { motion as motionElement } from "motion/react";
+import { panelTransition, immediateTransition } from "../../../shared/motion/tokens";
+import { reducedMotionQuery as motionPreferenceQuery } from "../../../shared/lib/reducedMotion";
 import { AttachmentList } from "../../sessions/ui/AttachmentList";
 import { BotAttachmentPreview } from "./BotAttachmentPreview";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -38,7 +42,7 @@ export function DesktopBotsMessageMenu({
   onClose,
 }: BotMessageMenuProps) {
   const { t } = useTranslation();
-  return open && point ? (
+  return <PresenceBoundary propagate>{open && point ? (
     <ExplorerMenu
       x={point.x}
       y={point.y}
@@ -47,7 +51,7 @@ export function DesktopBotsMessageMenu({
       onPick={onReply}
       onClose={onClose}
     />
-  ) : null;
+  ) : null}</PresenceBoundary>;
 }
 
 function DesktopBotsLegacyHeader({
@@ -177,7 +181,8 @@ function DesktopBotsLegacySettingsPanel({
   if (!open && foldState === "closed") return null;
   const title = t(initialSetup ? "Set up assistant" : "Assistant settings");
   return (
-    <section
+    <motionElement.section
+      initial={false} animate={{ x: open ? 0 : "100%", opacity: open ? 1 : 0 }} transition={motionPreferenceQuery().matches ? immediateTransition : panelTransition} onAnimationComplete={finish}
       ref={page}
       className="assistant-settings-page"
       data-fold-state={foldState}
@@ -185,9 +190,7 @@ function DesktopBotsLegacySettingsPanel({
       aria-hidden={!open || undefined}
       tabIndex={-1}
       inert={!open}
-      onAnimationEnd={(e) => {
-        if (e.target === e.currentTarget) finish();
-      }}
+
       onKeyDown={(e) => {
         if (e.key === "Escape" && !initialSetup) {
           e.preventDefault();
@@ -211,7 +214,7 @@ function DesktopBotsLegacySettingsPanel({
         <strong>{title}</strong>
       </header>
       <div className="assistant-settings-content">{children}</div>
-    </section>
+    </motionElement.section>
   );
 }
 

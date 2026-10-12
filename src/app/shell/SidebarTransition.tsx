@@ -1,3 +1,6 @@
+import { motion } from "motion/react";
+import { duration, ease, panelTransition, immediateTransition } from "../../shared/motion/tokens";
+import { useMotionPreference } from "../../shared/motion/useMotionPreference";
 import {
   memo,
   useCallback,
@@ -20,9 +23,9 @@ type Props = {
 };
 
 // The sidebar and its replacement rail must move with the same timing.
-export const SIDEBAR_TRANSITION_MS = 280;
+export const SIDEBAR_TRANSITION_MS = duration.panel * 1000;
 export const SIDEBAR_RAIL_WIDTH = 48;
-export const SIDEBAR_TRANSITION_EASING = "cubic-bezier(0.2, 0.65, 0.3, 1)";
+export const SIDEBAR_TRANSITION_EASING = `cubic-bezier(${ease.join(", ")})`;
 export const SIDEBAR_MOTION_STYLE = {
   "--collapse-duration": `${SIDEBAR_TRANSITION_MS}ms`,
   "--collapse-easing": SIDEBAR_TRANSITION_EASING,
@@ -53,18 +56,22 @@ export function SidebarRail({
   open: boolean;
   children: ReactNode;
 }) {
+  const reduced = useMotionPreference();
   const { foldState, finish } = useCollapseMotion(open, SIDEBAR_TRANSITION_MS);
   const hasOpened = useRef(open);
   if (open) hasOpened.current = true;
   return (
-    <div
+    <motion.div
+      initial={false}
+      animate={{ gridTemplateColumns: open ? `${SIDEBAR_RAIL_WIDTH}px` : "0px" }}
+      transition={reduced ? immediateTransition : panelTransition}
+      onAnimationComplete={finish}
       data-sidebar-rail
       data-fold-state={foldState}
       className="animated-collapse-size sidebar-rail relative grid h-full min-h-0 shrink-0"
       data-expanded={open}
       style={{
         ...SIDEBAR_MOTION_STYLE,
-        gridTemplateColumns: open ? `${SIDEBAR_RAIL_WIDTH}px` : "0px",
       }}
       aria-hidden={!open || undefined}
       inert={!open || undefined}
@@ -72,12 +79,6 @@ export function SidebarRail({
       <div
         className="sidebar-rail-content absolute inset-y-0 left-0 overflow-hidden"
         style={{ width: SIDEBAR_RAIL_WIDTH }}
-        onTransitionEnd={(event) => {
-          if (
-            event.target === event.currentTarget &&
-            event.propertyName === "transform"
-          ) finish();
-        }}
       >
         <div className="h-full" hidden={!open && foldState === "closed"}>
           <SurfaceVisibilityContext.Provider value={open}>
@@ -89,7 +90,7 @@ export function SidebarRail({
           </SurfaceVisibilityContext.Provider>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -102,17 +103,13 @@ export function SidebarTransition({
   resizeHandle,
   children,
 }: Props) {
+  const reduced = useMotionPreference();
   const { foldState, finish } = useCollapseMotion(open, SIDEBAR_TRANSITION_MS);
   const hasOpened = useRef(open);
   if (open) hasOpened.current = true;
-  const shell = useRef<HTMLDivElement>(null);
-  const openRef = useRef(open);
-  openRef.current = open;
   const attach = useCallback(
     (pane: HTMLDivElement | null) => {
-      shell.current = pane;
       setPaneRef(pane);
-      if (pane && !openRef.current) pane.style.width = "0px";
     },
     [setPaneRef],
   );
@@ -120,12 +117,15 @@ export function SidebarTransition({
   useLayoutEffect(() => {
     if (open) return;
     finishDrag();
-    // Completing a drag commits its real width; the closed shell stays at zero.
-    if (shell.current) shell.current.style.width = "0px";
   }, [open, finishDrag]);
 
   return (
-    <div
+    <motion.div
+      layout
+      initial={false}
+      animate={{ width: open ? width : 0 }}
+      transition={dragging || reduced ? immediateTransition : panelTransition}
+      onAnimationComplete={finish}
       ref={attach}
       data-sidebar-transition
       data-fold-state={foldState}
@@ -134,19 +134,15 @@ export function SidebarTransition({
       aria-hidden={!open || undefined}
       inert={!open || undefined}
       className="animated-collapse-size sidebar-transition relative h-full min-h-0 shrink-0"
-      style={{ ...SIDEBAR_MOTION_STYLE, width: open ? width : 0 }}
+      style={SIDEBAR_MOTION_STYLE}
     >
-      <div
+      <motion.div
+        initial={false} animate={{ x: open ? 0 : -SIDEBAR_RAIL_WIDTH }}
+        transition={dragging || reduced ? immediateTransition : panelTransition}
         className="sidebar-transition-clip absolute inset-y-0 h-full min-h-0 overflow-hidden"
         style={{
           width: dragging ? "100%" : width,
-          left: open ? 0 : -SIDEBAR_RAIL_WIDTH,
-        }}
-        onTransitionEnd={(event) => {
-          if (
-            event.target === event.currentTarget &&
-            event.propertyName === "transform"
-          ) finish();
+          left: 0,
         }}
       >
         <div
@@ -161,8 +157,8 @@ export function SidebarTransition({
             ) : null}
           </SurfaceVisibilityContext.Provider>
         </div>
-      </div>
+      </motion.div>
       {open ? resizeHandle : null}
-    </div>
+    </motion.div>
   );
 }

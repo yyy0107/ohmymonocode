@@ -1,3 +1,6 @@
+import { AnimatePresence, motion } from "motion/react";
+import { popTransition, immediateTransition, motionDistance } from "../../../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../../../shared/motion/useMotionPreference";
 /**
  * 轻量 toast 提示
  *
@@ -68,7 +71,6 @@ const pendingToastIds = new Set<number>();
 const pendingToastUpdates = new Map<number, ToastUpdate>();
 const dismissedBeforeMountToastIds = new Set<number>();
 const DEFAULT_TOAST_DURATION_MS = 3000;
-const TOAST_TRANSITION_DURATION_MS = 200;
 
 function ensureHost() {
   if (addToast) {
@@ -238,20 +240,16 @@ function ToastMessage({
   onDone: (id: number) => void;
   isBottom?: boolean;
 }) {
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    // 触发进入动画
-    requestAnimationFrame(() => setVisible(true));
-
     if (!Number.isFinite(item.durationMs) || item.durationMs <= 0) {
       return undefined;
     }
 
     const timer = setTimeout(() => {
       setVisible(false);
-      // 等退出动画结束后移除
-      setTimeout(() => onDone(item.id), TOAST_TRANSITION_DURATION_MS);
+
     }, item.durationMs);
 
     return () => clearTimeout(timer);
@@ -263,7 +261,7 @@ function ToastMessage({
   const body = bodyLines.join("\n").trim();
   const dismissWithTransition = () => {
     setVisible(false);
-    window.setTimeout(() => onDone(item.id), TOAST_TRANSITION_DURATION_MS);
+
   };
   const handleAction = () => {
     item.onAction?.();
@@ -271,7 +269,7 @@ function ToastMessage({
   };
 
   return (
-    <ToastMessageView
+    <AnimatePresence onExitComplete={() => onDone(item.id)}>{visible ? <ToastMessageView
       item={item}
       visible={visible}
       isBottom={isBottom}
@@ -279,7 +277,7 @@ function ToastMessage({
       body={body}
       onAction={handleAction}
       onDismiss={dismissWithTransition}
-    />
+    /> : null}</AnimatePresence>
   );
 }
 
@@ -303,31 +301,25 @@ export function ToastMessageView({
   const isUpdate = item.variant === "update";
   const isNotice = item.variant === "info" || item.variant === "warning";
   const isTopRight = item.position === "top-right";
+  const reduced = useMotionPreference();
   const [fallbackTitle, ...fallbackBodyLines] = item.message.split("\n");
   const displayTitle = title ?? fallbackTitle;
   const displayBody = body ?? fallbackBodyLines.join("\n").trim();
 
   return (
-    <div
+    <motion.div
+      initial={reduced ? false : { opacity: 0, x: isTopRight ? "100%" : 0, y: isTopRight ? 0 : isBottom ? motionDistance.pop : -motionDistance.pop }}
+      animate={{ opacity: visible ? 1 : 0, x: 0, y: 0 }}
+      exit={{ opacity: 0, x: isTopRight ? "100%" : 0, y: isTopRight ? 0 : isBottom ? motionDistance.pop : -motionDistance.pop }}
+      transition={reduced ? immediateTransition : popTransition}
       className={cn(
-        "rounded-2xl border bg-toast/60 text-ui-base shadow-lg backdrop-blur-xl transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.77,0,0.175,1)] motion-reduce:transform-none motion-reduce:transition-opacity",
+        "rounded-2xl border bg-toast/60 text-ui-base shadow-lg backdrop-blur-xl",
         isUpdate
           ? "origin-bottom-left w-[min(300px,calc(100vw-1rem))] max-w-[min(300px,calc(100vw-1rem))] border-popover-border text-foreground shadow-lg"
           : isNotice
             ? "w-[min(536px,calc(100vw-2rem))] border-border text-foreground"
             : "border-border px-4 py-3 text-foreground whitespace-pre-line",
-        // 右上角 Toast 曾复用顶部居中的纵向缩放动画，无法表达其从右侧进入的空间关系。
-        isTopRight
-          ? visible
-            ? "translate-x-0 opacity-100"
-            : "translate-x-[calc(100%+1rem)] opacity-0"
-          : isBottom
-            ? visible
-              ? "translate-y-0 scale-100 opacity-100"
-              : "translate-y-1 scale-[0.98] opacity-0"
-            : visible
-              ? "translate-y-0 scale-100 opacity-100"
-              : "-translate-y-1 scale-[0.98] opacity-0",
+
       )}
     >
       {isUpdate ? (
@@ -397,7 +389,7 @@ export function ToastMessageView({
       ) : (
         item.message
       )}
-    </div>
+    </motion.div>
   );
 }
 

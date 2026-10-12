@@ -1,3 +1,4 @@
+import { startMotionClock, stopMotionClock, finishMotion } from "../../tests/helpers/sharedMotionClock";
 // @vitest-environment happy-dom
 import { act, createElement, Fragment, StrictMode, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -768,6 +769,7 @@ let recentId: string;
 
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  startMotionClock();
   vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => {});
   localStorage.clear();
   setUiLanguage("en");
@@ -796,6 +798,7 @@ afterEach(async () => {
   await act(async () => root.unmount());
   activatePreferenceStore(undefined);
   container.remove();
+  stopMotionClock();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   setUiLanguage("en");
@@ -828,6 +831,7 @@ async function mount(onlyApp = false, side: DockSide = "bottom", seed?: Partial<
     ),
   );
   await act(async () => vi.dynamicImportSettled());
+  await act(async () => finishMotion());
 }
 
 async function click(selector: string) {
@@ -1137,14 +1141,7 @@ describe("terminal dock disclosure motion", () => {
     container.querySelector<HTMLElement>("[data-terminal-dock-layout]")!;
   const terminal = () =>
     container.querySelector<HTMLElement>("[data-terminal-dock]")!;
-  const finish = () =>
-    act(() => {
-      const event = new Event("transitionend", { bubbles: true });
-      Object.defineProperty(event, "propertyName", {
-        value: "grid-template-rows",
-      });
-      grid().dispatchEvent(event);
-    });
+  const finish = () => act(async () => finishMotion());
 
   it("keeps dock animation completion from rendering App again", async () => {
     await mount();
@@ -1157,7 +1154,7 @@ describe("terminal dock disclosure motion", () => {
       const renders = mocks.notificationFocus.mock.calls.length;
       expect(renders).toBeGreaterThan(0);
       expect(grid().dataset.foldState).toBe(open ? "opening" : "closing");
-      finish();
+      await finish();
       expect(grid().dataset.foldState).toBe(open ? "open" : "closed");
       expect(mocks.notificationFocus).toHaveBeenCalledTimes(renders);
     }
@@ -1174,15 +1171,15 @@ describe("terminal dock disclosure motion", () => {
       await click("[data-terminal-hide]");
       expect(grid().dataset.foldState).toBe("closing");
       expect(grid().style.gridTemplateAreas).toBe(areas);
+      expect(node.parentElement?.inert).toBe(true);
+      expect(node.dataset.visible).toBe("false");
+      expect(node.closest(".hidden")).toBeNull();
+      await finish();
       expect(
         side === "bottom" || side === "top"
           ? grid().style.gridTemplateRows
           : grid().style.gridTemplateColumns,
       ).toContain("0px");
-      expect(node.parentElement?.inert).toBe(true);
-      expect(node.dataset.visible).toBe("false");
-      expect(node.closest(".hidden")).toBeNull();
-      finish();
       expect(grid().dataset.foldState).toBe("closed");
       expect(node.closest(".hidden")).not.toBeNull();
       await click('[data-command="Terminal: Toggle Dock"]');
@@ -1190,7 +1187,7 @@ describe("terminal dock disclosure motion", () => {
       expect(terminal()).toBe(node);
       expect(node.dataset.visible).toBe("true");
       expect(node.closest(".hidden")).toBeNull();
-      finish();
+      await finish();
       expect(grid().dataset.foldState).toBe("open");
     },
   );
@@ -1204,10 +1201,11 @@ describe("terminal dock disclosure motion", () => {
     expect(grid().style.transitionProperty).toBe("");
     await click("[data-terminal-hide]");
     expect(grid().dataset.foldState).toBe("closing");
+    await act(async () => finishMotion(8));
     await click('[data-command="Terminal: Toggle Dock"]');
     expect(grid().dataset.foldState).toBe("opening");
+    await finish();
     expect(grid().style.gridTemplateRows).toContain("280px");
-    finish();
     expect(grid().dataset.foldState).toBe("open");
   });
 
@@ -1335,10 +1333,7 @@ describe("App workspace app views", () => {
       expect(toggle.getAttribute("aria-pressed") === "true").toBe(open);
       const rail = container.querySelector<HTMLElement>("[data-sidebar-rail]")!;
       expect(rail.dataset.foldState).toBe(open ? "closing" : "opening");
-      await act(async () => rail.querySelector(".sidebar-rail-content")!.dispatchEvent(Object.assign(
-        new Event("transitionend", { bubbles: true }),
-        { propertyName: "transform" },
-      )));
+      await act(async () => finishMotion());
       expect(rail.dataset.foldState).toBe(open ? "closed" : "open");
       expect(mocks.notificationFocus).toHaveBeenCalledTimes(1);
     }
@@ -1383,7 +1378,7 @@ describe("App workspace app views", () => {
     expect(fold()?.inert).toBe(false);
     expect(container.querySelector('[data-activity-bar="sidebar-top"]')).toBe(menu);
     await act(async () => toggle.click());
-    act(() => fold()!.dispatchEvent(new Event("animationend", { bubbles: true })));
+    await act(async () => finishMotion());
     expect(fold()?.hidden).toBe(true);
     expect(container.querySelector('[data-activity-bar="sidebar-top"]')).toBe(menu);
     await act(async () => toggle.click());

@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../shared/ui/PresenceBoundary";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowDownCircle,
@@ -271,7 +272,7 @@ export function ActivityBar({
           side={popoverSide}
         />
       ) : null}
-      {popup === "agents" ? (
+      <PresenceBoundary propagate>{popup === "agents" ? (
         <Popover
           anchor={agentsAnchor}
           side={popoverSide}
@@ -296,8 +297,8 @@ export function ActivityBar({
             }}
           />
         </Popover>
-      ) : null}
-      {popup === "updates" && actionable && updateStatus ? (
+      ) : null}</PresenceBoundary>
+      <PresenceBoundary>{popup === "updates" && actionable && updateStatus ? (
         <UpdateAvailableDialog
           snapshot={updateStatus.snapshot}
           onInstall={updateStatus.install}
@@ -310,8 +311,8 @@ export function ActivityBar({
             updatesAnchor.current?.focus();
           }}
         />
-      ) : null}
-      {popup === "updates" && showUpdates && !actionable ? (
+      ) : null}</PresenceBoundary>
+      <PresenceBoundary propagate>{popup === "updates" && showUpdates && !actionable ? (
         <Popover
           anchor={updatesAnchor}
           side={popoverSide}
@@ -339,8 +340,8 @@ export function ActivityBar({
             />
           ) : null}
         </Popover>
-      ) : null}
-      {visible && inboxMenu ? (
+      ) : null}</PresenceBoundary>
+      <PresenceBoundary propagate>{visible && inboxMenu ? (
         <InboxNotificationMenu
           {...inboxMenu}
           projectPaths={[...collectRailProjects(recents, cwd).keys()]}
@@ -350,7 +351,7 @@ export function ActivityBar({
             inboxTrigger.current?.focus();
           }}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
     </nav>
   );
 }

@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { MOTION, SPRINGS, springDuration, springEasing } from "../shared/lib/springs";
 
 const metrics = readFileSync("src/styles/omb-metrics.css", "utf8");
 const mobile = readFileSync("src/mobile/motion.css", "utf8");
@@ -36,23 +35,6 @@ function selectors(css: string) {
 }
 
 describe("skinned desktop metrics", () => {
-  it("keeps desktop springs in sync with the generator and the phone", () => {
-    for (const [name, spring] of Object.entries(SPRINGS)) {
-      expect(token(metrics, `omb-spring-${name}-duration`)).toEqual([
-        `${springDuration(spring)}ms`,
-      ]);
-      expect(token(metrics, `omb-spring-${name}`)).toContain(springEasing(spring));
-      const curve = (css: string, prefix: string) =>
-        token(css, `${prefix}-spring-${name}`)?.filter((value) =>
-          value.startsWith("linear("),
-        );
-      expect(curve(metrics, "omb")).toEqual(curve(mobile, "mobile"));
-    }
-    // Desktop press/send amplitudes are intentionally independent of mobile.
-    expect(token(metrics, "omb-motion-press")).toEqual([`${MOTION.pressMs}ms`]);
-    expect(token(metrics, "omb-motion-shift")).toEqual([`${MOTION.shiftPx}px`]);
-  });
-
   it("only applies under a desktop skin", () => {
     for (const selector of selectors(metrics)) {
       for (const part of selectorParts(selector)) {

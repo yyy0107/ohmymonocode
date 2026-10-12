@@ -1,3 +1,6 @@
+import { AnimatePresence, motion, useIsPresent, type HTMLMotionProps } from "motion/react";
+import { immediateTransition, popAnimate, popExit, popInitial, popTransition } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
@@ -76,7 +79,7 @@ export function LinkedWorkItemUpdateNotice({
   useEffect(() => {
     announceLinkedActivity(sessionId, card);
   }, [sessionId, card]);
-  if (!card || card.status === "loading") return null;
+  if (!card || card.status === "loading") return <AnimatePresence propagate />;
 
   const KindIcon = card.kind === "pr" ? GitPullRequest : CircleDot;
   const kindLabel = card.kind === "pr" ? "Pull request" : "Issue";
@@ -136,7 +139,8 @@ export function LinkedWorkItemUpdateNotice({
   };
 
   return (
-    <section
+    <AnimatePresence propagate>
+    <NoticeFrame key="linked-update"
       aria-label={uiT("New activity on {value0} {value1}", {
         value0: String(kindLabel),
         value1: String(card.number),
@@ -306,6 +310,17 @@ export function LinkedWorkItemUpdateNotice({
           </button>
         </div>
       </div>
-    </section>
+    </NoticeFrame>
+    </AnimatePresence>
   );
+}
+
+function NoticeFrame(props: HTMLMotionProps<"section">) {
+  const reduced = useMotionPreference();
+  const present = useIsPresent();
+  return <motion.section {...props}
+    initial={reduced ? false : popInitial} animate={popAnimate} exit={popExit}
+    transition={reduced ? immediateTransition : popTransition}
+    inert={!present} aria-hidden={!present || undefined}
+  />;
 }

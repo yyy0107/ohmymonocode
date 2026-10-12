@@ -1,11 +1,8 @@
+import { motion } from "motion/react";
+import { panelTransition } from "../../../shared/motion/tokens";
 import { useMemo, useRef, type CSSProperties } from "react";
 import { useCelebrationBox, useTurnCelebration } from "./turnCelebration";
 
-// Last mark's delay plus its flight through the bubble, with fade slack.
-const CELEBRATE_MS = 3200;
-const FIRST_STEP_MS = 250;
-const STEP_GAP_MS = 170;
-const STEP_RISE_MS = 1650;
 const EMBER_COUNT = 6;
 const CHECK_PATH = "M3.2 6.3 5.1 8.2 8.8 4.2";
 
@@ -18,12 +15,10 @@ function stepX(index: number, count: number): number {
   return ((index + 0.5) / count) * 100;
 }
 
-function makeEmbers(stepSpanMs: number) {
+function makeEmbers() {
   return Array.from({ length: EMBER_COUNT }, (_, i) => ({
     x: Math.min(95, Math.max(5, ((i + Math.random()) / EMBER_COUNT) * 100)),
     size: 2.5 + Math.random() * 2,
-    delay: FIRST_STEP_MS + Math.random() * (stepSpanMs + 300),
-    duration: 1000 + Math.random() * 600,
     drift: (Math.random() - 0.5) * 20,
   }));
 }
@@ -37,27 +32,24 @@ export function PlanStepsBurst({
   startedAt?: number;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const active = useTurnCelebration(blockId, startedAt, CELEBRATE_MS);
+  const { active, opacity, y } = useTurnCelebration(blockId, startedAt);
   const box = useCelebrationBox(ref, active);
   const count = box ? planStepCount(box.width) : 0;
-  const spanMs = (count - 1) * STEP_GAP_MS;
   // Parent re-renders mid-burst must not reshuffle the embers.
-  const embers = useMemo(() => makeEmbers(spanMs), [spanMs]);
+  const embers = useMemo(makeEmbers, []);
 
   if (!active) return null;
   return (
-    <span aria-hidden ref={ref} className="plan-steps">
+    <motion.span aria-hidden ref={ref} className="plan-steps" style={{ opacity, y }}>
       {box ? (
         <>
           {Array.from({ length: count }, (_, index) => (
-            <span
-              key={index}
+            <motion.span
+              key={index} initial={false} animate={{ y: ["0%", "-100%"] }} transition={panelTransition}
               className="plan-step"
               style={
                 {
                   "--x": `${stepX(index, count)}%`,
-                  "--delay": `${FIRST_STEP_MS + index * STEP_GAP_MS}ms`,
-                  "--duration": `${STEP_RISE_MS}ms`,
                   "--drift": `${index % 2 === 0 ? -8 : 8}px`,
                 } as CSSProperties
               }
@@ -68,27 +60,25 @@ export function PlanStepsBurst({
                   <path d={CHECK_PATH} />
                 </svg>
               </span>
-            </span>
+            </motion.span>
           ))}
           {embers.map((ember, index) => (
-            <span
-              key={`ember-${index}`}
+            <motion.span
+              key={`ember-${index}`} initial={false} animate={{ y: ["0%", "-100%"], x: [0, ember.drift] }} transition={panelTransition}
               className="plan-step-ember"
               style={
                 {
                   "--x": `${ember.x}%`,
                   "--size": `${ember.size}px`,
-                  "--delay": `${ember.delay}ms`,
-                  "--duration": `${ember.duration}ms`,
                   "--drift": `${ember.drift}px`,
                 } as CSSProperties
               }
             >
               <span className="plan-step-ember-glyph" />
-            </span>
+            </motion.span>
           ))}
         </>
       ) : null}
-    </span>
+    </motion.span>
   );
 }

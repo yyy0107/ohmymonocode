@@ -1,5 +1,5 @@
+import { DisclosureChevron } from "../../../shared/ui/DisclosureChevron";
 import { useEffect, useId, useState } from "react";
-import { ChevronDown } from "../../../shared/ui/icons";
 import {
   remoteRequest,
   useRemoteMachines,
@@ -41,9 +41,9 @@ export function TitleModelSettings({
         className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left text-[13px] font-medium text-content transition-colors hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
       >
         {t("Model API configuration")}
-        <ChevronDown
+        <DisclosureChevron expanded={expanded} direction="down"
           aria-hidden="true"
-          className={`size-4 shrink-0 transition-transform duration-300 motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`}
+          className="size-4 shrink-0"
         />
       </button>
       <div id={contentId}>

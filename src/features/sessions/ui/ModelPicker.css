@@ -39,7 +39,6 @@
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 160ms var(--motion-ease-out);
   /* Feather all four sides so the tiles dissolve into the row instead of
      stopping hard at its edge; intersecting the two fades rounds the corners. */
   -webkit-mask-image:
@@ -96,78 +95,12 @@
 }
 
 .codex-effort-option:is(:hover, :focus-visible, .bg-selection)
-  > .codex-effort-tiles {
-  animation: codex-effort-tiles-clear 5000ms linear 1 both;
-}
-
-.codex-effort-option:is(:hover, :focus-visible, .bg-selection)
   .codex-effort-tile--filled {
-  animation: codex-effort-tile-fill 1400ms ease-out 3 both;
-  animation-delay: calc(var(--tile-distance) * 420ms);
-  will-change: background-color;
+  background-color: color-mix(in srgb, var(--codex-effort-color) 32%, transparent);
 }
 
 .codex-effort-option:is(:hover, :focus-visible, .bg-selection)::after {
-  animation: codex-effort-edge-ripple 5000ms ease-in-out 1 both;
   will-change: box-shadow, opacity;
-}
-
-@keyframes codex-effort-tiles-clear {
-  0%,
-  92% {
-    opacity: 1;
-    visibility: visible;
-  }
-
-  100% {
-    opacity: 0;
-    visibility: hidden;
-  }
-}
-
-@keyframes codex-effort-tile-fill {
-  0%,
-  100% {
-    background-color: transparent;
-  }
-
-  26% {
-    background-color: var(--codex-effort-color);
-  }
-
-  52% {
-    background-color: color-mix(
-      in srgb,
-      var(--codex-effort-color) 18%,
-      transparent
-    );
-  }
-}
-
-@keyframes codex-effort-edge-ripple {
-  0%,
-  12%,
-  26%,
-  40%,
-  54%,
-  68%,
-  82% {
-    opacity: 0.3;
-    box-shadow: inset 0 0 4px 0 transparent;
-  }
-
-  19%,
-  47%,
-  75% {
-    opacity: 0.85;
-    box-shadow: inset 0 0 12px 1px
-      color-mix(in srgb, var(--codex-effort-color) 55%, transparent);
-  }
-
-  100% {
-    opacity: 0;
-    box-shadow: inset 0 0 4px 0 transparent;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -219,34 +152,9 @@
    pop from the bottom. Forward and back alternate, so two identical keyframe
    names restart the animation on every switch. Only the start is filled so
    the closing transition still owns the transform afterwards. */
-.composer-popover[data-model-picker][data-view-motion="forward"]:not(
-    [data-fold-state="closing"]
-  ) {
-  animation: model-picker-pop-a 170ms var(--motion-ease-out) backwards;
-}
-
-.composer-popover[data-model-picker][data-view-motion="back"]:not(
-    [data-fold-state="closing"]
-  ) {
-  animation: model-picker-pop-b 170ms var(--motion-ease-out) backwards;
-}
 
 .composer-popover[data-model-picker] {
   transform-origin: 50% 100%;
-}
-
-@keyframes model-picker-pop-a {
-  from {
-    opacity: 0;
-    transform: translateY(4px) scale(0.98);
-  }
-}
-
-@keyframes model-picker-pop-b {
-  from {
-    opacity: 0;
-    transform: translateY(4px) scale(0.98);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

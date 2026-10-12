@@ -2,11 +2,10 @@
 import { act, createElement, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { startMotionClock, stopMotionClock, motionFrame, finishMotion } from "../../../../tests/helpers/sharedMotionClock";
 import { useBotMessageSwipe } from "./useBotMessageSwipe";
 
 let root: Root, node: HTMLDivElement;
-let nextFrame: number;
-let frames: Map<number, FrameRequestCallback>;
 const reply = vi.fn();
 const cancelHold = vi.fn();
 
@@ -44,20 +43,7 @@ function Conversation({ active = true }: { active?: boolean }) {
 
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  frames = new Map();
-  nextFrame = 0;
-  vi.stubGlobal(
-    "requestAnimationFrame",
-    vi.fn((callback: FrameRequestCallback) => {
-      const id = ++nextFrame;
-      frames.set(id, callback);
-      return id;
-    }),
-  );
-  vi.stubGlobal(
-    "cancelAnimationFrame",
-    vi.fn((id: number) => frames.delete(id)),
-  );
+  startMotionClock();
   reply.mockClear();
   cancelHold.mockClear();
   node = document.createElement("div");
@@ -67,6 +53,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   node.remove();
+  stopMotionClock();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -109,13 +96,9 @@ function touch(target: Element, type: string, x: number) {
     ),
   );
 }
-function frame() {
-  const callbacks = [...frames.values()];
-  frames.clear();
-  act(() => callbacks.forEach((callback) => callback(0)));
-}
+function frame() { act(() => motionFrame()); }
 
-it("coalesces touch moves and updates only visible rows without restyling the history", () => {
+it("follows touch moves through Motion values and updates only visible rows without restyling the history", async () => {
   const { log, rows, bounds } = mount();
   touch(log, "pointerdown", 240);
   touch(log, "pointermove", 220);
@@ -125,15 +108,14 @@ it("coalesces touch moves and updates only visible rows without restyling the hi
   );
   expect(measured).toBeLessThan(20);
   for (let x = 210; x >= 150; x -= 5) touch(log, "pointermove", x);
-  expect(frames.size).toBe(1);
-  expect(log.querySelectorAll('[style*="translate3d"]')).toHaveLength(0);
+  expect(log.querySelectorAll('[style*="translateX"]')).toHaveLength(0);
   frame();
   expect(log.style.cssText).toBe("");
   expect(log.querySelectorAll('[data-message-swipe="time"]')).toHaveLength(3);
-  expect(log.querySelectorAll('[style*="translate3d"]')).toHaveLength(6);
+  expect(log.querySelectorAll('[style*="translateX"]')).toHaveLength(6);
   expect(
     rows[190].querySelector<HTMLElement>(".assistant-message")!.style.transform,
-  ).toBe("translate3d(-48px, 0, 0)");
+  ).toBe("translateX(-48px)");
   expect(rows[0].querySelector("[style]")).toBeNull();
   expect(rows[399].querySelector("[style]")).toBeNull();
   touch(log, "pointermove", 210);
@@ -143,24 +125,25 @@ it("coalesces touch moves and updates only visible rows without restyling the hi
   );
   expect(
     rows[190].querySelector<HTMLElement>(".assistant-message")!.style.transform,
-  ).toBe("translate3d(0px, 0, 0)");
+  ).toBe("none");
   touch(log, "pointerup", 210);
+  await act(async () => { await finishMotion(120); });
   expect(log.querySelector("[data-message-swipe]")).toBeNull();
-  expect(log.querySelectorAll('[style*="translate3d"]')).toHaveLength(0);
+  expect(log.querySelectorAll('[style*="translateX"]')).toHaveLength(0);
 });
 
-it("drops queued frames on release and hiding, and accepts another drag immediately", () => {
+it("settles on release and hiding, and accepts another drag immediately", async () => {
   const { log, rows } = mount();
   touch(log, "pointerdown", 240);
   touch(log, "pointermove", 160);
   touch(log, "pointerup", 160);
-  frame();
-  expect(log.querySelectorAll('[style*="translate3d"]')).toHaveLength(0);
+  await act(async () => { await finishMotion(120); });
+  expect(log.querySelectorAll('[style*="translateX"]')).toHaveLength(0);
   const bubble = rows[190].querySelector<HTMLElement>(".assistant-message")!;
   touch(bubble, "pointerdown", 100);
   touch(bubble, "pointermove", 180);
   frame();
-  expect(log.querySelectorAll('[style*="translate3d"]')).toHaveLength(1);
+  expect(log.querySelectorAll('[style*="translateX"]')).toHaveLength(1);
   touch(bubble, "pointerup", 180);
   expect(reply).toHaveBeenCalledExactlyOnceWith("190");
   touch(log, "pointerdown", 240);
@@ -168,7 +151,7 @@ it("drops queued frames on release and hiding, and accepts another drag immediat
   act(() => root.render(createElement(Conversation, { active: false })));
   frame();
   expect(log.querySelector("[data-message-swipe]")).toBeNull();
-  expect(log.querySelectorAll('[style*="translate3d"]')).toHaveLength(0);
+  expect(log.querySelectorAll('[style*="translateX"]')).toHaveLength(0);
 });
 
 it.each(["a", "button", "pre", "table", "scroller"])(

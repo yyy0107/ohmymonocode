@@ -1,3 +1,5 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
+import { useIsPresent } from "motion/react";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { Check, GitBranch, Plus, Search } from "../../../shared/ui/icons";
 import { withStatusToast } from "../../../shared/ui/StatusToast";
@@ -64,6 +66,7 @@ export function BranchPicker({
   popoverSide = "top",
 }: Props) {
   const { t: uiT } = useTranslation();
+  const present = useIsPresent();
   const [open, setOpen] = useState(initialOpen);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -304,7 +307,7 @@ export function BranchPicker({
   const interactive = enabled && !awaitingBranch && !missingGit;
 
   return (
-    <div ref={root} className="relative flex min-w-0 shrink">
+    <div ref={root} hidden={!present} inert={!present} className="relative flex min-w-0 shrink">
       <GitPickerTrigger
         title={title}
         aria-label={
@@ -330,7 +333,7 @@ export function BranchPicker({
         loading={awaitingBranch}
         worktree={worktree}
       />
-      {blocked ? (
+      <PresenceBoundary>{blocked ? (
         <SwitchBranchDialog
           cwd={cwd}
           branch={blocked.name}
@@ -355,8 +358,8 @@ export function BranchPicker({
             onCloseRef.current?.();
           }}
         />
-      ) : null}
-      {creating ? (
+      ) : null}</PresenceBoundary>
+      <PresenceBoundary>{creating ? (
         <CreateBranchDialog
           busy={busy}
           error={error}
@@ -370,7 +373,7 @@ export function BranchPicker({
             onCloseRef.current?.();
           }}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
       <Popover
         open={open}
         anchor={root}

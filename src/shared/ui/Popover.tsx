@@ -158,7 +158,7 @@ function samePosition(a: PopoverPosition | null, b: PopoverPosition): boolean {
  */
 export function Popover({ open, ...props }: Props) {
   return open === undefined ? (
-    <PopoverSurface {...props} />
+    <PresentPopover {...props} />
   ) : (
     <AnimatedPopover {...props} open={open} />
   );
@@ -168,7 +168,7 @@ function AnimatedPopover({ open, ...props }: Props & { open: boolean }) {
   const visible = useSurfaceVisibility();
   if (!visible) return null;
   return (
-    <AnimatePresence initial={false}>
+    <AnimatePresence propagate>
       {visible && open ? <PresentPopover key="popover" {...props} /> : null}
     </AnimatePresence>
   );
@@ -177,10 +177,14 @@ function AnimatedPopover({ open, ...props }: Props & { open: boolean }) {
 function PresentPopover({ children, ...props }: Omit<Props, "open">) {
   const [present, safeToRemove] = usePresence();
   const reduced = useMotionPreference();
+  const visible = useSurfaceVisibility();
   useLayoutEffect(() => {
-    if (reduced && !present) safeToRemove?.();
-  }, [reduced, present, safeToRemove]);
-  if (reduced && !present) return null;
+    if ((reduced || !visible) && !present) safeToRemove?.();
+  }, [reduced, visible, present, safeToRemove]);
+  useEffect(() => {
+    if ((reduced || !visible) && !present) safeToRemove?.();
+  }, [reduced, visible, present, safeToRemove]);
+  if (!visible || (reduced && !present)) return null;
   return (
     <PopoverSurface
       {...props}
@@ -286,11 +290,12 @@ function NativePopover({
       onAnimationComplete={onPresenceComplete}
       data-fold-state={present ? "open" : "closing"}
       ref={(el) => {
+        const previous = surface.current;
         surface.current = el;
         if (typeof frameProps?.ref === "function") frameProps.ref(el);
-        else if (frameProps?.ref) frameProps.ref.current = el;
+        else if (frameProps?.ref && (el || frameProps.ref.current === previous)) frameProps.ref.current = el;
         if (typeof ref === "function") ref(el);
-        else if (ref) ref.current = el;
+        else if (ref && (el || ref.current === previous)) ref.current = el;
       }}
       style={{ maxHeight: maxHeight ?? 400, ...style }}
       className={`relative w-full outline-none ${className ?? ""}`}
@@ -456,9 +461,10 @@ function WebPopover({
       transition={reduced ? immediateTransition : popTransition}
       onAnimationComplete={onPresenceComplete}
       ref={(el) => {
+        const previous = frame.current;
         frame.current = el;
         if (typeof frameProps?.ref === "function") frameProps.ref(el);
-        else if (frameProps?.ref) frameProps.ref.current = el;
+        else if (frameProps?.ref && (el || frameProps.ref.current === previous)) frameProps.ref.current = el;
       }}
       data-popover-side={position?.side ?? side}
       data-fold-state={present ? "open" : "closing"}
@@ -475,9 +481,10 @@ function WebPopover({
         exit={edgeMotion}
         transition={reduced ? immediateTransition : popTransition}
         ref={(el) => {
+          const previous = surface.current;
           surface.current = el;
           if (typeof ref === "function") ref(el);
-          else if (ref) ref.current = el;
+          else if (ref && (el || ref.current === previous)) ref.current = el;
         }}
         data-popover-side={position?.side ?? side}
         style={{

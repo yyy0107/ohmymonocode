@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { FilePlusCorner, MessageSquarePlus } from "../../../shared/ui/icons";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -34,9 +35,8 @@ export function TranscriptSelectionMenu({
     };
   }, [selection]);
 
-  if (!selection) return null;
-
   return (
+    <PresenceBoundary propagate>{selection ? (
     <Popover
       anchor={selection.rect}
       side="top"
@@ -76,6 +76,7 @@ export function TranscriptSelectionMenu({
         ) : null}
       </div>
     </Popover>
+    ) : null}</PresenceBoundary>
   );
 }
 

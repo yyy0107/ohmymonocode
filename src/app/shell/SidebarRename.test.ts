@@ -1,3 +1,9 @@
+import { completeMotionAnimation } from "../../../tests/helpers/motionDriver";
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
+});
 // @vitest-environment happy-dom
 import { act, createElement, StrictMode, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -167,6 +173,7 @@ describe("sidebar session filters", () => {
     expect(filterMenu()).not.toBeNull();
     expect(filterButton().getAttribute("aria-expanded")).toBe("true");
     clickFilter();
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(filterMenu()).toBeNull();
     expect(filterButton().getAttribute("aria-expanded")).toBe("false");
     clickFilter();
@@ -184,9 +191,11 @@ describe("sidebar session filters", () => {
     act(() =>
       document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })),
     );
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(filterMenu()).toBeNull();
     clickFilter();
     expect(pressKey(filterButton(), "Escape").defaultPrevented).toBe(true);
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(filterMenu()).toBeNull();
   });
 });
@@ -516,12 +525,12 @@ describe("sidebar session IDs", () => {
     });
     const trigger = Array.from(
       document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
-    ).find((item) => item.textContent === "Copy session ID")!;
+    ).find((item) => !item.closest("[inert]") && item.textContent === "Copy session ID")!;
     expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
     act(() => trigger.click());
-    return document.querySelector<HTMLElement>(
+    return Array.from(document.querySelectorAll<HTMLElement>(
       '[role="menu"][aria-label="Copy session ID"]',
-    )!;
+    )).find((menu) => !menu.closest("[inert]"))!;
   }
 
   it("copies either ID from the right-clicked session", async () => {
@@ -741,62 +750,25 @@ describe("sidebar reorder affordances", () => {
 });
 
 describe("sidebar new session rows", () => {
-  it("grows in only for a session that arrives after the list has rendered", () => {
-    const animate = vi
-      .spyOn(HTMLElement.prototype, "animate")
-      .mockImplementation(() => ({ cancel: vi.fn() }) as unknown as Animation);
-    const animated = (property: string) =>
-      animate.mock.calls.flatMap(([keyframes], index) =>
-        property in (keyframes as Keyframe[])[0]
-          ? [animate.mock.contexts[index] as HTMLElement]
-          : [],
-      );
-    // Dev builds replay mount effects; the row must still animate, once.
-    const render = () =>
-      root.render(createElement(StrictMode, null, createElement(Sidebar, props)));
-    act(() => render());
-    expect(animate).not.toHaveBeenCalled();
-
-    props = {
-      ...props,
-      sessions: [
-        {
-          ...props.sessions[0],
-          id: "session-2",
-          createdAt: Date.now(),
-          updatedAt: props.sessions[0].updatedAt + 1,
-        },
-        ...props.sessions,
-      ],
-    };
-    act(() => render());
-    // The new card fades in where it lands; the row below slides down.
-    expect(animated("opacity")).toHaveLength(1);
-    expect(
-      animated("opacity")[0].closest("li")?.querySelector(
-        '[data-session-card="session-2"]',
-      ),
-    ).not.toBeNull();
-    expect(animated("transform")).toHaveLength(1);
-    expect(
-      animated("transform")[0].querySelector('[data-session-card="session-1"]'),
-    ).not.toBeNull();
-    const calls = animate.mock.calls.length;
-
-    props = {
-      ...props,
-      sessions: [
-        { ...props.sessions[0], id: "session-old", createdAt: 1 },
-        ...props.sessions,
-      ],
-    };
-    act(() => render());
-    expect(animate).toHaveBeenCalledTimes(calls);
-
-    // Reordering existing rows must not replay their entrance.
+  it("animates inserted sessions while retaining existing row nodes", async () => {
+    const animate = vi.spyOn(HTMLElement.prototype, "animate");
+    // StrictMode replays setup; AutoAnimate still owns one controller per parent.
+    const renderList = () => root.render(createElement(StrictMode, null, createElement(Sidebar, props)));
+    await act(async () => renderList());
+    const existing = card();
+    props = { ...props, sessions: [
+      { ...props.sessions[0], id: "session-2", updatedAt: props.sessions[0].updatedAt + 1 },
+      ...props.sessions,
+    ] };
+    await act(async () => { renderList(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+    const inserted = container.querySelector<HTMLElement>('[data-session-card="session-2"]')!;
+    expect(inserted).not.toBeNull();
+    expect(card()).toBe(existing);
+    expect(animate.mock.contexts.some((element) => element.contains(inserted))).toBe(true);
     props = { ...props, sessions: [...props.sessions].reverse() };
-    act(() => render());
-    expect(animate).toHaveBeenCalledTimes(calls);
+    await act(async () => renderList());
+    expect(card()).toBe(existing);
+    expect(container.querySelector('[data-session-card="session-2"]')).toBe(inserted);
   });
 });
 
@@ -830,7 +802,7 @@ describe("sidebar pinned sessions", () => {
     const fold = group.querySelector<HTMLElement>(".zen-fold-item")!;
     expect(fold.dataset.foldState).toBe("closing");
     expect(fold.inert).toBe(true);
-    act(() => fold.dispatchEvent(new Event("animationend", { bubbles: true })));
+    act(() => completeMotionAnimation(fold));
     expect(fold.hidden).toBe(true);
     expect(group.querySelector('[data-session-card="session-1"]')).not.toBeNull();
     expect(
@@ -1078,7 +1050,7 @@ describe("sidebar orchestration card", () => {
 
     const tooltip = document.querySelector<HTMLElement>('[role="tooltip"]')!;
     expect(tooltip).not.toBeNull();
-    expect(tooltip.classList.contains("popover-open")).toBe(true);
+    expect(tooltip.inert).toBe(false);
     expect(tooltip.textContent).toContain("1/2 done");
     expect(tooltip.textContent).toContain("Review changes");
     expect(tooltip.textContent).toContain("Working");
@@ -1088,6 +1060,7 @@ describe("sidebar orchestration card", () => {
     act(() =>
       trigger.dispatchEvent(new MouseEvent("mouseout", { bubbles: true })),
     );
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(document.querySelector('[role="tooltip"]')).toBeNull();
   });
 
@@ -1254,6 +1227,7 @@ describe("sidebar session GitHub links", () => {
       number: 27,
       url: "https://github.com/acme/widgets/issues/27",
     });
+    act(() => completeMotionAnimation(document.querySelector('[role="dialog"]')?.closest(".fixed.inset-0")));
     expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 
@@ -1342,6 +1316,7 @@ describe("sidebar session reminders", () => {
     expect(ids).toEqual(["session-1"]);
     expect(dueAt).toBeGreaterThanOrEqual(before + 3 * 60 * 60 * 1000);
     expect(dueAt).toBeLessThanOrEqual(Date.now() + 3 * 60 * 60 * 1000);
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(document.querySelector('[role="menu"]')).toBeNull();
   });
 
@@ -1464,7 +1439,7 @@ describe("single sidebar layout and width", () => {
     act(render);
     const shell = container.querySelector<HTMLElement>("[data-sidebar-transition]")!;
     expect(shell.hasAttribute("inert")).toBe(true);
-    act(() => shell.querySelector(".sidebar-transition-clip")!.dispatchEvent(Object.assign(new Event("transitionend", { bubbles: true }), { propertyName: "transform" })));
+    act(() => completeMotionAnimation(shell));
     expect(container.querySelector("aside")!.closest("[hidden]")).not.toBeNull();
     props.open = true;
     act(render);
@@ -1500,6 +1475,7 @@ describe("single sidebar layout and width", () => {
     expect(shell.getAttribute("aria-hidden")).toBe("true");
     expect(shell.hasAttribute("inert")).toBe(true);
     expect(container.querySelector("aside")).toBe(aside);
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(document.querySelector('[role="menu"]')).toBeNull();
     act(() => vi.advanceTimersByTime(100));
     expect(container.querySelector("aside")).toBe(aside);
@@ -1533,7 +1509,7 @@ describe("single sidebar layout and width", () => {
   });
 
   it("collapses immediately when reduced motion is requested", () => {
-    vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true } as MediaQueryList);
+    vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true, addEventListener: () => {}, removeEventListener: () => {} } as unknown as MediaQueryList);
     act(render);
     props.open = false;
     act(render);

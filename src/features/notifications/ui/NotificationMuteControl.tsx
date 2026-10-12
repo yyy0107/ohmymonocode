@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useRef, useState } from "react";
 import { useProjectNotificationPreferences } from "../hooks/useProjectNotificationPreferences";
@@ -92,7 +93,7 @@ export function NotificationMuteControl({ projectIds, onChanged }: Props) {
           {error}
         </p>
       ) : null}
-      {trigger.current ? (
+      <PresenceBoundary propagate>{trigger.current ? (
         <ExplorerMenu
           open={open === "menu"}
           anchor={trigger.current}
@@ -118,7 +119,7 @@ export function NotificationMuteControl({ projectIds, onChanged }: Props) {
             if (deadline !== undefined) change(deadline);
           }}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
       <Popover
         open={open === "custom"}
         anchor={trigger}

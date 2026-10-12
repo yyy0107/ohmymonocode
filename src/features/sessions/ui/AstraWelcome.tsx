@@ -1,8 +1,10 @@
+import { motion } from "motion/react";
+import { panelTransition, immediateTransition, duration } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { useEffect, type CSSProperties } from "react";
 import "./AstraWelcome.css";
-import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
 
-const DURATION_MS = 7600;
+const DURATION_MS = duration.panel * 1000;
 const STARS = Array.from(
   { length: 38 },
   (_, index) =>
@@ -30,25 +32,13 @@ const SPARKLES = Array.from(
 
 /** A decorative layer confined to the session, with no input interception. */
 export function AstraWelcome({ onDone }: { onDone: () => void }) {
-  useEffect(() => {
-    const reducedMotion = reducedMotionQuery();
-    if (reducedMotion.matches) {
-      onDone();
-      return;
-    }
-    const onMotionChange = () => {
-      if (reducedMotion.matches) onDone();
-    };
-    const timer = window.setTimeout(onDone, DURATION_MS);
-    reducedMotion.addEventListener("change", onMotionChange);
-    return () => {
-      window.clearTimeout(timer);
-      reducedMotion.removeEventListener("change", onMotionChange);
-    };
-  }, [onDone]);
+  const reducedMotion = useMotionPreference();
+  useEffect(() => { if (reducedMotion) onDone(); }, [reducedMotion, onDone]);
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }}
+      transition={reducedMotion ? immediateTransition : panelTransition} onAnimationComplete={onDone}
       className="astra-welcome"
       aria-hidden="true"
       style={{ "--astra-duration": `${DURATION_MS}ms` } as CSSProperties}
@@ -78,6 +68,6 @@ export function AstraWelcome({ onDone }: { onDone: () => void }) {
           <span className="astra-star" />
         </div>
       ))}
-    </div>
+    </motion.div>
   );
 }

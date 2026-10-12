@@ -1,3 +1,6 @@
+import { motion as motionElement } from "motion/react";
+import { panelTransition, immediateTransition } from "../../../shared/motion/tokens";
+import { reducedMotionQuery as motionPreferenceQuery } from "../../../shared/lib/reducedMotion";
 import { botReadRevision, markBotRead } from "../model/botUnread";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import {
@@ -881,9 +884,7 @@ export function BotChat({
         data-layout={mobile ? "mobile" : "desktop"}
         data-bot-details={botsLayout ? settingsShown : undefined}
         data-fold-state={botsLayout ? detailsMotion.foldState : undefined}
-        onTransitionEnd={botsLayout ? (event) => {
-          if (event.target === event.currentTarget && event.propertyName === "grid-template-columns") detailsMotion.finish();
-        } : undefined}
+
       >
         {botsLayout && (botNavigation ?? (
           <DesktopBotsNavigation
@@ -966,7 +967,8 @@ export function BotChat({
             <span>{t(supported ? "Loading messages…" : "Connecting…")}</span>
           </div>
         ) : (
-          <div
+          <motionElement.div
+      initial={false} animate={botsLayout ? { gridTemplateColumns: settingsShown ? "minmax(0, 1fr) minmax(0, var(--bots-inspector-width))" : "minmax(0, 1fr) minmax(0, 0px)" } : undefined} transition={motionPreferenceQuery().matches ? immediateTransition : panelTransition} onAnimationComplete={detailsMotion.finish}
             className={`assistant-body${botsLayout ? " animated-collapse-size" : ""}`}
             data-bot-details={botsLayout ? settingsShown : undefined}
             data-bot-setup={botsLayout && !assistant || undefined}
@@ -1212,7 +1214,7 @@ export function BotChat({
                 />
               </div>
             )}
-          </div>
+          </motionElement.div>
         )}
         <MessageMenu
           open={!!replyMenu.menu}

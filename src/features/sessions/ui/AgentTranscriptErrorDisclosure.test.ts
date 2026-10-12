@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { startMotionClock, stopMotionClock, finishMotion } from "../../../../tests/helpers/sharedMotionClock";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,6 +11,7 @@ let root: Root;
 
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  startMotionClock();
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -26,12 +28,13 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  stopMotionClock();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
 describe("tool error disclosure", () => {
-  it("keeps grouped error output collapsed until its failed row is clicked", () => {
+  it("keeps grouped error output collapsed until its failed row is clicked", async () => {
     const blocks: Block[] = [
       { id: "user", role: "user", text: "Start the app" },
       {
@@ -80,7 +83,7 @@ describe("tool error disclosure", () => {
     expect(container.querySelector('[data-fold-state="closing"]')).toBeNull();
     expect(closing?.hasAttribute("inert")).toBe(false);
     act(() => trigger?.click());
-    act(() => closing?.dispatchEvent(new Event("animationend", { bubbles: true })));
+    await act(async () => { await finishMotion(); });
     expect(container.textContent).not.toContain("Server.setupListenHandle");
   });
 });

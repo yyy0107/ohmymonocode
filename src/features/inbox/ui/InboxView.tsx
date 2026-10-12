@@ -1,3 +1,8 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
+import { motion } from "motion/react";
+import { immediateTransition, motionDistance, motionGeometry, panelTransition } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
+import { useCollapseMotion } from "../../../shared/ui/AnimatedCollapse";
 import { AppPageHeader } from "../../workspace/ui/AppPageHeader";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useGithubPrChecks } from "../hooks/useGithubPrChecks";
@@ -29,7 +34,6 @@ import {
   Search,
   type IconComponent,
 } from "../../../shared/ui/icons";
-import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
 import {
   useCallback,
   useDeferredValue,
@@ -1169,8 +1173,8 @@ export function InboxView({
           ) : null}
         </div>
       </div>
-      {filtersPortal}
-      {connectPortal}
+      <PresenceBoundary propagate>{filtersPortal}</PresenceBoundary>
+      <PresenceBoundary propagate>{connectPortal}</PresenceBoundary>
     </div>
   );
 }
@@ -1275,14 +1279,9 @@ export function LinkedWorkItemPanel({
   // The pane takes its full width up front so the sessions reflow once, then
   // the sheet slides in on a transform. Animating the width instead would
   // rewrap the transcript and resize terminals on every frame.
-  const [opening, setOpening] = useState(
-    () =>
-      visible &&
-      !(
-        typeof window !== "undefined" &&
-        reducedMotionQuery().matches
-      ),
-  );
+  const reduced = useMotionPreference();
+  const lifetime = useCollapseMotion(visible);
+  const [opening, setOpening] = useState(() => visible && !reduced);
   useEffect(() => {
     if (!visible) setOpening(false);
   }, [visible]);
@@ -1291,7 +1290,10 @@ export function LinkedWorkItemPanel({
 
   const kindLabel = target.kind === "pr" ? "Pull request" : "Issue";
   return (
-    <aside
+    <motion.aside
+      {...lifetime.motionProps}
+      animate={{ x: visible ? 0 : `${motionGeometry.linkedPanelPercent}%` }}
+      transition={reduced || resize.dragging ? immediateTransition : panelTransition}
       ref={resize.setPaneRef}
       aria-label={uiT("Linked {value0} #{value1}", {
         value0: String(kindLabel.toLowerCase()),
@@ -1301,11 +1303,8 @@ export function LinkedWorkItemPanel({
       aria-hidden={!visible}
       inert={!visible || undefined}
       data-linked-work-item-panel
-      onAnimationEnd={(event) => {
-        if (event.animationName === "linked-panel-slide") setOpening(false);
-      }}
       className={`relative min-h-0 max-w-full shrink-0 flex-col text-content max-[950px]:absolute max-[950px]:inset-y-0 max-[950px]:right-0 max-[950px]:z-30 max-[950px]:shadow-2xl ${
-        visible ? "flex" : "hidden"
+        lifetime.foldState === "closed" ? "hidden" : "flex"
       }`}
     >
       <ResizeHandle
@@ -1322,10 +1321,12 @@ export function LinkedWorkItemPanel({
           opening ? "overflow-hidden" : ""
         }`}
       >
-        <div
-          className={`relative flex min-h-0 flex-1 flex-col border-l border-stroke pl-4 ${
-            opening ? "linked-panel-slide" : ""
-          }`}
+        <motion.div
+          initial={opening && !reduced ? { x: `${motionGeometry.linkedPanelPercent}%` } : false}
+          animate={{ x: 0 }}
+          transition={reduced ? immediateTransition : panelTransition}
+          onAnimationComplete={() => setOpening(false)}
+          className="relative flex min-h-0 flex-1 flex-col border-l border-stroke pl-4"
         >
           <div className="absolute top-[5px] right-2 z-30">
             <IconButton
@@ -1337,16 +1338,13 @@ export function LinkedWorkItemPanel({
               <PanelLeft className="size-3.5" />
             </IconButton>
           </div>
-          <div
+          <motion.div
             key={contentKey}
-            onAnimationEnd={(event) => {
-              if (event.animationName === "linked-panel-reveal") {
-                setRevealedKey(contentKey);
-              }
-            }}
-            className={`@container/linked min-h-0 min-w-0 flex-1 ${
-              revealedKey === contentKey ? "" : "linked-panel-reveal"
-            }`}
+            initial={reduced || revealedKey === contentKey ? false : { opacity: 0, x: motionDistance.pop }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={reduced ? immediateTransition : panelTransition}
+            onAnimationComplete={() => setRevealedKey(contentKey)}
+            className="@container/linked min-h-0 min-w-0 flex-1"
           >
             {item ? (
               <InboxDetail
@@ -1385,10 +1383,10 @@ export function LinkedWorkItemPanel({
                 />
               </div>
             )}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </div>
-    </aside>
+    </motion.aside>
   );
 }
 
@@ -1875,7 +1873,7 @@ export function GithubPrActions({
           {notice}
         </span>
       ) : null}
-      {mergeMenuOpen && state === "open" && !item.draft ? (
+      <PresenceBoundary propagate>{mergeMenuOpen && state === "open" && !item.draft ? (
         <Popover
           anchor={mergeGroup}
           gap={4}
@@ -1923,8 +1921,8 @@ export function GithubPrActions({
             </button>
           ))}
         </Popover>
-      ) : null}
-      {confirmation && confirmCopy ? (
+      ) : null}</PresenceBoundary>
+      <PresenceBoundary propagate>{confirmation && confirmCopy ? (
         <Popover
           anchor={confirmation.anchor}
           gap={5}
@@ -1984,7 +1982,7 @@ export function GithubPrActions({
             </button>
           </div>
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </>
   );
 }

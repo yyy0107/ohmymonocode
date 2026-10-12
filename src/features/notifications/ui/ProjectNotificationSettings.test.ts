@@ -1,3 +1,4 @@
+import { startMotionClock, stopMotionClock, finishMotion } from "../../../../tests/helpers/sharedMotionClock";
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -23,6 +24,7 @@ let root: Root;
 let container: HTMLDivElement;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  startMotionClock();
   localStorage.clear();
   rememberNotificationProjects([
     {
@@ -47,6 +49,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  stopMotionClock();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -324,15 +327,11 @@ it.each(["manual", "expiry"])(
 );
 
 it("dismisses the mute menu and custom date picker without changing preferences", async () => {
-  const finishClosing = (surface: Element) => {
-    const frame = surface.closest<HTMLElement>(".popover-motion")!;
-    expect(frame.getAttribute("data-fold-state")).toBe("closing");
+  const finishClosing = async (surface: Element) => {
+    const frame = surface.closest<HTMLElement>("[data-fold-state]")!;
+    expect(frame.dataset.foldState).toBe("closing");
     expect(frame.inert).toBe(true);
-    act(() => {
-      const event = new Event("transitionend", { bubbles: true });
-      Object.defineProperty(event, "propertyName", { value: "opacity" });
-      frame.dispatchEvent(event);
-    });
+    await act(async () => finishMotion());
   };
   await act(async () =>
     root.render(createElement(ProjectNotificationSettings, { cwd: "" })),
@@ -351,7 +350,7 @@ it("dismisses the mute menu and custom date picker without changing preferences"
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     ),
   );
-  finishClosing(menu);
+  await finishClosing(menu);
   expect(document.querySelector('[role="menu"]')).toBeNull();
   expect(document.activeElement).toBe(trigger);
 
@@ -368,7 +367,7 @@ it("dismisses the mute menu and custom date picker without changing preferences"
     (button) => button.textContent === "Cancel",
   )!;
   act(() => cancel.click());
-  finishClosing(dialog);
+  await finishClosing(dialog);
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   expect(trigger.getAttribute("aria-expanded")).toBe("false");
   expect(document.activeElement).toBe(trigger);

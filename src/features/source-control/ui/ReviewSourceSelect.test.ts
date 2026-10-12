@@ -1,3 +1,4 @@
+import { duration } from "../../../shared/motion/tokens";
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -122,7 +123,7 @@ it("selects with the pointer, restores focus, and disables the retained closing 
   expect(onChange).toHaveBeenCalledTimes(1);
   render("staged");
   expect(trigger().querySelector("span")?.title).toBe("Staged");
-  act(() => vi.advanceTimersByTime(180));
+  act(() => vi.advanceTimersByTime(duration.pop * 1000));
   expect(menu()).toBeNull();
 });
 
@@ -176,13 +177,13 @@ it("restores focus on Escape, reverses closing, and dismisses outside without st
   const surface = menu()!;
   key(surface, "Escape");
   expect(document.activeElement).toBe(trigger());
-  expect(surface.dataset.foldState).toBe("closing");
+  expect(surface.inert).toBe(true);
   act(() => vi.advanceTimersByTime(70));
   open();
   expect(menu()).toBe(surface);
   expect(surface.inert).toBe(false);
-  act(() => vi.advanceTimersByTime(180));
-  expect(surface.dataset.foldState).toBe("open");
+  act(() => vi.advanceTimersByTime(duration.pop * 1000));
+  expect(surface.inert).toBe(false);
   const outside = document.createElement("button");
   container.append(outside);
   act(() => {
@@ -192,13 +193,13 @@ it("restores focus on Escape, reverses closing, and dismisses outside without st
   expect(trigger().getAttribute("aria-expanded")).toBe("false");
   expect(document.activeElement).toBe(outside);
   expect(onChange).not.toHaveBeenCalled();
-  act(() => vi.advanceTimersByTime(180));
+  act(() => vi.advanceTimersByTime(duration.pop * 1000));
   expect(menu()).toBeNull();
 });
 
 it("closes immediately with reduced motion and removes menus when the pane is hidden", () => {
   vi.spyOn(window, "matchMedia").mockReturnValue({
-    matches: true,
+    matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
   } as MediaQueryList);
   render();
   open();
@@ -222,4 +223,10 @@ it("only offers session changes outside a Git repository, including keyboard nav
   expect(activeValue()).toBe("Session changes");
   key(menu()!, "Enter");
   expect(onChange).toHaveBeenCalledExactlyOnceWith("session");
+});
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
 });

@@ -1,3 +1,4 @@
+import { DisclosureChevron } from "../../../shared/ui/DisclosureChevron";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useId, useState, useSyncExternalStore } from "react";
 import {
@@ -8,7 +9,6 @@ import {
 import { sameProjectPath } from "../../projects/model/recents";
 import {
   CheckCircle,
-  ChevronRight,
   CircleDashed,
   CircleX,
   LoaderCircle,
@@ -370,9 +370,9 @@ function RepairCard({
                 : uiT("CI repair for {value0}", { value0: String(label) })}
             </span>
           </span>
-          <ChevronRight
+          <DisclosureChevron expanded={expanded}
             aria-hidden="true"
-            className={`size-3 shrink-0 text-content/40 transition-transform motion-reduce:transition-none ${expanded ? "rotate-90" : ""}`}
+            className="size-3 shrink-0 text-content/40"
           />
         </button>
         {canShowCheck ? (

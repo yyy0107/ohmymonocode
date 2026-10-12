@@ -1,3 +1,6 @@
+import { panelTransition, immediateTransition } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
+import { motion, useAnimationFrame } from "motion/react";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -18,8 +21,6 @@ import {
 } from "../arcade/gridArcade";
 import {
   GRID_GAMES,
-  SLIDE_HOLD_MS,
-  stepSlider,
   type GridGame,
 } from "../arcade/gridGames";
 import { drawSpeechBubble } from "../../sessions/model/speechBubble";
@@ -44,9 +45,7 @@ const GHOST_OPACITY = 0.8;
 /** Sprites sit inside their corridor rather than spilling over the walls. */
 const SPRITE_SCALE = 0.8;
 /** How hard the bubble chases its speaker; sprites move cell by cell. */
-const BUBBLE_EASE = 0.2;
 const FRAME_MS = 33;
-const SLIDE_MS = 700;
 
 const HEADING: Record<string, { x: number; y: number }> = {
   ArrowUp: { x: 0, y: -1 },
@@ -173,6 +172,8 @@ export function TerminalGridBackground({
   visible?: boolean;
 }) {
   const { t: uiT } = useTranslation();
+  const reduced = useMotionPreference();
+  const motionTick = useRef<(() => void) | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
   const boardsRef = useRef<Board[] | null>(null);
@@ -188,7 +189,6 @@ export function TerminalGridBackground({
     index: 0,
     dir: 1,
   });
-  const [hovered, setHovered] = useState(false);
   const [activity, setActivity] = useState<AnimationVisibility>(() => ({
     visible: typeof document === "undefined" || !document.hidden,
     reducedMotion:
@@ -235,7 +235,7 @@ export function TerminalGridBackground({
     const tintCanvas = document.createElement("canvas");
     const tintCtx = tintCanvas.getContext("2d");
 
-    let raf = 0;
+
     let cols = 0;
     let rows = 0;
     let rgb = parseContentRgb();
@@ -247,10 +247,6 @@ export function TerminalGridBackground({
     let pixelRatio = 0;
     let gridPath = new Path2D();
     let viewportVisible = !document.hidden;
-    let reducedMotion = activity.reducedMotion;
-    let previousIndex = indexRef.current;
-    let slideFrom = previousIndex;
-    let slideUntil = 0;
 
     const layout = () => {
       const rect = root.getBoundingClientRect();
@@ -361,17 +357,7 @@ export function TerminalGridBackground({
       }
 
       const target = { x: bubble.x * PITCH, y: bubble.y * PITCH };
-      // Ease towards the speaker, but snap when they wrap through a tunnel
-      // so the bubble doesn't sail across the whole canvas to catch up.
-      const wrapped =
-        board.bubbleAt && Math.abs(target.x - board.bubbleAt.x) > width / 3;
-      board.bubbleAt =
-        !board.bubbleAt || wrapped
-          ? target
-          : {
-              x: board.bubbleAt.x + (target.x - board.bubbleAt.x) * BUBBLE_EASE,
-              y: board.bubbleAt.y + (target.y - board.bubbleAt.y) * BUBBLE_EASE,
-            };
+      board.bubbleAt = target;
 
       drawSpeechBubble(
         ctx,
@@ -388,11 +374,11 @@ export function TerminalGridBackground({
     const canShow = () =>
       visibleRef.current && viewportVisible && !document.hidden;
     const canDraw = () => canShow() && hasArea;
-    const animating = () => !reducedMotion || playingRef.current;
+    // Explicit arcade gameplay retains its simulation; passive decoration is a still frame.
+    const animating = () => playingRef.current;
     const draw = (time: number) => {
-      raf = 0;
       if (!canDraw()) return;
-      if (animating()) raf = requestAnimationFrame(draw);
+      motionTick.current = animating() ? () => draw(performance.now()) : null;
       if (lastFrame && time - lastFrame < FRAME_MS) return;
       const dt = lastFrame ? time - lastFrame : FRAME_MS;
       lastFrame = time;
@@ -401,24 +387,15 @@ export function TerminalGridBackground({
 
       const current = indexRef.current;
       const controlled = playingRef.current;
-      if (current !== previousIndex) {
-        slideFrom = previousIndex;
-        previousIndex = current;
-        slideUntil = reducedMotion || controlled ? 0 : time + SLIDE_MS;
-      }
 
       for (let i = 0; i < boards.length; i++) {
         const board = boards[i];
         if (!board) continue;
         // Only the selected board is onscreen, except during its slide.
-        if (
-          i !== current &&
-          (controlled || i !== slideFrom || time >= slideUntil)
-        )
-          continue;
+        if (i !== current) continue;
         // Reduced motion keeps a fully revealed still frame; explicit gameplay
         // remains interactive rather than freezing its simulation.
-        board.arcade.step(reducedMotion && !controlled ? 1000 : dt);
+        if (controlled) board.arcade.step(dt);
         paint(board, width, height);
       }
 
@@ -438,8 +415,7 @@ export function TerminalGridBackground({
     };
 
     const refresh = () => {
-      cancelAnimationFrame(raf);
-      raf = 0;
+      motionTick.current = null;
       if (!canShow()) return;
       layout();
       lastFrame = 0;
@@ -448,7 +424,6 @@ export function TerminalGridBackground({
     refreshRef.current = refresh;
     const stopObserving = observeAnimationVisibility(root, (next) => {
       viewportVisible = next.visible;
-      reducedMotion = next.reducedMotion;
       setActivity((previous) =>
         previous.visible === next.visible &&
         previous.reducedMotion === next.reducedMotion
@@ -476,7 +451,7 @@ export function TerminalGridBackground({
     });
 
     return () => {
-      cancelAnimationFrame(raf);
+      motionTick.current = null;
       stopObserving();
       resizeObserver.disconnect();
       stopSettled();
@@ -522,32 +497,6 @@ export function TerminalGridBackground({
     });
   }, []);
 
-  useEffect(() => {
-    if (
-      !visible ||
-      !activity.visible ||
-      activity.reducedMotion ||
-      playing ||
-      hovered ||
-      GRID_GAMES.length < 2
-    )
-      return;
-
-    const id = window.setInterval(() => {
-      if (document.hidden) return;
-      setSlide((current) =>
-        stepSlider(current.index, current.dir, GRID_GAMES.length),
-      );
-    }, SLIDE_HOLD_MS);
-    return () => window.clearInterval(id);
-  }, [
-    visible,
-    activity.visible,
-    activity.reducedMotion,
-    playing,
-    hovered,
-    slide.index,
-  ]);
 
   useEffect(() => {
     if (!playing || !visible || !activity.visible) return;
@@ -592,8 +541,6 @@ export function TerminalGridBackground({
     <div
       ref={rootRef}
       tabIndex={playing ? 0 : -1}
-      onPointerEnter={() => setHovered(true)}
-      onPointerLeave={() => setHovered(false)}
       onMouseDown={() => {
         if (playing) rootRef.current?.focus();
       }}
@@ -604,6 +551,7 @@ export function TerminalGridBackground({
           : "group pointer-events-auto absolute inset-x-0 top-0 z-0 h-48"
       }
     >
+      {playing && visible && activity.visible ? <ArcadeFrames tick={motionTick} /> : null}
       <div
         className={
           playing
@@ -611,11 +559,10 @@ export function TerminalGridBackground({
             : "absolute inset-0 overflow-hidden [mask-image:linear-gradient(to_bottom,#000_65%,transparent_100%)]"
         }
       >
-        <div
-          className={`flex h-full motion-reduce:transition-none ${
-            playing ? "" : "transition-transform duration-700 ease-in-out"
-          }`}
-          style={{ transform: `translateX(-${slide.index * 100}%)` }}
+        <motion.div
+          initial={false} animate={{ x: `-${slide.index * 100}%` }}
+          transition={playing || reduced ? immediateTransition : panelTransition}
+          className="flex h-full"
         >
           {GRID_GAMES.map((item, i) => (
             <div
@@ -631,7 +578,7 @@ export function TerminalGridBackground({
               />
             </div>
           ))}
-        </div>
+        </motion.div>
       </div>
 
       {playing ? (
@@ -731,4 +678,10 @@ export function TerminalGridBackground({
       )}
     </div>
   );
+}
+
+/** Frames belong to explicit gameplay; passive decoration owns no frame subscription. */
+function ArcadeFrames({ tick }: { tick: { current: (() => void) | null } }) {
+  useAnimationFrame(() => tick.current?.());
+  return null;
 }

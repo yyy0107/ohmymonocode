@@ -1,4 +1,14 @@
-"use client";
+import { AnimatePresence, motion } from "motion/react";
+import {
+  popInitial,
+  popAnimate,
+  popExit,
+  popTransition,
+  immediateTransition,
+} from "../../../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../../../shared/motion/useMotionPreference";
+import { MotionPresenceItem } from "./motion-presence";
+("use client");
 
 import * as React from "react";
 import { Tooltip as TooltipPrimitive } from "radix-ui";
@@ -18,11 +28,32 @@ function TooltipProvider({
   );
 }
 
-function Tooltip({ ...props }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />;
+const TooltipMotionContext = React.createContext(false);
+function Tooltip({
+  open: controlledOpen,
+  defaultOpen = false,
+  onOpenChange,
+  ...props
+}: React.ComponentProps<typeof TooltipPrimitive.Root>) {
+  const [localOpen, setLocalOpen] = React.useState(defaultOpen);
+  const open = controlledOpen ?? localOpen;
+  return (
+    <TooltipMotionContext.Provider value={open}>
+      <TooltipPrimitive.Root
+        {...props}
+        open={open}
+        onOpenChange={(next) => {
+          if (controlledOpen === undefined) setLocalOpen(next);
+          onOpenChange?.(next);
+        }}
+      />
+    </TooltipMotionContext.Provider>
+  );
 }
 
-function TooltipTrigger({ ...props }: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
+function TooltipTrigger({
+  ...props
+}: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
   return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
 }
 
@@ -32,19 +63,35 @@ function TooltipContent({
   children,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Content>) {
-  return (
-    <TooltipPrimitive.Portal>
+  const open = React.useContext(TooltipMotionContext);
+  const reduced = useMotionPreference();
+  const content = open && (
+    <MotionPresenceItem key="tooltip">
       <TooltipPrimitive.Content
+        forceMount
+        asChild
         data-slot="tooltip-content"
         sideOffset={sideOffset}
         className={cn(
-          "z-50 inline-flex w-fit max-w-xs origin-(--radix-tooltip-content-transform-origin) items-center gap-1.5 rounded-lg border border-border bg-tooltip px-3 py-1.5 text-ui-sm text-tooltip-foreground has-data-[slot=kbd]:pr-1.5 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-sm data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "z-50 inline-flex w-fit max-w-xs origin-(--radix-tooltip-content-transform-origin) items-center gap-1.5 rounded-lg border border-border bg-tooltip px-3 py-1.5 text-ui-sm text-tooltip-foreground has-data-[slot=kbd]:pr-1.5     **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-sm",
           className,
         )}
         {...props}
       >
-        {children}
+        <motion.div
+          initial={reduced ? false : popInitial}
+          animate={popAnimate}
+          exit={popExit}
+          transition={reduced ? immediateTransition : popTransition}
+        >
+          {children}
+        </motion.div>
       </TooltipPrimitive.Content>
+    </MotionPresenceItem>
+  );
+  return (
+    <TooltipPrimitive.Portal forceMount>
+      {<AnimatePresence>{content}</AnimatePresence>}
     </TooltipPrimitive.Portal>
   );
 }

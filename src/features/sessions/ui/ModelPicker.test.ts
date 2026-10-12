@@ -17,6 +17,7 @@ vi.mock("../../../integrations/harness/core/registry", () => ({
 
 vi.mock("../../../shared/ui/Popover", () => ({
   Popover: ({
+    open,
     children,
     role,
     className,
@@ -24,6 +25,7 @@ vi.mock("../../../shared/ui/Popover", () => ({
     onKeyDown,
     ...props
   }: {
+    open?: boolean;
     children: ReactNode;
     role?: string;
     className?: string;
@@ -37,7 +39,7 @@ vi.mock("../../../shared/ui/Popover", () => ({
     "aria-label"?: string;
     "data-model-picker"?: boolean;
   }) =>
-    createElement(
+    open === false ? null : createElement(
       "div",
       {
         role,

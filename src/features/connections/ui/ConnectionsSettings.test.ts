@@ -1,3 +1,4 @@
+import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver";
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -104,7 +105,7 @@ it("starts SSH setup from Settings and makes the machine available after native 
   const closingForm = container.querySelector("form")!.closest<HTMLElement>(".zen-fold-item")!;
   expect(closingForm.inert).toBe(true);
   expect(closingForm.getAttribute("aria-hidden")).toBe("true");
-  act(() => closingForm.dispatchEvent(new Event("animationend", { bubbles: true })));
+  act(() => completeMotionAnimation(closingForm));
   expect(
     container.querySelector(
       'input[role="combobox"]',
@@ -289,6 +290,7 @@ it("keeps the Add machine trigger available and preserves its SSH draft through 
     .closest<HTMLElement>(".zen-fold-item")!;
   expect(fold.inert).toBe(true);
   await act(async () => vi.advanceTimersByTimeAsync(360));
+  await act(async () => container.querySelectorAll('[data-fold-state="closing"]').forEach(completeMotionAnimation));
   expect(
     container.querySelector(
       'input[role="combobox"]',
@@ -328,6 +330,7 @@ it("toggles removal confirmation from the same button without disconnecting", as
   await act(async () => button("Cancel").click());
   expect(document.activeElement).toBe(trigger);
   await act(async () => vi.advanceTimersByTimeAsync(360));
+  await act(async () => container.querySelectorAll('[data-fold-state="closing"]').forEach(completeMotionAnimation));
   expect(
     container.querySelector('[aria-label="Confirm removing Home Mac"]'),
   ).toBeNull();
@@ -365,4 +368,10 @@ it.each([
   expect(container.querySelector<HTMLButtonElement>('[aria-label="Remove Other computer"]')!.disabled).toBe(false);
   expect(invoke).not.toHaveBeenCalledWith("remote_disconnect", expect.anything());
   expect(requested("devices.revokeSelf")).toBe(false);
+});
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
 });

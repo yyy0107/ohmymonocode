@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../shared/i18n/useTranslation";
 import { RefreshCw } from "../../shared/ui/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -452,7 +453,7 @@ function SessionChip({
           </span>
         ) : null}
       </button>
-      {open && !inline ? (
+      <PresenceBoundary propagate>{open && !inline ? (
         <Popover
           anchor={trigger}
           side="top"
@@ -470,7 +471,7 @@ function SessionChip({
         >
           {signInPanel}
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </>
   );
 }

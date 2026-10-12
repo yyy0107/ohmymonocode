@@ -32,7 +32,6 @@
 .assistant-chat.desktop-bots-workspace .desktop-bots-room-nav button[aria-current="page"] { background: var(--color-surface-hover); }
 .assistant-chat.desktop-bots-workspace :is(.desktop-bots-room-nav button, .desktop-bots-team-heading) > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .assistant-chat.desktop-bots-workspace .desktop-bots-team-heading { font-size: var(--text-ui-sm); color: var(--color-foreground-subtle); }
-.assistant-chat.desktop-bots-workspace .desktop-bots-team-heading svg { transition: transform var(--collapse-duration, 340ms) var(--collapse-easing, ease); }
 .assistant-chat.desktop-bots-workspace .desktop-bots-team-heading[aria-expanded="true"] svg { transform: rotate(90deg); }
 .assistant-chat.desktop-bots-workspace .desktop-bots-chief { color: var(--color-accent); font-size: var(--text-ui-xs); }
 .assistant-chat.desktop-bots-workspace .desktop-bots-collaboration-nav { display: flex; gap: 3px; padding: 6px 8px; border-top: 1px solid var(--color-stroke); }

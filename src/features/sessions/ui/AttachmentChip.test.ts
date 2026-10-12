@@ -1,3 +1,4 @@
+import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver";
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -71,6 +72,7 @@ describe("AttachmentChip image preview", () => {
       ),
     );
 
+    act(() => document.querySelectorAll('[role="dialog"][aria-hidden="true"]').forEach(completeMotionAnimation));
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
   });
@@ -119,6 +121,13 @@ describe("AttachmentChip image preview", () => {
     );
 
     expect(onRemove).toHaveBeenCalledOnce();
+    act(() => document.querySelectorAll('[role="dialog"][aria-hidden="true"]').forEach(completeMotionAnimation));
     expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
+});
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
 });

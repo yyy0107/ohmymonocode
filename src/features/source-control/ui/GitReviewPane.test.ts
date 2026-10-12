@@ -1,3 +1,4 @@
+import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver";
 // @vitest-environment happy-dom
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -279,7 +280,6 @@ it("virtualizes cards, supports multiple expansions, and removes offscreen expan
   expect(gitFileDiff).not.toHaveBeenCalled();
   await click("Expand file", card(0));
   await click("Expand file", card(1));
-  expect(card(0).querySelector("[data-diff-content]")).toBeNull();
   await settle();
   await measure();
   expect(card(0).querySelector("[data-diff-content]")).not.toBeNull();
@@ -316,6 +316,7 @@ it("virtualizes cards, supports multiple expansions, and removes offscreen expan
   await click("Collapse all");
   expect(container.querySelector("[data-diff-content]")).not.toBeNull();
   await act(async () => vi.advanceTimersByTimeAsync(350));
+  await act(async () => container.querySelectorAll('[data-fold-state="closing"]').forEach(completeMotionAnimation));
   await measure();
   expect(container.querySelector("[data-diff-content]")).toBeNull();
   expect(listHeight()).toBe(32 * files.length);
@@ -511,6 +512,7 @@ it("renders a fixed commit with the shared diff, preserves folding on refresh, a
   await settle();
   await click("Refresh changes");
   expect(card(0).querySelector("header button")?.getAttribute("aria-expanded")).toBe("false");
+  await act(async () => container.querySelectorAll('[data-fold-state="closing"]').forEach(completeMotionAnimation));
   expect(card(0).querySelector("[data-diff-content]")).toBeNull();
   await openCommit("def5678");
   expect(gitCommitFileDiff).toHaveBeenLastCalledWith("/repo", "def5678", files[0].relative);
@@ -551,4 +553,10 @@ it("keeps checkpoint review available without Git and hides Git-only sources", a
   expect(
     [...document.querySelectorAll('[role="option"]')].map((row) => row.textContent),
   ).toEqual(["Session changes"]);
+});
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
 });

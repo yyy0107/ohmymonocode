@@ -1,3 +1,5 @@
+import { animate, type AnimationPlaybackControlsWithThen } from "motion/react";
+import { panelTransition } from "../../../shared/motion/tokens";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Plus, RefreshCw, X } from "../../../shared/ui/icons";
@@ -418,16 +420,6 @@ function statusClass(status: BtwThread["status"]): string {
   return "bg-emerald-300";
 }
 
-const OPEN_MOTION = {
-  duration: 360,
-  easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-};
-const CLOSE_MOTION = {
-  duration: 260,
-  easing: "cubic-bezier(0.4, 0, 0.2, 1)",
-  fill: "forwards" as const,
-};
-
 /** An element's box relative to a host element. */
 function rectIn(el: HTMLElement, host: HTMLElement): BurstRect {
   const rect = el.getBoundingClientRect();
@@ -440,14 +432,7 @@ function rectIn(el: HTMLElement, host: HTMLElement): BurstRect {
   };
 }
 
-function box(rect: BurstRect) {
-  return {
-    left: `${rect.left}px`,
-    top: `${rect.top}px`,
-    width: `${rect.width}px`,
-    height: `${rect.height}px`,
-  };
-}
+
 
 /** The full sheet and the composer box it grows out of, as clip paths. */
 function morphClips(sheet: HTMLElement, origin: HTMLElement | null) {
@@ -496,10 +481,9 @@ export function BtwSheet({
   const contentRef = useRef<HTMLDivElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
-  const motionRef = useRef<Animation[] | null>(null);
+  const motionRef = useRef<AnimationPlaybackControlsWithThen[] | null>(null);
   // The session composer stays hidden under an open sheet, past the morph.
-  const homeFadeRef = useRef<Animation | null>(null);
-  const startRef = useRef<number[]>([]);
+  const homeFadeRef = useRef<AnimationPlaybackControlsWithThen | null>(null);
   const [burst, setBurst] = useState<(BurstRect & { key: number }) | null>(
     null,
   );
@@ -537,6 +521,8 @@ export function BtwSheet({
   // from the current frame lets a quick reopen or close reverse mid-flight.
   // Like popovers, the glass layer is never inside an animating ancestor:
   // it and the content each run the same morph.
+  useLayoutEffect(() => () => { motionRef.current?.forEach(playback => playback.cancel()); homeFadeRef.current?.cancel(); }, []);
+
   useLayoutEffect(() => {
     const sheet = sheetRef.current;
     const overlay = overlayRef.current;
@@ -548,7 +534,7 @@ export function BtwSheet({
     const originBox = origin?.() ?? null;
     const clips = morphClips(sheet, originBox);
     const running = motionRef.current;
-    if (!clips || reducedMotion() || typeof sheet.animate !== "function") {
+    if (!clips || reducedMotion()) {
       running?.forEach((motion) => motion.cancel());
       motionRef.current = null;
       if (!open) {
@@ -564,22 +550,11 @@ export function BtwSheet({
     const opacity = style ? Number(style.opacity) : null;
     const frameNow = running && frame ? rectIn(frame, overlay) : null;
     running?.forEach((motion) => motion.cancel());
-    startRef.current.forEach((id) => cancelAnimationFrame(id));
-    startRef.current = [];
     delete overlay.dataset.morph;
-    const timing = open ? OPEN_MOTION : CLOSE_MOTION;
-    const frames = open
-      ? [
-          { clipPath: clip ?? clips.box, opacity: opacity ?? 0 },
-          { opacity: 1, offset: 0.3 },
-          { clipPath: clips.full, opacity: 1 },
-        ]
-      : [
-          { clipPath: clip ?? clips.full, opacity: opacity ?? 1 },
-          { opacity: 1, offset: 0.2 },
-          { clipPath: clips.box, opacity: 0 },
-        ];
-    const motions = layers.map((layer) => layer.animate(frames, timing));
+    const motions = layers.map(layer => animate([layer], {
+      clipPath: [clip ?? (open ? clips.box : clips.full), open ? clips.full : clips.box],
+      opacity: [opacity ?? (open ? 0 : 1), open ? 1 : 0],
+    }, panelTransition));
 
     const sheetComposer = contentRef.current?.querySelector<HTMLElement>(
       ".btw-sheet-composer",
@@ -592,26 +567,11 @@ export function BtwSheet({
       const away = rectIn(sheetBox, overlay);
       const from = frameNow ?? (open ? home : away);
       const to = open ? away : home;
-      motions.push(
-        frame.animate(
-          [
-            { ...box(from), opacity: 0 },
-            { opacity: 1, offset: 0.15 },
-            { opacity: 1, offset: 0.8 },
-            { ...box(to), opacity: 0 },
-          ],
-          timing,
-        ),
-      );
+      motions.push(animate([frame], {
+        left: [from.left, to.left], top: [from.top, to.top], width: [from.width, to.width], height: [from.height, to.height], opacity: [0, 1, 0],
+      }, panelTransition));
       if (open) {
-        // The side composer surfaces inside the frame once it has mostly
-        // taken the new shape.
-        motions.push(
-          sheetComposer!.animate(
-            [{ opacity: 0 }, { opacity: 0, offset: 0.45 }, { opacity: 1 }],
-            timing,
-          ),
-        );
+        motions.push(animate([sheetComposer!], { opacity: [0, 1] }, panelTransition));
         if (!running) setBurst({ key: Date.now(), ...away });
       }
     }
@@ -619,41 +579,17 @@ export function BtwSheet({
     const home = originBox?.closest<HTMLElement>("[data-session-composer]");
     if (home) {
       homeFadeRef.current?.cancel();
-      const fade = home.animate(
-        open
-          ? [{ opacity: 1 }, { opacity: 0, offset: 0.3 }, { opacity: 0 }]
-          : [{ opacity: 0 }, { opacity: 0, offset: 0.55 }, { opacity: 1 }],
-        { ...timing, fill: open ? "forwards" : "none" },
-      );
+      const fade = animate([home], { opacity: open ? [1, 0] : [0, 1] }, panelTransition);
       homeFadeRef.current = open ? fade : null;
       motions.push(fade);
     }
 
-    // Opening mounts the whole sheet, and its first paint can take longer
-    // than a frame. Hold everything on its first frame until that paint has
-    // landed, so the morph plays from the start instead of mid-way.
-    if (open) {
-      motions.forEach((motion) => motion.pause());
-      overlay.dataset.morph = "pending";
-      startRef.current = [
-        requestAnimationFrame(() => {
-          startRef.current = [
-            requestAnimationFrame(() => {
-              startRef.current = [];
-              delete overlay.dataset.morph;
-              motions.forEach((motion) => motion.play());
-            }),
-          ];
-        }),
-      ];
-    }
-
     motionRef.current = motions;
-    motions[0].onfinish = () => {
+    void motions[0].then(() => {
       if (motionRef.current !== motions) return;
       motionRef.current = null;
       if (!open) finishClose();
-    };
+    });
   }, [open, rendered]);
 
   // Esc collapses the sheet from anywhere in this pane, and focus follows

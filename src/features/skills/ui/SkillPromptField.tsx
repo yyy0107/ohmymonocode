@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
   useCallback,
@@ -142,7 +143,7 @@ export function SkillPromptField({ value, harness, cwd, onChange }: Props) {
 
   return (
     <div className="relative">
-      {slash ? (
+      <PresenceBoundary propagate>{slash ? (
         <Popover
           key={slash.start}
           anchor={slashAnchorRef}
@@ -170,7 +171,7 @@ export function SkillPromptField({ value, harness, cwd, onChange }: Props) {
             onCreate={() => undefined}
           />
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 min-h-28 overflow-hidden whitespace-pre-wrap break-words px-3 py-3 font-sans text-sm leading-5.5 text-content"

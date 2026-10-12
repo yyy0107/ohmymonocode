@@ -152,9 +152,6 @@
   cursor: pointer;
   color: var(--color-foreground-subtle);
 }
-.assistant-chat.desktop-bots-workspace .desktop-bots-thread-toggle svg {
-  transition: transform var(--collapse-duration, 340ms) var(--collapse-easing, ease);
-}
 .assistant-chat.desktop-bots-workspace .desktop-bots-thread-toggle[aria-expanded="true"] svg {
   transform: rotate(90deg);
 }
@@ -827,9 +824,6 @@ html.is-resizing .assistant-chat.desktop-bots-workspace .assistant-body {
   justify-content: space-between;
   gap: 8px;
   text-align: start;
-}
-.desktop-bots-workspace .desktop-bots-management-toggle svg {
-  transition: transform var(--collapse-duration, 340ms) var(--collapse-easing, ease);
 }
 .desktop-bots-workspace .desktop-bots-management-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
 .desktop-bots-workspace .desktop-bots-archive-actions { margin-top: 16px; }

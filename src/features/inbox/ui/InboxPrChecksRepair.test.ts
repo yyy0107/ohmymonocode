@@ -1,3 +1,9 @@
+import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver";
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
+});
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -877,6 +883,7 @@ it.each(["results", "pr"])(
         }),
       ),
     );
+    act(() => completeMotionAnimation(document.body));
     expect(
       document.querySelector(
         '[role="dialog"][aria-label="Fix checks with AI"]',

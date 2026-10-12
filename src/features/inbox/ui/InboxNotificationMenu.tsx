@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useEffect, useState } from "react";
 import {
@@ -84,9 +85,10 @@ export function InboxNotificationMenu({
       label: uiT("Notification settings…"),
     });
 
-  if (customOpen)
-    return (
+  return (
+    <PresenceBoundary propagate>{customOpen ? (
       <Popover
+        key="custom-notifications"
         anchor={{ x, y }}
         gap={0}
         width={280}
@@ -106,10 +108,9 @@ export function InboxNotificationMenu({
           onCancel={() => setCustomOpen(false)}
         />
       </Popover>
-    );
-
-  return (
+    ) : (
     <ExplorerMenu
+      key="notification-options"
       x={x}
       y={y}
       ariaLabel={uiT("Inbox actions")}
@@ -168,5 +169,6 @@ export function InboxNotificationMenu({
         }
       }}
     />
+    )}</PresenceBoundary>
   );
 }

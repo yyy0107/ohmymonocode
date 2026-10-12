@@ -1,4 +1,7 @@
-import type { CSSProperties } from "react";
+import { motion as motionElement } from "motion/react";
+import { workflowEntry } from "./workflow-motion.js";
+import { RotatingIcon } from "../../../../../shared/ui/RotatingIcon";
+import { motionGeometry } from "../../../../../shared/motion/tokens";
 import { ArrowUpRight as ArrowUpRightIcon, ChevronDown as ChevronDownIcon, CircleX as CircleXIcon } from "../../../../../shared/ui/icons";
 import { cn } from "../lib/utils.js";
 import { laneDisplayName } from "../workflow-graph/lane-name.js";
@@ -53,17 +56,13 @@ export function WorkflowMoreRow({
     { count: more.count },
   );
   // 与药丸同一条入场纪律：有延迟时 backwards 填充。
-  const style =
-    enterDelayMs === undefined || enterDelayMs <= 0
-      ? undefined
-      : ({ animationDelay: `${enterDelayMs}ms`, animationFillMode: "backwards" } as CSSProperties);
-  const Root = onOpen === undefined ? "span" : "button";
+  const Root = onOpen === undefined ? motionElement.span : motionElement.button;
   return (
-    <Root
+    <Root {...workflowEntry(enterDelayMs)}
       aria-label={title}
       aria-expanded={door?.open}
       className={cn(
-        "wf-pill wf-agent-pill wf-more-row wf-arrive flex h-8 min-w-0 items-center gap-2 rounded-full pl-2 pr-2.5 text-ui-sm",
+        "wf-pill wf-agent-pill wf-more-row  flex h-8 min-w-0 items-center gap-2 rounded-full pl-2 pr-2.5 text-ui-sm",
         door?.open === true ? "bg-surface-hover" : "bg-surface",
         onOpen !== undefined &&
           "wf-pill-open cursor-pointer text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
@@ -72,7 +71,6 @@ export function WorkflowMoreRow({
       data-more-count={more.count}
       data-testid="workflow-roster-more-row"
       onClick={onOpen}
-      style={style}
       title={title}
       {...(onOpen === undefined ? {} : { type: "button" as const })}
     >
@@ -127,13 +125,10 @@ export function WorkflowMoreRow({
         ) : (
           <span
             aria-hidden
-            className={cn(
-              "wf-pill-go wf-pill-go-rest flex size-3.5 items-center justify-center text-foreground-subtlest transition-transform",
-              door.open && "rotate-180",
-            )}
+            className="wf-pill-go wf-pill-go-rest flex size-3.5 items-center justify-center text-foreground-subtlest"
             data-testid="workflow-more-chevron"
           >
-            <ChevronDownIcon className="size-3.5" />
+            <RotatingIcon icon={ChevronDownIcon} angle={door.open ? motionGeometry.flipAngle : 0} className="size-3.5" />
           </span>
         )}
       </span>

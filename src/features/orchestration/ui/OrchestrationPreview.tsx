@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
   useContext,
@@ -214,7 +215,7 @@ function AssignmentModel({
         </span>
         <ChevronDown className="size-3 shrink-0" />
       </button>
-      {open && (
+      <PresenceBoundary propagate>{open && (
         <Popover
           anchor={anchor}
           side="bottom"
@@ -315,8 +316,8 @@ function AssignmentModel({
             )}
           </div>
         </Popover>
-      )}
-      {open &&
+      )}</PresenceBoundary>
+      <PresenceBoundary propagate>{open &&
       inEffort &&
       activeRow &&
       activeChoice &&
@@ -366,7 +367,7 @@ function AssignmentModel({
             );
           })}
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 }
@@ -392,7 +393,7 @@ function WorkerHelp() {
       >
         <CircleHelp className="size-3.5" />
       </button>
-      {(hovered || open) && (
+      <PresenceBoundary propagate>{(hovered || open) && (
         <Popover
           anchor={anchor}
           side="top"
@@ -410,7 +411,7 @@ function WorkerHelp() {
             )}
           </div>
         </Popover>
-      )}
+      )}</PresenceBoundary>
     </>
   );
 }

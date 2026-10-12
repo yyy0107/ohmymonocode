@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { Terminal } from "@xterm/xterm";
 import { useEffect, useRef, useState } from "react";
 import { copyText } from "../../../platform/tauri/clipboard";
@@ -646,7 +647,7 @@ export function TerminalView({ id, cwd, active, onMetaChange }: Props) {
           {t(clipboardError === "copy" ? "Copy failed." : "Paste failed.")}
         </div>
       )}
-      {menu && active && visible && (
+      <PresenceBoundary propagate>{menu && active && visible && (
         <ExplorerMenu
           x={menu.x}
           y={menu.y}
@@ -664,7 +665,7 @@ export function TerminalView({ id, cwd, active, onMetaChange }: Props) {
           }}
           onClose={() => setMenu(null)}
         />
-      )}
+      )}</PresenceBoundary>
     </div>
   );
 }

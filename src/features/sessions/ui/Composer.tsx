@@ -1,3 +1,6 @@
+import { animate, motion, useMotionValue } from "motion/react";
+import { panelTransition, immediateTransition, springs, motionGeometry } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { MessageQueue } from "./MessageQueue";
 import type { SessionModelSettings } from "../model/models";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
@@ -354,9 +357,6 @@ function ToolButton({
   );
 }
 
-/** Matches the `omb-send-kick` animation in omb-metrics.css. */
-const SEND_KICK_MS = 320;
-
 export function Composer({
   enabled = true,
   focused,
@@ -521,11 +521,30 @@ export function Composer({
   const [pasteError, setPasteError] = useState<string | null>(null);
   // Skins play a short kick on the send control as a message leaves.
   const [sendKick, setSendKick] = useState(false);
-  useEffect(() => {
+  const reducedMotion = useMotionPreference();
+  const sendScale = useMotionValue(1);
+  useLayoutEffect(() => {
     if (!sendKick) return;
-    const timer = window.setTimeout(() => setSendKick(false), SEND_KICK_MS);
-    return () => window.clearTimeout(timer);
-  }, [sendKick]);
+    if (reducedMotion) {
+      sendScale.set(1);
+      setSendKick(false);
+      return;
+    }
+    let stopped = false;
+    let settle: ReturnType<typeof animate> | undefined;
+    sendScale.set(motionGeometry.sendKickStart);
+    const kick = animate(sendScale, motionGeometry.sendKickPeak, {
+      ...springs.press,
+      onComplete: () => {
+        if (stopped) return;
+        settle = animate(sendScale, 1, {
+          ...springs.press,
+          onComplete: () => { if (!stopped) setSendKick(false); },
+        });
+      },
+    });
+    return () => { stopped = true; kick.stop(); settle?.stop(); };
+  }, [sendKick, reducedMotion, sendScale]);
   const [fileDrag, setFileDrag] = useState(false);
   const [plusOpen, setPlusOpen] = useState(false);
   const [planSelected, setPlanSelected] = useState(false);
@@ -2370,7 +2389,7 @@ export function Composer({
               />
             ) : null}
 
-            <div className="composer-editor relative">
+            <motion.div layout transition={reducedMotion ? immediateTransition : panelTransition} className="composer-editor relative">
               <div
                 ref={highlightRef}
                 aria-hidden
@@ -2387,7 +2406,9 @@ export function Composer({
                   mcpTags={selectedMcp}
                 />
               </div>
-              <textarea
+              <motion.textarea
+                layout
+                transition={reducedMotion ? immediateTransition : panelTransition}
                 ref={ref}
                 data-composer-empty={navigationEmpty ? "true" : undefined}
                 style={{ textIndent: modeIndent }}
@@ -2444,7 +2465,7 @@ export function Composer({
                   syncTokensFromTextarea(el);
                 }}
               />
-            </div>
+            </motion.div>
 
             <div className="composer-footer flex items-center gap-1 px-2 pb-2">
               <div
@@ -2753,8 +2774,9 @@ export function Composer({
                   {modelControlElements}
                 </div>
               </div>
-              <div
+              <motion.div
                 data-send-kick={sendKick || undefined}
+                style={{ scale: sendScale }}
                 className="flex shrink-0 items-center gap-1"
               >
                 <ComposerAction
@@ -2766,7 +2788,7 @@ export function Composer({
                   onSend={() => submit(ref.current?.value ?? "")}
                   onStop={() => onStop?.()}
                 />
-              </div>
+              </motion.div>
             </div>
           </div>
         </div>

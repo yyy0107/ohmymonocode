@@ -1,3 +1,4 @@
+import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver";
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -97,6 +98,7 @@ describe("LinkedWorkItemPanel tab persistence", () => {
     });
 
     await act(async () => render(false));
+    await act(async () => completeMotionAnimation(container.querySelector("[data-linked-work-item-panel]")));
     expect(container.querySelector("aside")?.classList).toContain("hidden");
     expect(container.querySelector("aside")?.getAttribute("aria-hidden")).toBe(
       "true",
@@ -109,4 +111,10 @@ describe("LinkedWorkItemPanel tab persistence", () => {
     expect(container.textContent).toContain("Keep the linked panel warm");
     expect(invoke).toHaveBeenCalledTimes(3);
   });
+});
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
 });

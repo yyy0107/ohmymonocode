@@ -1,3 +1,6 @@
+import { motion } from "motion/react";
+import { panelTransition, immediateTransition, motionGeometry } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronRight, Folder, Minus, Search, X } from "../../../shared/ui/icons";
@@ -45,6 +48,7 @@ export function ProjectNotificationSettings({
   notificationSettingsRequest = 0,
   highlighted = false,
 }: Props) {
+  const reduced = useMotionPreference();
   const { t: uiT } = useTranslation();
   const notificationProjects = useNotificationProjects([
     cwd,
@@ -447,8 +451,8 @@ export function ProjectNotificationSettings({
                                 className="relative h-5 w-9 rounded-full bg-content/20 transition-colors peer-checked:bg-accent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent motion-reduce:transition-none"
                                 aria-hidden="true"
                               />
-                              <span
-                                className="pointer-events-none absolute left-0.5 top-0.5 size-4 rounded-full bg-white transition-transform peer-checked:translate-x-4 motion-reduce:transition-none"
+                              <motion.span initial={false} animate={{ x: !preferences[project.id]?.disabled.includes(category.id) ? `var(--desktop-switch-travel, ${motionGeometry.switchTravel}px)` : 0 }} transition={reduced ? immediateTransition : panelTransition}
+                                className="pointer-events-none absolute left-0.5 top-0.5 size-4 rounded-full bg-white"
                                 aria-hidden="true"
                               />
                             </span>

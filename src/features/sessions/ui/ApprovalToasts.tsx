@@ -1,6 +1,9 @@
+import { AnimatePresence, motion, useIsPresent } from "motion/react";
+import { immediateTransition, popAnimate, popExit, popInitial, popTransition } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { CircleAlert, X } from "../../../shared/ui/icons";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import { createPortal } from "react-dom";
 import { allowsProjectNotification } from "../../notifications/model/notificationPreferences";
@@ -38,7 +41,14 @@ export function ApprovalToasts({
   topOffset = 12,
 }: Props) {
   useProjectNotificationPreferences();
-  if (notices.length === 0) return null;
+  // Preserve the original gate remount when a removed notice returns during exit.
+  const previous = useRef(new Set<string>());
+  const generations = useRef(new Map<string, number>());
+  const keys = notices.map((notice) => `${notice.sessionId}:${notice.kind}:${notice.requestId}`);
+  for (const key of keys) {
+    if (!previous.current.has(key)) generations.current.set(key, (generations.current.get(key) ?? 0) + 1);
+  }
+  previous.current = new Set(keys);
 
   return createPortal(
     <div
@@ -46,15 +56,17 @@ export function ApprovalToasts({
       style={{ zIndex: LAYER.toast, top: topOffset }}
       className="pointer-events-none fixed right-3 flex w-[min(360px,calc(100vw-24px))] flex-col gap-2"
     >
+      <AnimatePresence>
       {notices.map((notice) => (
         <ProjectApprovalToast
-          key={`${notice.sessionId}:${notice.kind}:${notice.requestId}`}
+          key={`${notice.sessionId}:${notice.kind}:${notice.requestId}:${generations.current.get(`${notice.sessionId}:${notice.kind}:${notice.requestId}`)}`}
           notice={notice}
           focused={notice.sessionId === focusedSessionId}
           onFocusSession={onFocusSession}
           onApproval={onApproval}
         />
       ))}
+      </AnimatePresence>
     </div>,
     document.body,
   );
@@ -66,6 +78,8 @@ function ProjectApprovalToast(props: {
   onFocusSession: Props["onFocusSession"];
   onApproval: Props["onApproval"];
 }) {
+  const reduced = useMotionPreference();
+  const present = useIsPresent();
   const path = props.notice.session.cwd;
   // The keyed gate stays mounted even while hidden. Resuming notifications
   // must not turn a pending request into a new popup.
@@ -93,6 +107,7 @@ function ProjectApprovalToast(props: {
   }, [expanded, hovered, focusWithin]);
 
   return (
+    <motion.div initial={reduced ? false : popInitial} animate={popAnimate} exit={popExit} transition={reduced ? immediateTransition : popTransition} inert={!present} aria-hidden={!present || undefined}>
     <AnimatedCollapse expanded={expanded}>
       <div
         onMouseEnter={() => setHovered(true)}
@@ -113,6 +128,7 @@ function ProjectApprovalToast(props: {
         />
       </div>
     </AnimatedCollapse>
+    </motion.div>
   );
 }
 

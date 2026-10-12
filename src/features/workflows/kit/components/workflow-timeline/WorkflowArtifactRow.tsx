@@ -1,4 +1,6 @@
-import type { CSSProperties, ReactNode } from "react";
+import { motion as motionElement } from "motion/react";
+import { workflowEntry } from "./workflow-motion.js";
+import type { ReactNode } from "react";
 import { ArrowUpRight as ArrowUpRightIcon } from "../../../../../shared/ui/icons";
 import {
   ArtifactDetail,
@@ -56,33 +58,28 @@ export function WorkflowArtifactRow({
   const openable = onOpen !== undefined;
   const version = artifact.version ?? 1;
   const showVersion = version >= 2;
-  const style: CSSProperties | undefined =
-    enterDelayMs === undefined || enterDelayMs <= 0
-      ? undefined
-      : { animationDelay: `${enterDelayMs}ms`, animationFillMode: "backwards" };
 
   return (
     <div
       className="wf-tile relative grid w-full min-w-0 grid-cols-[160px_minmax(0,1fr)] items-start gap-3 @max-[380px]/wf-artifacts:grid-cols-[136px_minmax(0,1fr)]"
       data-variant="row"
     >
-      <div
+      <motionElement.div {...workflowEntry(enterDelayMs)}
         aria-hidden
-        className="wf-tile-frame wf-arrive relative h-[100px] w-[160px] overflow-hidden rounded-lg border border-border panel-fill @max-[380px]/wf-artifacts:h-[85px] @max-[380px]/wf-artifacts:w-[136px]"
+        className="wf-tile-frame  relative h-[100px] w-[160px] overflow-hidden rounded-lg border border-border panel-fill @max-[380px]/wf-artifacts:h-[85px] @max-[380px]/wf-artifacts:w-[136px]"
         data-testid="workflow-artifact-row-frame"
         inert
-        style={style}
-      >
+        >
         {preview}
-      </div>
-      <button
+      </motionElement.div>
+      <motionElement.button {...workflowEntry(enterDelayMs)}
         aria-label={
           openable
             ? `${intl.formatMessage({ id: "chat.toolCall.workflow.run.artifacts.open" })}: ${title}`
             : undefined
         }
         className={cn(
-          "wf-tile-hit wf-arrive flex min-w-0 flex-col gap-0.5 rounded-lg bg-transparent p-0 pt-px text-left outline-none",
+          "wf-tile-hit  flex min-w-0 flex-col gap-0.5 rounded-lg bg-transparent p-0 pt-px text-left outline-none",
           openable ? "wf-tile-open cursor-pointer" : "cursor-default",
         )}
         data-artifact-id={artifact.id}
@@ -93,8 +90,7 @@ export function WorkflowArtifactRow({
         data-variant="row"
         disabled={!openable}
         onClick={openable ? () => onOpen(artifact.id) : undefined}
-        style={style}
-        title={tooltip ?? `${kindLabel} · ${title}`}
+          title={tooltip ?? `${kindLabel} · ${title}`}
         type="button"
       >
         <span className="flex h-5 min-w-0 items-center gap-1.5">
@@ -111,7 +107,7 @@ export function WorkflowArtifactRow({
           {showVersion || openable ? (
             <span className="grid size-3 shrink-0 place-items-center [&>*]:col-start-1 [&>*]:row-start-1">
               {showVersion ? (
-                <span
+                <motionElement.span {...workflowEntry(enterDelayMs)}
                   className="wf-mark font-mono text-ui-xs leading-none tabular-nums text-foreground-subtlest"
                   data-testid="workflow-artifact-tile-version"
                   key={version}
@@ -124,7 +120,7 @@ export function WorkflowArtifactRow({
                     { id: "chat.toolCall.workflow.run.artifacts.versionTail" },
                     { version: String(version) },
                   )}
-                </span>
+                </motionElement.span>
               ) : null}
               {openable ? (
                 <span
@@ -161,7 +157,7 @@ export function WorkflowArtifactRow({
             </>
           ) : null}
         </span>
-      </button>
+      </motionElement.button>
     </div>
   );
 }

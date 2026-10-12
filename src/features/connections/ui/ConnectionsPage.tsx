@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { withStatusToast } from "../../../shared/ui/StatusToast";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -254,13 +255,13 @@ function ControlThisComputer() {
           {error}
         </p>
       ) : null}
-      {adding && machineId ? (
+      <PresenceBoundary>{adding && machineId ? (
         <AddDeviceDialog
           machineId={machineId}
           onClose={() => setAdding(false)}
           onAdded={() => void refresh()}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
     </section>
   );
 }

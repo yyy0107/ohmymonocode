@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 // Adapted from ZCode (Apache-2.0).
 import { memo, useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { FileDiffOptions } from "@pierre/diffs";
@@ -170,13 +171,13 @@ export const ReviewDiffViewer = memo(function ReviewDiffViewer({
           </button>
         )}
       />
-      {visible && comment ? (
+      <PresenceBoundary propagate>{visible && comment ? (
         <DiffCommentComposer
           path={path}
           target={comment}
           onDismiss={() => setComment(null)}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 });

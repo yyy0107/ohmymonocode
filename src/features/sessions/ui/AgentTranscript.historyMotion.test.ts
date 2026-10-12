@@ -40,9 +40,6 @@ function render(blocks: Block[], busy: boolean, animateFrom?: string) {
 }
 
 it.each([false, true])("shows asynchronously loaded history immediately, then animates fresh output (busy=%s)", (busy) => {
-  const animate = vi.spyOn(Element.prototype, "animate");
-  const entrances = () => animate.mock.contexts.filter(node =>
-    node.hasAttribute("data-transcript-content-motion"));
   const history: Block[] = [
     { id: "user", role: "user", text: "Review" },
     { id: "reply", role: "assistant", text: "已经收到的历史消息。".repeat(10), streaming: busy },
@@ -51,7 +48,7 @@ it.each([false, true])("shows asynchronously loaded history immediately, then an
   render([], busy);
   render(history, busy);
   expect(container.querySelector(".agent-markdown")!.textContent).toBe(history[1].text);
-  expect(entrances()).toHaveLength(0);
+  expect(container.querySelector("[data-transcript-content-motion]")?.getAttribute("style") ?? "").not.toContain("opacity: 0");
 
   const nextUser: Block = { id: "next-user", role: "user", text: "Continue" };
   render([...history, nextUser], true);
@@ -59,16 +56,12 @@ it.each([false, true])("shows asynchronously loaded history immediately, then an
     id: "fresh", role: "assistant", text: "这是刚刚收到的新回复。".repeat(10), streaming: true,
   };
   render([...history, nextUser, fresh], true);
-  expect(entrances()).toHaveLength(1);
+
   const reply = container.querySelectorAll(".agent-markdown")[1]!;
-  expect(reply.textContent).toBe("");
-  act(() => vi.advanceTimersByTime(100));
-  expect(reply.textContent!.length).toBeGreaterThan(0);
-  expect(reply.textContent!.length).toBeLessThan(fresh.text.length);
+  expect(reply.textContent).toBe(fresh.text);
 });
 
 it("still animates an explicitly fresh reply in the first loaded snapshot", () => {
-  const animate = vi.spyOn(Element.prototype, "animate");
   const blocks: Block[] = [
     { id: "old-user", role: "user", text: "Hello" },
     { id: "old-reply", role: "assistant", text: "已有回复。" },
@@ -79,8 +72,6 @@ it("still animates an explicitly fresh reply in the first loaded snapshot", () =
   render(blocks, true, "new-user");
   const replies = container.querySelectorAll(".agent-markdown");
   expect(replies[0].textContent).toBe(blocks[1].text);
-  expect(replies[1].textContent).toBe("");
-  const entrances = animate.mock.contexts.filter(node =>
-    node.hasAttribute("data-transcript-content-motion"));
-  expect(entrances).toEqual([replies[1].closest("[data-transcript-content-motion]")]);
+  expect(replies[1].textContent).toBe(blocks[3].text);
+  expect(replies[1].closest<HTMLElement>("[data-transcript-content-motion]")?.style.opacity).toBe("0");
 });

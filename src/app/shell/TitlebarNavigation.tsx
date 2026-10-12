@@ -1,3 +1,6 @@
+import { motion as motionElement } from "motion/react";
+import { panelTransition, immediateTransition } from "../../shared/motion/tokens";
+import { reducedMotionQuery as motionPreferenceQuery } from "../../shared/lib/reducedMotion";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useCollapseMotion } from "../../shared/ui/AnimatedCollapse";
 import { SurfaceVisibilityContext } from "../../shared/ui/SurfaceVisibility";
@@ -25,20 +28,14 @@ export function TitlebarNavigation({
   }, []);
 
   return (
-    <div
+    <motionElement.div
+      initial={false} animate={{ gridTemplateColumns: expanded ? `${width}px` : "0px" }} transition={motionPreferenceQuery().matches ? immediateTransition : panelTransition} onAnimationComplete={finish}
       data-titlebar-navigation
       data-fold-state={foldState}
       className="animated-collapse-size grid min-w-0 shrink-0"
-      style={{ gridTemplateColumns: expanded ? `${width}px` : "0px" }}
       aria-hidden={!expanded || undefined}
       inert={!expanded}
-      onTransitionEnd={(event) => {
-        if (
-          event.target === event.currentTarget &&
-          event.propertyName === "grid-template-columns"
-        )
-          finish();
-      }}
+
     >
       <div className="min-w-0 overflow-hidden">
         <div
@@ -54,6 +51,6 @@ export function TitlebarNavigation({
           </SurfaceVisibilityContext.Provider>
         </div>
       </div>
-    </div>
+    </motionElement.div>
   );
 }

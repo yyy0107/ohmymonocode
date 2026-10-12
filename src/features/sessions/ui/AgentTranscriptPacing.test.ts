@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Block } from "../model/session";
 import { AgentTranscript } from "./AgentTranscript";
+import { startMotionClock, stopMotionClock, finishMotion } from "../../../../tests/helpers/sharedMotionClock";
 import { applyReducedMotion } from "../../../shared/lib/reducedMotion";
 
 let container: HTMLDivElement;
@@ -27,6 +28,7 @@ beforeEach(() => {
       disconnect() {}
     },
   );
+  startMotionClock();
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -35,6 +37,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  stopMotionClock();
   vi.restoreAllMocks();
   applyReducedMotion("system");
   vi.unstubAllGlobals();
@@ -56,7 +59,7 @@ function render(blocks: Block[], busy = true, visible = true) {
   );
 }
 
-it("keeps new desktop replies in place while typing and draining their final chunk", () => {
+it("shows each received chunk immediately without moving streaming prose", () => {
   const animate = vi.spyOn(Element.prototype, "animate");
   const entrances = () => animate.mock.contexts.filter(node =>
     node.hasAttribute("data-transcript-content-motion"));
@@ -78,14 +81,10 @@ it("keeps new desktop replies in place while typing and draining their final chu
   render([...history, reply(text)]);
   expect(entrances()).toHaveLength(0);
   expect(received().closest("[data-transcript-content-motion]")).toBeNull();
-  expect(received().textContent).toBe("");
-  act(() => vi.advanceTimersByTime(100));
-  const partial = received().textContent!;
-  expect(partial.length).toBeGreaterThan(0);
-  expect(partial.length).toBeLessThan(text.length);
+  expect(received().textContent).toBe(text);
 
   render([...history, reply(text + text, false)], false);
-  expect(received().textContent).toBe(partial);
+  expect(received().textContent).toBe(text + text);
   act(() => vi.advanceTimersByTime(2000));
   expect(received().textContent).toBe(text + text);
   expect(received().closest("[data-transcript-content-motion]")).toBeNull();
@@ -104,7 +103,7 @@ it("shows new desktop output immediately without sliding when motion is reduced"
     node.hasAttribute("data-transcript-content-motion"))).toHaveLength(0);
 });
 
-it("shows background replies immediately on returning, then paces fresh output", () => {
+it("shows background and fresh output immediately", () => {
   const animate = vi.spyOn(Element.prototype, "animate");
   const entrances = () => animate.mock.contexts.filter(node =>
     node.hasAttribute("data-transcript-content-motion")).length;
@@ -114,7 +113,7 @@ it("shows background replies immediately on returning, then paces fresh output",
   render([user, reply("")]);
   render([user, reply(text)]);
   act(() => vi.advanceTimersByTime(100));
-  expect(container.querySelector(".agent-markdown")!.textContent!.length).toBeLessThan(text.length);
+  expect(container.querySelector(".agent-markdown")!.textContent).toBe(text);
 
   render([user, reply(text)], true, false);
   expect(container.querySelector(".agent-markdown")!.textContent).toBe(text);
@@ -128,11 +127,7 @@ it("shows background replies immediately on returning, then paces fresh output",
   expect(entrances()).toBe(beforeReturn);
 
   render([user, reply(background + text), next]);
-  expect(container.querySelector(".agent-markdown")!.textContent).toBe(background);
-  act(() => vi.advanceTimersByTime(100));
-  const fresh = container.querySelector(".agent-markdown")!.textContent!;
-  expect(fresh.length).toBeGreaterThan(background.length);
-  expect(fresh.length).toBeLessThan((background + text).length);
+  expect(container.querySelector(".agent-markdown")!.textContent).toBe(background + text);
 });
 
 it("keeps live work open across a switch and skips background tool entrances", () => {
@@ -165,7 +160,7 @@ function stages() {
   );
 }
 
-it("paces a burst of tool calls so each enters after the one before it", () => {
+it("paces a burst of tool calls so each enters after the one before it", async () => {
   const head: Block[] = [
     { id: "user", role: "user", text: "Review the diff" },
     { id: "intro", role: "assistant", text: "Checking the repo first." },
@@ -181,14 +176,16 @@ it("paces a burst of tool calls so each enters after the one before it", () => {
   render([...head, tool("second"), tool("third"), tool("fourth")]);
   expect(stages()).toEqual(["settled", "entering", "waiting", "waiting"]);
 
-  act(() => vi.advanceTimersByTime(480));
-  expect(stages()).toEqual(["settled", "entering", "entering", "waiting"]);
-
-  act(() => vi.advanceTimersByTime(480));
-  expect(stages()).toEqual(["settled", "entering", "entering", "entering"]);
+  for (let frame = 0; frame < 60 && stages()[2] === "waiting"; frame++)
+    await act(async () => { await finishMotion(1); });
+  expect(stages()[2]).not.toBe("waiting");
+  expect(stages().at(-1)).toBe("waiting");
+  for (let frame = 0; frame < 120 && stages().some(stage => stage !== "settled"); frame++)
+    await act(async () => { await finishMotion(1); });
+  expect(stages()).toEqual(["settled", "settled", "settled", "settled"]);
 });
 
-it("keeps a closing phase inert until motion ends and supports rapid reopening", () => {
+it("keeps a closing phase inert until motion ends and supports rapid reopening", async () => {
   render([
     { id: "user", role: "user", text: "Review the diff" },
     { id: "intro", role: "assistant", text: "Checking the repo first." },
@@ -222,14 +219,12 @@ it("keeps a closing phase inert until motion ends and supports rapid reopening",
   act(() => toggle.click());
   expect(content.dataset.foldState).toBe("closing");
   expect(body.contains(steps[0])).toBe(true);
-  act(() =>
-    content.dispatchEvent(new Event("animationend", { bubbles: true })),
-  );
+  await act(async () => { await finishMotion(); });
   expect(body.querySelector(".zen-fold-item")).toBeNull();
   expect(body.querySelector(".zen-phase-step")).toBeNull();
 });
 
-it("reveals the desktop's Chinese reply character by character through the shared renderer", () => {
+it("shows Chinese chunks immediately and keeps response actions tied to streaming status", () => {
   const user: Block = {
     id: "user",
     role: "user",
@@ -241,19 +236,12 @@ it("reveals the desktop's Chinese reply character by character through the share
     "手机端和桌面端现在都会逐字展示中文输出，已经显示的文字不会随着后续消息重新播放。";
   render([user, { id: "reply", role: "assistant", text: "", streaming: true }]);
   render([user, { id: "reply", role: "assistant", text, streaming: true }]);
-  expect(container.querySelector(".agent-markdown")?.textContent).toBe("");
-  act(() => vi.advanceTimersByTime(100));
-  const partial = container.querySelector(".agent-markdown")?.textContent ?? "";
-  expect(partial.length).toBeGreaterThan(0);
-  expect(partial.length).toBeLessThan(text.length);
-  expect(text.startsWith(partial)).toBe(true);
+  expect(container.querySelector(".agent-markdown")?.textContent).toBe(text);
   expect(actions()).toBeNull();
   render(
     [user, { id: "reply", role: "assistant", text, streaming: false }],
     false,
   );
-  expect(actions()).toBeNull();
-  act(() => vi.advanceTimersByTime(2000));
   expect(container.querySelector(".agent-markdown")?.textContent).toBe(text);
   expect(actions()).not.toBeNull();
   render(
@@ -268,7 +256,7 @@ it("reveals the desktop's Chinese reply character by character through the share
   expect(actions()).not.toBeNull();
 });
 
-it("queues short replies behind longer replies received in the same batch", () => {
+it("shows all replies received in the same batch immediately", () => {
   const user: Block = { id: "user", role: "user", text: "Review" };
   const long = "这是一段较长的回复，需要先显示完毕。".repeat(20);
   render([user]);
@@ -281,19 +269,10 @@ it("queues short replies behind longer replies received in the same batch", () =
     [...container.querySelectorAll(".agent-markdown")].map(
       (node) => node.textContent,
     );
-  act(() => vi.advanceTimersByTime(100));
-  expect(replies()[0]!.length).toBeGreaterThan(0);
-  expect(replies()[0]!.length).toBeLessThan(long.length);
-  expect(replies()[1]).toBe("");
-  for (let step = 0; step < 60; step++) {
-    act(() => vi.advanceTimersByTime(100));
-    const [first, second] = replies();
-    if (second) expect(first).toBe(long);
-  }
   expect(replies()).toEqual([long, "完成"]);
 });
 
-it("releases waiting replies when the earlier message leaves the transcript", () => {
+it("keeps the later reply when the earlier message leaves the transcript", () => {
   const user: Block = { id: "user", role: "user", text: "Review" };
   const second: Block = {
     id: "second",
@@ -307,7 +286,7 @@ it("releases waiting replies when the earlier message leaves the transcript", ()
     second,
   ]);
   act(() => vi.advanceTimersByTime(100));
-  expect(container.querySelectorAll(".agent-markdown")[1].textContent).toBe("");
+  expect(container.querySelectorAll(".agent-markdown")[1].textContent).toBe(second.text);
   render([user, second]);
   act(() => vi.advanceTimersByTime(2000));
   expect(container.querySelector(".agent-markdown")?.textContent).toBe(
@@ -315,7 +294,7 @@ it("releases waiting replies when the earlier message leaves the transcript", ()
   );
 });
 
-it("closes work the answer folds where it stood instead of dropping it in one frame", () => {
+it("closes work the answer folds where it stood instead of dropping it in one frame", async () => {
   const work: Block[] = [
     { id: "user", role: "user", text: "Review the diff" },
     { id: "intro", role: "assistant", text: "Checking the repo first." },
@@ -334,6 +313,6 @@ it("closes work the answer folds where it stood instead of dropping it in one fr
   expect(closing().length).toBeGreaterThan(0);
   act(() => vi.advanceTimersByTime(20));
   expect(closing().some((item) => item.getAttribute("data-fold-state") === "closing")).toBe(true);
-  act(() => vi.advanceTimersByTime(1_000));
+  await act(async () => { await finishMotion(); });
   expect(closing()).toHaveLength(0);
 });

@@ -1,3 +1,5 @@
+import { RotatingIcon } from "../../../shared/ui/RotatingIcon";
+import { motionGeometry } from "../../../shared/motion/tokens";
 // A workflow run's card in its launching conversation: the run digest
 // (horizontal phase timeline, agent pills, artifacts) over the Host's live run
 // state, or — while an agent-launched run waits — the approval view with
@@ -93,7 +95,7 @@ export function WorkflowRunCard({ block, parent: session }: { block: Block; pare
                 className="flex w-fit items-center gap-1 text-ui-sm text-foreground-subtle hover:text-foreground"
                 onClick={() => setConfiguring((value) => !value)}
               >
-                <ChevronRight className={`size-3.5 transition-transform ${configuring ? "rotate-90" : ""}`} aria-hidden="true" />
+                <RotatingIcon icon={ChevronRight} angle={configuring ? motionGeometry.disclosureAngle : 0} className="size-3.5" aria-hidden="true" />
                 {t("Adjust configuration")}
               </button>
               <AnimatedCollapse expanded={configuring} motion="height">

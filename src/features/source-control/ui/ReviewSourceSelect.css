@@ -28,9 +28,6 @@
     0 2px 4px -2px rgb(0 0 0 / 0.1);
   opacity: 1;
   transform: none;
-  transition:
-    opacity 170ms var(--motion-ease-out),
-    transform 170ms var(--motion-ease-out);
 }
 
 .review-source-menu.popover-open {

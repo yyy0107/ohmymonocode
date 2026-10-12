@@ -1,3 +1,7 @@
+import { motion as motionElement } from "motion/react";
+import { panelTransition, immediateTransition, motionGeometry } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
+import { reducedMotionQuery as motionPreferenceQuery } from "../../../shared/lib/reducedMotion";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { withStatusToast } from "../../../shared/ui/StatusToast";
 import {
@@ -6,7 +10,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type ReactNode,
 } from "react";
 import {
@@ -93,6 +96,7 @@ export function SkillsPage({
   agentPicker?: (props: AgentPickerProps) => ReactNode;
 }): ReactNode {
   const { t: uiT } = useTranslation();
+  const reduced = useMotionPreference();
   const lockOverscroll = useLockOverscroll<HTMLDivElement>();
   const previewId = useId();
   const previewOpener = useRef<string | null>(null);
@@ -308,20 +312,11 @@ export function SkillsPage({
 
   return (
     <div className="@container/skills flex min-h-0 min-w-0 flex-1">
-      <div
+      <motionElement.div
+      initial={false} animate={{ "--skills-preview-track": previewVisible ? "1fr" : "0fr" }} transition={motionPreferenceQuery().matches ? immediateTransition : panelTransition} onAnimationComplete={finish}
         className="skills-page-layout animated-collapse-size grid min-h-0 min-w-0 flex-1 overflow-hidden"
-        style={
-          { "--skills-preview-track": previewVisible ? "1fr" : "0fr" } as CSSProperties
-        }
         data-fold-state={foldState}
-        onTransitionEnd={(event) => {
-          if (
-            event.target === event.currentTarget &&
-            (event.propertyName === "grid-template-columns" ||
-              event.propertyName === "grid-template-rows")
-          )
-            finish();
-        }}
+
       >
         <div
           ref={lockOverscroll}
@@ -479,8 +474,11 @@ export function SkillsPage({
                             onClick={() => onToggle(skill.path, disabled)}
                             className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${disabled ? "bg-content/20" : "bg-accent"}`}
                           >
-                            <span
-                              className={`absolute top-0.5 size-4 rounded-full bg-white transition-[left] ${disabled ? "left-0.5" : "left-4.5"}`}
+                            <motionElement.span
+                              initial={false}
+                              animate={{ x: disabled ? 0 : motionGeometry.toggleTravel }}
+                              transition={reduced ? immediateTransition : panelTransition}
+                              className="absolute top-0.5 left-0.5 size-4 rounded-full bg-white"
                             />
                           </button>
                         </div>
@@ -620,7 +618,7 @@ export function SkillsPage({
             </SurfaceVisibilityContext.Provider>
           </aside>
         ) : null}
-      </div>
+      </motionElement.div>
     </div>
   );
 }

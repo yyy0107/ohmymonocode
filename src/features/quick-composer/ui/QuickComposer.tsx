@@ -1,3 +1,7 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
+import { motion, AnimatePresence } from "motion/react";
+import { panelTransition, popTransition, immediateTransition, popInitial, popAnimate, popExit } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useHarnessRefreshSync } from "../../providers/model/harnessRefreshSync";
 import { QuickWorkspaceControls } from "./QuickWorkspaceControls";
@@ -116,6 +120,7 @@ export function quickPromptMode(text: string): {
 export function QuickComposer({ onShown }: { onShown: () => void }) {
   const { t: uiT } = useTranslation();
   useHarnessRefreshSync();
+  const reducedMotion = useMotionPreference();
   const [projects, setProjects] = useState(loadQuickProjects);
   const [projectAppearance, setProjectAppearance] = useState(
     loadQuickProjectAppearance,
@@ -486,7 +491,9 @@ export function QuickComposer({ onShown }: { onShown: () => void }) {
 
   return (
     // Selectors expand below the toolbar without moving the prompt.
-    <div
+    <motion.div
+      layout
+      transition={reducedMotion ? immediateTransition : panelTransition}
       ref={frameRef}
       onPaste={attachments.onPaste}
       onDragOver={attachments.onDragOver}
@@ -725,7 +732,7 @@ export function QuickComposer({ onShown }: { onShown: () => void }) {
         </span>
       </div>
 
-      {picker === "attachments" ? (
+      <PresenceBoundary propagate>{picker === "attachments" ? (
         <Popover
           anchor={plusRef}
           side="top"
@@ -764,9 +771,10 @@ export function QuickComposer({ onShown }: { onShown: () => void }) {
             {uiT("Take screenshot…")}
           </button>
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
+      <AnimatePresence>
       {picker && picker !== "attachments" ? (
-        <div ref={pickerRef} key={picker} className="flex min-h-0 flex-col">
+        <motion.div ref={pickerRef} key={picker} initial={popInitial} animate={popAnimate} exit={popExit} transition={reducedMotion ? immediateTransition : popTransition} className="flex min-h-0 flex-col">
           {picker === "commands" ? (
             <div
               ref={listRef}
@@ -892,9 +900,10 @@ export function QuickComposer({ onShown }: { onShown: () => void }) {
               </div>
             </div>
           ) : null}
-        </div>
+        </motion.div>
       ) : null}
-    </div>
+      </AnimatePresence>
+    </motion.div>
   );
 }
 

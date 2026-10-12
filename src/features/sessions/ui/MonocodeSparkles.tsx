@@ -1,8 +1,8 @@
+import { motion } from "motion/react";
+import { panelTransition } from "../../../shared/motion/tokens";
 import { useState, type CSSProperties } from "react";
 import { useTurnCelebration } from "./turnCelebration";
 
-// Longest sparkle delay plus duration, with a little slack for the fade.
-const CELEBRATE_MS = 3200;
 const SPARKLE_COUNT = 18;
 const STAR_PATH =
   "M12 0C12.9 6.6 17.4 11.1 24 12C17.4 12.9 12.9 17.4 12 24C11.1 17.4 6.6 12.9 0 12C6.6 11.1 11.1 6.6 12 0Z";
@@ -11,8 +11,6 @@ type Sparkle = {
   star: boolean;
   x: number;
   size: number;
-  delay: number;
-  duration: number;
   drift: number;
   spin: number;
 };
@@ -25,8 +23,6 @@ function makeSparkles(): Sparkle[] {
       // Spread evenly across the bubble with some jitter so it never reads as a grid.
       x: Math.min(96, Math.max(4, ((i + Math.random()) / SPARKLE_COUNT) * 100)),
       size: star ? 7 + Math.random() * 6 : 2.5 + Math.random() * 2,
-      delay: 150 + Math.random() * 950,
-      duration: 1200 + Math.random() * 800,
       drift: (Math.random() - 0.5) * 28,
       spin: (Math.random() < 0.5 ? -1 : 1) * (90 + Math.random() * 120),
     };
@@ -41,22 +37,20 @@ export function MonocodeSparkles({
   blockId: string;
   startedAt?: number;
 }) {
-  const active = useTurnCelebration(blockId, startedAt, CELEBRATE_MS);
+  const { active, opacity, y } = useTurnCelebration(blockId, startedAt);
   const [sparkles] = useState(makeSparkles);
 
   if (!active) return null;
   return (
-    <span aria-hidden className="monocode-sparkles">
+    <motion.span aria-hidden className="monocode-sparkles" style={{ opacity, y }}>
       {sparkles.map((sparkle, index) => (
-        <span
-          key={index}
+        <motion.span
+          key={index} initial={false} animate={{ y: ["0%", "-100%"], x: [0, sparkle.drift], rotate: [0, sparkle.spin] }} transition={panelTransition}
           className="monocode-sparkle"
           style={
             {
               "--x": `${sparkle.x}%`,
               "--size": `${sparkle.size}px`,
-              "--delay": `${sparkle.delay}ms`,
-              "--duration": `${sparkle.duration}ms`,
               "--drift": `${sparkle.drift}px`,
               "--spin": `${sparkle.spin}deg`,
             } as CSSProperties
@@ -69,8 +63,8 @@ export function MonocodeSparkles({
           ) : (
             <span className="monocode-sparkle-glyph monocode-sparkle-ember" />
           )}
-        </span>
+        </motion.span>
       ))}
-    </span>
+    </motion.span>
   );
 }

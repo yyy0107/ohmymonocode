@@ -1,5 +1,7 @@
 import { beginPaneResize } from "../../../shared/lib/paneResize";
-import { prefersReducedMotion } from "../../../shared/lib/reducedMotion";
+import { motion, type TargetAndTransition } from "motion/react";
+import { panelTransition, immediateTransition, motionDistance } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import {
   memo,
   useCallback,
@@ -306,6 +308,8 @@ function PaneTreeComponent({
   transcriptPool,
 }: Props) {
   const parentVisible = useSurfaceVisibility();
+  const reduced = useMotionPreference();
+  const releaseGridMotion = useRef<(() => void) | undefined>(undefined);
   const treeRef = useRef<HTMLDivElement>(null);
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
@@ -568,80 +572,15 @@ function PaneTreeComponent({
     if (draft.current) paintLayout(draft.current);
   });
 
-  useEffect(() => {
-    if (!fullViewMotion) return;
-    const element = treeRef.current;
-    const seconds = element ? transitionSeconds(element) : 0;
-    // Already maximized, or nothing to animate: swap the chrome right away.
-    if (
-      seconds === 0 ||
-      !element ||
-      !inSplit ||
-      (fullViewTarget.current === selectedId && !gridMoving.current)
-    ) {
-      setShownUnified(true);
-      return;
-    }
-    const done = () => setShownUnified(true);
-    const onEnd = (event: TransitionEvent) => {
-      if (
-        event.target === element &&
-        event.propertyName.startsWith("grid-template")
-      )
-        done();
-    };
-    element.addEventListener("transitionend", onEnd);
-    const timer = window.setTimeout(done, seconds * 1000 + 100);
-    return () => {
-      element.removeEventListener("transitionend", onEnd);
-      window.clearTimeout(timer);
-    };
-  }, [fullViewMotion, selectedId, inSplit]);
-
-  // Maximizing a card or switching surface modes moves the grid tracks for one
-  // transition. Terminals refit once it ends instead of re-wrapping each frame.
-  // Keyed by the grid's selection alone: full view swaps its chrome over the
-  // same tracks the maximized card already has.
-  const gridTarget =
-    surfaceGrid && inSplit
-      ? ((unified ? selectedId : maximized) ?? "")
-      : null;
-  const previousGridTarget = useRef(gridTarget);
   useLayoutEffect(() => {
-    const previous = previousGridTarget.current;
-    previousGridTarget.current = gridTarget;
-    const element = treeRef.current;
-    if (
-      previous === gridTarget ||
-      previous === null ||
-      gridTarget === null ||
-      !element
-    )
-      return;
-    const seconds = transitionSeconds(element);
-    if (seconds === 0) return;
-    const release = beginPaneResize();
-    gridMoving.current = true;
-    const end = () => {
-      gridMoving.current = false;
-      release();
-    };
-    const onEnd = (event: TransitionEvent) => {
-      if (
-        event.target === element &&
-        event.propertyName.startsWith("grid-template")
-      )
-        end();
-    };
-    element.addEventListener("transitionend", onEnd);
-    // A reversed or interrupted transition may never report its end.
-    const timer = window.setTimeout(end, seconds * 1000 + 100);
-    return () => {
-      element.removeEventListener("transitionend", onEnd);
-      window.clearTimeout(timer);
-      end();
-    };
-  }, [gridTarget]);
+    if (fullViewMotion && (reduced || !inSplit || fullViewTarget.current === selectedId && !gridMoving.current)) setShownUnified(true);
+  }, [fullViewMotion, selectedId, inSplit, reduced]);
+  useEffect(() => () => releaseGridMotion.current?.(), []);
+  const finishGridMotion = () => {
+    gridMoving.current = false;
+    releaseGridMotion.current?.(); releaseGridMotion.current = undefined;
+    if (fullViewMotion) setShownUnified(true);
+  };
 
   // A pane split into an existing layout slides in from the edge it was added
   // on, like the linked work item panel. The neighbours reflow once up front;
@@ -835,13 +774,19 @@ function PaneTreeComponent({
           />
         </SurfaceVisibilityContext.Provider>
       ) : null}
-      <div
+      <motion.div
+        layout
+        initial={false}
+        animate={surfaceGrid ? { gridTemplateRows: String(surfaceGrid.style.gridTemplateRows), gridTemplateColumns: String(surfaceGrid.style.gridTemplateColumns) } : undefined}
+        transition={reduced || unified || !!draft.current ? immediateTransition : panelTransition}
+        onAnimationStart={() => { releaseGridMotion.current?.(); releaseGridMotion.current = beginPaneResize(); gridMoving.current = true; }}
+        onAnimationComplete={finishGridMotion}
         ref={treeRef}
         data-pane-tree-layout
         data-surface-mode={unified ? "unified" : "split"}
         data-pane-cards={paneCards ? "" : undefined}
         className={`relative min-h-0 min-w-0 flex-1 ${surfaceGrid ? "animated-collapse-size grid" : ""} ${paneCards ? "pane-card-gutter" : ""}`}
-        style={gridStyle}
+        style={gridStyle ? { ...gridStyle, gridTemplateRows: undefined, gridTemplateColumns: undefined } : undefined}
       >
         {leaves.map((leaf) => {
           const editorPane = editorPanes.find((pane) => pane.id === leaf.id);
@@ -901,13 +846,12 @@ function PaneTreeComponent({
               {drop && drop.overId === leaf.id && drop.fromId !== leaf.id ? (
                 <PaneDropHint edge={drop.edge} />
               ) : null}
-              <div
+              <motion.div
+                initial={enteringPanes.current.has(leaf.id) && !reduced ? paneEntrance(enteringPanes.current.get(leaf.id)!) : false}
+                animate={{ x: 0, y: 0, opacity: 1 }}
+                transition={reduced ? immediateTransition : panelTransition}
                 data-pane-enter={enteringPanes.current.get(leaf.id)}
-                onAnimationEnd={(event) => {
-                  if (event.animationName !== "pane-enter") return;
-                  enteringPanes.current.delete(leaf.id);
-                  rerender();
-                }}
+                onAnimationComplete={() => { if (enteringPanes.current.delete(leaf.id)) rerender(); }}
                 className="flex min-h-0 min-w-0 flex-1 flex-col"
                 style={
                   asCard
@@ -1048,7 +992,7 @@ function PaneTreeComponent({
                   />
                 ) : null}
                 </PaneCardFrame>
-              </div>
+              </motion.div>
             </SessionSurfacePane>
           );
         })}
@@ -1083,7 +1027,7 @@ function PaneTreeComponent({
             <DropTargetHint label={dockHintLabel} />
           </div>
         ) : null}
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -1252,6 +1196,7 @@ function Sash({
   onCommit: (ratio: number) => void;
   onCancel: () => void;
 }) {
+  const reduced = useMotionPreference();
   const row = sash.dir === "right";
   const [dragging, setDragging] = useState(false);
   const boundary = sash.sizes
@@ -1264,7 +1209,7 @@ function Sash({
   useLayoutEffect(() => () => stopDrag.current?.(false), [layout, visible]);
 
   return (
-    <div
+    <motion.div initial={false} animate={{ opacity: visible ? 1 : 0 }} transition={reduced ? immediateTransition : panelTransition}
       data-pane-sash={`${sash.splitId}:${sash.index}`}
       role="separator"
       aria-orientation={row ? "vertical" : "horizontal"}
@@ -1272,9 +1217,9 @@ function Sash({
       aria-valuemax={100}
       aria-valuenow={Math.round(boundary * 100)}
       aria-hidden={!visible || undefined}
-      className={`absolute z-10 transition-opacity duration-150 motion-reduce:transition-none ${
+      className={`absolute z-10 ${
         row ? "w-px" : "h-px"
-      } ${visible ? "" : "pointer-events-none opacity-0"}`}
+      } ${visible ? "" : "pointer-events-none"}`}
       style={sashStyle(sash)}
     >
       <ResizeHandle
@@ -1374,21 +1319,7 @@ function Sash({
           window.addEventListener("blur", lostCapture);
         }}
       />
-    </div>
-  );
-}
-
-/** The longest transition on an element, in seconds; 0 under reduced motion. */
-function transitionSeconds(element: HTMLElement): number {
-  if (prefersReducedMotion()) return 0;
-  const style = getComputedStyle(element);
-  if (style.transitionProperty === "none") return 0;
-  return Math.max(
-    0,
-    ...style.transitionDuration.split(",").map((value) => {
-      const duration = parseFloat(value) || 0;
-      return value.trim().endsWith("ms") ? duration / 1000 : duration;
-    }),
+    </motion.div>
   );
 }
 
@@ -1419,4 +1350,8 @@ function CardMaximizeButton({
       <Maximize2 className="size-3.5" />
     </button>
   );
+}
+
+function paneEntrance(from: PaneEnterFrom): TargetAndTransition {
+  return { opacity: 0, x: from === "left" ? -motionDistance.page : from === "right" ? motionDistance.page : 0, y: from === "top" ? -motionDistance.page : from === "bottom" ? motionDistance.page : 0 };
 }

@@ -10,7 +10,6 @@ import { formatMobileRelativeTime } from "../../../mobile/relativeTime";
 import { gitHistory, type GitHistoryCommit } from "../../../platform/tauri/fs";
 import { LAYER } from "../../../shared/lib/layers";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
-import { useCollapseMotion } from "../../../shared/ui/AnimatedCollapse";
 import { Popover } from "../../../shared/ui/Popover";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { Check, ChevronDown, ChevronRight } from "../../../shared/ui/icons";
@@ -75,8 +74,6 @@ export function ReviewSourceSelect({
   const menuId = useId();
   const submenuId = `${menuId}-commits`;
   const shown = open && visible && (gitAvailable || !!sessionId);
-  const { foldState, finish } = useCollapseMotion(shown, 170);
-  const sub = useCollapseMotion(shown && submenu && gitAvailable, 170);
   const groups: Entry[][] = [
     ...(sessionId
       ? [
@@ -208,8 +205,9 @@ export function ReviewSourceSelect({
         <ChevronDown className="size-3.5 shrink-0 text-foreground-subtle" />
         {trailing}
       </button>
-      {visible && (open || foldState !== "closed") ? (
+      {visible ? (
         <Popover
+          open={shown}
           anchor={trigger}
           align="start"
           gap={4}
@@ -225,18 +223,12 @@ export function ReviewSourceSelect({
               : `${menuId}-option-${activeIndex}`
           }
           tabIndex={-1}
-          data-fold-state={foldState}
+          data-fold-state={shown ? "open" : "closed"}
           inert={!open}
           aria-hidden={!open || undefined}
           ignore=".review-source-commits"
           onDismiss={open ? (reason) => close(reason === "escape") : undefined}
-          onTransitionEnd={(event) => {
-            if (
-              event.target === event.currentTarget &&
-              event.propertyName === "opacity"
-            )
-              finish();
-          }}
+
           onKeyDown={(event) => {
             if (!open) return;
             if (event.key === "Tab") {
@@ -390,8 +382,9 @@ export function ReviewSourceSelect({
           ))}
         </Popover>
       ) : null}
-      {visible && gitAvailable && (shown && submenu ? true : sub.foldState !== "closed") ? (
+      {visible && gitAvailable ? (
         <Popover
+          open={shown && submenu && gitAvailable}
           anchor={commitsRow}
           side="right"
           align="start"
@@ -403,16 +396,10 @@ export function ReviewSourceSelect({
           id={submenuId}
           role="listbox"
           aria-label={t("Committed")}
-          data-fold-state={sub.foldState}
+          data-fold-state={shown && submenu ? "open" : "closed"}
           inert={!(shown && submenu)}
           aria-hidden={!(shown && submenu) || undefined}
-          onTransitionEnd={(event) => {
-            if (
-              event.target === event.currentTarget &&
-              event.propertyName === "opacity"
-            )
-              sub.finish();
-          }}
+
           ref={commitList}
           className="review-source-menu review-source-commits flex max-h-[400px] flex-col gap-0.5 overflow-y-auto overscroll-contain rounded-lg border p-1.5 text-content"
         >

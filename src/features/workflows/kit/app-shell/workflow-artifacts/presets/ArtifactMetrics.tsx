@@ -1,3 +1,5 @@
+import { motion as motionElement } from "motion/react";
+import { workflowEntry } from "./../../../components/workflow-timeline/workflow-motion.js";
 /**
  * `metrics` 预置渲染器：一排瓦片，每块显示**最后一条带该字段**的条目里的值。
  *
@@ -43,7 +45,7 @@ function MetricTile({ tile, compact }: { tile: MetricTileModel; compact: boolean
       <span className="flex min-w-0 items-baseline gap-1">
         {/* key 带上 sequence：值换了就重新挂载，于是刷新那一下会播一次揭示动画；
             值没换的瓦片保持同一个 DOM 节点，不会跟着别的瓦片一起闪。 */}
-        <span
+        <motionElement.span {...workflowEntry()}
           className={cn(
             "truncate font-mono font-medium text-foreground tabular-nums",
             compact ? "text-ui-sm" : "text-ui-lg",
@@ -54,7 +56,7 @@ function MetricTile({ tile, compact }: { tile: MetricTileModel; compact: boolean
           title={tile.value ?? EMPTY_VALUE}
         >
           {tile.value ?? EMPTY_VALUE}
-        </span>
+        </motionElement.span>
         {tile.unit && tile.value !== undefined ? (
           <span
             className={cn("shrink-0 text-foreground-subtle", compact ? "text-ui-xs" : "text-ui-sm")}

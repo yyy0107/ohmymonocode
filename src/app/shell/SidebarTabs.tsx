@@ -1,6 +1,12 @@
+import { motion } from "motion/react";
+import { immediateTransition, panelTransition } from "../../shared/motion/tokens";
+import { useMotionPreference } from "../../shared/motion/useMotionPreference";
+import { useListReorderMotion } from "../../shared/hooks/useListReorderMotion";
 import { usePreferenceState } from "../../features/settings/model/usePreferenceState";
 import {
   memo,
+  useId,
+  useRef,
   startTransition,
   useOptimistic,
   type CSSProperties,
@@ -38,6 +44,9 @@ export const SidebarTabs = memo(function SidebarTabs({
   resizing = false,
 }: Props) {
   const { t } = useTranslation();
+  const reduced = useMotionPreference();
+  const indicatorId = useId();
+  const tabsRef = useRef<HTMLDivElement>(null);
   const [selectedTab, selectTab] = useOptimistic(tab);
   const [tabOrder, setTabOrder] = usePreferenceState(loadSidebarTabOrder);
   const sortable = useAnimatedReorder(tabOrder, (next) => {
@@ -45,8 +54,10 @@ export const SidebarTabs = memo(function SidebarTabs({
     saveSidebarTabOrder(next);
   });
 
+  useListReorderMotion(tabsRef, tabOrder, "data-sidebar-tab-reorder", !sortable.draggingId);
   return (
     <div
+      ref={tabsRef}
       role="tablist"
       aria-label={t("Workspace")}
       data-reordering={sortable.draggingId ? "" : undefined}
@@ -58,8 +69,11 @@ export const SidebarTabs = memo(function SidebarTabs({
       className="sidebar-segment mx-2 mb-1 flex h-7 shrink-0 items-center gap-px rounded-full bg-surface p-0.5"
     >
       {tabOrder.map((id) => (
-        <div
+        <motion.div
           key={id}
+          data-sidebar-tab-reorder={id}
+          layout={sortable.draggingId === id}
+          transition={reduced || resizing ? immediateTransition : panelTransition}
           ref={(el) => sortable.setItemRef(id, el)}
           className="reorder-item workspace-tab relative flex min-w-0 flex-1 touch-none items-stretch"
           onPointerDown={(event) => {
@@ -80,13 +94,13 @@ export const SidebarTabs = memo(function SidebarTabs({
               if (sortable.consumeClick()) return;
               startTransition(() => {
                 selectTab(id);
-                // Start the panel update with the selection. The CSS thumb
-                // animates independently; waiting for it makes content lag.
+                // Start the panel update with the selection while the indicator moves.
                 onTabChange(id);
               });
             }}
-            className="surface-tab flex h-6 min-w-0 flex-1 items-center justify-center self-center px-2 text-ui-sm leading-none"
+            className="surface-tab relative isolate flex h-6 min-w-0 flex-1 items-center justify-center self-center px-2 text-ui-sm leading-none"
           >
+            {selectedTab === id && !sortable.draggingId ? <motion.span layoutId={indicatorId} transition={reduced || resizing ? immediateTransition : panelTransition} aria-hidden="true" data-sidebar-tab-indicator className="pointer-events-none absolute inset-0 -z-10 rounded-full bg-background-base" /> : null}
             {id === "changes" && (additions || deletions) ? (
               <DiffStat additions={additions} deletions={deletions} />
             ) : (
@@ -95,7 +109,7 @@ export const SidebarTabs = memo(function SidebarTabs({
               </span>
             )}
           </button>
-        </div>
+        </motion.div>
       ))}
     </div>
   );

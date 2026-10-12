@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../shared/i18n/useTranslation";
 import {
   type ReactNode,
@@ -292,7 +293,7 @@ export function MenuBar({
         </>
       ) : null}
 
-      {activeMenu && menuAnchor ? (
+      <PresenceBoundary propagate>{activeMenu && menuAnchor ? (
         <ExplorerMenu
           key={activeMenu}
           x={menuAnchor.x}
@@ -311,7 +312,7 @@ export function MenuBar({
             setRevealed(false);
           }}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 }

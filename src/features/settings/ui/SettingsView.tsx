@@ -1,3 +1,7 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
+import { AnimatePresence, animate, motion, useIsPresent } from "motion/react";
+import { immediateTransition, motionDistance, motionGeometry, panelTransition } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { SurfaceAppearance } from "../../../shared/ui/SurfaceAppearance";
 import { activePreferenceStore } from "../model/sharedPreferences";
 import { uploadPreferenceBackground } from "../model/preferenceAssets";
@@ -32,6 +36,7 @@ import { withStatusToast } from "../../../shared/ui/StatusToast";
 import {
   createContext,
   Fragment,
+  forwardRef,
   useCallback,
   useContext,
   useEffect,
@@ -341,7 +346,7 @@ import {
   ExplorerMenu,
   type ExplorerMenuItem,
 } from "../../files/ui/ExplorerMenu";
-import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
+import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import {
   loadSessionSidebarFilters,
   saveSessionSidebarFilters,
@@ -535,8 +540,11 @@ export function SettingsView({
 }: Props) {
   const { t: uiT } = useTranslation();
   const lockOverscroll = useLockOverscroll<HTMLDivElement>();
+  const reduced = useMotionPreference();
   const [section, setSection] = useState(requestedSection);
   const [revealed, setRevealed] = useState<string | null>(anchor);
+  const pageVisit = useRef({ section, generation: 0 });
+  if (pageVisit.current.section !== section) pageVisit.current = { section, generation: pageVisit.current.generation + 1 };
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const appearance = useAppearanceSettings();
@@ -561,9 +569,17 @@ export function SettingsView({
     if (!(revealed === "project-notifications" && notificationProjectPath)) {
       scrollWithin(document.getElementById(settingDomId(revealed)), "center");
     }
-    const timer = window.setTimeout(() => setRevealed(null), 1800);
-    return () => window.clearTimeout(timer);
-  }, [revealed, section, notificationProjectPath, notificationSettingsRequest]);
+    const element = document.getElementById(settingDomId(revealed));
+    if (!element || reduced) { setRevealed(null); return; }
+    const previous = element.style.backgroundColor;
+    const controls = animate(element, {
+      backgroundColor: [getComputedStyle(element).backgroundColor, "transparent"],
+    }, { ...panelTransition, onComplete: () => {
+      element.style.backgroundColor = previous;
+      setRevealed((current) => current === revealed ? null : current);
+    } });
+    return () => { controls.stop(); element.style.backgroundColor = previous; };
+  }, [revealed, section, notificationProjectPath, notificationSettingsRequest, reduced]);
 
   const onReveal = useCallback(
     (next: SettingsSectionId, settingId: string | null) => {
@@ -646,7 +662,9 @@ export function SettingsView({
                 ref={lockOverscroll}
                 className="@container/settings min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-none"
               >
-                <div data-settings-content className="mx-auto w-full max-w-4xl px-5 py-6 pb-16 @min-[560px]/settings:px-8 @min-[560px]/settings:py-8">
+                <div data-settings-content className="relative mx-auto w-full max-w-4xl px-5 py-6 pb-16 @min-[560px]/settings:px-8 @min-[560px]/settings:py-8">
+                  <AnimatePresence mode="popLayout">
+                    <SettingsPage key={`${section}:${pageVisit.current.generation}`} reduced={reduced}>
                   <PageHeader
                     title={settingsSectionLabel(section)}
                     description={settingsSectionDescription(section)}
@@ -700,6 +718,8 @@ export function SettingsView({
                       onDeleteProject={onDeleteProject}
                     />
                   ) : null}
+                    </SettingsPage>
+                  </AnimatePresence>
                 </div>
               </div>
             </RevealedSetting.Provider>
@@ -4271,7 +4291,7 @@ function ProviderAccountMenu({
           <MoreHorizontal className="size-4" />
         )}
       </button>
-      {visible && open && button.current ? (
+      <PresenceBoundary propagate>{visible && open && button.current ? (
         <ExplorerMenu
           anchor={button.current}
           side="bottom"
@@ -4287,7 +4307,7 @@ function ProviderAccountMenu({
           }}
           onClose={close}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
     </>
   );
 }
@@ -5244,6 +5264,7 @@ function ArchivePage({
         )}
       </Group>
 
+      <PresenceBoundary>
       {deleting ? (
         <RemoveProjectDialog
           name={archivedProjectLabel(deleting.path)}
@@ -5255,6 +5276,7 @@ function ArchivePage({
           }}
         />
       ) : null}
+      </PresenceBoundary>
     </>
   );
 }
@@ -5296,6 +5318,14 @@ function PageHeader({
  * A titled card of related settings. Everything on a page lives in one, so a
  * page reads as a handful of topics instead of one long list of switches.
  */
+const SettingsPage = forwardRef<HTMLDivElement, { children: ReactNode; reduced: boolean }>(function SettingsPage({ children, reduced }, ref) {
+  const present = useIsPresent();
+  return <motion.div ref={ref} data-settings-page inert={!present} aria-hidden={!present || undefined}
+    initial={reduced ? false : { opacity: 0, y: motionDistance.pop }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+    transition={reduced ? immediateTransition : panelTransition}
+  ><SurfaceVisibilityContext.Provider value={present}>{children}</SurfaceVisibilityContext.Provider></motion.div>;
+});
+
 function Group({
   id,
   title,
@@ -5311,6 +5341,7 @@ function Group({
   action?: ReactNode;
   children: ReactNode;
 }) {
+  const reduced = useMotionPreference();
   const revealed = useContext(RevealedSetting);
   const flash = id != null && revealed === id;
 
@@ -5339,13 +5370,16 @@ function Group({
           {action ? <div className="shrink-0 pb-0.5">{action}</div> : null}
         </div>
       ) : null}
-      <div
-        className={`settings-card overflow-hidden rounded-xl border transition-colors ${
+      <motion.div
+        initial={false}
+        animate={{ borderColor: flash ? "color-mix(in srgb, var(--color-accent) 60%, transparent)" : "var(--color-border)" }}
+        transition={reduced ? immediateTransition : panelTransition}
+        className={`settings-card overflow-hidden rounded-xl border ${
           flash ? "border-accent/60" : "border-border"
         }`}
       >
         {children}
-      </div>
+      </motion.div>
     </section>
   );
 }
@@ -5374,7 +5408,7 @@ function Row({
       data-setting-id={id}
       data-stacked={stacked || undefined}
       data-revealed={flash || undefined}
-      className={`settings-row flex ${stacked ? "flex-col items-stretch gap-3" : "items-center gap-6"} border-t border-border px-4 py-3 transition-colors first:border-t-0 ${
+      className={`settings-row flex ${stacked ? "flex-col items-stretch gap-3" : "items-center gap-6"} border-t border-border px-4 py-3 first:border-t-0 ${
         flash ? "bg-accent/10" : ""
       }`}
     >
@@ -5410,13 +5444,13 @@ function Segmented<T extends string>({
   onChange: (value: T) => void;
   optionIdPrefix?: string;
 }) {
+  const indicatorId = useId();
+  const reduced = useMotionPreference();
   const index = Math.max(
     0,
     options.findIndex((option) => option.value === value),
   );
-  // Skins draw one indicator whose leading edge outruns its trailing edge.
-  // The direction must land in the same render as the new index, or the
-  // transition starts with the previous timing.
+  // Keep the selection metadata available to skins while Motion moves the fill.
   const travel = useRef({ index, direction: undefined as "forward" | "back" | undefined });
   if (travel.current.index !== index) {
     travel.current = {
@@ -5440,7 +5474,6 @@ function Segmented<T extends string>({
         } as CSSProperties
       }
     >
-      <span data-segment-indicator aria-hidden="true" />
       {options.map((option) => (
         <button
           id={
@@ -5453,12 +5486,13 @@ function Segmented<T extends string>({
           role="radio"
           aria-checked={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`h-7 min-w-0 truncate rounded-full px-3 font-medium transition-colors ${
+          className={`relative isolate h-7 min-w-0 truncate rounded-full px-3 font-medium transition-colors ${
             value === option.value
-              ? "bg-selection text-foreground"
+              ? "text-foreground"
               : "text-foreground-subtle hover:bg-surface-hover hover:text-foreground"
           }`}
         >
+          {value === option.value ? <motion.span layoutId={indicatorId} transition={reduced ? immediateTransition : panelTransition} data-segment-indicator aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 rounded-full bg-selection" style={{ width: "auto", inset: 0 }} /> : null}
           {option.label}
         </button>
       ))}
@@ -5778,6 +5812,7 @@ function Select({
   onChange: (value: string) => void;
   onOpen?: () => void;
 }) {
+  const reduced = useMotionPreference();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(() =>
     Math.max(
@@ -5875,9 +5910,14 @@ function Select({
             {selected ? selected.label : value}
           </span>
         </span>
-        <ChevronDown
-          className={`desktop-select-arrow size-3.5 shrink-0 text-foreground-subtle transition-transform ${open ? "rotate-180" : ""}`}
-        />
+        <motion.span
+          className="inline-flex shrink-0"
+          initial={false}
+          animate={{ rotate: open ? motionGeometry.selectAngle : 0 }}
+          transition={reduced ? immediateTransition : panelTransition}
+        >
+          <ChevronDown className="desktop-select-arrow size-3.5 text-foreground-subtle" />
+        </motion.span>
       </button>
       <Popover
         open={open}

@@ -1,3 +1,6 @@
+import { animate, type AnimationPlaybackControlsWithThen } from "motion/react";
+import { panelTransition, immediateTransition, motionGeometry } from "../../../shared/motion/tokens";
+import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
 import {
   closeSearchPanel,
   findNext,
@@ -223,6 +226,7 @@ class FindPanel implements Panel {
   readonly top = true;
   query: SearchQuery;
   private replaceVisible = false;
+  private disclosureMotion?: AnimationPlaybackControlsWithThen;
   private composing = false;
   private readonly searchField: HTMLInputElement;
   private readonly replaceField: HTMLInputElement;
@@ -354,6 +358,7 @@ class FindPanel implements Panel {
   }
 
   destroy() {
+    this.disclosureMotion?.stop();
     panels.delete(this.view);
   }
 
@@ -382,6 +387,9 @@ class FindPanel implements Panel {
     this.replaceVisible = visible;
     this.dom.classList.toggle("is-replace", visible);
     this.expandButton.setAttribute("aria-expanded", String(visible));
+    this.disclosureMotion?.stop();
+    const icon = this.expandButton.querySelector("svg");
+    if (icon) this.disclosureMotion = animate([icon], { rotate: visible ? motionGeometry.disclosureAngle : 0 }, reducedMotionQuery().matches ? immediateTransition : panelTransition);
     if (visible && focusReplace) {
       this.replaceField.focus();
       this.replaceField.select();
@@ -727,12 +735,6 @@ const findTheme = EditorView.theme(
     ".cm-find-expand": {
       width: "20px",
       alignSelf: "stretch",
-    },
-    ".cm-find-expand svg": {
-      transition: "transform 0.12s ease",
-    },
-    ".cm-find.is-replace .cm-find-expand svg": {
-      transform: "rotate(90deg)",
     },
     ".cm-find-fields": {
       display: "flex",

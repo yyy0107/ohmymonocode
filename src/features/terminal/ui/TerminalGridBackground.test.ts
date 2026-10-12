@@ -2,6 +2,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { startMotionClock, stopMotionClock, motionFrame } from "../../../../tests/helpers/sharedMotionClock";
 import { TerminalGridBackground } from "./TerminalGridBackground";
 
 const { arcades } = vi.hoisted(() => ({
@@ -52,9 +53,6 @@ vi.mock("../arcade/gridGames", () => ({
 let root: Root;
 let host: HTMLDivElement;
 let now: number;
-let frameId: number;
-let frameCallbacks: number;
-let frames: Map<number, FrameRequestCallback>;
 let intersections: Map<Element, (visible: boolean) => void>;
 let mediaChanged: () => void;
 let reduced: boolean;
@@ -70,17 +68,9 @@ beforeEach(() => {
   arcades.length = 0;
   contexts.length = 0;
   now = 1000;
-  frameId = 0;
-  frameCallbacks = 0;
   reduced = false;
-  frames = new Map();
   intersections = new Map();
   vi.spyOn(performance, "now").mockImplementation(() => now);
-  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-    frames.set(++frameId, callback);
-    return frameId;
-  });
-  vi.stubGlobal("cancelAnimationFrame", (id: number) => frames.delete(id));
   vi.stubGlobal("matchMedia", () => ({
     get matches() {
       return reduced;
@@ -137,6 +127,7 @@ beforeEach(() => {
       );
       return { width: hidden ? 0 : 1000, height: hidden ? 0 : 192 } as DOMRect;
     });
+  startMotionClock();
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
@@ -145,6 +136,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   host.remove();
+  stopMotionClock();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -152,14 +144,11 @@ afterEach(() => {
 function tick(count = 1) {
   for (let i = 0; i < count; i++) {
     now += 33;
-    const callbacks = [...frames.values()];
-    frames.clear();
-    frameCallbacks += callbacks.length;
-    act(() => callbacks.forEach((callback) => callback(now)));
+    act(() => motionFrame(33));
   }
 }
 
-it("bounds animation work to the displayed board when 39 tab panes stay mounted", () => {
+it("keeps passive decoration still when 39 tab panes stay mounted", () => {
   act(() =>
     root.render(
       createElement(
@@ -190,81 +179,59 @@ it("bounds animation work to the displayed board when 39 tab panes stay mounted"
     (sum, ctx) => sum + ctx.strokeRect.mock.calls.length,
     0,
   );
-  console.info(
-    "39-pane animation work over 10 frames",
-    JSON.stringify({
-      frameCallbacks,
-      layoutReads: measure.mock.calls.length,
-      paints,
-      cellStrokes,
-    }),
-  );
-  expect(frameCallbacks).toBe(10);
   expect(measure).not.toHaveBeenCalled();
-  expect(paints).toBe(10);
+  expect(paints).toBe(0);
   expect(cellStrokes).toBe(0);
-  expect(frames.size).toBe(1);
+  for (const arcade of arcades) expect(arcade.step).not.toHaveBeenCalled();
 });
 
 it("pauses hidden panes, scrolled-off backgrounds and hidden windows, preserving game state on return", () => {
-  const render = (visible: boolean) =>
-    act(() => root.render(createElement(TerminalGridBackground, { visible })));
+  const render = (visible: boolean) => act(() => root.render(createElement(TerminalGridBackground, { visible })));
   render(true);
   const grid = [...intersections.keys()][0]!;
-  act(() => host.querySelector<HTMLButtonElement>("button")!.click());
+  act(() => host.querySelector<HTMLButtonElement>("button")!.click()); tick(2);
   expect(arcades[0]!.takeControl).toHaveBeenCalledOnce();
-  render(false);
-  const previousTicks = arcades[0]!.step.mock.calls.length;
-  tick(5);
-  expect(frames.size).toBe(0);
+  expect(arcades[0]!.step).toHaveBeenCalled();
+  render(false); let previousTicks = arcades[0]!.step.mock.calls.length; tick(5);
   expect(arcades[0]!.step).toHaveBeenCalledTimes(previousTicks);
-  render(true);
-  expect(frames.size).toBe(1);
-  expect(arcades).toHaveLength(2);
-  act(() => intersections.get(grid)!(false));
-  tick(5);
-  expect(frames.size).toBe(0);
-  act(() => intersections.get(grid)!(true));
-  expect(frames.size).toBe(1);
+  render(true); tick(2);
+  expect(arcades).toHaveLength(2); expect(arcades[0]!.step.mock.calls.length).toBeGreaterThan(previousTicks);
+  act(() => intersections.get(grid)!(false)); previousTicks = arcades[0]!.step.mock.calls.length; tick(5);
+  expect(arcades[0]!.step).toHaveBeenCalledTimes(previousTicks);
+  act(() => intersections.get(grid)!(true)); tick(2); expect(arcades[0]!.step.mock.calls.length).toBeGreaterThan(previousTicks);
   const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
-  act(() => document.dispatchEvent(new Event("visibilitychange")));
-  expect(frames.size).toBe(0);
-  hidden.mockReturnValue(false);
-  act(() => document.dispatchEvent(new Event("visibilitychange")));
-  expect(frames.size).toBe(1);
+  act(() => document.dispatchEvent(new Event("visibilitychange"))); previousTicks = arcades[0]!.step.mock.calls.length; tick(5);
+  expect(arcades[0]!.step).toHaveBeenCalledTimes(previousTicks);
+  hidden.mockReturnValue(false); act(() => document.dispatchEvent(new Event("visibilitychange"))); tick(2);
+  expect(arcades[0]!.step.mock.calls.length).toBeGreaterThan(previousTicks);
   expect(arcades[0]!.takeControl).toHaveBeenCalledOnce();
 });
 
-it("paints both boards during a slide, then stops ticking the outgoing board", () => {
+it("slides to the selected board without running passive game simulations", () => {
   act(() => root.render(createElement(TerminalGridBackground)));
-  act(() =>
-    host.querySelector<HTMLButtonElement>('[aria-label="snake"]')!.click(),
-  );
-  for (const arcade of arcades) arcade.step.mockClear();
-  tick(2);
-  expect(arcades[0]!.step).toHaveBeenCalledTimes(2);
-  expect(arcades[1]!.step).toHaveBeenCalledTimes(2);
-  tick(23);
-  const previousTicks = arcades[0]!.step.mock.calls.length;
-  tick(3);
-  expect(arcades[0]!.step).toHaveBeenCalledTimes(previousTicks);
-  expect(arcades[1]!.step).toHaveBeenCalledTimes(28);
+  act(() => host.querySelector<HTMLButtonElement>('[aria-label="snake"]')!.click());
+  tick(25);
+  expect(arcades[0]!.step).not.toHaveBeenCalled(); expect(arcades[1]!.step).not.toHaveBeenCalled();
+  act(() => host.querySelector<HTMLButtonElement>("button")!.click()); tick(3);
+  expect(arcades[0]!.step).not.toHaveBeenCalled(); expect(arcades[1]!.step).toHaveBeenCalled();
+  expect(arcades[1]!.takeControl).toHaveBeenCalledOnce();
 });
 
 it("keeps reduced-motion decoration static while explicit gameplay remains interactive", () => {
   reduced = true;
   act(() => root.render(createElement(TerminalGridBackground)));
   expect(contexts[0]!.clearRect).toHaveBeenCalled();
-  expect(frames.size).toBe(0);
+  expect(arcades[0]!.step).not.toHaveBeenCalled();
   act(() => host.querySelector<HTMLButtonElement>("button")!.click());
-  expect(frames.size).toBe(1);
   tick(3);
+  expect(arcades[0]!.step).toHaveBeenCalled();
   expect(arcades[0]!.takeControl).toHaveBeenCalledOnce();
   act(() =>
     [...host.querySelectorAll<HTMLButtonElement>("button")].at(-1)!.click(),
   );
-  expect(frames.size).toBe(0);
+  const ticks = arcades[0]!.step.mock.calls.length;
+  tick(3); expect(arcades[0]!.step).toHaveBeenCalledTimes(ticks);
   reduced = false;
-  act(() => mediaChanged());
-  expect(frames.size).toBe(1);
+  act(() => mediaChanged()); tick(3);
+  expect(arcades[0]!.step).toHaveBeenCalledTimes(ticks);
 });

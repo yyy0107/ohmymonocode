@@ -1,3 +1,6 @@
+import { motion, useAnimationControls } from "motion/react";
+import { panelTransition, immediateTransition, duration } from "../../shared/motion/tokens";
+import { useMotionPreference } from "../../shared/motion/useMotionPreference";
 import {
   memo,
   useCallback,
@@ -10,6 +13,7 @@ import {
 } from "react";
 import {
   applyDockGridStyle,
+  dockGridStyle,
   type DockSide,
   type ProjectTerminalDock as ProjectTerminal,
 } from "../../features/projects/model/projectTerminal";
@@ -22,7 +26,7 @@ import { SurfaceVisibilityContext } from "../../shared/ui/SurfaceVisibility";
 const RetainedTerminalDock = memo(ProjectTerminalDock);
 
 // Short enough to read as a panel move, not a slide-in to wait through.
-const DOCK_FOLD_MS = 200;
+const DOCK_FOLD_MS = duration.panel * 1000;
 const DOCK_FOLD_STYLE = {
   "--collapse-duration": `${DOCK_FOLD_MS}ms`,
 } as CSSProperties;
@@ -52,6 +56,8 @@ export function TerminalDockLayout({
   ...terminalProps
 }: Props) {
   const grid = useRef<HTMLDivElement>(null);
+  const controls = useAnimationControls();
+  const reduced = useMotionPreference();
   const dragSize = useRef<number | null>(null);
   const currentDockRef = useRef(currentDock);
   currentDockRef.current = currentDock;
@@ -65,10 +71,13 @@ export function TerminalDockLayout({
     const dock = currentDockRef.current;
     const element = grid.current;
     if (!dock || !element) return;
+    controls.stop();
     dragSize.current = size;
     element.style.transitionProperty = "none";
     applyDockGridStyle(element, dock.side, size);
-  }, []);
+    const painted = dockGridStyle(dock.side, size);
+    controls.set({ gridTemplateRows: String(painted.gridTemplateRows), gridTemplateColumns: String(painted.gridTemplateColumns) });
+  }, [controls]);
   const commitSize = useCallback(
     (size: number) => {
       dragSize.current = null;
@@ -83,28 +92,22 @@ export function TerminalDockLayout({
     const element = grid.current;
     if (!element) return;
     element.style.removeProperty("transition-property");
-    applyDockGridStyle(
-      element,
-      currentDock?.side ?? lastDockSide ?? "bottom",
-      open ? (currentDock?.size ?? 0) : 0,
-    );
-  }, [currentDock, open, lastDockSide]);
+    const target = dockGridStyle(currentDock?.side ?? lastDockSide ?? "bottom", open ? (currentDock?.size ?? 0) : 0);
+    element.style.gridTemplateAreas = String(target.gridTemplateAreas ?? "");
+    void controls.start({ gridTemplateRows: String(target.gridTemplateRows), gridTemplateColumns: String(target.gridTemplateColumns), transition: reduced ? immediateTransition : panelTransition });
+  }, [currentDock, open, lastDockSide, controls, reduced]);
 
   return (
-    <div
+    <motion.div
+      initial={false}
+      animate={controls}
+      onAnimationComplete={finish}
       ref={grid}
       data-terminal-dock-layout
       data-fold-state={foldState}
       className="animated-collapse-size pane-card-gutter grid h-full min-h-0 min-w-0 flex-1"
       style={DOCK_FOLD_STYLE}
-      onTransitionEnd={(event) => {
-        if (
-          event.target === event.currentTarget &&
-          (event.propertyName === "grid-template-rows" ||
-            event.propertyName === "grid-template-columns")
-        )
-          finish();
-      }}
+
     >
       {projectTerminals.map((dock) => {
         const current =
@@ -136,6 +139,6 @@ export function TerminalDockLayout({
         );
       })}
       {children}
-    </div>
+    </motion.div>
   );
 }

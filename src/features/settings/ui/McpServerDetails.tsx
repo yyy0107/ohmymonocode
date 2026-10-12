@@ -1,8 +1,8 @@
+import { DisclosureChevron } from "../../../shared/ui/DisclosureChevron";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import {
-  ChevronRight,
   FileText,
   LoaderCircle,
   MessageSquare,
@@ -246,8 +246,8 @@ function ItemShell({
           ) : null}
         </span>
         {expandable ? (
-          <ChevronRight
-            className={`mt-0.5 size-3.5 shrink-0 text-content/40 transition-transform ${open ? "rotate-90" : ""}`}
+          <DisclosureChevron expanded={open}
+            className="mt-0.5 size-3.5 shrink-0 text-content/40"
           />
         ) : null}
       </button>

@@ -1,3 +1,4 @@
+import { AnimatePresence } from "motion/react";
 import { sessionComposerConfiguration } from "../model/composerConfiguration";
 import { SessionWorktreeIcon } from "./SessionWorktreeIcon";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
@@ -958,7 +959,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
           ref={transcriptScope}
           className="@container relative min-h-0 flex-1"
         >
-          {visible && focused && !session.inboxAsk ? (
+          <AnimatePresence>{visible && focused && !session.inboxAsk ? (
             <LinkedWorkItemUpdateNotice
               sessionId={session.id}
               card={session.linkedWorkItemUpdateCard}
@@ -984,8 +985,8 @@ const LocalSessionPane = memo(function LocalSessionPane({
                 onDeleteSession ? () => onDeleteSession(session.id) : undefined
               }
             />
-          ) : null}
-          {visible &&
+          ) : null}</AnimatePresence>
+          <AnimatePresence>{visible &&
           !isEmpty &&
           !remoteSessionLoading &&
           !session.inboxAsk &&
@@ -1000,7 +1001,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
               onNavigate={navigateBlock}
               onOpenAgent={openSubagent}
             />
-          ) : null}
+          ) : null}</AnimatePresence>
           {remoteSessionLoading ? null : isEmpty ? (
             session.inboxAsk ? (
               <div className="scrollbar-none h-full min-h-0 overflow-y-auto">

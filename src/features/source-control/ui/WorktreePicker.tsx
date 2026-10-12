@@ -1,5 +1,7 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
+import { useIsPresent } from "motion/react";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
-import { useEffect, useRef, useState } from "react";
+import { cloneElement, useEffect, useRef, useState, type ReactElement, type Ref } from "react";
 import { useProjectBranchesState } from "../hooks/useProjectBranches";
 import { useProjectWorktrees } from "../hooks/useProjectWorktrees";
 import { pathKey, prettyCwd } from "../../../shared/lib/paths";
@@ -112,8 +114,8 @@ export function WorktreePicker({
   useEffect(() => {
     if (open) activeOption.current?.scrollIntoView({ block: "nearest" });
   }, [open, active, activeRowPath]);
-  if (branchPicker)
-    return (
+  return <>
+    <PresenceBoundary>{branchPicker ? (
       <BranchPicker
         cwd={executionCwd}
         enabled={enabled}
@@ -126,8 +128,9 @@ export function WorktreePicker({
           onClose?.();
         }}
       />
-    );
-  return (
+    ) : null}</PresenceBoundary>
+    <PresenceBoundary>{!branchPicker ? (
+    <WorkingCopyPresence>
     <div ref={anchor} className="relative flex min-w-0 shrink">
       <GitPickerTrigger
         disabled={
@@ -165,7 +168,7 @@ export function WorktreePicker({
         }
         worktree={!worktreeRemoved && inWorktree}
       />
-      {open && (
+      <PresenceBoundary propagate>{open && (
         <Popover
           anchor={anchor}
           side="top"
@@ -324,8 +327,8 @@ export function WorktreePicker({
             )}
           </div>
         </Popover>
-      )}
-      {creating && (
+      )}</PresenceBoundary>
+      <PresenceBoundary>{creating && (
         <CreateWorktreeDialog
           cwd={cwd}
           baseCwd={worktreeRemoved ? cwd : executionCwd}
@@ -340,7 +343,26 @@ export function WorktreePicker({
             onClose?.();
           }}
         />
-      )}
+      )}</PresenceBoundary>
     </div>
-  );
+    </WorkingCopyPresence>
+    ) : null}</PresenceBoundary>
+  </>;
+}
+
+/** Hide the replaced trigger while its portal finishes leaving. */
+function WorkingCopyPresence({ children }: { children: ReactElement<{ hidden?: boolean; inert?: boolean; ref?: Ref<HTMLDivElement> }> }) {
+  const present = useIsPresent();
+  const node = useRef<HTMLDivElement | null>(null);
+  const forwarded = children.props.ref;
+  return cloneElement(children, {
+    hidden: !present,
+    inert: !present,
+    ref: (element: HTMLDivElement | null) => {
+      const previous = node.current;
+      node.current = element;
+      if (typeof forwarded === "function") forwarded(element);
+      else if (forwarded && (element || forwarded.current === previous)) forwarded.current = element;
+    },
+  });
 }

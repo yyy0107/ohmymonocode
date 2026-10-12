@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
   Check,
@@ -411,7 +412,7 @@ export function SecondOpinionButton({
       >
         <Icon className="size-3.5" />
       </button>
-      {open ? (
+      <PresenceBoundary propagate>{open ? (
         <>
           <Popover
             anchor={button}
@@ -486,7 +487,7 @@ export function SecondOpinionButton({
               })
             )}
           </Popover>
-          {showSubmenu ? (
+          <PresenceBoundary propagate>{showSubmenu ? (
             <Popover
               // Remounting per row re-measures the flyout against that row.
               key={active}
@@ -562,8 +563,8 @@ export function SecondOpinionButton({
                 );
               })}
             </Popover>
-          ) : null}
-          {showEffort ? (
+          ) : null}</PresenceBoundary>
+          <PresenceBoundary propagate>{showEffort ? (
             <Popover
               key={`${activeModel.id}:effort`}
               anchor={activeModelRow}
@@ -609,9 +610,9 @@ export function SecondOpinionButton({
                 );
               })}
             </Popover>
-          ) : null}
+          ) : null}</PresenceBoundary>
         </>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </>
   );
 }

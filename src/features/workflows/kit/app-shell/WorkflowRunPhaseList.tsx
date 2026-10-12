@@ -1,6 +1,9 @@
+import { DisclosureChevron } from "../../../../shared/ui/DisclosureChevron";
+import { animate } from "motion/react";
+import { panelTransition, immediateTransition } from "../../../../shared/motion/tokens";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatedCollapse } from "../../../../shared/ui/AnimatedCollapse";
-import { ChevronRight as ChevronRightIcon, CircleHelp as CircleHelpIcon } from "../../../../shared/ui/icons";
+import { CircleHelp as CircleHelpIcon } from "../../../../shared/ui/icons";
 import type { WorkflowRunPendingQuestion, WorkflowRunState } from "../_shims/protocol.js";
 import { cn } from "../components/lib/utils.js";
 import { laneDisplayName } from "../components/workflow-graph/lane-name.js";
@@ -65,7 +68,6 @@ import { useWorkflowIntl } from "../i18n/IntlProvider.js";
  */
 const QUESTION_TICK_MS = 30_000;
 /** 落点亮一下的时长：持 400 ms 再用 800 ms 退回（`.wf-landed`）。 */
-const LANDING_MS = 1200;
 
 function questionKey(question: WorkflowRunPendingQuestion): string | undefined {
   return question.actorSiteId === undefined || question.actorOrdinal === undefined
@@ -144,11 +146,7 @@ export const WorkflowRunPhaseList = memo(function WorkflowRunPhaseList({
     setOpen((previous) => (previous.has(phaseId) ? previous : new Set([...previous, phaseId])));
     setListed((previous) => (previous.has(phaseId) ? previous : new Set([...previous, phaseId])));
     setLanded(landing);
-    const timer = setTimeout(
-      () => setLanded((current) => (current?.key === landing.key ? undefined : current)),
-      LANDING_MS,
-    );
-    return () => clearTimeout(timer);
+    return undefined;
   }, [landing]);
   useEffect(() => {
     if (landed === undefined) return;
@@ -164,6 +162,8 @@ export const WorkflowRunPhaseList = memo(function WorkflowRunPhaseList({
       typeof window.matchMedia === "function" &&
       reducedMotionQuery().matches;
     head.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+    const motion = animate([head], { backgroundColor: ["var(--color-surface-hover)", "rgba(0, 0, 0, 0)"] }, { ...(reduced ? immediateTransition : panelTransition), onComplete: () => setLanded(current => current?.key === landed.key ? undefined : current) });
+    return () => motion.stop();
   }, [landed]);
 
   // 等待时长要自己走：一个在等答案的 run **恰恰不发事件**。定时器只在有问题时存在。
@@ -375,10 +375,7 @@ export const WorkflowRunPhaseList = memo(function WorkflowRunPhaseList({
                   </span>
                 )}
                 <Rounds station={station} />
-                <ChevronRightIcon
-                  aria-hidden
-                  className={cn("size-3.5 transition-transform", expanded && "rotate-90")}
-                />
+                <DisclosureChevron expanded={expanded} className="size-3.5" />
               </span>
             </button>
             <AnimatedCollapse expanded={expanded} motion="height">{() => (

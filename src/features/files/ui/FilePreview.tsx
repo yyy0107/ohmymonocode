@@ -1,3 +1,5 @@
+import { RotatingIcon } from "../../../shared/ui/RotatingIcon";
+import { motionGeometry } from "../../../shared/motion/tokens";
 import { useId, useMemo, useState } from "react";
 import { isLongText, ReadonlyTextView } from "../../../shared/ui/ReadonlyTextView";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
@@ -114,10 +116,7 @@ export function FilePreview({
           title={path}
           onClick={() => setExpanded((value) => !value)}
         >
-          <ChevronDown
-            aria-hidden="true"
-            className={`size-4 shrink-0 text-content/45 transition-transform duration-300 motion-reduce:transition-none ${expanded ? "" : "-rotate-90"}`}
-          />
+          <RotatingIcon icon={ChevronDown} angle={expanded ? 0 : -motionGeometry.disclosureAngle} className="size-4 shrink-0 text-content/45" aria-hidden="true" />
           <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-content/90">
             {label}
           </span>

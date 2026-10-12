@@ -1,3 +1,5 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
+import { autoAnimateOptions } from "../../../shared/motion/tokens";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { isImeComposition } from "../../../shared/lib/keyboard";
@@ -57,6 +59,7 @@ export function MessageQueue({
   renderQueue?: (view: MessageQueueView) => ReactNode;
 }) {
   const { t: uiT } = useTranslation();
+  const [queueRef] = useAutoAnimate<HTMLDivElement>(autoAnimateOptions);
   const [editingId, setEditingId] = useState<string>();
   const [editDraft, setEditDraft] = useState("");
   const [working, setWorking] = useState(false);
@@ -147,6 +150,7 @@ export function MessageQueue({
       <div
         className="relative z-0 mb-2 rounded-[10px] border border-content/10 bg-content/3 px-2 py-1"
         data-message-queue-card
+        ref={queueRef}
       >
         {paused ? (
           <div className="flex h-7 items-center gap-2 border-b border-stroke text-[12px]">

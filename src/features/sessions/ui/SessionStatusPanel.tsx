@@ -1,22 +1,23 @@
+import { AnimatePresence, motion, useIsPresent } from "motion/react";
+import { immediateTransition, panelTransition, popAnimate, popExit, popInitial } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
+import { DisclosureChevron } from "../../../shared/ui/DisclosureChevron";
 import {
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type ButtonHTMLAttributes,
   type ReactNode,
   type RefObject,
 } from "react";
-import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import {
   Bot,
   Check,
   CircleAlert,
-  ChevronRight,
   FileScript,
   FoldVertical,
   Gauge,
@@ -41,7 +42,6 @@ import { TerminalSpinner } from "./TerminalSpinner";
 
 /** Transcript width at which the panel opens on its own, as in ZCode. */
 const AUTO_EXPAND_WIDTH = 1280;
-const MOTION_MS = 340;
 
 // Manual choices outlive pane remounts but not the app; auto mode is the default.
 const overrides = new Map<string, boolean>();
@@ -61,17 +61,6 @@ function useWide(scope: RefObject<HTMLElement | null>): boolean {
   return wide;
 }
 
-function useReducedMotion(): boolean {
-  return useSyncExternalStore(
-    (listener) => {
-      const query = reducedMotionQuery();
-      query?.addEventListener("change", listener);
-      return () => query?.removeEventListener("change", listener);
-    },
-    () => reducedMotionQuery().matches,
-    () => false,
-  );
-}
 
 export function SessionStatusPanel({
   sessionId,
@@ -107,7 +96,7 @@ export function SessionStatusPanel({
     const summary = summaryRef.current;
     if (!summary || summaryKind !== "git") return;
     // Measure the summary independently of the details retained during closing.
-    // Both width endpoints must be lengths: max-content cannot transition.
+    // Keep the summary width stable while retained details close.
     const measure = () =>
       setSummaryWidth(summary.getBoundingClientRect().width);
     measure();
@@ -116,17 +105,17 @@ export function SessionStatusPanel({
     observer.observe(summary);
     return () => observer.disconnect();
   }, [model.hasContent, summaryKind]);
-  const reduced = useReducedMotion();
+  const reduced = useMotionPreference();
   const { t: uiT } = useTranslation();
   const toggle = (next: boolean) => {
     overrides.set(sessionId, next);
     setOverride(next);
   };
-  if (!model.hasContent) return null;
   return (
     <div className="pointer-events-none absolute top-2 right-3 z-30 flex w-[min(32rem,calc(100%_-_24px))] flex-col items-end gap-2">
+      <AnimatePresence propagate>
       {model.hasContent ? (
-        <aside
+        <StatusFrame reduced={reduced}
           aria-label={uiT("Status")}
           data-session-status
           data-state={expanded ? "expanded" : "collapsed"}
@@ -139,9 +128,6 @@ export function SessionStatusPanel({
               : summaryKind === "git" && summaryWidth !== undefined
                 ? `calc(${summaryWidth}px + 2px)`
                 : "15rem",
-            transition: reduced
-              ? "none"
-              : `width ${MOTION_MS}ms var(--collapse-easing, cubic-bezier(0.22, 1, 0.36, 1)), border-radius ${MOTION_MS}ms ease`,
           }}
         >
           <GlassBackdrop />
@@ -155,7 +141,6 @@ export function SessionStatusPanel({
             <AnimatedCollapse
               expanded={expanded}
               motion="height"
-              durationMs={MOTION_MS}
               className="min-h-0"
             >
               <div data-status-scroll className="max-h-[calc(min(64dvh,32rem)_-_34px)] overflow-x-hidden overflow-y-auto px-1.5 pb-1.5">
@@ -176,11 +161,22 @@ export function SessionStatusPanel({
               </div>
             </AnimatedCollapse>
           </div>
-        </aside>
+        </StatusFrame>
       ) : null}
+      </AnimatePresence>
     </div>
   );
 }
+
+function StatusFrame({ reduced, ...props }: React.ComponentProps<typeof motion.aside> & { reduced: boolean }) {
+  const present = useIsPresent();
+  return <motion.aside {...props} layout="size"
+    initial={reduced ? false : popInitial} animate={popAnimate} exit={popExit}
+    transition={reduced ? immediateTransition : panelTransition}
+    inert={!present} aria-hidden={!present || undefined}
+  />;
+}
+
 
 function PanelHeader({
   model,
@@ -570,7 +566,7 @@ function Section({
         )
       ) : null}
       {onClick ? (
-        <ChevronRight className={`zen-disclosure-chevron size-3 shrink-0 text-content/35${expanded ? " rotate-90" : ""}`} />
+        <DisclosureChevron expanded={!!expanded} className="zen-disclosure-chevron size-3 shrink-0 text-content/35" />
       ) : null}
     </>
   );

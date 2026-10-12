@@ -1,33 +1,15 @@
+import { duration } from "../../../shared/motion/tokens";
 // @vitest-environment happy-dom
-import { act, createElement, type ComponentProps } from "react";
+import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ComposerPopover } from "./ComposerPopover";
+import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver";
 import {
   SurfaceVisibilityContext,
   useSurfaceVisibility,
 } from "../../../shared/ui/SurfaceVisibility";
 
-vi.mock("../../../shared/ui/Popover", () => ({
-  Popover: ({
-    children,
-    className,
-    inert,
-    "aria-hidden": hidden,
-    "data-fold-state": state,
-  }: ComponentProps<"div"> & { "data-fold-state"?: string }) =>
-    createElement(
-      "div",
-      {
-        className,
-        inert,
-        "aria-hidden": hidden,
-        "data-fold-state": state,
-        "data-menu": "",
-      },
-      children,
-    ),
-}));
 
 let container: HTMLDivElement;
 let root: Root;
@@ -59,7 +41,7 @@ function render(open: boolean, visible = true) {
         { value: visible },
         createElement(
           ComposerPopover,
-          { open, anchor: null },
+          { open, anchor: null, "data-menu": "" },
           "Action",
           createElement(NestedPortal),
         ),
@@ -73,12 +55,11 @@ it("retains the closing surface, disables interaction and nested portals, then u
   const menu = container.querySelector<HTMLElement>("[data-menu]")!;
   expect(container.querySelector("[data-nested-portal]")).not.toBeNull();
   render(false);
-  expect(menu.dataset.foldState).toBe("closing");
   expect(menu.inert).toBe(true);
   expect(menu.getAttribute("aria-hidden")).toBe("true");
   expect(menu.textContent).toBe("Action");
   expect(container.querySelector("[data-nested-portal]")).toBeNull();
-  act(() => vi.advanceTimersByTime(180));
+  act(() => vi.advanceTimersByTime(duration.pop * 1000));
   expect(container.querySelector("[data-menu]")).toBeNull();
 });
 
@@ -89,15 +70,14 @@ it("reverses closing on the same surface and cancels the pending unmount", () =>
   act(() => vi.advanceTimersByTime(70));
   render(true);
   expect(container.querySelector("[data-menu]")).toBe(menu);
-  expect(menu?.getAttribute("data-fold-state")).toBe("opening");
   expect(menu?.hasAttribute("inert")).toBe(false);
-  act(() => vi.advanceTimersByTime(180));
-  expect(menu?.getAttribute("data-fold-state")).toBe("open");
+  act(() => vi.advanceTimersByTime(duration.pop * 1000));
+  expect(menu?.getAttribute("aria-hidden")).not.toBe("true");
 });
 
 it("closes immediately with reduced motion and removes portals in a hidden surface", () => {
   vi.spyOn(window, "matchMedia").mockReturnValue({
-    matches: true,
+    matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
   } as MediaQueryList);
   render(true);
   render(false);
@@ -107,7 +87,7 @@ it("closes immediately with reduced motion and removes portals in a hidden surfa
   expect(container.querySelector("[data-menu]")).toBeNull();
 });
 
-it("preserves the immediate lifetime and styling for other picker consumers", () => {
+it("preserves styling and animates the closing lifetime for other picker consumers", () => {
   act(() =>
     root.render(
       createElement(
@@ -117,6 +97,7 @@ it("preserves the immediate lifetime and styling for other picker consumers", ()
           enabled: false,
           anchor: null,
           className: "existing-menu",
+          "data-menu": "",
         },
         "Action",
       ),
@@ -133,5 +114,16 @@ it("preserves the immediate lifetime and styling for other picker consumers", ()
       ),
     ),
   );
+  expect(container.querySelector<HTMLElement>("[data-menu]")?.inert).toBe(true);
+  act(() => completeMotionAnimation(container));
   expect(container.querySelector("[data-menu]")).toBeNull();
+});
+
+vi.mock("react-dom", async (importOriginal) => ({
+  ...await importOriginal<typeof import("react-dom")>(), createPortal: (children: ReactNode) => children,
+}));
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
 });

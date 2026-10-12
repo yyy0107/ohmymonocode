@@ -70,7 +70,6 @@ html[data-skin] input[role="switch"] + span {
   border: 0;
   border-radius: 999px;
   background: var(--desktop-control-track);
-  transition: background-color var(--desktop-feedback) ease;
 }
 html[data-skin] :is(button[role="switch"][aria-checked="true"], [data-slot="switch"][data-state="checked"]),
 html[data-skin] input[role="switch"]:checked + span { background: var(--desktop-control-checked); }
@@ -83,12 +82,7 @@ html[data-skin] input[role="switch"] + span + span {
   height: var(--desktop-switch-thumb);
   border-radius: 999px;
   background: var(--desktop-control-knob);
-  transform: none;
-  translate: 0 0;
-  transition: translate var(--desktop-feedback) ease;
 }
-html[data-skin] :is(button[role="switch"][aria-checked="true"], [data-slot="switch"][data-state="checked"]) > span,
-html[data-skin] input[role="switch"]:checked + span + span { translate: var(--desktop-switch-travel) 0; }
 html[data-skin] :is(button[role="switch"], [data-slot="switch"]):dir(rtl) { --desktop-switch-travel: -12px; }
 html[data-skin] :is(button[role="switch"], [data-slot="switch"]):disabled,
 html[data-skin] input[role="switch"]:disabled + span { background: var(--desktop-control-disabled); }
@@ -101,9 +95,6 @@ html[data-skin] .desktop-modal-close { --icon-size: 32px; border-radius: 999px; 
 
 @media (prefers-reduced-motion: reduce) {
   html[data-skin] :is(.ui-button, .desktop-button, .desktop-icon-button, .ui-icon-button, .desktop-field, [data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"], button[role="switch"], [data-slot="switch"]) { transition: none; }
-  html[data-skin] :is(button[role="switch"], [data-slot="switch"]) > span { transition: none; }
-  html[data-skin] input[role="switch"] + span,
-  html[data-skin] input[role="switch"] + span + span { transition: none; }
 }
 
 /* M08: the source select arrow does not rotate. */
@@ -124,12 +115,6 @@ html[data-skin] [data-slot="select-content"][data-side="bottom"] { --desktop-pop
 html[data-skin] [data-slot="select-content"][data-side="top"] { --desktop-popup-y: 2px; }
 html[data-skin] [data-slot="select-content"][data-side="right"] { --desktop-popup-x: -2px; }
 html[data-skin] [data-slot="select-content"][data-side="left"] { --desktop-popup-x: 2px; }
-html[data-skin] [data-slot="select-content"]:not([data-align-trigger="true"]) { animation: desktop-popup-in var(--desktop-popup-duration) var(--desktop-popup-ease); }
-html[data-skin] [data-slot="select-content"][data-state="closed"]:not([data-align-trigger="true"]) { animation-name: desktop-popup-out; }
-@keyframes desktop-popup-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translate(var(--desktop-popup-x), var(--desktop-popup-y)) scale(.98); } }
-@media (prefers-reduced-motion: reduce) {
-  html[data-skin] [data-slot="select-content"]:not([data-align-trigger="true"]) { animation-duration: 0.001ms; }
-}
 
 html[data-skin] [data-slot="input"].desktop-field-leading-icon { padding-inline-start: 36px; }
 html[data-skin] [data-slot="input"].desktop-field-trailing-icon { padding-inline-end: 36px; }
@@ -148,9 +133,6 @@ html[data-skin] :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-me
 html[data-skin] :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"])[data-side="top"] { --desktop-popup-y: 2px; }
 html[data-skin] :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"])[data-side="left"] { --desktop-popup-x: 2px; }
 html[data-skin] :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"])[data-side="right"] { --desktop-popup-x: -2px; }
-html[data-skin] :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"]) { animation: desktop-popup-in var(--desktop-popup-duration) var(--desktop-popup-ease); }
-html[data-skin] :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"])[data-state="closed"] { animation-name: desktop-popup-out; }
 @media (prefers-reduced-motion: reduce) {
   /* Preserve animationend for Radix Presence if the preference changes mid-exit. */
-  html[data-skin] :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"]) { animation-duration: 0.001ms; }
 }

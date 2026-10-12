@@ -2,6 +2,7 @@
 import { act, createElement, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { startMotionClock, stopMotionClock, finishMotion } from "../../../tests/helpers/sharedMotionClock";
 import { SidebarRail, SidebarTransition } from "./SidebarTransition";
 import { useSurfaceVisibility } from "../../shared/ui/SurfaceVisibility";
 
@@ -10,7 +11,7 @@ let container: HTMLDivElement;
 
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  vi.useFakeTimers();
+  startMotionClock();
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -19,12 +20,12 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
-  vi.useRealTimers();
+  stopMotionClock();
   vi.unstubAllGlobals();
 });
 
 describe.each(["sidebar", "rail"] as const)("retained %s content", (kind) => {
-  it("defers the first mount, stops hidden parent updates and refreshes on reopening", () => {
+  it("defers the first mount, stops hidden parent updates and refreshes on reopening", async () => {
     const mounted = vi.fn();
     const unmounted = vi.fn();
     const rendered = vi.fn();
@@ -73,7 +74,7 @@ describe.each(["sidebar", "rail"] as const)("retained %s content", (kind) => {
     });
     expect(input.closest("[hidden]")).toBeNull();
     expect(input.closest("[inert]")).not.toBeNull();
-    act(() => vi.advanceTimersByTime(1000));
+    await act(async () => { await finishMotion(); });
     expect(input.closest("[hidden]")).not.toBeNull();
     rendered.mockClear();
     render(false, "latest");

@@ -221,3 +221,9 @@ it.each(["resume", "expiry", "category"] as const)(
     expect(visibleRequests()).toHaveLength(1);
   },
 );
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
+});

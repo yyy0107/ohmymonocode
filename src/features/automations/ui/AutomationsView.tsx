@@ -1,3 +1,7 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
+import { motion } from "motion/react";
+import { panelTransition, immediateTransition, motionGeometry } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { AppPageHeader } from "../../workspace/ui/AppPageHeader";
 import { translate as translateUi } from "../../../shared/i18n/language";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
@@ -1051,7 +1055,7 @@ function AutomationEditor({
                   >
                     <MoreHorizontal className="size-3.5" />
                   </button>
-                  {menuOpen ? (
+                  <PresenceBoundary propagate>{menuOpen ? (
                     <Popover
                       anchor={menuButton}
                       side="bottom"
@@ -1077,7 +1081,7 @@ function AutomationEditor({
                         {uiT("Delete automation")}
                       </button>
                     </Popover>
-                  ) : null}
+                  ) : null}</PresenceBoundary>
                 </>
               ) : null}
             </div>
@@ -1169,7 +1173,7 @@ function AutomationEditor({
                   {uiT("Add Trigger")}
                 </button>
               </div>
-              {triggerOpen ? (
+              <PresenceBoundary propagate>{triggerOpen ? (
                 <Popover
                   anchor={triggerButton}
                   side="bottom"
@@ -1266,8 +1270,8 @@ function AutomationEditor({
                     ) : null}
                   </div>
                 </Popover>
-              ) : null}
-              {triggerOpen &&
+              ) : null}</PresenceBoundary>
+              <PresenceBoundary propagate>{triggerOpen &&
               triggerCategory &&
               triggerCategories.some(
                 (option) => option.value === triggerCategory,
@@ -1305,7 +1309,7 @@ function AutomationEditor({
                     </button>
                   ))}
                 </Popover>
-              ) : null}
+              ) : null}</PresenceBoundary>
             </section>
 
             <section>
@@ -1593,6 +1597,7 @@ function ToggleSwitch({
   onChange: (on: boolean) => void;
   compact?: boolean;
 }) {
+  const reduced = useMotionPreference();
   return (
     <button
       type="button"
@@ -1604,12 +1609,10 @@ function ToggleSwitch({
         compact ? "h-4 w-7" : "h-5 w-9"
       } ${on ? "bg-accent" : "bg-content/20"}`}
     >
-      <span
-        className={`absolute top-0.5 left-0.5 rounded-full bg-white transition-transform duration-150 ease-out ${
-          compact
-            ? `size-3 ${on ? "translate-x-3" : "translate-x-0"}`
-            : `size-4 ${on ? "translate-x-4" : "translate-x-0"}`
-        }`}
+      <motion.span initial={false}
+        animate={{ x: on ? (compact ? motionGeometry.toggleCompactTravel : motionGeometry.toggleTravel) : 0 }}
+        transition={reduced ? immediateTransition : panelTransition}
+        className={`absolute top-0.5 left-0.5 rounded-full bg-white ${compact ? "size-3" : "size-4"}`}
       />
     </button>
   );

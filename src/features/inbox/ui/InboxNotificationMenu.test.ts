@@ -1,3 +1,9 @@
+import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver";
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
+});
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -58,8 +64,8 @@ afterEach(() => {
 
 function button(label: string) {
   const result = [...document.querySelectorAll("button")].find(
-    (item) => item.textContent === label
-      || (/^\d+ hours?$/.test(label) && item.textContent?.startsWith(`${label} (`)),
+    (item) => !item.closest("[inert]") && (item.textContent === label
+      || (/^\d+ hours?$/.test(label) && item.textContent?.startsWith(`${label} (`))),
   );
   expect(result, label).toBeDefined();
   return result!;
@@ -119,6 +125,7 @@ it("uses already loaded Inbox activity immediately even when the provider stops 
   act(() => button("Mark all as read").click());
   expect(isInboxEntryUnseen(entry)).toBe(false);
   expect(container.querySelector('button[aria-label="Inbox"]')).not.toBeNull();
+  act(() => completeMotionAnimation(document.body));
   expect(document.querySelector('[role="menu"][aria-label="Inbox actions"]')).toBeNull();
   expect(listInboxItems).not.toHaveBeenCalled();
 });
@@ -148,6 +155,7 @@ it("keeps unread items and the menu open when marking read fails, then allows re
   write.mockRestore();
   act(() => button("Mark all as read").click());
   expect(isInboxEntryUnseen(entry)).toBe(false);
+  act(() => completeMotionAnimation(document.body));
   expect(document.querySelector('[role="menu"][aria-label="Inbox actions"]')).toBeNull();
   expect(document.activeElement).toBe(inbox);
 });
@@ -173,6 +181,7 @@ it("marks all Inbox providers as read from the activity bar, including muted pro
   expect(listInboxItems).not.toHaveBeenCalled();
   expect(isInboxEntryUnseen({ ...entries[0]!, updatedAt: "2026-09-16T11:00:00Z" })).toBe(true);
   expect(loadNotificationPreferences()["local:/repos/work"].mutedUntil).toBeNull();
+  act(() => completeMotionAnimation(document.body));
   expect(document.querySelector('[role="menu"][aria-label="Inbox actions"]')).toBeNull();
   expect(document.activeElement).toBe(inbox);
 });
@@ -231,6 +240,7 @@ it("mutes all activity-bar and known Inbox projects for one hour directly from I
     expect(preference.mutedUntil).toBeGreaterThanOrEqual(start + 3_600_000);
     expect(preference.mutedUntil).toBeLessThanOrEqual(Date.now() + 3_600_000);
   }
+  act(() => completeMotionAnimation(document.body));
   expect(
     document.querySelector('[role="menu"][aria-label="Inbox actions"]'),
   ).toBeNull();
@@ -334,6 +344,7 @@ it("keeps the menu open and reports failed persistence so the action can be retr
   write.mockRestore();
   act(() => button("4 hours").click());
   expect(Object.keys(loadNotificationPreferences())).toHaveLength(2);
+  act(() => completeMotionAnimation(document.body));
   expect(
     document.querySelector('[role="menu"][aria-label="Inbox actions"]'),
   ).toBeNull();

@@ -1,3 +1,7 @@
+import { panelTransition, immediateTransition } from "../../../../../shared/motion/tokens";
+import { reducedMotionQuery } from "../../../../../shared/lib/reducedMotion";
+import { motion as motionElement } from "motion/react";
+import { workflowEntry } from "./workflow-motion.js";
 import { useMemo, useState } from "react";
 import { usePauseOffscreenAnimation } from "../../../../../shared/hooks/usePauseOffscreenAnimation";
 import { MessageCircleQuestion as MessageCircleQuestionIcon, RotateCcw as RotateCcwIcon, SlidersHorizontal as SlidersHorizontalIcon, Square as SquareIcon } from "../../../../../shared/ui/icons";
@@ -142,23 +146,23 @@ export function WorkflowRunDigest({
       : undefined;
   const questions =
     questionsLabel === undefined ? undefined : onOpenRun === undefined ? (
-      <span
-        className="wf-arrive flex shrink-0 items-center gap-1 rounded-full bg-[color-mix(in_oklab,var(--color-warning)_12%,transparent)] py-0.5 pl-1.5 pr-2 text-ui-xs font-medium text-warning"
+      <motionElement.span {...workflowEntry()}
+        className=" flex shrink-0 items-center gap-1 rounded-full bg-[color-mix(in_oklab,var(--color-warning)_12%,transparent)] py-0.5 pl-1.5 pr-2 text-ui-xs font-medium text-warning"
         data-testid="workflow-digest-questions"
       >
         <MessageCircleQuestionIcon aria-hidden className="size-3" />
         {questionsLabel}
-      </span>
+      </motionElement.span>
     ) : (
-      <button
-        className="wf-arrive flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-[color-mix(in_oklab,var(--color-warning)_12%,transparent)] py-0.5 pl-1.5 pr-2 text-ui-xs font-medium text-warning outline-none transition-colors hover:bg-[color-mix(in_oklab,var(--color-warning)_20%,transparent)] focus-visible:ring-2 focus-visible:ring-ring/40"
+      <motionElement.button {...workflowEntry()}
+        className=" flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-[color-mix(in_oklab,var(--color-warning)_12%,transparent)] py-0.5 pl-1.5 pr-2 text-ui-xs font-medium text-warning outline-none transition-colors hover:bg-[color-mix(in_oklab,var(--color-warning)_20%,transparent)] focus-visible:ring-2 focus-visible:ring-ring/40"
         data-testid="workflow-digest-questions"
         onClick={() => onOpenRun()}
         type="button"
       >
         <MessageCircleQuestionIcon aria-hidden className="size-3" />
         {questionsLabel}
-      </button>
+      </motionElement.button>
     );
   const resume =
     summary?.resumable === true && onResume !== undefined ? (
@@ -189,11 +193,11 @@ export function WorkflowRunDigest({
     ) : undefined;
 
   return (
-    <section
+    <motionElement.section {...workflowEntry()}
       ref={pauseOffscreen}
       aria-label={kind}
       className={cn(
-        "wf-motion wf-arrive flex w-full min-w-0 flex-col gap-1 rounded-xl border border-border/70 bg-card/70 px-3.5 pb-2 pt-1.5 outline-none",
+        "wf-motion  flex w-full min-w-0 flex-col gap-1 rounded-xl border border-border/70 bg-card/70 px-3.5 pb-2 pt-1.5 outline-none",
         hasRail && "cursor-pointer focus-visible:ring-2 focus-visible:ring-ring/40",
       )}
       data-expanded={hasRail ? String(expanded) : undefined}
@@ -241,10 +245,9 @@ export function WorkflowRunDigest({
       />
       {shown === undefined || !hasRail ? null : (
         // 收起时只隐藏代理，保留阶段线作为运行进度概览。
-        <div
+        <motionElement.div layout initial={false} animate={{ height: timelineHeight(shown!) + 8 }} transition={reducedMotionQuery().matches ? immediateTransition : panelTransition}
           className={cn("wf-digest-plot overflow-hidden")}
           data-testid="workflow-digest-plot"
-          style={{ height: timelineHeight(shown) + 8 }}
         >
           <WorkflowTimeline
             className="py-1"
@@ -255,7 +258,7 @@ export function WorkflowRunDigest({
               ? {}
               : { onOpenMore: (station) => onOpenRun({ phaseId: station.id }) })}
           />
-        </div>
+        </motionElement.div>
       )}
       {/* 时间线下的那一句「仅展示 n/m 步的详情」：表头的计数已经是真实步数，这一行只说
           停在界上的是**详情**。收起态也在——它解释的是上面那些数，不是药丸。
@@ -273,7 +276,7 @@ export function WorkflowRunDigest({
           {...(onOpenArtifact === undefined ? {} : { onOpenArtifact })}
         />
       ) : null}
-    </section>
+    </motionElement.section>
   );
 }
 

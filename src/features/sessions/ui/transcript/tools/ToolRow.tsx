@@ -1,6 +1,6 @@
+import { DisclosureChevron } from "../../../../../shared/ui/DisclosureChevron";
 import { useContext, useState } from "react";
 import { useTranslation } from "../../../../../shared/i18n/useTranslation";
-import { ChevronRight } from "../../../../../shared/ui/icons";
 import { AnimatedCollapse } from "../../../../../shared/ui/AnimatedCollapse";
 import type { ApprovalDecision } from "../../../../../integrations/harness";
 import type { Block } from "../../../model/session";
@@ -146,10 +146,11 @@ export function ToolRow({
             onClick={toggle}
             className="-m-1 shrink-0 rounded p-1"
           >
-            <ChevronRight
+            <DisclosureChevron
+              expanded={open}
               className={`zen-disclosure-chevron size-3.5 ${
                 failed ? "text-red-400/60" : ""
-              } ${open ? "rotate-90 opacity-100" : ""}`}
+              } ${open ? "opacity-100" : ""}`}
             />
           </button>
         ) : null}

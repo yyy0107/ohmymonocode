@@ -1,3 +1,6 @@
+import { motion as motionElement } from "motion/react";
+import { panelTransition, immediateTransition } from "../../../shared/motion/tokens";
+import { reducedMotionQuery as motionPreferenceQuery } from "../../../shared/lib/reducedMotion";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { BotChat } from "./BotChat";
 import { BotSettings } from "./BotSettings";
@@ -332,13 +335,14 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSup
       <SurfaceVisibilityContext.Provider value={visible && draftShown}>
         {navigation}
         <section className="desktop-bots-create-content">
-          <div className="desktop-bots-recipient-surface" data-fold-state={recipientMotion.foldState} data-open={recipientOpen} inert={!recipientOpen} aria-hidden={!recipientOpen || undefined}
-            onTransitionEnd={event => { if (event.target === event.currentTarget && event.propertyName === "transform") recipientMotion.finish(); }}>
+          <motionElement.div
+      initial={false} animate={{ x: recipientOpen ? 0 : "100%", opacity: recipientOpen ? 1 : 0 }} transition={motionPreferenceQuery().matches ? immediateTransition : panelTransition} onAnimationComplete={recipientMotion.finish} className="desktop-bots-recipient-surface" data-fold-state={recipientMotion.foldState} data-open={recipientOpen} inert={!recipientOpen} aria-hidden={!recipientOpen || undefined}
+            >
             <SurfaceVisibilityContext.Provider value={visible && draftShown && recipientOpen}>
               <BotRecipientPicker open={recipientOpen} bots={snapshot?.bots ?? []} roomsSupported={props.roomsSupported} onChoose={selectBot}
                 onCreate={() => { setRecipientOpen(false); setCreatingBot(true); }} onClose={() => { restoreRecipientFocus.current = true; setRecipientOpen(false); }} onSend={sendToRecipients} />
             </SurfaceVisibilityContext.Provider>
-          </div>
+          </motionElement.div>
           {props.teamsSupported && <div className="desktop-bot-management-surface" hidden={managementPanel !== "teams"} inert={managementPanel !== "teams"}><SurfaceVisibilityContext.Provider value={visible && draftShown && managementPanel === "teams"}><DesktopBotTeams teams={teams} bots={snapshot?.bots ?? []} rpc={props.rpc} onSaved={refreshCollaboration} /></SurfaceVisibilityContext.Provider></div>}
           {props.roomsSupported && <div className="desktop-bot-management-surface" hidden={managementPanel !== "rooms"} inert={managementPanel !== "rooms"}><SurfaceVisibilityContext.Provider value={visible && draftShown && managementPanel === "rooms"}><DesktopBotRooms rooms={rooms} bots={snapshot?.bots ?? []} rpc={props.rpc} onSaved={refreshCollaboration} onOpenRoom={openRoom} /></SurfaceVisibilityContext.Provider></div>}
           {managementPanel ? null : showArchive ? <BotArchive snapshot={snapshot} busy={busy} onRestore={restore} onClose={closeArchive} /> : creatingBot ? <>

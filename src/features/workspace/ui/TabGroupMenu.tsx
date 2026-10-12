@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
   AppWindow,
@@ -416,7 +417,7 @@ export function TabGroupMenu({
         ) : null}
         {footer}
       </Popover>
-      {submenu?.item.submenu ? (
+      <PresenceBoundary propagate>{submenu?.item.submenu ? (
         <ExplorerMenu
           anchor={submenu.anchor}
           ownerId={menuId}
@@ -428,7 +429,7 @@ export function TabGroupMenu({
           onMouseEnter={cancelSubmenuClose}
           onMouseLeave={scheduleSubmenuClose}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
     </>
   );
 }

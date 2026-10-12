@@ -1,3 +1,5 @@
+import { RotatingIcon } from "../../../shared/ui/RotatingIcon";
+import { motionGeometry } from "../../../shared/motion/tokens";
 import { useContext, useState } from "react";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import {
@@ -124,9 +126,7 @@ export function QuestionHistoryCard({
         {sheet ? (
           <ChevronRight className="mt-1 size-3.5 shrink-0 text-content/40" />
         ) : (
-          <ChevronDown
-            className={`mt-1 size-3.5 shrink-0 text-content/40 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
-          />
+          <RotatingIcon icon={ChevronDown} angle={open ? motionGeometry.flipAngle : 0} className="mt-1 size-3.5 shrink-0 text-content/40" />
         )}
       </button>
       <AnimatedCollapse expanded={open && !sheet}>

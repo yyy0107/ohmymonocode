@@ -1,3 +1,6 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
+import { RotatingIcon } from "../../../shared/ui/RotatingIcon";
+import { motionGeometry } from "../../../shared/motion/tokens";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
   useEffect,
@@ -287,15 +290,11 @@ export function SearchableProjectPicker({
             <span className="min-w-0 truncate font-medium text-content/90">
               {inProject ? label : uiT(label)}
             </span>
-            <ChevronDown
-              className={`size-3 shrink-0 text-content/45 transition-transform ${
-                open ? "rotate-180" : ""
-              }`}
-            />
+            <RotatingIcon icon={ChevronDown} angle={open ? motionGeometry.flipAngle : 0} className="size-3 shrink-0 text-content/45" aria-hidden="true" />
           </>
         )}
       </button>
-      {open ? (
+      <PresenceBoundary propagate>{open ? (
         <Popover
           anchor={pickerRef}
           side="bottom"
@@ -437,7 +436,7 @@ export function SearchableProjectPicker({
             </div>
           ) : null}
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 }

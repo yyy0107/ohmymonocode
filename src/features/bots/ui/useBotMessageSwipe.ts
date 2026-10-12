@@ -1,3 +1,6 @@
+import { animate, motionValue, styleEffect, type AnimationPlaybackControlsWithThen } from "motion/react";
+import { springs, immediateTransition } from "../../../shared/motion/tokens";
+import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
 import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 
 const REPLY_DISTANCE = 64;
@@ -39,11 +42,19 @@ function measureRow(row: HTMLElement) {
     )
     .map((node) => ({
       node,
+      x: motionValue(0),
       slack: user ? 0 : Math.max(0, width - node.offsetWidth),
     }));
+  const cleanups = parts.map(({ node, x }) => styleEffect([node], { x }));
+  const time = row.querySelector<HTMLElement>(".assistant-swipe-time");
+  const indicator = row.querySelector<HTMLElement>(".assistant-swipe-reply");
+  const timeX = motionValue(0), opacity = motionValue(0);
+  if (time) cleanups.push(styleEffect([time], { x: timeX, opacity }));
+  if (indicator) cleanups.push(styleEffect([indicator], { opacity }));
   return {
     row,
     parts,
+    timeX, opacity, cleanups,
     time: row.querySelector<HTMLElement>(".assistant-swipe-time"),
     indicator: row.querySelector<HTMLElement>(".assistant-swipe-reply"),
   };
@@ -83,20 +94,40 @@ export function useBotMessageSwipe({
         }
       | undefined;
     let suppressClickUntil = 0;
-    let frame: number | undefined;
+    const settling = new Set<AnimationPlaybackControlsWithThen>();
+    const cleanSettled = new Set<() => void>();
+    const cancelSettling = () => {
+      for (const playback of settling) playback.stop();
+      settling.clear();
+      for (const cleanup of cleanSettled) cleanup();
+      cleanSettled.clear();
+    };
     const reset = () => {
-      if (frame !== undefined) cancelAnimationFrame(frame);
-      frame = undefined;
       const previous = swipe;
       swipe = undefined;
       delete element.dataset.messageSwipe;
-      for (const { row, parts, time, indicator } of previous?.rows ?? []) {
-        delete row.dataset.messageSwipe;
-        delete row.dataset.replyReady;
-        for (const { node } of parts) node.style.removeProperty("transform");
-        time?.style.removeProperty("transform");
-        time?.style.removeProperty("opacity");
-        indicator?.style.removeProperty("opacity");
+      for (const item of previous?.rows ?? []) {
+        const { row, parts, time, indicator, timeX, opacity, cleanups } = item;
+        delete row.dataset.messageSwipe; delete row.dataset.replyReady;
+        const values = [...parts.map(part => part.x), timeX, opacity];
+        let cleaned = false;
+        const cleanup = () => {
+          if (cleaned) return;
+          cleaned = true;
+          // Flush pending effect writes before detaching and restoring inline styles.
+          for (const { node } of parts) styleEffect.flush(node);
+          if (time) styleEffect.flush(time);
+          if (indicator) styleEffect.flush(indicator);
+          for (const cancel of cleanups) cancel();
+          for (const value of values) value.destroy();
+          for (const { node } of parts) node.style.removeProperty("transform");
+          time?.style.removeProperty("transform"); time?.style.removeProperty("opacity"); indicator?.style.removeProperty("opacity");
+          cleanSettled.delete(cleanup);
+        };
+        cleanSettled.add(cleanup);
+        const playback = values.map(value => animate(value, 0, reducedMotionQuery().matches ? immediateTransition : springs.drawer));
+        playback.forEach(value => settling.add(value));
+        void Promise.all(playback).then(() => { playback.forEach(value => settling.delete(value)); cleanup(); });
       }
       if (previous && element.hasPointerCapture?.(previous.id))
         element.releasePointerCapture(previous.id);
@@ -137,6 +168,7 @@ export function useBotMessageSwipe({
           break;
         }
       }
+      cancelSettling();
       swipe = {
         id: event.pointerId,
         x: event.clientX,
@@ -147,28 +179,25 @@ export function useBotMessageSwipe({
       };
     };
     const paint = () => {
-      frame = undefined;
       const current = swipe;
       if (!current?.mode || current.painted === current.distance) return;
       current.painted = current.distance;
       const distance = current.distance;
-      for (const { row, parts, time, indicator } of current.rows) {
+      for (const { row, parts, time, indicator, timeX, opacity } of current.rows) {
         // These properties do not inherit into Markdown descendants. No
         // geometry reads or history walks belong in the animation frame.
-        for (const { node, slack } of parts) {
+        for (const { x: position, slack } of parts) {
           const x =
             current.mode === "reply"
               ? distance
               : -Math.max(0, distance - slack);
-          node.style.transform = `translate3d(${x}px, 0, 0)`;
+          position.set(x);
         }
         if (current.mode === "time" && time) {
-          time.style.transform = `translate3d(${94 - distance}px, 0, 0)`;
-          time.style.opacity = String(distance / TIME_DISTANCE);
+          timeX.set(94 - distance);
+          opacity.set(distance / TIME_DISTANCE);
         } else if (indicator) {
-          indicator.style.opacity = String(
-            Math.min(1, distance / REPLY_DISTANCE),
-          );
+          opacity.set(Math.min(1, distance / REPLY_DISTANCE));
           const ready = String(distance >= REPLY_DISTANCE);
           if (row.dataset.replyReady !== ready) row.dataset.replyReady = ready;
         }
@@ -205,7 +234,7 @@ export function useBotMessageSwipe({
       } else if (current.row) {
         current.distance = Math.min(96, Math.max(0, dx));
       }
-      frame ??= requestAnimationFrame(paint);
+      paint();
     };
     const end = (event: PointerEvent) => {
       // Touch begins with implicit capture on the bubble. Its bubbling loss
@@ -246,6 +275,8 @@ export function useBotMessageSwipe({
     element.addEventListener("click", swallowClick, true);
     element.addEventListener("scroll", scroll);
     return () => {
+      reset();
+      cancelSettling();
       document.removeEventListener("pointerdown", begin, true);
       document.removeEventListener("pointermove", move, true);
       document.removeEventListener("pointerup", end, true);
@@ -254,7 +285,6 @@ export function useBotMessageSwipe({
       element.removeEventListener("touchmove", holdTouch, true);
       element.removeEventListener("click", swallowClick, true);
       element.removeEventListener("scroll", scroll);
-      reset();
     };
   }, [active, log]);
 }

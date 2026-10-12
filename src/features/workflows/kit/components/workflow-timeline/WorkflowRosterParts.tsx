@@ -1,3 +1,6 @@
+import { panelTransition, immediateTransition } from "../../../../../shared/motion/tokens";
+import { reducedMotionQuery } from "../../../../../shared/lib/reducedMotion";
+import { motion as motionElement } from "motion/react";
 import { CircleCheck as CircleCheckIcon, CircleX as CircleXIcon, LoaderCircle as LoaderCircleIcon } from "../../../../../shared/ui/icons";
 import { cn } from "../lib/utils.js";
 import type { StepRunStatus } from "../workflow-graph/types.js";
@@ -96,7 +99,7 @@ export function RosterMeter({
       {order
         .filter((status) => counts[status] > 0)
         .map((status) => (
-          <span
+          <motionElement.span layout initial={false} animate={{ flexGrow: counts[status] }} transition={reducedMotionQuery().matches ? immediateTransition : panelTransition}
             className={cn(
               "wf-meter-seg min-w-0.5 basis-0",
               status === "done" && "bg-success",
@@ -106,7 +109,6 @@ export function RosterMeter({
             )}
             data-meter-segment={status}
             key={status}
-            style={{ flexGrow: counts[status] }}
             title={labels[status]}
           />
         ))}

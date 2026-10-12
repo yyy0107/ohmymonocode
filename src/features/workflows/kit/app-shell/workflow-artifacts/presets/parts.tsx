@@ -24,7 +24,7 @@ export type PresetLabels = {
  * `motion-reduce` 下整个关掉。
  */
 export const REVEAL_ANIMATION_CLASS =
-  "animate-in fade-in duration-300 ease-out motion-reduce:animate-none";
+  "";
 
 /** 一条数据都没有时的占位。压到最低存在感：看板本身在运行期就是会先空着的。 */
 export function PresetEmpty({ label, compact }: { label: string; compact?: boolean }) {

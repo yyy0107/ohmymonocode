@@ -1,3 +1,5 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
+import { DisclosureChevron } from "../../../shared/ui/DisclosureChevron";
 import { translate as translateUi } from "../../../shared/i18n/language";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
@@ -1099,8 +1101,8 @@ export const FileTree = memo(function FileTree({
             }`}
           >
             <span className="grid size-4 shrink-0 place-items-center text-content/50">
-              <ChevronRight
-                className={`size-3.5 transition-transform motion-reduce:transition-none ${rootOpen ? "rotate-90" : ""}`}
+              <DisclosureChevron expanded={rootOpen}
+                className="size-3.5"
               />
             </span>
             <span className="min-w-0 truncate text-[11px] font-semibold tracking-[0.08em] text-content/50 uppercase">
@@ -1133,7 +1135,7 @@ export const FileTree = memo(function FileTree({
           </AnimatedCollapse>
         </div>
       </div>
-      {menu ? (
+      <PresenceBoundary propagate>{menu ? (
         <ExplorerMenu
           x={menu.x}
           y={menu.y}
@@ -1145,7 +1147,7 @@ export const FileTree = memo(function FileTree({
           }}
           onClose={() => setMenu(null)}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
     </TreeCtx.Provider>
   );
 });
@@ -1345,8 +1347,8 @@ function TreeNode({ entry, depth }: { entry: FsEntry; depth: number }) {
         >
           <span className="grid size-4 shrink-0 place-items-center text-content/50">
             {entry.isDir ? (
-              <ChevronRight
-                className={`size-3.5 transition-transform motion-reduce:transition-none ${open ? "rotate-90" : ""}`}
+              <DisclosureChevron expanded={open}
+                className="size-3.5"
               />
             ) : null}
           </span>

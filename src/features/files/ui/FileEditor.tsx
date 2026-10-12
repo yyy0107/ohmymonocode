@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { acceptCompletion, completionStatus } from "@codemirror/autocomplete";
 import { indentLess, indentMore } from "@codemirror/commands";
@@ -1022,13 +1023,13 @@ export function CodeMirrorEditor({
         ) : null}
         <div ref={hostRef} className="min-h-0 flex-1" />
       </div>
-      {commentTarget ? (
+      <PresenceBoundary propagate>{commentTarget ? (
         <DiffCommentComposer
           path={commentPath}
           target={commentTarget}
           onDismiss={() => setCommentTarget(null)}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
       <EditorSelectionMenu
         selection={selectionTarget}
         onDismiss={() => setSelectionTarget(null)}

@@ -1,5 +1,8 @@
+import { DisclosureChevron } from "../../../../../shared/ui/DisclosureChevron";
+import { AnimatePresence, motion as motionElement } from "motion/react";
+import { workflowEntry } from "./workflow-motion.js";
 import type { ReactNode } from "react";
-import { ChevronRight as ChevronRightIcon, List as ListIcon, Maximize2 as Maximize2Icon, Workflow } from "../../../../../shared/ui/icons";
+import { List as ListIcon, Maximize2 as Maximize2Icon, Workflow } from "../../../../../shared/ui/icons";
 import type { WorkflowRunState } from "../../_shims/protocol.js";
 import { Button } from "../ui/button.js";
 import { cn } from "../lib/utils.js";
@@ -86,13 +89,13 @@ export function WorkflowRunStatus({
         className={cn("wf-lamp size-2 shrink-0 rounded-full", RUN_STATUS_DOT[effectiveStatus])}
       />
       {/* 状态词按值换：旧词退场新词进场。 */}
-      <span
-        className={cn("wf-swap text-ui-sm", RUN_STATUS_TEXT[effectiveStatus])}
+      <AnimatePresence mode="popLayout"><motionElement.span {...workflowEntry()}
+        className={cn("inline-block text-ui-sm", RUN_STATUS_TEXT[effectiveStatus])}
         data-testid={testId}
         key={effectiveStatus}
       >
         {intl.formatMessage({ id: `chat.toolCall.workflow.run.status.${effectiveStatus}` })}
-      </span>
+      </motionElement.span></AnimatePresence>
       {reason ? (
         <span
           className="text-ui-sm text-foreground-subtlest"
@@ -141,7 +144,7 @@ export function WorkflowCardHeader({
   toggleLabel: toggleLabelOverride,
   trailing,
 }: {
-  /** 种类词；字符串时按文案换词（换字即重挂，播 wf-swap）。 */
+  /** 种类词；字符串时按文案换词（换字即重挂，播 ）。 */
   kind: ReactNode;
   name: string;
   /** 运行中的种类词扫光（与 ToolLayout 的 isRunning 同一表达）。 */
@@ -174,13 +177,13 @@ export function WorkflowCardHeader({
       data-testid="workflow-card-header"
     >
       {WORKFLOW_CARD_ICON}
-      {/* 种类词按文案换（key=文案，旧词退场新词进场）。换词的 wf-swap 必须包在扫光的
+      {/* 种类词按文案换（key=文案，旧词退场新词进场）。换词的  必须包在扫光的
           animated-gradient-text **外面**：background-clip:text 只裁到自己这一层的文字，
           子元素一旦被 transform/opacity 动画提到独立图层，字就成了透明——表头上只剩一段空白。 */}
       <span className="shrink-0 whitespace-nowrap font-medium" data-testid="workflow-card-kind">
-        <span className="wf-swap" key={typeof kind === "string" ? kind : undefined}>
+        <AnimatePresence mode="popLayout"><motionElement.span {...workflowEntry()} className="inline-block" key={typeof kind === "string" ? kind : undefined}>
           <span className={live ? "animated-gradient-text" : "text-foreground"}>{kind}</span>
-        </span>
+        </motionElement.span></AnimatePresence>
       </span>
       <span
         // 名称是 UI 文本；工具摘要与取消等状态共用的卡片表头都要经过同一修正。
@@ -235,9 +238,7 @@ export function WorkflowCardHeader({
             type="button"
             variant="ghost"
           >
-            <ChevronRightIcon
-              className={cn("size-4 transition-transform", expanded && "rotate-90")}
-            />
+            <DisclosureChevron className="size-4" expanded={expanded} />
           </Button>
         )}
       </span>

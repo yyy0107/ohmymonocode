@@ -1,3 +1,5 @@
+import { RotatingIcon } from "../../../shared/ui/RotatingIcon";
+import { motionGeometry } from "../../../shared/motion/tokens";
 import { useState } from "react";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
@@ -54,11 +56,7 @@ export function WorktreeCreationCard({ creation }: { creation: WorktreeCreation 
         ) : finished ? (
           <Check className="size-3.5 shrink-0" />
         ) : null}
-        <ChevronRight
-          className={`size-3 shrink-0 text-content/40 transition-transform duration-200 motion-reduce:transition-none ${
-            logOpen ? "rotate-90" : ""
-          }`}
-        />
+        <RotatingIcon icon={ChevronRight} angle={logOpen ? motionGeometry.disclosureAngle : 0} className="size-3 shrink-0 text-content/40" />
       </button>
       <AnimatedCollapse expanded={logOpen}>
         <div className="mt-1 rounded-lg border border-content/10 bg-content/3 px-3 py-2 font-mono text-[11px] leading-5 text-content/60">

@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { AiIdea, ChevronDown, Gauge, Maximize2, Zap } from "../../../shared/ui/icons";
 import {
   useEffect,
@@ -216,7 +217,7 @@ function SelectSetting({
           className={`size-3 shrink-0 text-content/50 ${open ? "rotate-180" : ""}`}
         />
       </button>
-      {open ? (
+      <PresenceBoundary propagate>{open ? (
         <Popover
           anchor={root}
           side="top"
@@ -253,7 +254,7 @@ function SelectSetting({
             );
           })}
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 }

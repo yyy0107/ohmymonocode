@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { NativePopupHost } from "../../../shared/ui/NativePopupHost";
 import {
@@ -324,7 +325,7 @@ function WorkspaceModePicker({
           <span className="truncate">{label}</span>
         </button>
       ) : null}
-      {open ? (
+      <PresenceBoundary propagate>{open ? (
         <Popover
           anchor={anchor}
           side={popoverSide}
@@ -422,8 +423,8 @@ function WorkspaceModePicker({
             </div>
           ) : null}
         </Popover>
-      ) : null}
-      {open && worktreeMenu ? (
+      ) : null}</PresenceBoundary>
+      <PresenceBoundary propagate>{open && worktreeMenu ? (
         <Popover
           anchor={worktreeAnchor}
           side="right"
@@ -496,7 +497,7 @@ function WorkspaceModePicker({
             </p>
           ) : null}
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 }
@@ -580,7 +581,7 @@ export function WorktreeBasePicker({
         label={uiT("From {value0}", { value0: String(selected) })}
         loading={loading}
       />
-      {open ? (
+      <PresenceBoundary propagate>{open ? (
         <Popover
           anchor={anchor}
           side={popoverSide}
@@ -673,7 +674,7 @@ export function WorktreeBasePicker({
             ) : null}
           </div>
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../shared/ui/PresenceBoundary";
 import { usePreferenceState } from "../../features/settings/model/usePreferenceState";
 import { useSidebarListPreview } from "./useSidebarListPreview";
 import { delegateDesktopSession } from "../../features/bots/model/delegateDesktopSession";
@@ -20,7 +21,6 @@ import {
   inWorktreeFocus,
   useWorktreeFocus,
 } from "../../features/source-control/model/worktreeFocus";
-import { reducedMotionQuery } from "../../shared/lib/reducedMotion";
 import { OrchestrationSidebarAgents } from "../../features/orchestration/ui/OrchestrationSidebarAgents";
 import { SessionWorkflowRunLines } from "../../features/workflows/ui/SessionWorkflowRunLines";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -1405,7 +1405,7 @@ function ProjectSessionSectionComponent({
           )}
         </div>
       )}{" "}
-      {sessionMenu ? (
+      <PresenceBoundary propagate>{sessionMenu ? (
         <ExplorerMenu
           x={sessionMenu.x}
           y={sessionMenu.y}
@@ -1420,8 +1420,8 @@ function ProjectSessionSectionComponent({
           onPick={onSessionMenuPick}
           onClose={closeSessionMenu}
         />
-      ) : null}
-      {linkingSession ? (
+      ) : null}</PresenceBoundary>
+      <PresenceBoundary>{linkingSession ? (
         <LinkSessionWorkItemDialog
           initial={linkingSession.linkedWorkItem}
           sessionTitle={sessionDisplayTitle(
@@ -1434,7 +1434,7 @@ function ProjectSessionSectionComponent({
           }}
           onClose={() => setLinkingSession(null)}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 }
@@ -1531,7 +1531,6 @@ function SessionGroupRow({
 
 const SESSION_PREFETCH_DELAY_MS = 120;
 /** Rows created this recently slide in; older ones are just being listed. */
-const SESSION_INSERT_WINDOW_MS = 15_000;
 
 type SessionInsertMotion = { cwd: string; seen: Set<string> };
 
@@ -1576,7 +1575,7 @@ function SessionGroupPreview({
 /** List row that grows open when a new session lands, pushing rows below it down. */
 function SessionListItem({
   session,
-  cwd,
+  cwd: _cwd,
   motion,
   expanded,
   sortable,
@@ -1622,53 +1621,8 @@ function SessionListItem({
     if (played.current) return;
     played.current = true;
     const state = motion.current;
-    const fresh =
-      state.cwd === cwd &&
-      !state.seen.has(session.id) &&
-      (session.createdAt === 0 ||
-        Date.now() - session.createdAt < SESSION_INSERT_WINDOW_MS);
     state.seen.add(session.id);
-    const el = ref.current;
-    const content = el?.firstElementChild;
-    if (
-      !fresh ||
-      !el ||
-      !(content instanceof HTMLElement) ||
-      typeof el.animate !== "function" ||
-      reducedMotionQuery().matches
-    )
-      return;
-    // The card takes its place at once; everything below starts where it was
-    // and slides down, uncovering it as it fades in.
-    const offset =
-      el.offsetHeight +
-      (parseFloat(getComputedStyle(el.parentElement ?? el).rowGap) || 0);
-    const timing = {
-      duration: 380,
-      easing: "cubic-bezier(0.32, 0.72, 0, 1)",
-    };
-    for (
-      let node: Element | null = el;
-      node && !node.hasAttribute("data-session-list");
-      node = node.parentElement
-    ) {
-      for (
-        let below = node.nextElementSibling;
-        below;
-        below = below.nextElementSibling
-      ) {
-        if (!(below instanceof HTMLElement)) continue;
-        below.animate(
-          [{ transform: `translateY(${-offset}px)` }, { transform: "none" }],
-          // Stack with a push already in flight instead of restarting it.
-          { ...timing, composite: "add" },
-        );
-      }
-    }
-    content.animate([{ opacity: 0 }, { opacity: 1 }], {
-      duration: 220,
-      easing: "ease-out",
-    });
+
   }, []);
   return (
     <li
@@ -2349,7 +2303,7 @@ const SessionCard = memo(function SessionCard({
           </div>
         ) : null}
       </HoverSummary>
-      {orchestration && orchestrationTooltipOpen ? (
+      <PresenceBoundary propagate>{orchestration && orchestrationTooltipOpen ? (
         <Popover
           anchor={orchestrationTooltipRootRef}
           side="right"
@@ -2404,7 +2358,7 @@ const SessionCard = memo(function SessionCard({
             })}
           </div>
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 });

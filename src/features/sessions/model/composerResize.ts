@@ -1,11 +1,11 @@
-import { prefersReducedMotion } from "../../../shared/lib/reducedMotion";
+import { duration, ease } from "../../../shared/motion/tokens";
 
 /** Matches the composer's `max-h-40`, so the field stops growing where it clips. */
 export const COMPOSER_MAX_HEIGHT = 160;
 
 /** Composer size changes: a quick start that settles softly, on both platforms. */
-export const COMPOSER_MOTION_MS = 180;
-export const COMPOSER_MOTION_EASING = "cubic-bezier(0.2, 0.8, 0.2, 1)";
+export const COMPOSER_MOTION_MS = duration.msg * 1000;
+export const COMPOSER_MOTION_EASING = `cubic-bezier(${ease.join(", ")})`;
 
 type Resizable = {
   style: { height: string };
@@ -22,8 +22,6 @@ type Resizable = {
 export function resizeComposer(el: Resizable, maxHeight = COMPOSER_MAX_HEIGHT) {
   if (el.scrollHeight === 0) return;
   // Layout is already clean, so this reads the visible (possibly animating) height.
-  const from = el.clientHeight;
-  cancelHeightMotion(el);
   const wrapper = el.parentElement;
   const minHeight = wrapper?.style.minHeight ?? "";
   // Measuring at `auto` briefly collapses the composer. Keep its space until
@@ -36,7 +34,6 @@ export function resizeComposer(el: Resizable, maxHeight = COMPOSER_MAX_HEIGHT) {
   } finally {
     if (wrapper) wrapper.style.minHeight = minHeight;
   }
-  animateHeight(el, from);
 }
 
 /**
@@ -52,40 +49,8 @@ export function growComposer(
   if (height === 0 || height <= el.clientHeight) return;
   const target = `${Math.min(height, maxHeight)}px`;
   // Fast typing keeps hitting a still-growing field. Restarting would stall it.
-  if (el.style.height === target && heightMotion.has(el)) return;
-  const from = el.clientHeight;
-  cancelHeightMotion(el);
+  if (el.style.height === target) return;
   el.style.height = target;
-  animateHeight(el, from);
-}
-
-const heightMotion = new WeakMap<object, Animation>();
-
-function cancelHeightMotion(el: object) {
-  const animation = heightMotion.get(el);
-  if (!animation) return;
-  heightMotion.delete(el);
-  animation.onfinish = null;
-  animation.cancel();
-}
-
-/** Glide from the visible height to the inline target already applied. */
-function animateHeight(el: Resizable, from: number | undefined) {
-  const to = parseFloat(el.style.height);
-  if (
-    typeof el.animate !== "function" ||
-    from === undefined ||
-    !Number.isFinite(to) ||
-    Math.abs(from - to) < 1 ||
-    prefersReducedMotion()
-  )
-    return;
-  const animation = el.animate(
-    [{ height: `${from}px` }, { height: `${to}px` }],
-    { duration: COMPOSER_MOTION_MS, easing: COMPOSER_MOTION_EASING },
-  );
-  heightMotion.set(el, animation);
-  animation.onfinish = () => heightMotion.delete(el);
 }
 
 /** True when `next` is `previous` with text inserted and nothing removed. */

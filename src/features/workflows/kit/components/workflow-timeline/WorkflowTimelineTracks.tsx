@@ -1,3 +1,5 @@
+import { workflowFold } from "./workflow-motion.js";
+import { motion as motionElement } from "motion/react";
 import { useId } from "react";
 import { cn } from "../lib/utils.js";
 import type {
@@ -231,7 +233,7 @@ export function WorkflowTimelineTracks({
       ))}
       {model.stations.map((station, i) =>
         station.track === 0 ? null : (
-          <path
+          <motionElement.path {...workflowFold(folded.has(i))}
             className={cn("wf-foldable", folded.has(i) && "wf-folded")}
             d={`M${lampX(i, layout.inset)},${(layout.rowY[station.track] ?? layout.rowY[0]!) + 7} V${layout.capY - 10}`}
             data-leader-station={i}
@@ -267,7 +269,7 @@ export function WorkflowTimelineLamps({
   return (
     <>
       {stations.map((station, i) => (
-        <span
+        <motionElement.span {...workflowFold(folded.has(i))}
           aria-hidden
           className={cn(
             stationLampClass(station.status),

@@ -1,3 +1,4 @@
+import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver";
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -147,7 +148,7 @@ it("starts collapsed and retains unsaved input through closing and reopening", a
   expect(fold.getAttribute("aria-hidden")).toBe("true");
   expect(fold.hasAttribute("inert")).toBe(true);
   await act(async () =>
-    fold.dispatchEvent(new Event("animationend", { bubbles: true })),
+    completeMotionAnimation(fold),
   );
   expect(fold.hidden).toBe(true);
   await act(async () => trigger.click());
@@ -183,4 +184,10 @@ it("opens search results and shows the connection test progress and result", asy
   expect(container.querySelector('[role="status"]')!.textContent).toContain(
     "Sample title",
   );
+});
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
 });

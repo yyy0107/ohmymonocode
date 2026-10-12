@@ -1,3 +1,6 @@
+import { motion } from "motion/react";
+import { panelTransition, immediateTransition } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import type { CSSProperties, ReactNode, UIEventHandler } from "react";
 import { useCollapseMotion } from "../../../shared/ui/AnimatedCollapse";
 import {
@@ -26,10 +29,16 @@ export function SessionSurfacePane({
   children: ReactNode;
 }) {
   const parentVisible = useSurfaceVisibility();
-  const { foldState } = useCollapseMotion(expanded);
+  const { foldState, finish } = useCollapseMotion(expanded);
+  const reduced = useMotionPreference();
   const interactive = parentVisible && visible && expanded;
   return (
-    <div
+    <motion.div
+      layout
+      initial={false}
+      animate={{ opacity: expanded ? dragging ? 0.4 : 1 : 0 }}
+      transition={reduced ? immediateTransition : panelTransition}
+      onAnimationComplete={finish}
       data-pane-id={id}
       data-fold-state={grid ? foldState : undefined}
       aria-hidden={!interactive}
@@ -41,6 +50,6 @@ export function SessionSurfacePane({
       <SurfaceVisibilityContext.Provider value={interactive}>
         {children}
       </SurfaceVisibilityContext.Provider>
-    </div>
+    </motion.div>
   );
 }

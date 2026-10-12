@@ -1,7 +1,7 @@
+import { DisclosureChevron } from "../../../shared/ui/DisclosureChevron";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useMemo, useState } from "react";
 import {
-  ChevronDown,
   ChevronRight,
   LoaderCircle,
 } from "../../../shared/ui/icons";
@@ -104,10 +104,8 @@ export function InboxDescriptionSummary({
         onClick={() => setExpanded((current) => !current)}
         className="inline-flex items-center gap-1 self-start text-[12px] text-content/50 hover:text-content"
       >
-        <ChevronDown
-          className={`size-3.5 transition-transform ${
-            expanded ? "rotate-180" : ""
-          }`}
+        <DisclosureChevron expanded={expanded} direction="down"
+          className="size-3.5"
         />
         {expanded ? uiT("Show less") : uiT("Show full description")}
         {!expanded && excerpt.images > 0 ? (

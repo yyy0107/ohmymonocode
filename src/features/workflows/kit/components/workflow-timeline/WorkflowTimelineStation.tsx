@@ -1,3 +1,6 @@
+import { workflowEntry } from "./workflow-motion.js";
+import { workflowFold } from "./workflow-motion.js";
+import { motion as motionElement } from "motion/react";
 import type { ReactNode } from "react";
 import { cn } from "../lib/utils.js";
 import type { TimelineRail, TimelineStation } from "./timeline-model.js";
@@ -56,7 +59,7 @@ export function StationHead({
     </>
   );
   return onSelect === undefined ? (
-    <span
+    <motionElement.span {...workflowFold(foldClass.includes("wf-folded"))} inert={foldClass.includes("wf-folded")}
       className={cn(
         "wf-station flex h-6 min-w-0 shrink items-center gap-2 rounded-md text-left",
         foldClass,
@@ -65,9 +68,9 @@ export function StationHead({
       title={title}
     >
       {head}
-    </span>
+    </motionElement.span>
   ) : (
-    <button
+    <motionElement.button {...workflowFold(foldClass.includes("wf-folded"))} inert={foldClass.includes("wf-folded")}
       className={cn(
         "wf-station wf-station-open flex h-6 min-w-0 shrink cursor-pointer items-center gap-2 rounded-md text-left outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40",
         foldClass,
@@ -77,7 +80,7 @@ export function StationHead({
       type="button"
     >
       {head}
-    </button>
+    </motionElement.button>
   );
 }
 
@@ -131,7 +134,7 @@ export function WorkflowStationRow({
             key={station.id}
             style={{ width: i < n - 1 ? STATION_PITCH : STATION_WIDTH }}
           >
-            <span
+            <motionElement.span {...workflowFold(foldClass.includes("wf-folded"))} inert={foldClass.includes("wf-folded")}
               aria-hidden
               className={cn(
                 stationLampClass(station.status),
@@ -165,7 +168,7 @@ export function WorkflowStationRow({
                 : { onSelect: () => onSelectStation(station) })}
             />
             {i < n - 1 ? (
-              <span
+              <motionElement.span {...workflowEntry()}
                 aria-hidden
                 className={cn(
                   "wf-ink relative h-0 min-w-3 flex-1 rounded-full border-t border-foreground-subtlest",
@@ -178,7 +181,7 @@ export function WorkflowStationRow({
                 data-rail-ink={rail?.ink ?? "none"}
                 data-rail-to={i + 1}
                 data-testid="workflow-timeline-rail"
-                style={{ marginLeft: 10, marginRight: -6 }}
+                style={{ marginLeft: 10, marginRight: -6, transformOrigin: "left center" }}
               />
             ) : null}
           </div>

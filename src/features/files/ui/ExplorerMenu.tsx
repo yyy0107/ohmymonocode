@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import {
   useEffect,
   useId,
@@ -335,7 +336,7 @@ export function ExplorerMenu({
           return renderItem(item, index);
         })}
       </Popover>
-      {open !== false && submenu && submenuItems && submenuItem?.kind === "item" ? (
+      <PresenceBoundary propagate>{open !== false && submenu && submenuItems && submenuItem?.kind === "item" ? (
         <Popover
           ref={submenuRef}
           id={`${menuId}-submenu`}
@@ -367,7 +368,7 @@ export function ExplorerMenu({
         >
           {submenuItems.map((item, index) => renderItem(item, index, true))}
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </>
   );
 }

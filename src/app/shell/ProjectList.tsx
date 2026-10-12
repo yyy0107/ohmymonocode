@@ -1,3 +1,5 @@
+import { PresenceBoundary } from "../../shared/ui/PresenceBoundary";
+import { DisclosureChevron } from "../../shared/ui/DisclosureChevron";
 import { usePreferenceState } from "../../features/settings/model/usePreferenceState";
 import { useSidebarListPreview } from "./useSidebarListPreview";
 import { AnimatedCollapse } from "../../shared/ui/AnimatedCollapse";
@@ -11,7 +13,6 @@ import type { ProjectHoverSummary } from "../model/projectHoverSummary";
 import { useTranslation } from "../../shared/i18n/useTranslation";
 import {
   BellOff,
-  ChevronRight,
   FolderPlus,
   FolderOpen,
   Internet,
@@ -1129,7 +1130,8 @@ function ProjectSectionHeader({
           {label}
         </span>
         <span className="flex size-4 shrink-0 items-center justify-center opacity-0 group-hover/section:opacity-100">
-          <ChevronRight
+          <DisclosureChevron
+            expanded={expanded}
             aria-hidden="true"
             className="project-tree-chevron size-4"
           />
@@ -1367,7 +1369,8 @@ function ProjectGroupSection({
                   />
                 </span>
               ) : null}
-              <ChevronRight
+              <DisclosureChevron
+                expanded={expanded}
                 data-group-chevron
                 className={`project-tree-chevron size-3.5 ${expanded ? "" : "hidden group-hover:block group-has-[:focus-visible]:block"}`}
               />
@@ -1659,7 +1662,8 @@ function ProjectCard({
           >
             {treeAvatar}
           </span>
-          <ChevronRight
+          <DisclosureChevron
+            expanded={expanded}
             data-project-chevron
             className="project-tree-chevron hidden size-3.5 group-hover:block group-has-[:focus-visible]:block"
           />
@@ -2131,7 +2135,7 @@ export function AddProjectButton({
       >
         <Plus className="size-3.5" />
       </button>
-      {open ? (
+      <PresenceBoundary propagate>{open ? (
         <Popover
           anchor={anchor}
           align="start"
@@ -2166,7 +2170,7 @@ export function AddProjectButton({
             {uiT("Open folder on a machine…")}
           </button>
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </>
   );
 }

@@ -1,12 +1,12 @@
+import { DisclosureChevron } from "../../../../shared/ui/DisclosureChevron";
 import { memo, useMemo, useState } from "react";
 import { AnimatedCollapse } from "../../../../shared/ui/AnimatedCollapse";
-import { ChevronRight as ChevronRightIcon } from "../../../../shared/ui/icons";
+import { } from "../../../../shared/ui/icons";
 import {
   TID_WORKFLOW_ARTIFACTS_SECTION,
   TID_WORKFLOW_ARTIFACTS_TOGGLE,
   TID_WORKFLOW_ARTIFACT_CARD,
 } from "../_shims/shared.js";
-import { cn } from "../components/lib/utils.js";
 import { WorkflowArtifactIndex } from "../components/workflow-timeline/WorkflowArtifactIndex.js";
 import { WorkflowArtifactRow } from "../components/workflow-timeline/WorkflowArtifactRow.js";
 import { WorkflowArtifactTile } from "../components/workflow-timeline/WorkflowArtifactTile.js";
@@ -126,13 +126,7 @@ export const WorkflowRunArtifactsSection = memo(function WorkflowRunArtifactsSec
             · {artifactDisplayTitle(primary)}
           </span>
         ) : null}
-        <ChevronRightIcon
-          aria-hidden
-          className={cn(
-            "ml-auto size-3.5 shrink-0 text-foreground-subtlest transition-transform",
-            expanded && "rotate-90",
-          )}
-        />
+        <DisclosureChevron expanded={expanded} className="ml-auto size-3.5 shrink-0 text-foreground-subtlest" />
       </button>
       <AnimatedCollapse expanded={expanded} motion="height">{() => primary !== undefined ? (
         // `@container/wf-artifacts`：交付物行的框按这个容器的宽度选 160 × 100 或 136 × 85。

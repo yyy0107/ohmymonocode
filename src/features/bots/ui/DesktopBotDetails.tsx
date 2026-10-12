@@ -1,3 +1,6 @@
+import { motion as motionElement } from "motion/react";
+import { panelTransition, immediateTransition } from "../../../shared/motion/tokens";
+import { reducedMotionQuery as motionPreferenceQuery } from "../../../shared/lib/reducedMotion";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
@@ -10,11 +13,12 @@ function DetailPage({ active, root = false, children }: { active: boolean; root?
   const visible = useSurfaceVisibility(), motion = useCollapseMotion(active);
   const opened = useRef(active);
   if (active) opened.current = true;
-  return <section className="desktop-bot-detail-page" data-root={root} data-active={active} data-fold-state={motion.foldState}
+  return <motionElement.section
+      initial={false} animate={{ x: active ? 0 : root ? "-100%" : "100%" }} transition={motionPreferenceQuery().matches ? immediateTransition : panelTransition} onAnimationComplete={motion.finish} className="desktop-bot-detail-page" data-root={root} data-active={active} data-fold-state={motion.foldState}
     aria-hidden={!active || undefined} inert={!active || !visible}
-    onTransitionEnd={event => { if (event.target === event.currentTarget && event.propertyName === "transform") motion.finish(); }}>
+    >
     <SurfaceVisibilityContext.Provider value={visible && active}>{opened.current && children}</SurfaceVisibilityContext.Provider>
-  </section>;
+  </motionElement.section>;
 }
 
 export function DesktopBotDetails({ identity, memory, runtime, activity, automation, management, delegations, children }: {

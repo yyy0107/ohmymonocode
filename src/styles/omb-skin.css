@@ -13,18 +13,9 @@
    Tailwind's defaults until a skin is active. */
 
 @theme {
-  --animate-panel-in: panel-in 0.24s cubic-bezier(0.22, 1, 0.36, 1);
-  --animate-workspace-in: workspace-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
-  --animate-pop-in: pop-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
-  --animate-pop-out: pop-out 0.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   --animate-caret: caret-blink 1s step-end infinite;
-  --animate-msg-in: msg-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
   --animate-shimmer: shimmer 2s linear infinite;
   --animate-status-pulse: status-pulse 1.6s steps(2, jump-none) infinite;
-  --animate-rise: rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
-  --animate-spot-in: spot-in 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
-  --animate-ripple: ripple 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
-  --animate-bolt: bolt 0.9s cubic-bezier(0.77, 0, 0.175, 1) infinite;
 }
 
 /* Semantic surface tokens as Tailwind colours (`bg-raised`, `text-ink`,
@@ -74,30 +65,9 @@ html.theme-light {
   --shadow-sheet: 0 18px 48px color-mix(in srgb, black 12%, transparent),
     0 0 0 1px var(--color-hairline);
 }
-
-@keyframes panel-in {
-  from { transform: translateX(28px); opacity: 0; }
-  to { transform: none; opacity: 1; }
-}
-@keyframes workspace-in {
-  from { opacity: 0.92; }
-  to { opacity: 1; }
-}
-@keyframes pop-in {
-  from { transform: scale(0.96) translateY(6px); opacity: 0; }
-  to { transform: none; opacity: 1; }
-}
-@keyframes pop-out {
-  from { transform: none; opacity: 1; }
-  to { transform: scale(0.96) translateY(6px); opacity: 0; }
-}
 @keyframes caret-blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
-}
-@keyframes msg-in {
-  from { transform: translateY(4px); opacity: 0; }
-  to { transform: none; opacity: 1; }
 }
 @keyframes shimmer {
   from { background-position: 200% 50%; }
@@ -107,23 +77,6 @@ html.theme-light {
   0%, 100% { opacity: 0.25; }
   30% { opacity: 1; }
   60% { opacity: 0.25; }
-}
-@keyframes rise {
-  from { transform: translateY(10px); opacity: 0; }
-  to { transform: none; opacity: 1; }
-}
-@keyframes spot-in {
-  from { transform: scale(0.94); opacity: 0; }
-  to { transform: none; opacity: 1; }
-}
-@keyframes ripple {
-  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 55%, transparent); }
-  to { box-shadow: 0 0 0 14px color-mix(in srgb, var(--color-accent) 0%, transparent); }
-}
-@keyframes bolt {
-  0% { transform: translateX(-4px) scale(0.9); opacity: 0.2; }
-  40% { transform: translateX(6px) scale(1.05); opacity: 1; }
-  100% { transform: translateX(22px) scale(0.85); opacity: 0; }
 }
 
 [data-skin="midnight"] {
@@ -530,7 +483,6 @@ html[data-skin] .omb-slide-panel {
   background: var(--color-panel);
   color: var(--color-ink);
   border-left: 1px solid var(--color-hairline);
-  animation: panel-in 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html[data-skin] .app-view-dialog.omb-slide-panel {
@@ -686,10 +638,6 @@ html[data-skin] :is(.composer-popover, .quick-open-panel) {
 }
 
 /* Popovers open on the OpenMausBot pop-in timing. */
-html[data-skin] .popover-open {
-  animation-duration: var(--duration-pop);
-  animation-timing-function: var(--ease-omb);
-}
 
 @media (prefers-reduced-motion: reduce) {
   html[data-skin] .popover-open {
@@ -710,34 +658,8 @@ html[data-skin] [data-settings-segmented] > button[aria-checked="true"] {
   background: transparent;
 }
 
-html[data-skin] [data-segment-indicator] {
-  background: var(--color-raised);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
-}
-
-html:not([data-skin]) [data-segment-indicator] {
-  display: none;
-}
-
 /* Two spring positions for the segmented indicator, local to it so the
    animation never invalidates the options. */
-@property --omb-segment-start {
-  syntax: "<number>";
-  inherits: false;
-  initial-value: 0;
-}
-@property --omb-segment-end {
-  syntax: "<number>";
-  inherits: false;
-  initial-value: 0;
-}
-
-/* Send amplitude comes from desktop metrics; timings stay at the call site. */
-@keyframes omb-send-kick {
-  0% { transform: scale(var(--omb-send-kick-start)); }
-  45% { transform: scale(var(--omb-send-kick-peak)); }
-  100% { transform: none; }
-}
 
 /* Empty states and transcript images. */
 html[data-skin] [data-empty-state] > p {

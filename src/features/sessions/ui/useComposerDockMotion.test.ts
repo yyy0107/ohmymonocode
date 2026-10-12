@@ -2,12 +2,14 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { panelTransition } from "../../../shared/motion/tokens";
+import { animate as motionAnimate } from "motion/react";
 import { useComposerDockMotion } from "./useComposerDockMotion";
 
 let container: HTMLDivElement;
 let root: Root;
 let motion: ReturnType<typeof useComposerDockMotion>;
-let animate: ReturnType<typeof vi.fn>;
+vi.mock("motion/react", async (original) => ({ ...await original<typeof import("motion/react")>(), animate: vi.fn(() => ({ stop: vi.fn() })) }));
 let reduce = false;
 
 function Harness({ docked }: { docked: boolean }) {
@@ -36,8 +38,7 @@ beforeEach(() => {
       ) as DOMRect;
     },
   );
-  animate = vi.fn(() => ({ cancel: vi.fn() }));
-  HTMLElement.prototype.animate = animate as never;
+  vi.mocked(motionAnimate).mockClear();
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -56,16 +57,15 @@ describe("useComposerDockMotion", () => {
     motion.captureLaunch();
     render(true);
 
-    expect(animate).toHaveBeenCalledTimes(1);
-    const [frames] = animate.mock.calls[0];
-    expect(frames[0]).toEqual({ transform: "translate(0px, -400px)" });
+    expect(motionAnimate).toHaveBeenCalledTimes(1);
+    expect(motionAnimate).toHaveBeenLastCalledWith([container.firstElementChild], { x: [0, 0], y: [-400, 0] }, panelTransition);
   });
 
   it("does not animate when the composer docks without a submit", () => {
     render(false);
     render(true);
 
-    expect(animate).not.toHaveBeenCalled();
+    expect(motionAnimate).not.toHaveBeenCalled();
   });
 
   it("respects reduced motion", () => {
@@ -74,6 +74,6 @@ describe("useComposerDockMotion", () => {
     motion.captureLaunch();
     render(true);
 
-    expect(animate).not.toHaveBeenCalled();
+    expect(motionAnimate).not.toHaveBeenCalled();
   });
 });

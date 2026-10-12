@@ -1,3 +1,5 @@
+import { workflowFade } from "../../components/workflow-timeline/workflow-motion.js";
+import { motion as motionElement } from "motion/react";
 import { useMemo } from "react";
 import { MessageResponse } from "../../components/ai-elements/message.js";
 import {
@@ -206,7 +208,7 @@ export function WorkflowArtifactTilePreview({
   if (mode === "csv") {
     return (
       <>
-        <div
+        <motionElement.div {...workflowFade()}
           className="wf-preview-doc"
           data-preview-mode="csv"
           data-testid="workflow-artifact-preview-body"
@@ -232,7 +234,7 @@ export function WorkflowArtifactTilePreview({
               ))}
             </tbody>
           </table>
-        </div>
+        </motionElement.div>
         <Fade />
       </>
     );
@@ -240,7 +242,7 @@ export function WorkflowArtifactTilePreview({
 
   return (
     <>
-      <div
+      <motionElement.div {...workflowFade()}
         className="wf-preview-doc"
         data-preview-mode={mode}
         data-testid="workflow-artifact-preview-body"
@@ -255,7 +257,7 @@ export function WorkflowArtifactTilePreview({
             {text ?? ""}
           </pre>
         )}
-      </div>
+      </motionElement.div>
       <Fade />
     </>
   );

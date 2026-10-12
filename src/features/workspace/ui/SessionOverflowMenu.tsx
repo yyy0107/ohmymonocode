@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useEffect, useRef, useState } from "react";
 import { useCommandShortcut } from "../../../app/commands/useCommandShortcut";
 import {
@@ -79,7 +80,7 @@ export function SessionOverflowMenu({
       >
         <MoreHorizontal className="size-4" />
       </button>
-      {visible && mode === "menu" && button.current ? (
+      <PresenceBoundary propagate>{visible && mode === "menu" && button.current ? (
         <ExplorerMenu
           anchor={button.current}
           ownerId={session.id}
@@ -142,8 +143,8 @@ export function SessionOverflowMenu({
           }}
           onClose={close}
         />
-      ) : null}
-      {visible && mode === "usage" && button.current ? (
+      ) : null}</PresenceBoundary>
+      <PresenceBoundary propagate>{visible && mode === "usage" && button.current ? (
         <Popover
           anchor={button.current}
           side="bottom"
@@ -172,7 +173,7 @@ export function SessionOverflowMenu({
           </button>
           {usage(true)}
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </>
   );
 }

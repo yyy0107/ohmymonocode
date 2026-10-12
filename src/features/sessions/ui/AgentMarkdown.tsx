@@ -1,3 +1,7 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
+import { motion } from "motion/react";
+import { immediateTransition, motionGeometry, popTransition } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { translate as translateUi } from "../../../shared/i18n/language";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
@@ -432,6 +436,7 @@ class CodeHighlightBoundary extends Component<
 function CodeCopyButton({ code }: { code: string }) {
   const { copyText } = useContext(TranscriptPlatformContext);
   const { t: uiT } = useTranslation();
+  const reduced = useMotionPreference();
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | null>(null);
 
@@ -460,11 +465,14 @@ function CodeCopyButton({ code }: { code: string }) {
       }}
     >
       <svg viewBox="0 0 20 20" aria-hidden="true">
-        <g className="markdown-code-copy-pages">
+        <motion.g className="markdown-code-copy-pages" initial={false} animate={{ opacity: copied ? 0 : 1, scale: copied ? motionGeometry.copyHiddenScale : 1, rotate: copied ? motionGeometry.copyTilt : 0 }} transition={reduced ? immediateTransition : popTransition}>
           <path d="M12 4H6a2 2 0 0 0-2 2v6" />
           <rect x="7" y="7" width="9" height="9" rx="1.5" />
-        </g>
-        <path
+        </motion.g>
+        <motion.path
+          initial={false}
+          animate={{ opacity: copied ? 1 : 0, pathLength: copied ? 1 : 0, scale: copied ? 1 : motionGeometry.copyCheckScale, rotate: copied ? 0 : -motionGeometry.copyTilt }}
+          transition={reduced ? immediateTransition : popTransition}
           className="markdown-code-copy-check"
           d="M4.5 10.5 8.2 14 15.5 6.5"
         />
@@ -713,7 +721,7 @@ export const AgentMarkdown = memo(function AgentMarkdown({
               {paced.text}
             </Streamdown>
           </MarkdownFadeContext.Provider>
-          {fileMenu ? (
+          <PresenceBoundary propagate>{fileMenu ? (
             <ExplorerMenu
               x={fileMenu.x}
               y={fileMenu.y}
@@ -722,7 +730,7 @@ export const AgentMarkdown = memo(function AgentMarkdown({
               onPick={onFileMenuPick}
               onClose={() => setFileMenu(null)}
             />
-          ) : null}
+          ) : null}</PresenceBoundary>
           {fileActionError ? (
             <FileActionError
               message={fileActionError}

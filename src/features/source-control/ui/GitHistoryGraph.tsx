@@ -1,3 +1,7 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
+import { motion } from "motion/react";
+import { panelTransition, immediateTransition } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
   useCallback,
@@ -65,7 +69,8 @@ export function GitHistoryGraph({
 }: Props) {
   const { t: uiT } = useTranslation();
   const visible = useSurfaceVisibility();
-  const { foldState } = useCollapseMotion(expanded);
+  const { foldState, finish } = useCollapseMotion(expanded);
+  const reduced = useMotionPreference();
   const [dialogCwd, setDialogCwd] = useState<string>();
   const expandButton = useRef<HTMLButtonElement>(null);
   const lockOverscroll = useLockOverscroll<HTMLDivElement>();
@@ -118,7 +123,8 @@ export function GitHistoryGraph({
       </div>
       {expanded || foldState !== "closed" ? (
         <SurfaceVisibilityContext.Provider value={visible && expanded}>
-          <div
+          <motion.div
+            initial={false} animate={{ opacity: expanded ? 1 : 0 }} transition={reduced ? immediateTransition : panelTransition} onAnimationComplete={finish}
             ref={lockOverscroll}
             inert={!expanded}
             aria-hidden={!expanded || undefined}
@@ -150,10 +156,10 @@ export function GitHistoryGraph({
                 })}
               </ul>
             )}
-          </div>
+          </motion.div>
         </SurfaceVisibilityContext.Provider>
       ) : null}
-      {dialogOpen ? (
+      <PresenceBoundary>{dialogOpen ? (
         <GitGraphDialog
           cwd={cwd}
           selectedSha={selectedSha}
@@ -163,7 +169,7 @@ export function GitHistoryGraph({
             onOpenCommit(commit, true);
           }}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 }

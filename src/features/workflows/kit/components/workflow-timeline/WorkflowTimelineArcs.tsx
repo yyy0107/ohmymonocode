@@ -1,3 +1,6 @@
+import { panelTransition, immediateTransition } from "../../../../../shared/motion/tokens";
+import { reducedMotionQuery } from "../../../../../shared/lib/reducedMotion";
+import { motion as motionElement } from "motion/react";
 import type { ReactNode } from "react";
 import type { TimelineArc, TimelineBand, TimelineInk, TimelineStation } from "./timeline-model.js";
 import {
@@ -115,7 +118,7 @@ export function WorkflowTimelineArcs({
             data-testid="workflow-timeline-arc"
             key={`${arc.from}-${arc.to}-${arc.air}`}
           >
-            <path
+            <motionElement.path initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={reducedMotionQuery().matches ? immediateTransition : panelTransition}
               className="wf-ink wf-draw"
               d={path}
               fill="none"

@@ -4,6 +4,16 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { HoverSummary, useHoverSummary } from "./HoverSummary";
 import { SurfaceVisibilityContext } from "./SurfaceVisibility";
+import { completeMotionAnimation } from "../../../tests/helpers/motionDriver";
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
+});
+
+function finishClosing() {
+  act(() => document.querySelectorAll("[inert]").forEach(completeMotionAnimation));
+}
 
 let root: Root;
 let container: HTMLDivElement;
@@ -42,6 +52,7 @@ function render() {
       ),
     ),
   );
+  finishClosing();
 }
 const trigger = () =>
   container.querySelector<HTMLButtonElement>("[data-trigger]")!;
@@ -57,6 +68,7 @@ function pointer(
       new PointerEvent(type, { bubbles: true, pointerType, relatedTarget }),
     ),
   );
+  finishClosing();
 }
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -81,7 +93,7 @@ afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
-it("opens and closes immediately, ignores touch, and retains direct pointer transfer", () => {
+it("opens, ignores touch, and retains direct pointer transfer until dismissal completes", () => {
   pointer(trigger(), "pointerover", "touch");
   expect(panel()).toBeNull();
   pointer(trigger(), "pointerover");
@@ -136,6 +148,7 @@ it("restores focus on Escape without reopening until a fresh focus/hover intent"
       }),
     ),
   );
+  finishClosing();
   expect(panel()).toBeNull();
   expect(document.activeElement).toBe(trigger());
   act(() => vi.advanceTimersByTime(500));
@@ -168,6 +181,7 @@ it("allows scrolling card contents but dismisses on list scroll and outside clic
   expect(panel()).not.toBeNull();
   act(() => panel()!.querySelector<HTMLButtonElement>("button")!.focus());
   act(() => container.dispatchEvent(new Event("scroll", { bubbles: true })));
+  finishClosing();
   expect(panel()).toBeNull();
   expect(document.activeElement).toBe(trigger());
   pointer(trigger(), "pointerover");
@@ -176,6 +190,7 @@ it("allows scrolling card contents but dismisses on list scroll and outside clic
       new PointerEvent("pointerdown", { bubbles: true }),
     ),
   );
+  finishClosing();
   expect(panel()).toBeNull();
 });
 
@@ -189,7 +204,7 @@ it("does not treat the native focus after a pointer press as keyboard hover inte
   expect(panel()).not.toBeNull();
 });
 
-it("retains focus transfers within the card and closes immediately when focus leaves", () => {
+it("retains focus transfers within the card and closes when focus leaves", () => {
   act(() => trigger().focus());
   const surface = panel()!;
   act(() => surface.querySelector<HTMLButtonElement>("button")!.focus());
@@ -197,5 +212,6 @@ it("retains focus transfers within the card and closes immediately when focus le
   act(() => trigger().focus());
   expect(panel()).toBe(surface);
   act(() => trigger().blur());
+  finishClosing();
   expect(panel()).toBeNull();
 });

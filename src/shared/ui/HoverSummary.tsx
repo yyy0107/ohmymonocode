@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "./PresenceBoundary";
 import {
   useEffect,
   useId,
@@ -230,8 +231,8 @@ export function HoverSummary({
   children: ReactNode;
   "data-project-summary"?: string;
 }) {
-  if (!hover.open) return null;
   return (
+    <PresenceBoundary propagate>{hover.open ? (
     <Popover
       {...attributes}
       {...hover.surfaceProps}
@@ -261,6 +262,7 @@ export function HoverSummary({
     >
       {children}
     </Popover>
+    ) : null}</PresenceBoundary>
   );
 }
 

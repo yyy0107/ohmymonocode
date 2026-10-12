@@ -3,6 +3,7 @@ import { SurfaceVisibilityContext } from "../../../shared/ui/SurfaceVisibility";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { startMotionClock, stopMotionClock, finishMotion } from "../../../../tests/helpers/sharedMotionClock";
 import { BotChat } from "./BotChat";
 import { MobileAssistant } from "../../../mobile/MobileAssistant";
 import { BotSettings } from "./BotSettings";
@@ -22,6 +23,7 @@ let root: Root, node: HTMLDivElement;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.useFakeTimers();
+  startMotionClock();
   localStorage.clear();
   setUiLanguage("en");
   node = document.createElement("div");
@@ -31,6 +33,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   node.remove();
+  stopMotionClock();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -295,7 +298,7 @@ it("defaults to all permissions and animates permission disclosure in both direc
   act(() => button.click());
   expect(fold()?.getAttribute("data-fold-state")).toBe("opening");
   act(() => button.click());
-  act(() => vi.advanceTimersByTime(351));
+  await act(async () => { await finishMotion(); });
   expect(fold()).toBeNull();
 });
 it("localizes settings and honors reduced motion", () => {
@@ -1248,7 +1251,7 @@ it("keeps Bots chat interactive and retains detail drafts through closing, rever
   expect(panel.getAttribute("data-fold-state")).toBe("opening");
   expect(nameInput.value).toBe("Unsaved bot name");
   act(() => details.click());
-  act(() => vi.advanceTimersByTime(351));
+  await act(async () => { await finishMotion(); });
   expect(panel.getAttribute("data-fold-state")).toBe("closed");
   view = { ...view, revision: 2, name: "Changed on the Host" };
   await act(async () => vi.advanceTimersByTime(2000));

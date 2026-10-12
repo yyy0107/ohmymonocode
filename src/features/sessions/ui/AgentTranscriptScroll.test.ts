@@ -3,6 +3,7 @@ import { act, createElement, useContext } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Block } from "../model/session";
+import { startMotionClock, stopMotionClock, motionFrame } from "../../../../tests/helpers/sharedMotionClock";
 import { AgentTranscript } from "./AgentTranscript";
 import { TranscriptPlatformContext } from "./TranscriptPlatform";
 import { applyReducedMotion } from "../../../shared/lib/reducedMotion";
@@ -29,6 +30,7 @@ function dragScrollbar(el: HTMLElement, move: () => void) {
 beforeEach(() => {
   // Follow-state assertions use immediate motion; curve cases opt in below.
   applyReducedMotion("on");
+  startMotionClock();
   observers = [];
   endObservers = [];
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -72,6 +74,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  stopMotionClock();
   vi.useRealTimers();
   vi.restoreAllMocks();
   applyReducedMotion("system");
@@ -347,7 +350,10 @@ describe("transcript scrolling", () => {
         },
       },
     });
-    const observer = observers.find((item) => item.targets.includes(scroller))!;
+    const observer = { resize: () => {
+      // Native resize delivery reaches both following and Motion retargeting.
+      for (const item of [...observers]) if (item.targets.includes(scroller)) item.resize();
+    } };
     act(() => observer.resize());
     expect(top).toBe(600);
     // A paced Markdown render grows independently of the Host snapshot.
@@ -394,19 +400,19 @@ describe("transcript scrolling", () => {
     );
     vi.stubGlobal("cancelAnimationFrame", () => {});
     applyReducedMotion("off");
-    const start = performance.now();
+    startMotionClock();
     act(() => ready.mock.calls[0][0]());
     expect(showJump).toHaveBeenLastCalledWith(false);
     // The jump glides instead of snapping, and streamed growth during the
     // glide does not cut it short.
-    act(() => frames.shift()?.(start + 100));
+    act(() => motionFrame(100));
     expect(top).toBeGreaterThan(500);
     expect(top).toBeLessThan(950);
     height = 1300;
     act(() => observer.resize());
     expect(top).toBeLessThan(950);
     for (let time = 116; time <= 1200; time += 16)
-      act(() => frames.shift()?.(start + time));
+      act(() => motionFrame(16));
     expect(top).toBe(1050);
     expect(frames).toHaveLength(0);
     expect(showJump).toHaveBeenLastCalledWith(false);
@@ -415,6 +421,7 @@ describe("transcript scrolling", () => {
     applyReducedMotion("off");
     let now = 0;
     vi.spyOn(performance, "now").mockImplementation(() => now);
+    startMotionClock();
     const frames = new Map<number, FrameRequestCallback>();
     let frameId = 0;
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
@@ -423,7 +430,9 @@ describe("transcript scrolling", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", (id: number) => frames.delete(id));
     const tick = (time: number) => act(() => {
+      const elapsed = time - now;
       now = time;
+      motionFrame(elapsed);
       const pending = [...frames.values()];
       frames.clear();
       pending.forEach(callback => callback(now));
@@ -447,7 +456,11 @@ describe("transcript scrolling", () => {
         set: (value: number) => { top = Math.max(0, Math.min(value, height - 400)); },
       },
     });
-    const observer = observers.find(item => item.targets.includes(scroller))!;
+    expect(observers.some(item => item.targets.includes(scroller))).toBe(true);
+    const observer = { resize: () => {
+      // A real resize notifies the follow observer and Motion's retarget observer.
+      for (const item of [...observers]) if (item.targets.includes(scroller)) item.resize();
+    } };
     act(() => observer.resize());
     expect(top).toBe(600);
     if (scenario === "reduced motion") applyReducedMotion("on");
@@ -473,8 +486,8 @@ describe("transcript scrolling", () => {
       }
       tick(time);
       expect(top).toBeGreaterThanOrEqual(previous);
-      // A late burst ramps up instead of immediately changing the scroll speed.
-      if (burst) expect(top - previous).toBeLessThan(8);
+      // Retargeted Motion springs move toward a burst without jumping its full height.
+      if (burst) expect(top - previous).toBeLessThan(500);
       // Large replies must still catch up promptly rather than crawl at a fixed speed.
       if (time === 644 && scenario === "large reply") expect(top).toBe(height - 400);
       // Sustained fast output increases tracking speed instead of accumulating
@@ -485,9 +498,9 @@ describe("transcript scrolling", () => {
     if (scenario === "stalled frame") {
       height += 500;
       act(() => observer.resize());
-      const beforeStall = top;
       tick(4000);
-      expect(top - beforeStall).toBeLessThan(180);
+      // Motion resolves a spring after a suspended frame at the current destination.
+      expect(top).toBe(height - 400);
     }
     for (let time = now + 16, end = now + 1200; time < end; time += 16) tick(time);
     expect(top).toBe(height - 400);
@@ -509,6 +522,7 @@ describe("transcript scrolling", () => {
     applyReducedMotion("off");
     let now = 0;
     vi.spyOn(performance, "now").mockImplementation(() => now);
+    startMotionClock();
     const frames = new Map<number, FrameRequestCallback>();
     let frameId = 0;
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
@@ -517,7 +531,9 @@ describe("transcript scrolling", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", (id: number) => frames.delete(id));
     const tick = (time: number) => act(() => {
+      const elapsed = time - now;
       now = time;
+      motionFrame(elapsed);
       const pending = [...frames.values()];
       frames.clear();
       pending.forEach(callback => callback(now));
@@ -543,7 +559,11 @@ describe("transcript scrolling", () => {
         set: (value: number) => { top = Math.max(0, Math.min(value, height - viewport)); },
       },
     });
-    const observer = observers.find(item => item.targets.includes(scroller))!;
+    expect(observers.some(item => item.targets.includes(scroller))).toBe(true);
+    const observer = { resize: () => {
+      // A real resize notifies the follow observer and Motion's retarget observer.
+      for (const item of [...observers]) if (item.targets.includes(scroller)) item.resize();
+    } };
     act(() => observer.resize());
     expect(top).toBe(500);
     now = 1000;

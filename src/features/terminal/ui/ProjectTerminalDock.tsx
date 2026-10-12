@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
   ChevronDown,
@@ -394,7 +395,7 @@ export function ProjectTerminalDock({
           <DropTargetHint label={uiT("Move to terminal panel")} />
         ) : null}
       </div>
-      {menu ? (
+      <PresenceBoundary propagate>{menu ? (
         <ExplorerMenu
           x={menu.x}
           y={menu.y}
@@ -418,7 +419,7 @@ export function ProjectTerminalDock({
           }}
           onClose={() => setMenu(null)}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
     </section>
   );
 }

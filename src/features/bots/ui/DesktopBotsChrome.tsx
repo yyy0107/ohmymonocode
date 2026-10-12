@@ -1,3 +1,6 @@
+import { motion as motionElement } from "motion/react";
+import { panelTransition, immediateTransition } from "../../../shared/motion/tokens";
+import { reducedMotionQuery as motionPreferenceQuery } from "../../../shared/lib/reducedMotion";
 import { useEffect, useRef, useState } from "react";
 import type { BotMessage, BotConfiguration } from "../model/botView";
 import type { BotChatChrome, BotHeaderProps, BotSettingsPanelProps } from "./BotChatChrome";
@@ -144,7 +147,7 @@ function DesktopBotsHeader({ name, botIdentity, threadPicker, threadTitle, harne
 function DesktopBotsSettingsPanel({ open, initialSetup, onClose, children }: BotSettingsPanelProps) {
   const { t } = useTranslation();
   const visible = useSurfaceVisibility();
-  const { foldState } = useCollapseMotion(open);
+  const { foldState, finish } = useCollapseMotion(open);
   const panel = useRef<HTMLElement>(null);
   const opened = useRef(open);
   if (open) opened.current = true;
@@ -165,7 +168,8 @@ function DesktopBotsSettingsPanel({ open, initialSetup, onClose, children }: Bot
         previous.focus({ preventScroll: true });
     };
   }, [open, visible]);
-  return <aside ref={panel} className="desktop-bots-inspector" tabIndex={-1}
+  return <motionElement.aside
+      initial={false} animate={{ opacity: open ? 1 : 0 }} transition={motionPreferenceQuery().matches ? immediateTransition : panelTransition} onAnimationComplete={finish} ref={panel} className="desktop-bots-inspector" tabIndex={-1}
     aria-label={t(initialSetup ? "Set up assistant" : "Bot details")}
     aria-hidden={!open || undefined} inert={!open || !visible} data-fold-state={foldState}
     onKeyDown={(event) => {
@@ -185,7 +189,7 @@ function DesktopBotsSettingsPanel({ open, initialSetup, onClose, children }: Bot
         <div className="assistant-settings-content">{children}</div>
       </>}
     </SurfaceVisibilityContext.Provider>
-  </aside>;
+  </motionElement.aside>;
 }
 
 export const desktopBotsChrome: BotChatChrome = {

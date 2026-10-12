@@ -27,11 +27,7 @@ html[data-skin] .settings-row-description { font-size: var(--text-desktop-label)
 html[data-skin] .settings-row-control { max-width: 100%; }
 html[data-skin] [data-settings-segmented] { min-height: 28px; height: auto; gap: 2px; padding: 2px; border-radius: 999px; }
 html[data-skin] [data-settings-segmented] > button { min-height: 24px; padding-inline: 12px; font-size: var(--text-desktop-ui); line-height: 1.384615; }
-html[data-skin] .settings-row[data-revealed] { animation: desktop-setting-reveal 1.6s ease-out; background-color: transparent; }
-@keyframes desktop-setting-reveal {
-  0%, 60% { background-color: color-mix(in srgb, var(--color-accent) 12%, transparent); }
-  100% { background-color: transparent; }
-}
+html[data-skin] .settings-row[data-revealed] { background-color: transparent; }
 @container settings (width < 560px) {
   html[data-skin] [data-settings-content] { padding-inline: 16px; }
   html[data-skin] .settings-row-control { justify-content: flex-start; }
@@ -49,25 +45,8 @@ html[data-skin] .desktop-empty-description { font-size: var(--text-desktop-ui); 
 html[data-skin] .desktop-badge { padding: 2px 6px; border-radius: 6px; font-size: var(--text-desktop-caption); line-height: 1.454545; }
 
 /* M07/M09/M10: directional origin is still calculated by Popover placement. */
-html[data-skin] .popover-open { animation-name: desktop-popup-in; animation-duration: var(--desktop-popup-duration); animation-timing-function: var(--desktop-popup-ease); }
-html[data-skin] .popover-open[data-popover-side="bottom"] { --desktop-popup-y: -2px; }
-html[data-skin] .popover-open[data-popover-side="top"] { --desktop-popup-y: 2px; }
-html[data-skin] .popover-open[data-popover-side="right"] { --desktop-popup-x: -2px; }
-html[data-skin] .popover-open[data-popover-side="left"] { --desktop-popup-x: 2px; }
-html[data-skin] .popover-motion { transition: opacity var(--desktop-popup-duration) var(--desktop-popup-ease); }
-html[data-skin] .popover-motion > .popover-open { animation: none; transition: transform var(--desktop-popup-duration) var(--desktop-popup-ease); }
-html[data-skin] .popover-motion:is([data-fold-state="closing"], [data-fold-state="closed"]) > .popover-open { transform: translate(var(--desktop-popup-x), var(--desktop-popup-y)) scale(.98); }
-@keyframes desktop-popup-in {
-  from { opacity: 0; transform: translate(var(--desktop-popup-x), var(--desktop-popup-y)) scale(.98); }
-  to { opacity: 1; transform: none; }
-}
-@starting-style {
-  html[data-skin] .popover-motion > .popover-open { transform: translate(var(--desktop-popup-x), var(--desktop-popup-y)) scale(.98); }
-}
 @media (prefers-reduced-motion: reduce) {
   html[data-skin] .settings-nav-item { transition: none; }
   html[data-skin] .settings-row[data-revealed],
   html[data-skin] .popover-open { animation: none; }
-  html[data-skin] .popover-motion,
-  html[data-skin] .popover-motion > .popover-open { transition: none; }
 }

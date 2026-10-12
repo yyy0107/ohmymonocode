@@ -7,7 +7,6 @@
   pointer-events: none;
   border-radius: inherit;
   container-type: size;
-  animation: astra-welcome-fade var(--astra-duration) ease-out both;
 }
 
 .astra-welcome-glow {
@@ -18,7 +17,6 @@
     radial-gradient(ellipse at 100% 0%, #d8c9a212, transparent 65%),
     radial-gradient(ellipse at 15% 75%, #d8c9a214, transparent 60%);
   box-shadow: inset 0 0 45px #d8c9a208;
-  animation: astra-nebula-fade var(--astra-duration) ease-in-out both;
 }
 
 /* Keep the solar focal point small and above the composer, even in splits. */
@@ -29,7 +27,6 @@
   width: clamp(46px, 10cqw, 86px);
   aspect-ratio: 1;
   translate: -50% -50%;
-  animation: astra-solar-arrival 6s ease-out both;
 }
 
 .astra-solar-core {
@@ -69,7 +66,6 @@
     #000 22%,
     transparent 65%
   );
-  animation: astra-corona-turn var(--astra-duration) linear both;
 }
 
 .astra-solar-wave {
@@ -77,11 +73,6 @@
   inset: 0;
   border: 1px solid var(--star-color);
   border-radius: 50%;
-  animation: astra-solar-wave 3.2s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
-}
-
-.astra-solar-wave-late {
-  animation-delay: 0.85s;
 }
 
 .astra-solar-orbit {
@@ -100,7 +91,6 @@
   inset: 0;
   border: 1px solid #d8c9a235;
   border-radius: 50%;
-  animation: astra-orbit-turn var(--astra-duration) linear both;
 }
 
 .astra-solar-orbit > span::after {
@@ -117,7 +107,6 @@
 
 .astra-solar-orbit-outer > span {
   border-color: #d8c9a230;
-  animation-direction: reverse;
 }
 
 .astra-sparkle {
@@ -130,8 +119,6 @@
   background: var(--star-color);
   box-shadow: 0 0 7px var(--star-color);
   opacity: 0;
-  animation: astra-sparkle-bloom var(--spark-duration) ease-in-out
-    var(--spark-delay) both;
 }
 
 .astra-sparkle-cross {
@@ -153,7 +140,6 @@
   position: absolute;
   inset: 0;
   opacity: 0;
-  animation: astra-star-fall var(--star-duration) linear var(--star-delay) both;
 }
 
 .astra-star {
@@ -204,117 +190,6 @@ html.theme-light .astra-solar-core {
   box-shadow:
     0 0 0 1px #a8956033,
     0 0 24px #a8956050;
-}
-
-@keyframes astra-nebula-fade {
-  from {
-    opacity: 0;
-  }
-  25%,
-  55% {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes astra-solar-arrival {
-  from {
-    opacity: 0;
-    transform: scale(0.7);
-  }
-  16% {
-    opacity: 0.85;
-    transform: scale(1);
-  }
-  62% {
-    opacity: 0.6;
-  }
-  to {
-    opacity: 0;
-    transform: scale(1.06);
-  }
-}
-
-@keyframes astra-corona-turn {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(45deg);
-  }
-}
-
-@keyframes astra-orbit-turn {
-  from {
-    transform: rotate(15deg);
-  }
-  to {
-    transform: rotate(235deg);
-  }
-}
-
-@keyframes astra-solar-wave {
-  from {
-    opacity: 0;
-    transform: scale(0.5);
-  }
-  15% {
-    opacity: 0.25;
-  }
-  to {
-    opacity: 0;
-    transform: scale(4.5);
-  }
-}
-
-@keyframes astra-sparkle-bloom {
-  from {
-    opacity: 0;
-    transform: translateY(0) scale(0.6);
-  }
-  30% {
-    opacity: 0.7;
-    transform: translateY(4px) scale(1);
-  }
-  65% {
-    opacity: 0.3;
-  }
-  to {
-    opacity: 0;
-    transform: translateY(16px) scale(0.7);
-  }
-}
-
-@keyframes astra-star-fall {
-  0% {
-    opacity: 0;
-    transform: translate(0, 0);
-  }
-  12% {
-    opacity: var(--star-brightness);
-  }
-  70% {
-    opacity: var(--star-brightness);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-70cqh, 100cqh);
-  }
-}
-
-@keyframes astra-welcome-fade {
-  0% {
-    opacity: 0;
-  }
-  8%,
-  72% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

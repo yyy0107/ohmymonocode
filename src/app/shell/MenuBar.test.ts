@@ -1,3 +1,4 @@
+import { completeMotionAnimation } from "../../../tests/helpers/motionDriver";
 // @vitest-environment happy-dom
 import { act, createElement, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -111,7 +112,8 @@ describe("MenuBar", () => {
       });
       expect(event.defaultPrevented).toBe(true);
       expect(nativeDocumentHandler).not.toHaveBeenCalled();
-      expect(document.querySelector('[role="menu"]')).toBeNull();
+      act(() => completeMotionAnimation(document.body));
+    expect(document.querySelector('[role="menu"]')).toBeNull();
     } finally {
       document.removeEventListener("mousedown", nativeDocumentHandler);
     }
@@ -252,6 +254,7 @@ describe("MenuBar", () => {
     )!;
     act(() => close.click());
     expect(dispatch).toHaveBeenCalledWith("Pane: Close");
+    act(() => completeMotionAnimation(document.body));
     expect(document.querySelector('[role="menu"]')).toBeNull();
   });
 
@@ -274,6 +277,7 @@ describe("MenuBar", () => {
     });
     expect(menuButton("Edit")!.getAttribute("aria-expanded")).toBe("true");
     tapAlt();
+    act(() => completeMotionAnimation(document.body));
     expect(document.querySelector('[role="menu"]')).toBeNull();
   });
 
@@ -340,4 +344,10 @@ describe("MenuBar", () => {
       expect(dispatch).not.toHaveBeenCalled();
     },
   );
+});
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
 });

@@ -1,3 +1,5 @@
+import { RotatingIcon } from "../../../shared/ui/RotatingIcon";
+import { motionGeometry } from "../../../shared/motion/tokens";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
@@ -141,7 +143,7 @@ export function SshTargetInput({
           }}
           className="absolute inset-y-0 right-0 grid w-9 place-items-center text-foreground-subtle hover:text-foreground disabled:opacity-40"
         >
-          <ChevronDown className={`size-4 transition-transform duration-150 ease-out motion-reduce:transition-none ${shown ? "rotate-180" : ""}`} />
+          <RotatingIcon icon={ChevronDown} angle={shown ? motionGeometry.flipAngle : 0} className="size-4" />
         </button>
       ) : null}
       <Popover

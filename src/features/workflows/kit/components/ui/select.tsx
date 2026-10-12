@@ -1,11 +1,25 @@
 "use client";
 
+import { MotionPresenceItem } from "./motion-presence";
+import { AnimatePresence, motion } from "motion/react";
+import {
+  immediateTransition,
+  popAnimate,
+  popExit,
+  popInitial,
+  popTransition,
+} from "../../../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../../../shared/motion/useMotionPreference";
 import * as React from "react";
 import { Select as SelectPrimitive } from "radix-ui";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "../lib/utils.js";
-import { ChevronDown as ChevronDownIcon, Check as CheckIcon, ChevronUp as ChevronUpIcon } from "../../../../../shared/ui/icons";
+import {
+  ChevronDown as ChevronDownIcon,
+  Check as CheckIcon,
+  ChevronUp as ChevronUpIcon,
+} from "../../../../../shared/ui/icons";
 
 // resize 大会话时 Select trigger 跟随基础控件批量重排，
 // transition-all 会把布局/滚动条相关属性也动画化；这里限定为颜色过渡。
@@ -16,7 +30,8 @@ const selectTriggerVariants = cva(
       variant: {
         input:
           "border-input-border bg-input text-foreground hover:border-input-border-hover focus-visible:border-input-border-focused focus-visible:bg-input-focused focus-visible:ring-0",
-        default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
+        default:
+          "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
         outline:
           "border-border bg-transparent text-foreground hover:bg-input/50 hover:text-foreground aria-expanded:bg-selected aria-expanded:text-foreground",
         secondary:
@@ -41,11 +56,35 @@ const selectTriggerVariants = cva(
   },
 );
 
-function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />;
+const SelectMotionContext = React.createContext(false);
+
+function Select({
+  open: controlledOpen,
+  defaultOpen = false,
+  onOpenChange,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Root>) {
+  const [localOpen, setLocalOpen] = React.useState(defaultOpen);
+  const open = controlledOpen ?? localOpen;
+  return (
+    <SelectMotionContext.Provider value={open}>
+      <SelectPrimitive.Root
+        data-slot="select"
+        {...props}
+        open={open}
+        onOpenChange={(next) => {
+          if (controlledOpen === undefined) setLocalOpen(next);
+          onOpenChange?.(next);
+        }}
+      />
+    </SelectMotionContext.Provider>
+  );
 }
 
-function SelectGroup({ className, ...props }: React.ComponentProps<typeof SelectPrimitive.Group>) {
+function SelectGroup({
+  className,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Group>) {
   return (
     <SelectPrimitive.Group
       data-slot="select-group"
@@ -55,7 +94,9 @@ function SelectGroup({ className, ...props }: React.ComponentProps<typeof Select
   );
 }
 
-function SelectValue({ ...props }: React.ComponentProps<typeof SelectPrimitive.Value>) {
+function SelectValue({
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Value>) {
   return <SelectPrimitive.Value data-slot="select-value" {...props} />;
 }
 
@@ -96,45 +137,67 @@ function SelectContent({
   align = "center",
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
-  return (
-    <SelectPrimitive.Portal>
-      <SelectPrimitive.Content
-        data-slot="select-content"
-        data-align-trigger={position === "item-aligned"}
-        className={cn(
-          // 可操作的 Select 必须高于 z-50 tooltip，避免提示遮住选项。
-          "relative z-[60] max-h-(--radix-select-content-available-height) min-w-32 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg border border-popover-border panel-menu p-1 text-foreground shadow-md duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 [app-region:no-drag]",
-          className,
-        )}
-        position={position}
-        align={align}
-        {...props}
-      >
-        <SelectScrollUpButton />
-        <SelectPrimitive.Viewport
-          data-position={position}
-          className={cn(
-            // popper 模式下如果把 viewport 高度锁成 trigger 高度，
-            // 会导致菜单可视区域被压成一行，无法完整展开选项。
-            // 这里仅保留宽度对齐，交给内容容器的 max-height 控制可视高度。
-            // Select 选项过去紧贴排列；在真正承载选项的 viewport 统一保留 2px。
-            "flex flex-col gap-0.5 data-[position=popper]:w-full data-[position=popper]:min-w-(--radix-select-trigger-width)",
-            position === "popper" && "",
-          )}
-        >
-          {children}
-        </SelectPrimitive.Viewport>
-        <SelectScrollDownButton />
-      </SelectPrimitive.Content>
-    </SelectPrimitive.Portal>
+  const open = React.useContext(SelectMotionContext);
+  const reduced = useMotionPreference();
+  const presence = (
+    <AnimatePresence>
+      {open && (
+        <MotionPresenceItem key="content">
+          <SelectPrimitive.Content
+            forceMount
+            asChild
+            data-slot="select-content"
+            data-align-trigger={position === "item-aligned"}
+            className={cn(
+              // 可操作的 Select 必须高于 z-50 tooltip，避免提示遮住选项。
+              "relative z-[60] max-h-(--radix-select-content-available-height) min-w-32 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg border border-popover-border panel-menu p-1 text-foreground shadow-md             [app-region:no-drag]",
+              className,
+            )}
+            position={position}
+            align={align}
+            {...props}
+          >
+            <motion.div
+              initial={reduced ? false : popInitial}
+              animate={popAnimate}
+              exit={popExit}
+              transition={reduced ? immediateTransition : popTransition}
+            >
+              <SelectScrollUpButton />
+              <SelectPrimitive.Viewport
+                data-position={position}
+                className={cn(
+                  // popper 模式下如果把 viewport 高度锁成 trigger 高度，
+                  // 会导致菜单可视区域被压成一行，无法完整展开选项。
+                  // 这里仅保留宽度对齐，交给内容容器的 max-height 控制可视高度。
+                  // Select 选项过去紧贴排列；在真正承载选项的 viewport 统一保留 2px。
+                  "flex flex-col gap-0.5 data-[position=popper]:w-full data-[position=popper]:min-w-(--radix-select-trigger-width)",
+                  position === "popper" && "",
+                )}
+              >
+                {children}
+              </SelectPrimitive.Viewport>
+              <SelectScrollDownButton />
+            </motion.div>
+          </SelectPrimitive.Content>
+        </MotionPresenceItem>
+      )}
+    </AnimatePresence>
   );
+  return <SelectPrimitive.Portal forceMount>{presence}</SelectPrimitive.Portal>;
 }
 
-function SelectLabel({ className, ...props }: React.ComponentProps<typeof SelectPrimitive.Label>) {
+function SelectLabel({
+  className,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Label>) {
   return (
     <SelectPrimitive.Label
       data-slot="select-label"
-      className={cn("px-2 py-1.5 text-ui-base text-foreground-subtlest", className)}
+      className={cn(
+        "px-2 py-1.5 text-ui-base text-foreground-subtlest",
+        className,
+      )}
       {...props}
     />
   );
@@ -144,33 +207,34 @@ type SelectItemProps = React.ComponentProps<typeof SelectPrimitive.Item> & {
   trailing?: React.ReactNode;
 };
 
-const SelectItem = React.forwardRef<React.ElementRef<typeof SelectPrimitive.Item>, SelectItemProps>(
-  ({ className, children, trailing, ...props }, ref) => {
-    return (
-      <SelectPrimitive.Item
-        ref={ref}
-        data-slot="select-item"
-        className={cn(
-          "relative flex min-h-7 w-full cursor-default items-center gap-2 rounded-md px-2 py-1 text-ui-base/relaxed text-foreground outline-hidden select-none data-[highlighted]:bg-menu-hover data-[highlighted]:text-foreground data-disabled:pointer-events-none data-disabled:text-foreground-subtlest data-disabled:opacity-100 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
-          className,
-        )}
-        {...props}
-      >
-        {trailing ? (
-          <span className="pointer-events-auto absolute right-2 flex items-center justify-center">
-            {trailing}
-          </span>
-        ) : null}
-        <span className="pointer-events-none absolute right-2 flex items-center justify-center">
-          <SelectPrimitive.ItemIndicator>
-            <CheckIcon className="pointer-events-none size-4 text-foreground-subtle" />
-          </SelectPrimitive.ItemIndicator>
+const SelectItem = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Item>,
+  SelectItemProps
+>(({ className, children, trailing, ...props }, ref) => {
+  return (
+    <SelectPrimitive.Item
+      ref={ref}
+      data-slot="select-item"
+      className={cn(
+        "relative flex min-h-7 w-full cursor-default items-center gap-2 rounded-md px-2 py-1 text-ui-base/relaxed text-foreground outline-hidden select-none data-[highlighted]:bg-menu-hover data-[highlighted]:text-foreground data-disabled:pointer-events-none data-disabled:text-foreground-subtlest data-disabled:opacity-100 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        className,
+      )}
+      {...props}
+    >
+      {trailing ? (
+        <span className="pointer-events-auto absolute right-2 flex items-center justify-center">
+          {trailing}
         </span>
-        <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
-      </SelectPrimitive.Item>
-    );
-  },
-);
+      ) : null}
+      <span className="pointer-events-none absolute right-2 flex items-center justify-center">
+        <SelectPrimitive.ItemIndicator>
+          <CheckIcon className="pointer-events-none size-4 text-foreground-subtle" />
+        </SelectPrimitive.ItemIndicator>
+      </span>
+      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+    </SelectPrimitive.Item>
+  );
+});
 
 SelectItem.displayName = "SelectItem";
 

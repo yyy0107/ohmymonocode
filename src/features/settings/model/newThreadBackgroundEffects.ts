@@ -146,11 +146,7 @@ export async function applyPreparedNewThreadBackground(
       "--chat-background-image",
       `url(${JSON.stringify(src)})`,
     );
-    requestAnimationFrame(() => {
-      if (revision === appliedRevision) {
-        root.classList.add("chat-background-effect-ready");
-      }
-    });
+    if (revision === appliedRevision) root.classList.add("chat-background-effect-ready");
     return;
   }
   let blob: Blob;
@@ -178,9 +174,5 @@ export async function applyPreparedNewThreadBackground(
     "--chat-background-image",
     `url(${JSON.stringify(objectUrl)})`,
   );
-  requestAnimationFrame(() => {
-    if (revision === appliedRevision) {
-      root.classList.add("chat-background-effect-ready");
-    }
-  });
+  if (revision === appliedRevision) root.classList.add("chat-background-effect-ready");
 }

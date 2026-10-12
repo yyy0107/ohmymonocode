@@ -1,3 +1,6 @@
+import { motion } from "motion/react";
+import { panelTransition, immediateTransition, duration } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import {
   useEffect,
   useLayoutEffect,
@@ -6,11 +9,10 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
 import { opusStage } from "../model/opusWelcome";
 import "./OpusWelcome.css";
 
-const DURATION_MS = 7000;
+const DURATION_MS = duration.panel * 1000;
 
 // A short phrase: it climbs, hesitates, and resolves on the middle line.
 const MELODY = [
@@ -115,25 +117,13 @@ export function OpusWelcome({ onDone }: { onDone: () => void }) {
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    const reducedMotion = reducedMotionQuery();
-    if (reducedMotion.matches) {
-      onDone();
-      return;
-    }
-    const onMotionChange = () => {
-      if (reducedMotion.matches) onDone();
-    };
-    const timer = window.setTimeout(onDone, DURATION_MS);
-    reducedMotion.addEventListener("change", onMotionChange);
-    return () => {
-      window.clearTimeout(timer);
-      reducedMotion.removeEventListener("change", onMotionChange);
-    };
-  }, [onDone]);
+  const reducedMotion = useMotionPreference();
+  useEffect(() => { if (reducedMotion) onDone(); }, [reducedMotion, onDone]);
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }}
+      transition={reducedMotion ? immediateTransition : panelTransition} onAnimationComplete={onDone}
       ref={rootRef}
       className="opus-welcome"
       aria-hidden="true"
@@ -178,6 +168,6 @@ export function OpusWelcome({ onDone }: { onDone: () => void }) {
           </div>
         </div>
       ) : null}
-    </div>
+    </motion.div>
   );
 }

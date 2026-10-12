@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { duration, ease, springs, defaultTransition, autoAnimateOptions } from "./tokens";
 
@@ -22,4 +22,14 @@ describe("shared Motion vocabulary", () => {
     expect(source).not.toMatch(/\bduration\s*:\s*\d/);
     expect(source).not.toContain("framer-motion");
   });
+  it("has no literal Motion timing or spring parameters outside the token module", () => {
+    const sources = (directory: string): string[] => readdirSync(directory, { withFileTypes: true })
+      .flatMap(entry => entry.isDirectory() ? sources(`${directory}/${entry.name}`) : [`${directory}/${entry.name}`]);
+    for (const path of sources("src").filter(path => /\.tsx?$/.test(path) && !path.includes(".test.") && path !== "src/shared/motion/tokens.ts")) {
+      const source = readFileSync(path, "utf8");
+      if (/from ["\'](?:motion(?:\/react)?|[^"\']*\/motion\/tokens)["\']/.test(source))
+        expect(source, path).not.toMatch(/\b(?:duration|stiffness|damping)\s*:\s*\d/);
+    }
+  });
+
 });

@@ -1,5 +1,10 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
+import { DetailsChevron } from "../../../shared/ui/DetailsChevron";
+import { DisclosureChevron } from "../../../shared/ui/DisclosureChevron";
 import { formatGenerationRate, sanitizeGenerationSample } from "../model/generationSample";
-import { advanceFollowMotion, dampedMotion, FOLLOW_MOTION_FREQUENCY } from "../../../shared/lib/dampedMotion";
+import { animate, AnimatePresence, motion, motionValue, useMotionValue, type AnimationPlaybackControlsWithThen } from "motion/react";
+import { duration, msgTransition, immediateTransition, springs } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { syncLiveFooterClip } from "./liveFooterClip";
 import { timestampTitle } from "./timestampTitle";
 import { agentStepCount, agentTranscript } from "../model/agentTranscript";
@@ -43,7 +48,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -196,10 +200,10 @@ const WHEEL_HOLD_MS = 150;
  * STEP_QUEUE_CALM_MS plays the rest faster, down to STEP_ENTRANCE_MIN_MS by
  * STEP_QUEUE_MS, so a long burst still catches up.
  */
-const STEP_ENTRANCE_MS = 480;
-const STEP_ENTRANCE_MIN_MS = 160;
-const STEP_QUEUE_CALM_MS = 960;
-const STEP_QUEUE_MS = 2000;
+const STEP_ENTRANCE_MS = duration.msg * 1000;
+const STEP_ENTRANCE_MIN_MS = duration.msg * 1000;
+const STEP_QUEUE_CALM_MS = duration.panel * 1000;
+const STEP_QUEUE_MS = duration.panel * 1000;
 const INITIAL_TURNS = 20;
 /**
  * Turns built before a transcript first paints. Every turn in the initial
@@ -1687,6 +1691,7 @@ function LiveTurnFooter({
   background?: string[];
 }) {
   const { t: uiT } = useTranslation();
+  const reduced = useMotionPreference();
   const paused = !!waiting;
   const now = useNow();
   const mascot = useProjectMascotAppearance(cwd);
@@ -1729,11 +1734,11 @@ function LiveTurnFooter({
           </>
         ) : null}
         {/* Phase copy can ease in without remounting the ticking digits. */}
-        <span key={`${status.phase}:${label}`} className="transcript-live-status flex min-w-0">
+        <AnimatePresence mode="popLayout"><motion.span key={`${status.phase}:${label}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={reduced ? immediateTransition : msgTransition} className="transcript-live-status flex min-w-0">
           <Shimmer className="min-w-0 truncate" duration={1.6}>
             {verb}
           </Shimmer>
-        </span>
+        </motion.span></AnimatePresence>
       </span>
       {status.background ? (
         <span
@@ -1923,7 +1928,7 @@ export function TurnMetricsBadge({ metrics }: { metrics?: TurnMetrics }) {
       >
         <ChartBreakoutSquare className="size-3.5" />
       </span>
-      {hovered ? (
+      <PresenceBoundary propagate>{hovered ? (
         <Popover
           anchor={root}
           side="top"
@@ -1938,7 +1943,7 @@ export function TurnMetricsBadge({ metrics }: { metrics?: TurnMetrics }) {
             </div>
           ) : null}
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 }
@@ -2499,7 +2504,7 @@ function UserMessageBlock({
               onClick={(event) => event.stopPropagation()}
             >
               <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded text-xs text-content/50 transition-colors hover:text-content/80 focus-visible:outline focus-visible:outline-1 focus-visible:outline-content/40 [&::-webkit-details-marker]:hidden">
-                <ChevronRight className="size-3 shrink-0 transition-transform group-open/ci:rotate-90" />
+                <DetailsChevron className="size-3 shrink-0" />
                 <span>{uiT("CI context")}</span>
               </summary>
               <p className="mt-2 text-xs text-content/50">
@@ -2615,8 +2620,7 @@ function TurnRow({
 function FoldingRow({ children }: { children: () => ReactNode }) {
   const [expanded, setExpanded] = useState(true);
   useEffect(() => {
-    const frame = requestAnimationFrame(() => setExpanded(false));
-    return () => cancelAnimationFrame(frame);
+    setExpanded(false);
   }, []);
   return <AnimatedCollapse expanded={expanded}>{children}</AnimatedCollapse>;
 }
@@ -2667,9 +2671,7 @@ function WorkFoldLine({
         <ActivityPhaseIcon kind={kind} className={iconTone} />
       )}
       {expandable && !sheet ? (
-        <ChevronRight
-          className={`zen-disclosure-chevron absolute size-3.5 ${open ? "rotate-90" : ""}`}
-        />
+        <DisclosureChevron expanded={open} className="absolute size-3.5" />
       ) : null}
     </span>
   );
@@ -3021,11 +3023,7 @@ function ActivityPhaseGroup({
             />
           )}
           {!sheet && (
-            <ChevronRight
-              className={`zen-disclosure-chevron absolute size-3.5 ${
-                open ? "rotate-90" : ""
-              }`}
-            />
+            <DisclosureChevron expanded={open} className="absolute size-3.5" />
           )}
         </span>
         {label}
@@ -3113,7 +3111,7 @@ function useStepQueue(visible: boolean) {
       const start = Math.max(now, queue.current.next);
       const wait = start - now;
       const backlog =
-        (STEP_QUEUE_MS - wait) / (STEP_QUEUE_MS - STEP_QUEUE_CALM_MS);
+        (STEP_QUEUE_MS - wait) / STEP_QUEUE_CALM_MS;
       const pace = Math.max(
         STEP_ENTRANCE_MIN_MS,
         STEP_ENTRANCE_MS * Math.min(1, backlog),
@@ -3150,35 +3148,37 @@ function PhaseStep({
   );
   if (!visible && stage !== "settled") setStage("settled");
 
-  useEffect(() => {
-    if (!visible || stage !== "waiting" || !turn) return;
-    const timer = window.setTimeout(() => setStage("entering"), turn.wait);
-    return () => window.clearTimeout(timer);
-  }, [stage, turn, visible]);
-
+  const reduced = useMotionPreference();
+  const element = useRef<HTMLDivElement>(null);
+  const opacity = useMotionValue(turn && visible && !reduced ? 0 : 1);
+  useLayoutEffect(() => {
+    if (!turn) return;
+    if (reduced || !visible) {
+      opacity.jump(1);
+      setStage("settled");
+      return;
+    }
+    const fade = animate(opacity, 1, { ...msgTransition, delay: turn.wait / 1000,
+      onUpdate: value => { if (value > 0) setStage(current => current === "waiting" ? "entering" : current); },
+    });
+    return () => fade.stop();
+  }, [turn, visible, reduced, opacity]);
+  useLayoutEffect(() => {
+    const node = element.current;
+    if (!node || !turn || stage === "waiting") return;
+    // Measure auto height after the queued row joins the layout.
+    const height = animate([node], { height: stage === "entering" && visible && !reduced ? [0, "auto"] : "auto" }, {
+      ...(reduced || !visible || stage === "settled" ? immediateTransition : msgTransition),
+      onComplete: () => setStage("settled"),
+    });
+    return () => height.stop();
+  }, [turn, stage, visible, reduced]);
   return (
-    <div
-      className="zen-phase-step"
-      style={
-        turn
-          ? ({ "--step-ms": `${Math.round(turn.pace)}ms` } as CSSProperties)
-          : undefined
-      }
+    <motion.div ref={element} className="zen-phase-step" style={{ opacity }}
       data-live={live || undefined}
       data-waiting={stage === "waiting" || undefined}
       data-entering={stage === "entering" || undefined}
-      onAnimationEnd={(e) => {
-        // The row's own fade is the last beat; nested rails bubble theirs.
-        if (
-          e.animationName === "zen-step-in" &&
-          (e.target as Element).parentElement === e.currentTarget
-        ) {
-          setStage("settled");
-        }
-      }}
-    >
-      {children}
-    </div>
+    >{children}</motion.div>
   );
 }
 
@@ -3372,11 +3372,7 @@ function SubagentPanel({
       >
         <SubagentMascot name={name} state={state} active={active} />
         {label}
-        <ChevronRight
-          className={`zen-disclosure-chevron size-3.5 shrink-0 ${
-            open ? "rotate-90" : ""
-          }`}
-        />
+        <DisclosureChevron expanded={open} className="size-3.5 shrink-0" />
       </button>
       <div className="zen-phase-body" data-open={open}>
         <AnimatedCollapse expanded={!openAgent && open}>
@@ -3758,9 +3754,7 @@ function ActivityThinkingRow({
         >
           {content}
         </span>
-        <ChevronRight
-          className={`zen-disclosure-chevron size-3.5 shrink-0 ${open ? "rotate-90 opacity-100" : ""}`}
-        />
+        <DisclosureChevron expanded={open} className="size-3.5 shrink-0" />
       </button>
       <AnimatedCollapse expanded={open}>
         {() => (
@@ -3924,9 +3918,7 @@ function MonoCodeCallRow({
       </span>
       <ToolCallStatusIcon state={state} />
       {hasError ? (
-        <ChevronRight
-          className={`size-3.5 shrink-0 text-red-400/60 transition-transform ${errorOpen ? "rotate-90" : ""}`}
-        />
+        <DisclosureChevron expanded={errorOpen} className="size-3.5 shrink-0 text-red-400/60" />
       ) : null}
     </>
   );
@@ -4265,7 +4257,7 @@ function turnUserBlock(blocks: Block[], managed = false): Block | undefined {
 }
 
 // Keep in sync with the prompt-turn-reveal animation in index.css.
-const PROMPT_REVEAL_MS = 180;
+
 
 type PriorTurn = { element: HTMLElement; top: number };
 
@@ -4301,24 +4293,21 @@ function riseIntoAnchor(
   prior?: PriorTurn,
 ): PromptRise | undefined {
   let row = promptRow(scroller, blockId);
-  if (!scroller || !row || typeof row.animate !== "function") return;
+  if (!scroller || !row) return;
   if (reducedMotionQuery().matches) return;
   let turn = row.closest<HTMLElement>(".transcript-turn");
   let stopped = false;
   let started = false;
-  let frame = 0;
-  let revealTimer: ReturnType<typeof setTimeout> | undefined;
+  let revealMotion: AnimationPlaybackControlsWithThen | undefined;
   let slide: PromptSlide | undefined;
   const reveal = () => {
     if (stopped) return;
     const revealing = turn;
     revealing?.setAttribute("data-prompt-rise", "revealing");
-    revealTimer = setTimeout(
-      () => revealing?.removeAttribute("data-prompt-rise"),
-      PROMPT_REVEAL_MS,
-    );
+    if (revealing) revealMotion = animate([revealing], { opacity: [0, 1] }, { ...msgTransition, onComplete: () => revealing.removeAttribute("data-prompt-rise") });
   };
   const start = () => {
+    if (stopped) return;
     started = true;
     row!.style.removeProperty("visibility");
     slide = scrollIntoAnchor(scroller, row!, turn, prior);
@@ -4332,13 +4321,12 @@ function riseIntoAnchor(
   row.style.visibility = "hidden";
   row.dataset.promptMotion = "smooth";
   turn?.setAttribute("data-prompt-rise", "rising");
-  frame = requestAnimationFrame(start);
+  queueMicrotask(start);
   return {
     stop: () => {
       stopped = true;
-      cancelAnimationFrame(frame);
       slide?.release();
-      clearTimeout(revealTimer);
+      revealMotion?.stop();
       row?.style.removeProperty("visibility");
       turn?.removeAttribute("data-prompt-rise");
     },
@@ -4430,69 +4418,47 @@ const JUMP_INTERRUPTS = ["wheel", "touchstart", "pointerdown", "keydown"];
  * Glide to the bottom, following content that keeps streaming in. Any reader
  * input stops the glide where it is.
  */
-type GlideTiming = { frequency: number; smoothAcceleration?: boolean };
-const JUMP_GLIDE: GlideTiming = { frequency: 14 };
-/** Same tracking lag (3/27s versus 2/18s), with continuous acceleration. */
-const FOLLOW_GLIDE: GlideTiming = {
-  frequency: FOLLOW_MOTION_FREQUENCY,
-  smoothAcceleration: true,
-};
-
-function animateToBottom(
-  el: HTMLElement | null,
-  done: () => void,
-  timing: GlideTiming = JUMP_GLIDE,
-) {
+type GlideTiming = { follow?: boolean };
+const JUMP_GLIDE: GlideTiming = {};
+const FOLLOW_GLIDE: GlideTiming = { follow: true };
+function animateToBottom(el: HTMLElement | null, done: () => void, _timing: GlideTiming = JUMP_GLIDE) {
   if (!el || jumpingScrollers.has(el)) return;
   const bottom = () => Math.max(0, el.scrollHeight - el.clientHeight);
-  const from = el.scrollTop;
-  const distance = bottom() - from;
-  if (
-    distance <= 1 ||
-    reducedMotionQuery().matches
-  ) {
-    el.scrollTop = el.scrollHeight;
-    done();
-    return;
-  }
-  let position = from;
-  let velocity = 0;
-  let acceleration = 0;
-  let frequency = timing.frequency;
-  let last = performance.now();
-  let frame = 0;
+  if (bottom() - el.scrollTop <= 1 || reducedMotionQuery().matches) { el.scrollTop = el.scrollHeight; done(); return; }
+  const position = motionValue(el.scrollTop);
+  let playback: AnimationPlaybackControlsWithThen | undefined;
+  let ended = false;
+  const sync = position.on("change", value => { el.scrollTop = value; syncLiveFooterClip(el); });
   const finish = (snap: boolean) => {
-    cancelAnimationFrame(frame);
+    if (ended) return;
+    ended = true;
+    playback?.stop();
+    sync(); position.destroy(); observer.disconnect(); mutations.disconnect();
     jumpingScrollers.delete(el);
     for (const type of JUMP_INTERRUPTS) el.removeEventListener(type, interrupt);
     if (snap) el.scrollTop = el.scrollHeight;
     done();
   };
   const interrupt = () => finish(false);
-  const step = (now: number) => {
+  let target = bottom();
+  const track = () => {
+    if (ended) return;
     if (!el.isConnected) return finish(false);
     if (reducedMotionQuery().matches) return finish(true);
-    const target = bottom();
-    // New output changes the pull without resetting position, speed or acceleration.
-    // Cap elapsed time after a stalled frame so returning cannot jump a page.
-    const seconds = Math.max(0, Math.min(0.064, (now - last) / 1000));
-    last = now;
-    const next = timing.smoothAcceleration
-      ? advanceFollowMotion({ position, velocity, acceleration, frequency }, target, seconds)
-      : { ...dampedMotion(position, velocity, target, seconds, timing.frequency), acceleration: 0, frequency };
-    position = Math.min(target, next.position);
-    velocity = next.velocity;
-    acceleration = next.acceleration;
-    frequency = next.frequency;
-    el.scrollTop = position;
-    syncLiveFooterClip(el);
-    if (Math.abs(target - position) < 0.5 && Math.abs(velocity) < 5) finish(true);
-    else frame = requestAnimationFrame(step);
+    const next = bottom();
+    if (playback && next === target) return;
+    target = next;
+    playback?.stop();
+    playback = animate(position, target, { ...springs.sheet, onComplete: () => { if (target === bottom()) finish(true); else { playback = undefined; track(); } } });
   };
+  const observer = new ResizeObserver(track);
+  observer.observe(el);
+  for (const child of el.children) observer.observe(child);
+  const mutations = new MutationObserver(track);
+  mutations.observe(el, { subtree: true, childList: true, characterData: true });
   jumpingScrollers.set(el, finish);
-  for (const type of JUMP_INTERRUPTS)
-    el.addEventListener(type, interrupt, { passive: true });
-  frame = requestAnimationFrame(step);
+  for (const type of JUMP_INTERRUPTS) el.addEventListener(type, interrupt, { passive: true });
+  track();
 }
 
 const stretchedTurns = new WeakMap<HTMLElement, HTMLElement>();

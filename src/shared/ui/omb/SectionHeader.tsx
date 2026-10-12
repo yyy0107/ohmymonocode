@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ChevronRight } from "../icons";
+import { DisclosureChevron } from "../DisclosureChevron";
 import { cx, PRESSABLE } from "./cx";
 
 /**
@@ -46,13 +46,7 @@ export function SectionHeader({
             "active:scale-100",
           )}
         >
-          <ChevronRight
-            aria-hidden
-            className={cx(
-              "size-3 shrink-0 transition-transform duration-200 ease-[var(--ease-omb)] motion-reduce:transition-none",
-              expanded && "rotate-90",
-            )}
-          />
+          <DisclosureChevron expanded={!!expanded} aria-hidden className="size-3 shrink-0" />
           {text}
         </button>
       ) : (

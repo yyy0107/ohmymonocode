@@ -229,10 +229,7 @@ describe("sidebar tab selection feedback", () => {
 
   it("reorders without selecting the dragged tab and permits a fresh click", async () => {
     const { onTabChange } = await renderHarness();
-    document.documentElement.style.setProperty(
-      "--motion-reorder-duration",
-      "0ms",
-    );
+    document.documentElement.dataset.reducedMotion = "on";
     const wrappers = container.querySelectorAll<HTMLElement>(".workspace-tab");
     wrappers.forEach((node, index) => {
       node.getBoundingClientRect = () => new DOMRect(index * 100, 0, 100, 24);
@@ -263,4 +260,10 @@ describe("sidebar tab selection feedback", () => {
     expect(onTabChange).toHaveBeenCalledExactlyOnceWith("files");
     expect(selectedLabel()).toBe("Explorer");
   });
+});
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
 });

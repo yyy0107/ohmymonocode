@@ -1,3 +1,6 @@
+import { motion } from "motion/react";
+import { panelTransition, immediateTransition, motionGeometry } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { isTauri } from "@tauri-apps/api/core";
 import {
   useEffect,
@@ -93,6 +96,7 @@ function Switch({
   on: boolean;
   onChange: (on: boolean) => void;
 }) {
+  const reduced = useMotionPreference();
   return (
     <button
       type="button"
@@ -104,10 +108,8 @@ function Switch({
         on ? "bg-accent" : "bg-content/20"
       }`}
     >
-      <span
-        className={`absolute top-0.5 size-4 rounded-full bg-white transition-[left] motion-reduce:transition-none ${
-          on ? "left-4.5" : "left-0.5"
-        }`}
+      <motion.span initial={false} animate={{ x: on ? `var(--desktop-switch-travel, ${motionGeometry.switchTravel}px)` : 0 }} transition={reduced ? immediateTransition : panelTransition}
+        className="absolute left-0.5 top-0.5 size-4 rounded-full bg-white"
       />
     </button>
   );

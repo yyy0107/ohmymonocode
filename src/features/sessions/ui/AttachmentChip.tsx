@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useState } from "react";
 import { X } from "../../../shared/ui/icons";
@@ -120,13 +121,13 @@ export function AttachmentChip({ attachment, onRemove, tile = false, onOpen }: P
           </button>
         ) : null}
       </div>
-      {image && previewOpen ? (
+      <PresenceBoundary>{image && previewOpen ? (
         <ImageLightbox
           src={thumbnail ? (attachmentPreviewSrc(attachment) ?? thumbnail) : preview}
           alt={attachment.name}
           onClose={() => setPreviewOpen(false)}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
     </>
   );
 }

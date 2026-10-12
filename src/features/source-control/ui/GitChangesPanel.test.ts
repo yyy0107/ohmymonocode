@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { finishMotion, startMotionClock, stopMotionClock } from "../../../../tests/helpers/sharedMotionClock";
 import { act, createElement, Profiler } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -93,6 +94,7 @@ let root: Root;
 beforeEach(() => {
   // Keep delayed file invalidations from reaching the next test's mocks.
   vi.useFakeTimers();
+  startMotionClock();
   setUiLanguage("en");
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
@@ -183,6 +185,7 @@ describe("GitChangesPanel commit message generation", () => {
 
 afterEach(() => {
   act(() => root.unmount());
+  stopMotionClock();
   vi.clearAllTimers();
   vi.useRealTimers();
   setUiLanguage("en");
@@ -337,17 +340,17 @@ describe("GitChangesPanel folder actions", () => {
     expect(file.isConnected).toBe(true);
     expect(file.disabled).toBe(true);
 
-    await act(async () => vi.advanceTimersByTime(200));
+    await act(async () => finishMotion(5));
     await act(async () => folder.click());
     expect(fold()?.dataset.foldState).toBe("opening");
     expect(fold()?.inert).toBe(false);
     expect(file.disabled).toBe(false);
-    await act(async () => vi.advanceTimersByTime(150));
+    await act(async () => finishMotion(5));
     expect(fold()?.dataset.foldState).toBe("opening");
-    await act(async () => vi.advanceTimersByTime(200));
+    await act(async () => finishMotion());
     expect(fold()?.dataset.foldState).toBe("open");
     await act(async () => folder.click());
-    await act(async () => vi.advanceTimersByTime(350));
+    await act(async () => finishMotion());
     expect(fold()).toBeNull();
     expect(file.isConnected).toBe(false);
     await act(async () => folder.click());
@@ -429,7 +432,7 @@ describe("GitChangesPanel folder actions", () => {
       )!;
       await act(async () => folder.click());
       expect(folder.getAttribute("aria-expanded")).toBe("false");
-      await act(async () => vi.advanceTimersByTime(350));
+      await act(async () => finishMotion());
       expect(container.querySelector('button[title="src/app.ts"]')).toBeNull();
 
       invalidateWatchedFiles.mockClear();

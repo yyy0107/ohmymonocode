@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useRef, useState } from "react";
 import {
@@ -67,7 +68,7 @@ export function ContextMeter({
       ) : (
         <MeterRing ratio={ratio} label={`${headline}, ${detail}`} />
       )}
-      {hovered || actionsOpen ? (
+      <PresenceBoundary propagate>{hovered || actionsOpen ? (
         <Popover
           anchor={root}
           side="top"
@@ -96,7 +97,7 @@ export function ContextMeter({
             </button>
           ) : null}
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 }

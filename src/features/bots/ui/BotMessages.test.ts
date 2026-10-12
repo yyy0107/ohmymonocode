@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { startMotionClock, stopMotionClock, finishMotion } from "../../../../tests/helpers/sharedMotionClock";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -18,6 +19,7 @@ vi.mock("../../sessions/ui/useTranscriptRenderingPlatform", () => ({
 let root: Root, node: HTMLDivElement;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  startMotionClock();
   node = document.createElement("div");
   document.body.append(node);
   root = createRoot(node);
@@ -26,6 +28,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   node.remove();
+  stopMotionClock();
   vi.unstubAllGlobals();
 });
 
@@ -148,6 +151,7 @@ it.each(["user", "assistant"] as const)("renders persisted %s attachments above 
   act(() => media.querySelector<HTMLButtonElement>("button")!.click());
   expect(document.querySelector(".image-lightbox img")?.getAttribute("alt")).toBe("photo.png");
   act(() => document.querySelector<HTMLButtonElement>(".image-lightbox-close")!.click());
+  await act(async () => { await finishMotion(); });
   expect(document.querySelector(".image-lightbox")).toBeNull();
 });
 

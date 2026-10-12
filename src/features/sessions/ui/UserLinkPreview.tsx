@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { translate as translateUi } from "../../../shared/i18n/language";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -292,7 +293,7 @@ function GithubWorkItemPreview({
           {compactKind} #{workItem.number}
         </span>
       </a>
-      {open ? (
+      <PresenceBoundary propagate>{open ? (
         <Popover
           anchor={anchor}
           side="top"
@@ -315,7 +316,7 @@ function GithubWorkItemPreview({
             loadState={loadState}
           />
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </>
   );
 }

@@ -1,3 +1,4 @@
+import { startMotionClock, stopMotionClock, finishMotion } from "../../../tests/helpers/sharedMotionClock";
 // @vitest-environment happy-dom
 import { act, createElement, Fragment, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -35,6 +36,7 @@ let container: HTMLDivElement;
 let props: ComponentProps<typeof ActivityBar>;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  startMotionClock();
   localStorage.clear();
   setUiLanguage("en");
   vi.mocked(probeForUpdate).mockReset().mockResolvedValue(null);
@@ -56,6 +58,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  stopMotionClock();
   setUiLanguage("en");
   localStorage.clear();
   vi.unstubAllGlobals();
@@ -182,6 +185,7 @@ it("opens working agents from the bottom icon and selects sessions across projec
       .click(),
   );
   expect(props.onSelectAgent).toHaveBeenCalledExactlyOnceWith("b");
+  await act(async () => finishMotion());
   expect(
     document.querySelector('[data-live-agents-preview="full"]'),
   ).toBeNull();
@@ -333,10 +337,12 @@ it("dismisses the preview for confirmation and Later leaves the update available
   await render();
   await act(async () => action("Updates").focus());
   await act(async () => action("Updates").click());
+  await act(async () => finishMotion());
   expect(
     document.querySelector('[role="tooltip"]:not([aria-hidden="true"])'),
   ).toBeNull();
   await act(async () => dialogAction("Later").click());
+  await act(async () => finishMotion());
   expect(document.querySelector('[aria-modal="true"]')).toBeNull();
   expect(document.activeElement).toBe(action("Updates"));
   expect(action("Updates")).not.toBeNull();
@@ -351,6 +357,7 @@ it("remembers skipping the offered version and removes its update action", async
   await render();
   await act(async () => action("Updates").click());
   await act(async () => dialogAction("Skip this version").click());
+  await act(async () => finishMotion());
   expect(document.querySelector('[aria-modal="true"]')).toBeNull();
   expect(action("Updates")).toBeNull();
   expect(loadUpdatePreferences().skippedVersion).toBe("0.7.1");
@@ -368,6 +375,7 @@ it("persists the automatic update choice without installing the current version 
   await act(async () => checkbox().click());
   expect(loadUpdatePreferences().autoInstall).toBe(true);
   await act(async () => dialogAction("Later").click());
+  await act(async () => finishMotion());
   await act(async () => action("Updates").click());
   expect(checkbox().checked).toBe(true);
   await act(async () => checkbox().click());
@@ -485,6 +493,7 @@ it("keeps installed update notes accessible from the updates pop-out", async () 
       .click(),
   );
   expect(props.onOpenWhatsNew).toHaveBeenCalledExactlyOnceWith("0.7.0");
+  await act(async () => finishMotion());
   expect(
     document.querySelector('[role="dialog"][aria-label="Updates"]'),
   ).toBeNull();
@@ -497,6 +506,7 @@ it("keeps installed update notes accessible from the updates pop-out", async () 
       .click(),
   );
   expect(props.onDismissUpdate).toHaveBeenCalledOnce();
+  await act(async () => finishMotion());
   expect(
     document.querySelector('[role="dialog"][aria-label="Updates"]'),
   ).toBeNull();
@@ -555,7 +565,9 @@ it("dismisses the inbox context menu when its navigation is hidden", async () =>
   );
   expect(document.querySelector('[role="menu"]')).not.toBeNull();
   await renderVisible(false);
+  await act(async () => finishMotion());
   expect(document.querySelector('[role="menu"]')).toBeNull();
   await renderVisible(true);
+  await act(async () => finishMotion());
   expect(document.querySelector('[role="menu"]')).toBeNull();
 });

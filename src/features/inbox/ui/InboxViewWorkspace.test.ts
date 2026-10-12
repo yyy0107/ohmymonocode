@@ -1,3 +1,4 @@
+import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver";
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -102,6 +103,7 @@ it("dismisses the connection menu before returning to chat on Escape", async () 
       }),
     ),
   );
+  act(() => completeMotionAnimation(document.body));
   expect(
     document.querySelector(
       '[role="menu"][aria-label="Connect an inbox source"]',
@@ -118,4 +120,10 @@ it("dismisses the connection menu before returning to chat on Escape", async () 
     ),
   );
   expect(onClose).toHaveBeenCalledOnce();
+});
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
 });

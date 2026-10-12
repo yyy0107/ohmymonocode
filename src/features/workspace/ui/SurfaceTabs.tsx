@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { translate as translateUi } from "../../../shared/i18n/language";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
@@ -485,7 +486,7 @@ export function SurfaceTabs({
         ) : null}
       </div>
       {trailing}
-      {menu && menuFile ? (
+      <PresenceBoundary propagate>{menu && menuFile ? (
         <ExplorerMenu
           x={menu.x}
           y={menu.y}
@@ -494,7 +495,7 @@ export function SurfaceTabs({
           onPick={onMenuPick}
           onClose={() => setMenu(null)}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
       {fileActionError ? (
         <FileActionError
           message={fileActionError}

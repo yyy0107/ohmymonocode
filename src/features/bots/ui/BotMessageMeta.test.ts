@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { startMotionClock, stopMotionClock, finishMotion } from "../../../../tests/helpers/sharedMotionClock";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -17,6 +18,7 @@ let root: Root, node: HTMLDivElement;
 beforeEach(() => {
   vi.useFakeTimers();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  startMotionClock();
   localStorage.clear();
   setUiLanguage("en");
   node = document.createElement("div");
@@ -26,6 +28,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   node.remove();
+  stopMotionClock();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
@@ -254,7 +257,7 @@ it.each(["assistant", "user"])("copies %s messages with the native clipboard and
   if (kind === "user") expect(copy.closest('[role="dialog"]')?.textContent).not.toContain("回复");
   await act(async () => copy.click());
   expect(write).toHaveBeenCalledWith({ string: kind === "assistant" ? "**Original**\nreply" : "My draft" });
-  act(() => vi.advanceTimersByTime(400));
+  await act(async () => { await finishMotion(120); });
   expect(node.querySelector('[role="dialog"][aria-label="消息操作"]')).toBeNull();
 });
 it("surfaces a clipboard failure without claiming success", async () => {

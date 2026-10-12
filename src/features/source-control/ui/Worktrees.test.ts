@@ -1,3 +1,5 @@
+import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver";
+import { SurfaceVisibilityContext } from "../../../shared/ui/SurfaceVisibility";
 // @vitest-environment happy-dom
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -101,8 +103,10 @@ afterEach(async () => {
 });
 const button = (text: string) =>
   [...document.querySelectorAll<HTMLButtonElement>("button")].find(
-    (node) => node.textContent === text,
+    (node) => !node.closest("[inert]") && node.textContent === text,
   )!;
+const activeElements = <T extends Element = Element>(selector: string) =>
+  [...document.querySelectorAll<T>(selector)].filter(node => !node.closest("[inert]"));
 
 function iconMarkup(element: ReactNode) {
   const host = document.createElement("div");
@@ -189,9 +193,9 @@ it("selects a draft workspace without opening the creation dialog", async () => 
       )!
       .click(),
   );
-  const settings = document.querySelector<HTMLButtonElement>(
+  const settings = activeElements<HTMLButtonElement>(
     '[aria-label="Open worktree settings"]',
-  )!;
+  )[0]!;
   expect(settings.textContent).toContain("Worktree settings");
   expect(settings.parentElement?.className).toContain("border-t");
   expect(settings.parentElement?.className).toContain("h-9");
@@ -200,6 +204,7 @@ it("selects a draft workspace without opening the creation dialog", async () => 
   expect(settings.parentElement?.className).not.toContain("pt-1");
   await act(async () => settings.click());
   expect(onOpenSettings).toHaveBeenCalledOnce();
+  await act(async () => completeMotionAnimation(document.body));
   expect(
     document.querySelector('[aria-label="Open worktree settings"]'),
   ).toBeNull();
@@ -347,14 +352,14 @@ it("reopens the picker with cached rows while revalidating", async () => {
   const request = deferred();
   vi.mocked(listWorktrees).mockReturnValue(request.promise);
   await act(async () => trigger.click());
-  expect(document.querySelectorAll('[role="option"]')).toHaveLength(2);
+  expect(activeElements('[role="option"]')).toHaveLength(2);
   expect(document.body.textContent).not.toContain("Loading working copies");
   await act(async () => trigger.click());
   await act(async () => trigger.click());
-  expect(document.querySelectorAll('[role="option"]')).toHaveLength(2);
+  expect(activeElements('[role="option"]')).toHaveLength(2);
   expect(document.body.textContent).not.toContain("Loading working copies");
   await act(async () => request.resolve(result("updated")));
-  expect(document.querySelector('[role="option"]')?.textContent).toContain(
+  expect(activeElements('[role="option"]')[0]?.textContent).toContain(
     "updated",
   );
 });
@@ -386,13 +391,12 @@ it.each(["/repo", tree.path])(
     await act(async () => trigger.click());
     await act(async () => trigger.click());
     expect(
-      document
-        .querySelector('[role="option"][aria-selected="true"]')
+      activeElements('[role="option"][aria-selected="true"]')[0]
         ?.classList.contains("bg-selection"),
     ).toBe(true);
-    const search = document.querySelector<HTMLInputElement>(
+    const search = activeElements<HTMLInputElement>(
       '[aria-label="Search working copies"]',
-    )!;
+    )[0]!;
     await act(async () =>
       search.dispatchEvent(
         new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
@@ -530,7 +534,7 @@ it.each([
       ),
     );
     await act(async () => trigger.click());
-    const options = document.querySelectorAll('[role="option"]');
+    const options = activeElements('[role="option"]');
     for (const [index, Icon] of [GitBranch, FolderTree].entries()) {
       expect(options[index].querySelector("svg")?.outerHTML).toBe(
         iconMarkup(
@@ -563,12 +567,38 @@ it.each([
     await act(async () =>
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })),
     );
-    const restored = container.querySelector<HTMLButtonElement>("button")!;
+    const restored = [...container.querySelectorAll<HTMLButtonElement>("button")]
+      .find(node => !node.closest("[inert]"))!;
     expect(restored.getAttribute("aria-label")).toBe("Choose working copy");
     expect(restored.innerHTML).toBe(trigger.innerHTML);
     expect(restored.className).toBe(trigger.className);
   },
 );
+
+it("retains the branch picker inert during exit and removes it when the owning surface hides", async () => {
+  const onClose = vi.fn();
+  let visible = true;
+  const render = () => act(async () => root.render(
+    createElement(SurfaceVisibilityContext.Provider, { value: visible },
+      createElement(WorktreePicker, { cwd: "/branch-presence", executionCwd: "/branch-presence", onSelect: vi.fn(async () => {}), onClose })),
+  ));
+  await render();
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Choose working copy"]')!.click());
+  await act(async () => button("Switch branch in this working copy…").click());
+  await act(async () => completeMotionAnimation(document.body));
+  const branch = activeElements<HTMLElement>('[data-branch-picker]')[0]!;
+  expect(branch).toBeDefined();
+  await act(async () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+  expect(onClose).toHaveBeenCalledOnce();
+  expect(branch.isConnected).toBe(true);
+  expect(branch.inert).toBe(true);
+  visible = false;
+  await render();
+  expect(document.querySelector('[data-branch-picker]')).toBeNull();
+  visible = true;
+  await render();
+  expect(document.querySelector('[data-branch-picker]')).toBeNull();
+});
 
 it("caps the picker height without forcing short lists to fill it", async () => {
   const request = deferred();
@@ -695,6 +725,7 @@ it("selects an existing working copy without checking out a branch", async () =>
   await act(async () => option.click());
   expect(onSelect).toHaveBeenCalledWith(tree);
   expect(gitCheckout).not.toHaveBeenCalled();
+  await act(async () => completeMotionAnimation(document.body));
   expect(
     document.querySelector('[aria-label="Search working copies"]'),
   ).toBeNull();
@@ -950,6 +981,7 @@ it.each(["partial", "rejected", "worktree", "refresh"] as const)(
     const refresh = deferred();
     vi.mocked(listWorktrees).mockReturnValue(refresh.promise);
     await act(async () => button("Delete worktree and sessions").click());
+    await act(async () => document.querySelectorAll('[role="dialog"][aria-hidden="true"]').forEach((dialog) => completeMotionAnimation(dialog.closest(".fixed.inset-0") ?? dialog)));
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(remove.disabled).toBe(true);
     expect(onDeleteSessions).toHaveBeenCalledWith(["deleted", "remaining"]);
@@ -983,6 +1015,7 @@ it.each(["partial", "rejected", "worktree", "refresh"] as const)(
       await act(async () => button("Delete worktree").click());
       expect(onDeleteSessions).toHaveBeenCalledOnce();
     }
+    await act(async () => document.querySelectorAll('[role="dialog"][aria-hidden="true"]').forEach((dialog) => completeMotionAnimation(dialog.closest(".fixed.inset-0") ?? dialog)));
     expect(document.querySelector('[role="dialog"]')).toBeNull();
   },
 );
@@ -1178,4 +1211,10 @@ it("shows no selected branch after removal even when the old path has a branch a
   expect(onSelect).toHaveBeenCalledWith(
     expect.objectContaining({ path: "/repo" }),
   );
+});
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
 });

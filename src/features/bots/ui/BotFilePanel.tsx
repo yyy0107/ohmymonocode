@@ -1,3 +1,6 @@
+import { motion as motionElement } from "motion/react";
+import { panelTransition, immediateTransition, duration } from "../../../shared/motion/tokens";
+import { reducedMotionQuery as motionPreferenceQuery } from "../../../shared/lib/reducedMotion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useCollapseMotion } from "../../../shared/ui/AnimatedCollapse";
@@ -65,8 +68,8 @@ export function BotFilePanel({
   >(() => new Map());
   const open = expanded && !!pane;
   const handleShown = !expanded && !!pane;
-  const card = useCollapseMotion(open, 180);
-  const handle = useCollapseMotion(handleShown, 140);
+  const card = useCollapseMotion(open, duration.panel * 1000);
+  const handle = useCollapseMotion(handleShown, duration.panel * 1000);
   // The last tabs stay rendered while the card animates closed.
   const [renderedPane, setRenderedPane] = useState(pane);
   useEffect(() => {
@@ -197,7 +200,8 @@ export function BotFilePanel({
   return (
     <>
       {shownPane ? (
-        <section
+        <motionElement.section
+      initial={false} animate={{ opacity: open ? 1 : 0, x: open ? 0 : "100%" }} transition={motionPreferenceQuery().matches ? immediateTransition : panelTransition} onAnimationComplete={card.finish}
           className="assistant-file-card"
           hidden={cardHidden}
           data-maximized={maximized || undefined}
@@ -205,9 +209,7 @@ export function BotFilePanel({
           aria-label={t("Attachments")}
           aria-hidden={!open || undefined}
           inert={!open}
-          onAnimationEnd={(event) => {
-            if (event.target === event.currentTarget) card.finish();
-          }}
+
           onKeyDown={(event) => {
             if (event.key !== "Escape" || event.defaultPrevented) return;
             event.preventDefault();
@@ -236,10 +238,11 @@ export function BotFilePanel({
               onBuildPlan={noop}
             />
           </SurfaceVisibilityContext.Provider>
-        </section>
+        </motionElement.section>
       ) : null}
       {shownPane && (handleShown || handle.foldState !== "closed") ? (
-        <button
+        <motionElement.button
+      initial={false} animate={{ opacity: handleShown ? 1 : 0, x: handleShown ? 0 : "100%" }} transition={motionPreferenceQuery().matches ? immediateTransition : panelTransition} onAnimationComplete={handle.finish}
           type="button"
           className="assistant-file-card-handle"
           data-fold-state={handle.foldState}
@@ -251,14 +254,12 @@ export function BotFilePanel({
           title={t("{value0} files", {
             value0: String(shownPane.files.length),
           })}
-          onAnimationEnd={(event) => {
-            if (event.target === event.currentTarget) handle.finish();
-          }}
+
           onClick={() => setExpanded(true)}
         >
           <PanelRight size={15} />
           <span>{shownPane.files.length}</span>
-        </button>
+        </motionElement.button>
       ) : null}
     </>
   );

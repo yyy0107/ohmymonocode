@@ -1,3 +1,6 @@
+import { motion } from "motion/react";
+import { panelTransition, immediateTransition } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
   clampUsedPercent,
@@ -112,6 +115,7 @@ export function UsageMeter({
   showRemaining?: boolean;
 }) {
   const { t: uiT } = useTranslation();
+  const reduced = useMotionPreference();
   const preferredRemaining = useShowRemainingUsage();
   const showRemaining = remainingOverride ?? preferredRemaining;
   const pct = clampUsedPercent(window.usedPercent);
@@ -162,9 +166,9 @@ export function UsageMeter({
         aria-valuemax={100}
         aria-valuenow={Math.round(shown)}
       >
-        <span
-          className={`block h-full rounded-full transition-[width] duration-300 ${barClass(pct)}`}
-          style={{ width: `${shown}%` }}
+        <motion.span initial={false}
+          className={`block h-full rounded-full ${barClass(pct)}`}
+          animate={{ width: `${shown}%` }} transition={reduced ? immediateTransition : panelTransition}
         />
       </div>
     </div>

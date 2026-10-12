@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../shared/ui/PresenceBoundary";
 import { usePreferenceState } from "../../features/settings/model/usePreferenceState";
 import {
   Fragment,
@@ -1356,7 +1357,7 @@ function SidebarComponent(props: SidebarProps) {
           )}
         </div>
         {props.footer}
-        {filterMenu ? (
+        <PresenceBoundary propagate>{filterMenu ? (
           <SessionFiltersMenu
             anchor={filterMenu}
             harnesses={harnessesInSessions(filterSummaries)}
@@ -1367,7 +1368,7 @@ function SidebarComponent(props: SidebarProps) {
             }}
             onClose={() => setFilterMenu(null)}
           />
-        ) : null}
+        ) : null}</PresenceBoundary>
       </aside>
     </SidebarTransition>
   );

@@ -1,3 +1,7 @@
+import { AnimatePresence, motion } from "motion/react";
+import { panelTransition, immediateTransition, motionGeometry, motionDistance } from "../../../shared/motion/tokens";
+import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
+import { RotatingIcon } from "../../../shared/ui/RotatingIcon";
 import { usePreferenceState } from "../../settings/model/usePreferenceState";
 import { translate } from "../../../shared/i18n/language";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
@@ -855,8 +859,11 @@ export function ModelPicker({
               : "p-1"
           }`}
         >
-          <div
+          <AnimatePresence mode="popLayout"><motion.div
             key={viewKey}
+            initial={reducedMotionQuery().matches ? false : { opacity: 0, x: viewMotion === "back" ? -motionDistance.pop : motionDistance.pop }}
+            animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: viewMotion === "back" ? motionDistance.pop : -motionDistance.pop }}
+            transition={reducedMotionQuery().matches ? immediateTransition : panelTransition}
             className={
               submenu?.kind === "models" ? "flex min-h-0 flex-1 flex-col" : ""
             }
@@ -1000,13 +1007,7 @@ export function ModelPicker({
                           value === "true" ? "bg-content/35" : "bg-content/15"
                         }`}
                       >
-                        <span
-                          className={`absolute top-0.5 size-4 rounded-full bg-content shadow-sm transition-transform ${
-                            value === "true"
-                              ? "translate-x-4.5"
-                              : "translate-x-0.5"
-                          }`}
-                        />
+                        <motion.span initial={false} animate={{ x: value === "true" ? motionGeometry.toggleTravel : 0 }} transition={reducedMotionQuery().matches ? immediateTransition : panelTransition} className="absolute left-0.5 top-0.5 size-4 rounded-full bg-content shadow-sm" />
                       </span>
                     ) : (
                       <>
@@ -1020,7 +1021,7 @@ export function ModelPicker({
                 );
               })
             )}
-          </div>
+          </motion.div></AnimatePresence>
         </ComposerPopover>
       ) : null}
 
@@ -1280,9 +1281,7 @@ function SelectPill({
           <Zap className="size-3.5 shrink-0" />
         ) : null}
         <span className="min-w-0 truncate text-[11px]">{valueLabel}</span>
-        <ChevronDown
-          className={`size-3 shrink-0 text-content/50 ${open ? "rotate-180" : ""}`}
-        />
+        <RotatingIcon icon={ChevronDown} angle={open ? motionGeometry.flipAngle : 0} className="size-3 shrink-0 text-content/50" />
       </button>
 
       <ComposerPopover

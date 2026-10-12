@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useEffect, useRef } from "react";
 import { MessageSquarePlus } from "../../../shared/ui/icons";
@@ -36,9 +37,8 @@ export function EditorSelectionMenu({
     };
   }, [selection]);
 
-  if (!selection) return null;
-
   return (
+    <PresenceBoundary propagate>{selection ? (
     <Popover
       anchor={selection.anchor}
       side="top"
@@ -65,5 +65,6 @@ export function EditorSelectionMenu({
         {uiT("Add to chat")}
       </button>
     </Popover>
+    ) : null}</PresenceBoundary>
   );
 }

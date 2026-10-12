@@ -92,6 +92,8 @@ describe("Codex requests reach the chat and notifications", () => {
 
   beforeEach(async () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    // Protocol assertions observe the completed UI, independently of exit motion.
+    document.documentElement.dataset.reducedMotion = "on";
     const storage = new Map<string, string>();
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => storage.get(key) ?? null,
@@ -142,6 +144,7 @@ describe("Codex requests reach the chat and notifications", () => {
   });
 
   afterEach(async () => {
+    delete document.documentElement.dataset.reducedMotion;
     await act(async () => {
       onLine(
         JSON.stringify({

@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
   Check,
@@ -796,13 +797,13 @@ function VirtualRows({
           </div>
         </div>
       </div>
-      {commentTarget ? (
+      <PresenceBoundary propagate>{commentTarget ? (
         <DiffCommentComposer
           path={filePath}
           target={commentTarget}
           onDismiss={() => setCommentTarget(null)}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
     </>
   );
 }

@@ -1,10 +1,10 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
+import { animate } from "motion/react";
+import { panelTransition } from "../../../shared/motion/tokens";
 import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
 
 // A submit only counts as the launch if the composer docks shortly after it.
 const LAUNCH_WINDOW_MS = 1500;
-const DURATION_MS = 480;
-const EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 function reducedMotion() {
   return reducedMotionQuery().matches;
@@ -44,14 +44,8 @@ export function useComposerDockMotion(docked: boolean) {
     const dx = from.centerX - (to.left + to.width / 2);
     const dy = from.top - to.top;
     if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-    const animation = element.animate(
-      [
-        { transform: `translate(${dx}px, ${dy}px)` },
-        { transform: "translate(0, 0)" },
-      ],
-      { duration: DURATION_MS, easing: EASING },
-    );
-    return () => animation.cancel();
+    const animation = animate([element], { x: [dx, 0], y: [dy, 0] }, panelTransition);
+    return () => animation.stop();
   }, [docked]);
 
   return { centeredRef, dockedRef, captureLaunch };

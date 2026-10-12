@@ -44,32 +44,12 @@ html[data-skin] {
   /* Shared timings/springs; desktop press and send amplitudes are smaller. */
   --omb-motion-press: 120ms;
   --omb-motion-feedback: 160ms;
-  --omb-motion-content-in: 220ms;
-  --omb-motion-content-out: 140ms;
-  --omb-motion-shift: 8px;
   --omb-motion-press-scale: 0.98;
-  --omb-send-kick-start: 0.92;
-  --omb-send-kick-peak: 1.04;
   --omb-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-
-  --omb-spring-snappy-duration: 340ms;
-  --omb-spring-smooth-duration: 400ms;
-  --omb-spring-release-duration: 310ms;
-  --omb-spring-snappy: var(--omb-ease-out);
-  --omb-spring-smooth: var(--omb-ease-out);
-  --omb-spring-release: var(--omb-ease-out);
 }
 
 html[data-skin].theme-light {
   --omb-shadow-float: 0 8px 28px rgb(0 0 0 / 0.1), 0 1px 3px rgb(0 0 0 / 0.08);
-}
-
-@supports (transition-timing-function: linear(0, 1)) {
-  html[data-skin] {
-    --omb-spring-snappy: linear(0, 0.037, 0.125, 0.238, 0.358, 0.474, 0.579, 0.672, 0.749, 0.813, 0.864, 0.904, 0.935, 0.958, 0.974, 0.986, 0.994, 0.999, 1.002, 1.004, 1.005, 1.005, 1.005, 1.004, 1);
-    --omb-spring-smooth: linear(0, 0.036, 0.12, 0.227, 0.341, 0.452, 0.553, 0.643, 0.719, 0.783, 0.834, 0.876, 0.909, 0.934, 0.953, 0.968, 0.979, 0.986, 0.992, 0.996, 0.998, 1, 1.001, 1.001, 1);
-    --omb-spring-release: linear(0, 0.041, 0.139, 0.264, 0.396, 0.522, 0.635, 0.731, 0.81, 0.872, 0.92, 0.955, 0.979, 0.996, 1.006, 1.012, 1.015, 1.015, 1.014, 1.013, 1.011, 1.009, 1.007, 1.005, 1);
-  }
 }
 
 /* Sidebar search follows the standard desktop row height. */
@@ -611,11 +591,6 @@ html[data-skin] [data-session-status] [data-status-task] > span:last-child {
   line-height: 1.5;
 }
 
-/* Send kick retains its timing with a smaller desktop amplitude. */
-html[data-skin] [data-composer-layout="desktop"] [data-send-kick] > :is(.composer-send, .composer-stop) {
-  animation: omb-send-kick 320ms cubic-bezier(0.3, 1.4, 0.5, 1);
-}
-
 /* Jump to latest: a 28px disc 12px above the composer. */
 html[data-skin] :has(> [data-jump-to-bottom]) {
   bottom: var(--omb-space-12);
@@ -682,45 +657,10 @@ html[data-skin] [data-settings-segmented] {
   position: relative;
   isolation: isolate;
 }
-html[data-skin] [data-segment-indicator] {
-  --omb-segment-start: var(--segment-index);
-  --omb-segment-end: var(--segment-index);
-  --omb-segment-sign: 1;
-  position: absolute;
-  z-index: -1;
-  inset-block: var(--segment-pad);
-  inset-inline-start: var(--segment-pad);
-  width: var(--segment-cell);
-  border-radius: 999px;
-  transform-origin: left center;
-  transform:
-    translateX(calc(var(--omb-segment-sign) * var(--omb-segment-start) * (100% + var(--segment-gap))))
-    scaleX(calc(1 + var(--omb-segment-end) - var(--omb-segment-start)));
-  pointer-events: none;
-  transition:
-    --omb-segment-start var(--omb-spring-smooth-duration) var(--omb-spring-smooth),
-    --omb-segment-end var(--omb-spring-smooth-duration) var(--omb-spring-smooth);
-}
-html[data-skin] [data-settings-segmented]:dir(rtl) > [data-segment-indicator] {
-  --omb-segment-sign: -1;
-  transform-origin: right center;
-}
-html[data-skin] [data-settings-segmented][data-direction="forward"] > [data-segment-indicator] {
-  transition-duration: var(--omb-spring-smooth-duration), var(--omb-spring-snappy-duration);
-  transition-timing-function: var(--omb-spring-smooth), var(--omb-spring-snappy);
-}
-html[data-skin] [data-settings-segmented][data-direction="back"] > [data-segment-indicator] {
-  transition-duration: var(--omb-spring-snappy-duration), var(--omb-spring-smooth-duration);
-  transition-timing-function: var(--omb-spring-snappy), var(--omb-spring-smooth);
-}
 
 @media (prefers-reduced-motion: reduce) {
   html[data-skin] [data-composer-layout="desktop"] [data-send-kick] > :is(.composer-send, .composer-stop) {
     animation: none;
-  }
-  html[data-skin] [data-segment-indicator],
-  html[data-skin] [data-settings-segmented][data-direction] > [data-segment-indicator] {
-    transition: none;
   }
 }
 

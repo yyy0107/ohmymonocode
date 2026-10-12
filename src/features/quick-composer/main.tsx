@@ -1,3 +1,5 @@
+import { MotionConfig } from "motion/react";
+import { defaultTransition } from "../../shared/motion/tokens";
 import { DESKTOP_SCHEME_KEY } from "../../shared/theme/desktopAppearance";
 import React from "react";
 import ReactDOM from "react-dom/client";
@@ -68,11 +70,13 @@ async function boot() {
     applyAppearance();
     root.render(
       <React.StrictMode>
+        <MotionConfig reducedMotion="user" transition={defaultTransition}>
         {new URLSearchParams(window.location.search).get("popup") === "git" ? (
           <QuickGitPopup onShown={applyAppearance} />
         ) : (
           <QuickComposer onShown={applyAppearance} />
         )}
+      </MotionConfig>
       </React.StrictMode>,
     );
   } catch (error) {

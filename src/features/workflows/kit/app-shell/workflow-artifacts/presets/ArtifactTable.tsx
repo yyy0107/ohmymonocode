@@ -1,3 +1,5 @@
+import { motion as motionElement } from "motion/react";
+import { workflowEntry } from "./../../../components/workflow-timeline/workflow-motion.js";
 /**
  * `table` 预置渲染器：一行一条（或按 `key` upsert 的一行一实体）。
  *
@@ -107,7 +109,7 @@ export const ArtifactTable = memo(function ArtifactTable({
             {visible.map((row) => (
               // 身份是行 id（spec 的 key 值，或 journal 的 siteId@ordinal）——它稳定，
               // 于是只有**新行**会播揭示动画，既有行原地更新不闪。
-              <tr
+              <motionElement.tr {...workflowEntry()}
                 className={cn(
                   "border-b border-border/60 last:border-b-0 hover:bg-hover",
                   REVEAL_ANIMATION_CLASS,
@@ -124,7 +126,7 @@ export const ArtifactTable = memo(function ArtifactTable({
                     {cell}
                   </td>
                 ))}
-              </tr>
+              </motionElement.tr>
             ))}
           </tbody>
         </table>

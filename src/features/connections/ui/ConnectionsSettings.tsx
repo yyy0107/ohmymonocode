@@ -3,6 +3,7 @@ import { withStatusToast } from "../../../shared/ui/StatusToast";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useId, useRef, useState } from "react";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
+import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
 import { Internet, Loader } from "../../../shared/ui/icons";
 import { ConnectionStatusIcon, type ConnectionState } from "./ConnectionStatusDot";
 import { SshTargetInput } from "./SshTargetInput";
@@ -133,7 +134,7 @@ export function ConnectionsSettings() {
     if (job?.prompt)
       progress.current?.scrollIntoView?.({
         block: "nearest",
-        behavior: "smooth",
+        behavior: reducedMotionQuery().matches ? "auto" : "smooth",
       });
   }, [job?.prompt?.id]);
   useEffect(() => {

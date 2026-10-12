@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../shared/ui/PresenceBoundary";
 import { translate as translateUi } from "../../shared/i18n/language";
 import { useTranslation } from "../../shared/i18n/useTranslation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -546,9 +547,9 @@ export function useProjectMenu({
 
   const element: ReactNode = (
     <>
-      {renderProjectMenu()}
-      {renderGroupMenu()}
-      {notificationMenu ? (
+      <PresenceBoundary propagate>{renderProjectMenu()}</PresenceBoundary>
+      <PresenceBoundary propagate>{renderGroupMenu()}</PresenceBoundary>
+      <PresenceBoundary propagate>{notificationMenu ? (
         <Popover
           key={notificationMenu.path}
           anchor={{ x: notificationMenu.x, y: notificationMenu.y }}
@@ -571,8 +572,8 @@ export function useProjectMenu({
             onChanged={closeNotificationMenu}
           />
         </Popover>
-      ) : null}
-      {removing ? (
+      ) : null}</PresenceBoundary>
+      <PresenceBoundary>{removing ? (
         <RemoveProjectDialog
           name={removing.name}
           path={removing.path}
@@ -587,8 +588,8 @@ export function useProjectMenu({
             restoreFocus();
           }}
         />
-      ) : null}
-      {backgroundProject ? (
+      ) : null}</PresenceBoundary>
+      <PresenceBoundary>{backgroundProject ? (
         <ProjectBackgroundDialog
           project={backgroundProject.project}
           name={backgroundProject.name}
@@ -597,7 +598,7 @@ export function useProjectMenu({
             restoreFocus();
           }}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
     </>
   );
 

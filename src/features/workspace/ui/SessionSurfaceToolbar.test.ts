@@ -1,3 +1,4 @@
+import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver";
 import { configureSharedHost } from "../../connections/model/remoteProjects";
 import { rememberRemoteSession } from "../../connections/model/connections";
 import { delegateDesktopSession } from "../../bots/model/delegateDesktopSession";
@@ -166,7 +167,12 @@ async function render() {
   );
 }
 
+async function finishExits() {
+  await act(async () => completeMotionAnimation(document.body));
+}
+
 async function open(id = "left") {
+  await finishExits();
   await act(async () =>
     container
       .querySelector<HTMLButtonElement>(`[data-session-overflow-menu="${id}"]`)!
@@ -255,6 +261,7 @@ it("shows this pane's account usage in the menu and opens its details in place",
   expect(fetches.codex).toHaveBeenLastCalledWith("account-left");
   expect(fetches.codex).toHaveBeenCalledTimes(2);
   await act(async () => usageChip().click());
+  await finishExits();
   expect(document.querySelector('[role="menu"]')).toBeNull();
   const dialog = usageDetails()!;
   expect(dialog.textContent).toContain("Left account");
@@ -265,13 +272,17 @@ it("shows this pane's account usage in the menu and opens its details in place",
       .querySelector<HTMLButtonElement>("[data-session-usage-back]")!
       .click(),
   );
+  await finishExits();
   expect(usageDetails()).toBeNull();
+  await finishExits();
   expect(document.querySelector('[role="menu"]')).not.toBeNull();
   await act(async () => usageChip().click());
   act(() =>
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })),
   );
+  await finishExits();
   expect(usageDetails()).toBeNull();
+  await finishExits();
   expect(document.querySelector('[role="menu"]')).not.toBeNull();
 });
 
@@ -359,7 +370,9 @@ it("switches the owning conversation's account from the in-menu details", async 
     "codex",
     "account-right",
   );
+  await finishExits();
   expect(usageDetails()).toBeNull();
+  await finishExits();
   expect(document.querySelector('[role="menu"]')).not.toBeNull();
 });
 
@@ -396,6 +409,7 @@ it("opens downward at the end, supports keyboard selection, Escape and outside d
   act(() =>
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })),
   );
+  await finishExits();
   expect(document.querySelector('[role="menu"]')).toBeNull();
   expect(document.activeElement).toBe(trigger);
   await open();
@@ -404,6 +418,7 @@ it("opens downward at the end, supports keyboard selection, Escape and outside d
       new PointerEvent("pointerdown", { bubbles: true }),
     ),
   );
+  await finishExits();
   expect(document.querySelector('[role="menu"]')).toBeNull();
 });
 
@@ -412,15 +427,19 @@ it("suppresses menu/details/rename portals when hidden and keeps title double-cl
   await open();
   visible = false;
   await render();
+  await finishExits();
   expect(document.querySelector('[role="menu"]')).toBeNull();
   visible = true;
   await render();
+  await finishExits();
   expect(document.querySelector('[role="menu"]')).toBeNull();
   await open();
   await act(async () => usageChip().click());
+  await finishExits();
   expect(usageDetails()).not.toBeNull();
   visible = false;
   await render();
+  await finishExits();
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   visible = true;
   await render();
@@ -434,6 +453,7 @@ it("suppresses menu/details/rename portals when hidden and keeps title double-cl
   ).toBe("left chat");
   visible = false;
   await render();
+  await finishExits();
   expect(document.querySelector('[aria-label="Rename"]')).toBeNull();
 });
 
@@ -463,4 +483,10 @@ it("hands over the conversation belonging to the selected header", async () => {
   await act(async () => handoff.click());
   expect(delegateDesktopSession).toHaveBeenCalledWith("/right", "host-right");
   configureSharedHost(undefined, []);
+});
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
 });

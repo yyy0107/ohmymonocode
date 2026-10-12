@@ -1,3 +1,5 @@
+import { motion as motionElement } from "motion/react";
+import { workflowEntry, workflowFade } from "./../../../components/workflow-timeline/workflow-motion.js";
 /**
  * `chart` 预置渲染器的**实现**（recharts 在这个模块里，且只在这里）。
  *
@@ -69,7 +71,7 @@ function renderRevealDot(props: DotItemDotProps) {
       ? payload.sequence
       : index;
   return (
-    <circle
+    <motionElement.circle {...workflowFade()}
       className={REVEAL_ANIMATION_CLASS}
       cx={cx}
       cy={cy}
@@ -301,7 +303,7 @@ function CompactLatestValue({ model }: { model: ChartModel }) {
   }
   return (
     <span className="flex shrink-0 items-baseline gap-1" data-testid="artifact-chart-latest">
-      <span
+      <motionElement.span {...workflowEntry()}
         className={cn(
           "font-mono text-ui-base font-medium text-foreground tabular-nums",
           REVEAL_ANIMATION_CLASS,
@@ -309,7 +311,7 @@ function CompactLatestValue({ model }: { model: ChartModel }) {
         key={`latest-${latest?.sequence ?? "none"}`}
       >
         {value}
-      </span>
+      </motionElement.span>
       {series?.unit ? (
         <span className="text-ui-xs text-foreground-subtle">{series.unit}</span>
       ) : null}

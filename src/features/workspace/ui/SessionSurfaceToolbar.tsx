@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
   useState,
@@ -224,7 +225,7 @@ export function SessionSurfaceToolbar({
           </>
         }
       />
-      {renameAnchor ? (
+      <PresenceBoundary propagate>{renameAnchor ? (
         <SessionRenamePopover
           key={session.id}
           sessionId={session.id}
@@ -232,7 +233,7 @@ export function SessionSurfaceToolbar({
           anchor={renameAnchor}
           onClose={() => setRenameAnchor(null)}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 }

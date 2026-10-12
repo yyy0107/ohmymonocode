@@ -16,6 +16,8 @@ export const springs = {
 export const motionDistance = { pop: 8, page: 32, msg: 8 } as const;
 export const motionGeometry = {
   mascotSize: 16,
+  outlineBarWidth: 11, outlineBarLiftedWidth: 24, outlineBarOpacityIdle: 0.15, outlineBarOpacityLit: 0.85,
+  sendKickStart: 0.92, sendKickPeak: 1.04,
   switchTravel: 14, switchSmallTravel: 12,
   pageSubtle: 10, pageHomePercent: 30, pageSlidePercent: 100,
   disclosureAngle: 90, flipAngle: 180,
@@ -36,3 +38,5 @@ export const autoAnimateOptions = {
 export const msgInitial = { opacity: 0, y: motionDistance.msg };
 export const msgAnimate = { opacity: 1, y: 0 };
 export const msgExit = { opacity: 0, y: -motionDistance.msg };
+
+export const outlineRippleStep = duration.msg / 10;

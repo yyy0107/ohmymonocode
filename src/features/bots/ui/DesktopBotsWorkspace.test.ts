@@ -2,6 +2,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
+import { startMotionClock, stopMotionClock, finishMotion as settleMotion } from "../../../../tests/helpers/sharedMotionClock";
 import { DesktopBotsWorkspace } from "./DesktopBotsWorkspace";
 import { fullBotPolicy, type BotMessage } from "../model/botView";
 import { botCacheKey, type BotView, type BotThread, type BotsSnapshot } from "../model/bots";
@@ -29,6 +30,7 @@ let teams: BotTeam[], rooms: BotRoom[], rounds: BotRoomRound[];
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.useFakeTimers();
+  startMotionClock();
   localStorage.clear();
   setUiLanguage("en");
   snapshot = { revision: 1, bots: [bot("A"), bot("B")], threads: [thread("A", "A-1"), thread("A", "A-2"), thread("B", "B-1")], defaultBotId: "A", defaultThreadId: "A-1" };
@@ -97,8 +99,8 @@ beforeEach(() => {
   });
   node = document.createElement("div"); document.body.append(node); root = createRoot(node);
 });
-afterEach(() => { act(() => root.unmount()); node.remove(); vi.useRealTimers(); vi.unstubAllGlobals(); });
-async function flush() { await act(async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); }); }
+afterEach(() => { act(() => root.unmount()); node.remove(); stopMotionClock(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+async function flush() { await act(async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); await settleMotion(); }); }
 async function render() {
   act(() => root.render(createElement(DesktopBotsWorkspace, { hostKey: "host", hostName: "Host", rpc: rpc as never, onOpen: () => {}, desktopBots: true })));
   await flush();

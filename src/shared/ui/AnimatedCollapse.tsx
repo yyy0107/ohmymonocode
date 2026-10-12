@@ -3,7 +3,6 @@ import {
   type ReactNode,
 } from "react";
 import { AnimatePresence, motion as motionElement, usePresence, useMotionValue } from "motion/react";
-import { reducedMotionQuery } from "../lib/reducedMotion";
 import { collapseTransition, duration, immediateTransition } from "../motion/tokens";
 import { useMotionPreference } from "../motion/useMotionPreference";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "./SurfaceVisibility";
@@ -20,7 +19,7 @@ const RetainedCollapseContent = memo(
 );
 
 /** Shared Motion lifetime for disclosures and grid-sized panels. */
-function useMotionCollapse(expanded: boolean, durationMs = duration.collapse * 1000) {
+export function useCollapseMotion(expanded: boolean, durationMs = duration.collapse * 1000) {
   const reduced = useMotionPreference();
   const progress = useMotionValue(expanded ? 1 : 0);
   const [foldState, setFoldState] = useState<"open" | "opening" | "closing" | "closed">(
@@ -70,7 +69,7 @@ export function AnimatedCollapse({
 }: CollapseProps) {
   const parentVisible = useSurfaceVisibility();
   const reduced = useMotionPreference();
-  const lifetime = useMotionCollapse(expanded, durationMs);
+  const lifetime = useCollapseMotion(expanded, durationMs);
   const hasOpened = useRef(expanded);
   const entered = useRef(expanded);
   if (expanded) hasOpened.current = true;
@@ -145,48 +144,4 @@ function CollapseBody({
       </div>
     </motionElement.div>
   );
-}
-
-export function useCollapseMotion(expanded: boolean, durationMs = 340) {
-  const [foldState, setFoldState] = useState<
-    "open" | "opening" | "closing" | "closed"
-  >(expanded ? "open" : "closed");
-  const timerRef = useRef<number | undefined>(undefined);
-  const restart = useCallback(
-    (duration = durationMs) => {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = window.setTimeout(
-        () => setFoldState(expanded ? "open" : "closed"),
-        duration + 10,
-      );
-    },
-    [expanded, durationMs],
-  );
-
-  useLayoutEffect(() => {
-    if (reducedMotionQuery().matches) {
-      setFoldState(expanded ? "open" : "closed");
-      return;
-    }
-    setFoldState((current) => {
-      if (!expanded)
-        return current === "closed" || current === "closing"
-          ? current
-          : "closing";
-      return current === "open" || current === "opening" ? current : "opening";
-    });
-  }, [expanded]);
-
-  useEffect(() => {
-    if (foldState !== "opening" && foldState !== "closing") return;
-    // Allow completion events a short grace period; hidden windows may omit them.
-    restart();
-    return () => window.clearTimeout(timerRef.current);
-  }, [foldState, restart]);
-
-  const finish = useCallback(() => {
-    window.clearTimeout(timerRef.current);
-    setFoldState(expanded ? "open" : "closed");
-  }, [expanded]);
-  return { foldState, finish, restart };
 }

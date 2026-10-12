@@ -1,3 +1,10 @@
+import { duration } from "../../shared/motion/tokens";
+import { completeMotionAnimation } from "../../../tests/helpers/motionDriver";
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
+});
 import { delegateDesktopSession } from "../../features/bots/model/delegateDesktopSession";
 vi.mock("../../features/bots/model/delegateDesktopSession", () => ({ delegateDesktopSession: vi.fn(async () => {}) }));
 // @vitest-environment happy-dom
@@ -179,9 +186,9 @@ const scopePicker = () =>
   container.querySelector<HTMLButtonElement>("[data-project-switcher] button")!;
 function pickScope(path: string | null) {
   act(() => scopePicker().click());
-  const dialog = document.querySelector(
+  const dialog = Array.from(document.querySelectorAll(
     '[role="dialog"][aria-label="Project picker"]',
-  )!;
+  )).find((surface) => !surface.closest("[inert]"))!;
   const button = path
     ? dialog.querySelector<HTMLButtonElement>(`button[title="${path}"]`)!
     : [...dialog.querySelectorAll<HTMLButtonElement>("button")].find(
@@ -202,13 +209,13 @@ function query(value: string) {
     input().dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
-/** Finish collapse transitions; happy-dom does not run CSS animations. */
+/** Complete the Motion engine boundary while retaining disclosure semantics. */
 function settleFolds() {
   act(() => {
     for (const fold of container.querySelectorAll(
       '.zen-fold-item[data-fold-state="closing"]',
     ))
-      fold.dispatchEvent(new Event("animationend", { bubbles: true }));
+      completeMotionAnimation(fold);
   });
 }
 function expand(path: string) {
@@ -338,7 +345,7 @@ describe("named project/session tree", () => {
     expect(props.onSelectProject).not.toHaveBeenCalled();
     expect(fold(B)?.dataset.foldState).toBe("opening");
     expect(card("b")).not.toBeNull();
-    act(() => fold(B)!.dispatchEvent(new Event("animationend", { bubbles: true })));
+    act(() => completeMotionAnimation(fold(B)!));
     expect(props.onSelectProject).toHaveBeenCalledExactlyOnceWith(B);
   });
 
@@ -364,7 +371,7 @@ describe("named project/session tree", () => {
     expect(loadProjectTreeExpanded(A)).toEqual(new Set([A]));
     act(() => vi.advanceTimersByTime(150));
     expect(card("b")).not.toBeNull();
-    act(() => fold()!.dispatchEvent(new Event("animationend", { bubbles: true })));
+    act(() => completeMotionAnimation(fold()!));
     expect(props.onSelectProject).toHaveBeenCalledExactlyOnceWith(B);
     query("");
     settleFolds();
@@ -673,6 +680,7 @@ describe("named project/session tree", () => {
     act(() => {
       tooltip.dispatchEvent(new MouseEvent("pointerout", { bubbles: true }));
     });
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(document.querySelector('[role="tooltip"]')).toBeNull();
   });
 
@@ -783,6 +791,7 @@ describe("named project/session tree", () => {
         new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
       ),
     );
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(document.querySelector('[role="tooltip"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
     focus();
@@ -791,12 +800,15 @@ describe("named project/session tree", () => {
         new MouseEvent("pointerdown", { bubbles: true }),
       ),
     );
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(document.querySelector('[role="tooltip"]')).toBeNull();
     focus();
     act(() => container.dispatchEvent(new Event("scroll")));
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(document.querySelector('[role="tooltip"]')).toBeNull();
     focus();
     act(() => card("a").click());
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(document.querySelector('[role="tooltip"]')).toBeNull();
     expect(props.onSelectSession).toHaveBeenCalledWith("a", A);
   });
@@ -810,6 +822,7 @@ describe("named project/session tree", () => {
     act(() =>
       project(A).querySelector<HTMLElement>("[data-project-header]")!.click(),
     );
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(document.querySelector('[role="tooltip"]')).toBeNull();
     settleFolds();
     // Browsers blur focus inside display:none; happy-dom keeps it on retained DOM.
@@ -821,6 +834,7 @@ describe("named project/session tree", () => {
     expect(document.querySelector('[role="tooltip"]')).not.toBeNull();
     props.open = false;
     act(() => render());
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(document.querySelector('[role="tooltip"]')).toBeNull();
   });
 
@@ -835,6 +849,7 @@ describe("named project/session tree", () => {
     act(() =>
       card("a").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })),
     );
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(document.querySelector('[role="tooltip"]')).toBeNull();
     expect(document.querySelector('[role="menu"]')).not.toBeNull();
     act(() =>
@@ -867,11 +882,13 @@ describe("named project/session tree", () => {
         }),
       );
     });
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(document.querySelector('[role="tooltip"]')).toBeNull();
     act(() => {
       from.dispatchEvent(new PointerEvent("pointerover", { bubbles: true }));
       vi.advanceTimersByTime(500);
     });
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(document.querySelector('[role="tooltip"]')).toBeNull();
     act(() =>
       window.dispatchEvent(
@@ -910,6 +927,7 @@ describe("named project/session tree", () => {
         .querySelector("[data-orchestration-icon]")!
         .dispatchEvent(new MouseEvent("mouseover", { bubbles: true })),
     );
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(document.querySelectorAll('[role="tooltip"]')).toHaveLength(1);
     const tooltip = document.querySelector('[role="tooltip"]')!;
     expect(tooltip.textContent).toContain("Subagents");
@@ -1051,7 +1069,7 @@ describe("named project/session tree", () => {
       expect(fold()?.dataset.foldState).toBe("opening");
       expect(card("member")).toBe(member);
       act(() =>
-        fold()!.dispatchEvent(new Event("animationend", { bubbles: true })),
+        completeMotionAnimation(fold()!),
       );
       expect(fold()?.dataset.foldState).toBe("open");
     },
@@ -1201,6 +1219,7 @@ describe("named project/session tree", () => {
           .click(),
       );
       expect(props.onSelectProject).toHaveBeenCalledWith(B);
+      act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
       expect(
         document.querySelector('[role="dialog"][aria-label="Project picker"]'),
       ).toBeNull();
@@ -1357,6 +1376,7 @@ describe("named project/session tree", () => {
       ),
     );
     expect(props.onSelectProject).toHaveBeenCalledExactlyOnceWith(B);
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(
       document.querySelector('[role="dialog"][aria-label="Project picker"]'),
     ).toBeNull();
@@ -1570,6 +1590,7 @@ describe("named project/session tree", () => {
     ).not.toContain("All projects");
     props.tab = "sessions";
     act(() => render());
+    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
     expect(
       document.querySelector('[role="dialog"][aria-label="Project picker"]'),
     ).toBeNull();
@@ -2002,8 +2023,8 @@ describe("project conversation sorting", () => {
   function fixture(scrollTop = 0) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
     vi.spyOn(window, "matchMedia").mockReturnValue({
-      matches: true,
-    } as MediaQueryList);
+      matches: true, addEventListener: () => {}, removeEventListener: () => {},
+    } as unknown as MediaQueryList);
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) =>
       window.setTimeout(() => callback(performance.now()), 16),
     );
@@ -2128,28 +2149,25 @@ describe("project conversation sorting", () => {
     expect(loadSessionSidebarOrder(B)).toEqual([]);
   });
 
-  it("settles a manual drop once while retaining motion for later external order changes", () => {
+  it("settles a manual drop once while retaining motion for later external order changes", async () => {
     fixture();
     vi.mocked(window.matchMedia).mockReturnValue({
-      matches: false,
-    } as MediaQueryList);
+      matches: false, addEventListener: () => {}, removeEventListener: () => {},
+    } as unknown as MediaQueryList);
     const section = project(A).querySelector<HTMLElement>(
       "[data-project-session-section]",
     )!;
-    section.animate = vi.fn();
+    vi.spyOn(section, "animate");
     const rows = visibleRows();
-    rows.forEach((row) => {
-      row.animate = vi.fn();
-      row.getAnimations = () => [];
-    });
+    rows.forEach((row) => vi.spyOn(row, "animate"));
     pointer(card("a"), "pointerdown", 16);
     pointer(window, "pointerup", 148);
-    act(() => vi.advanceTimersByTime(160));
+    await act(async () => vi.advanceTimersByTimeAsync(duration.panel * 1000));
     expect(rowIds()).toEqual(["b", "c", "d", "e", "a"]);
     expect(
       rows.every((row) => vi.mocked(row.animate).mock.calls.length === 0),
     ).toBe(true);
-    act(() => saveSessionSidebarOrder(A, initial));
+    await act(async () => { saveSessionSidebarOrder(A, initial); await vi.advanceTimersByTimeAsync(0); });
     expect(rowIds()).toEqual(initial);
     expect(
       rows.some((row) => vi.mocked(row.animate).mock.calls.length > 0),
@@ -2291,8 +2309,8 @@ describe("unified pinned sidebar group", () => {
 
   function pinFixtures() {
     vi.spyOn(window, "matchMedia").mockReturnValue({
-      matches: true,
-    } as MediaQueryList);
+      matches: true, addEventListener: () => {}, removeEventListener: () => {},
+    } as unknown as MediaQueryList);
     savePinnedProjects([A]);
     saveProjectTreeExpanded([]);
     props.projectHistory = [
@@ -2406,8 +2424,8 @@ describe("unified pinned sidebar group", () => {
 
   it("keeps horizontal pane drops available even for a single pinned conversation", () => {
     vi.spyOn(window, "matchMedia").mockReturnValue({
-      matches: true,
-    } as MediaQueryList);
+      matches: true, addEventListener: () => {}, removeEventListener: () => {},
+    } as unknown as MediaQueryList);
     props.projectHistory = [{ ...summary("pinned", B), pinned: true }];
     props.sessions = [];
     props.onPlaceSessionOnPane = vi.fn();
@@ -2675,8 +2693,8 @@ describe("unified pinned sidebar group", () => {
 
   it("routes a dragged Host conversation pin to its own project despite duplicate IDs", async () => {
     vi.spyOn(window, "matchMedia").mockReturnValue({
-      matches: true,
-    } as MediaQueryList);
+      matches: true, addEventListener: () => {}, removeEventListener: () => {},
+    } as unknown as MediaQueryList);
     const machine = {
       id: "machine",
       name: "Host",
@@ -2790,7 +2808,7 @@ describe("sidebar chat conversations", () => {
     );
     const item = [
       ...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
-    ].find((button) => button.textContent?.startsWith(label))!;
+    ].find((button) => !button.closest("[inert]") && button.textContent?.startsWith(label))!;
     expect(item, label).toBeDefined();
     await act(async () => item.click());
   };

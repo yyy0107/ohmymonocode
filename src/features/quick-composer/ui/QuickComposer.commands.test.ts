@@ -3,6 +3,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
+import { startMotionClock, stopMotionClock, finishMotion } from "../../../../tests/helpers/sharedMotionClock";
 import { QuickComposer } from "./QuickComposer";
 
 const native = vi.hoisted(() => ({
@@ -73,6 +74,7 @@ async function key(key: string, options: KeyboardEventInit = {}) {
 
 beforeEach(async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  startMotionClock();
   vi.stubGlobal("requestAnimationFrame", (callback: () => void) => {
     callback();
     return 0;
@@ -95,6 +97,7 @@ beforeEach(async () => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  stopMotionClock();
   vi.clearAllMocks();
   vi.unstubAllGlobals();
 });
@@ -113,6 +116,7 @@ it.each(["Enter", "Tab"])(
     await key(completionKey);
     expect(prompt.value).toBe("/operator ");
     expect(prompt.selectionStart).toBe(prompt.value.length);
+    await act(async () => { await finishMotion(); });
     expect(commands()).toBeNull();
     expect(invoke).not.toHaveBeenCalledWith(
       "quick_composer_submit",
@@ -153,7 +157,7 @@ it("closes command suggestions with Escape before dismissing the composer", asyn
   expect(invoke).toHaveBeenCalledWith("quick_composer_dismiss");
 });
 
-it("does not suggest Operator inside normal text or paths and filters unknown commands", () => {
+it("does not suggest Operator inside normal text or paths and filters unknown commands", async () => {
   for (const text of [
     "Explain /op",
     "/tmp/project",
@@ -161,6 +165,7 @@ it("does not suggest Operator inside normal text or paths and filters unknown co
     "> /op",
   ]) {
     input(text);
+    await act(async () => { await finishMotion(); });
     expect(commands()).toBeNull();
   }
   input("/unknown");

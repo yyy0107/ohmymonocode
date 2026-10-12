@@ -1,3 +1,6 @@
+import { animate, type AnimationPlaybackControlsWithThen } from "motion/react";
+import { panelTransition, immediateTransition } from "../../../shared/motion/tokens";
+import { prefersReducedMotion } from "../../../shared/lib/reducedMotion";
 import { DESKTOP_SCHEME_KEY, isDesktopDocument, loadDesktopTheme } from "../../../shared/theme/desktopAppearance";
 import { activePreferenceStore, SHARED_PREFERENCES_CHANGED } from "./sharedPreferences";
 import { parsePreferenceAsset, preferenceAssetUrl, PREFERENCE_ASSET_READY } from "./preferenceAssets";
@@ -47,7 +50,7 @@ const CHANGES_VIEW_KEY = "monocode.changesView";
 const SHOW_EXCLUDED_FILES_KEY = "monocode.showExcludedFiles";
 let chatBackgroundRevision = Date.now();
 let nativeGlassReady = false;
-let glassFadeTimer: number | undefined;
+let glassFadeMotion: AnimationPlaybackControlsWithThen | undefined;
 let glassSyncGeneration = 0;
 /** The native window state last requested; replays of it must not repaint. */
 let appliedGlassRequest: string | undefined;
@@ -458,15 +461,6 @@ function opaqueWindowBackground(): Rgb {
   );
 }
 
-/** How long the page takes to reach opaque, from the same token the CSS uses. */
-function glassFadeMs(): number {
-  const value = getComputedStyle(document.documentElement)
-    .getPropertyValue("--motion-feedback-duration")
-    .trim();
-  const milliseconds = parseFloat(value) * (value.endsWith("ms") ? 1 : 1000);
-  return Number.isFinite(milliseconds) ? Math.max(0, milliseconds) : 0;
-}
-
 /**
  * `has-native-glass` follows the window, not the platform: Linux can turn glass
  * off in dark mode too. Whichever side moves second has to wait for the other,
@@ -491,7 +485,7 @@ export function syncNativeGlass(scheme: ColorScheme) {
   const root = document.documentElement;
   if (
     request === appliedGlassRequest &&
-    glassFadeTimer === undefined &&
+    glassFadeMotion === undefined &&
     root.classList.contains("has-native-glass") === enabled
   )
     return;
@@ -500,9 +494,9 @@ export function syncNativeGlass(scheme: ColorScheme) {
   const setWindow = () =>
     invoke("set_window_glass_enabled", { enabled, background }).catch(() => {});
 
-  if (glassFadeTimer !== undefined) {
-    window.clearTimeout(glassFadeTimer);
-    glassFadeTimer = undefined;
+  if (glassFadeMotion !== undefined) {
+    glassFadeMotion.stop();
+    glassFadeMotion = undefined;
   }
 
   if (enabled) {
@@ -515,10 +509,10 @@ export function syncNativeGlass(scheme: ColorScheme) {
   }
 
   root.classList.remove("has-native-glass");
-  glassFadeTimer = window.setTimeout(() => {
-    glassFadeTimer = undefined;
-    void setWindow();
-  }, glassFadeMs());
+  glassFadeMotion = animate(0, 1, {
+    ...(prefersReducedMotion() ? immediateTransition : panelTransition),
+    onComplete: () => { glassFadeMotion = undefined; if (generation === glassSyncGeneration) void setWindow(); },
+  });
 }
 
 /** Applies native transparency once the opaque launch cover can be removed. */

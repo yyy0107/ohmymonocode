@@ -7,7 +7,6 @@
 .assistant-chat.desktop-bots-workspace .desktop-bot-delegation-heading strong { flex: 1; min-width: 70px; overflow-wrap: anywhere; font-weight: 550; }
 .assistant-chat.desktop-bots-workspace .desktop-bot-delegation-heading > span { color: var(--color-foreground-subtle); }
 .assistant-chat.desktop-bots-workspace .desktop-bot-delegation-heading > svg { flex-shrink: 0; }
-.assistant-chat.desktop-bots-workspace .desktop-bot-delegation-heading > svg:last-child { transition: transform var(--collapse-duration, 340ms) var(--collapse-easing, ease); }
 .assistant-chat.desktop-bots-workspace .desktop-bot-delegation-heading[aria-expanded="true"] > svg:last-child { transform: rotate(90deg); }
 .assistant-chat.desktop-bots-workspace .desktop-bot-delegation-body { padding-top: 10px; }
 .assistant-chat.desktop-bots-workspace .desktop-bot-delegation-body h4 { margin: 8px 0 4px; font-weight: 600; }

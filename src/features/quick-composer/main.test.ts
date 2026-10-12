@@ -38,7 +38,7 @@ it("waits for verified Host preferences and accounts before enabling quick launc
   ready();
   await vi.waitFor(() => expect(mocks.render).toHaveBeenCalledOnce());
   expect(mocks.accounts).toHaveBeenCalledOnce();
-  expect(mocks.render.mock.calls[0][0].props.children.type.name).toBe("Composer");
+  expect(mocks.render.mock.calls[0][0].props.children.props.children.type.name).toBe("Composer");
 });
 it("shows a retry when Host bootstrap fails without enabling controls using legacy defaults", async () => {
   mocks.sharedHost.mockRejectedValue(new Error("Host upgrade required"));

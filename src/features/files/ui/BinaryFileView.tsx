@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -275,7 +276,7 @@ function ImageView({
           <Plus className="size-3" />
         </ZoomButton>
       </footer>
-      {menu ? (
+      <PresenceBoundary propagate>{menu ? (
         <ExplorerMenu
           x={menu.x}
           y={menu.y}
@@ -292,7 +293,7 @@ function ImageView({
           }}
           onClose={() => setMenu(null)}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 }

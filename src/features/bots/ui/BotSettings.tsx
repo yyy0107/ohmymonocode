@@ -39,6 +39,7 @@ import {
   type RuntimeMode,
 } from "../../sessions/model/session";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
+import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
 import { BotMemoryEditor } from "./BotMemory";
 import { BotMemoryDialog } from "./BotMemoryDialog";
 import { BotImSettings } from "./BotImSettings";
@@ -579,7 +580,10 @@ export function BotSettings({
         '[aria-invalid="true"]',
       );
       field?.focus({ preventScroll: true });
-      field?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+      field?.scrollIntoView?.({
+        block: "center",
+        behavior: reducedMotionQuery().matches ? "auto" : "smooth",
+      });
     });
   };
   const fieldError = (message?: string) =>

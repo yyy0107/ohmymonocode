@@ -1,3 +1,4 @@
+import { completeMotionAnimation } from "../../../tests/helpers/motionDriver";
 // @vitest-environment happy-dom
 import { act, createElement, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -257,6 +258,7 @@ it("keeps expand, select, new session and child actions independent", async () =
   expect(props.onNewInProject).toHaveBeenCalledExactlyOnceWith("/work/beta");
   expect(childClick).toHaveBeenCalledOnce();
   expect(reorderPointerDown).not.toHaveBeenCalled();
+  act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
   expect(
     document.querySelector('[role="menu"][aria-label="Project options"]'),
   ).toBeNull();
@@ -320,7 +322,7 @@ it("temporarily folds only the dragged project's children and animates them back
       '[data-project-path="/work/alpha"] .zen-fold-item',
     )?.dataset.foldState,
   ).toBe("open");
-  act(() => fold.dispatchEvent(new Event("animationend", { bubbles: true })));
+  act(() => completeMotionAnimation(fold));
   const retained = beta.querySelector("[data-project-children]");
   expect(retained).not.toBeNull();
   expect(fold.hidden).toBe(true);
@@ -439,7 +441,7 @@ it("reveals matching projects in collapsed groups only for the duration of searc
   )!;
   expect(fold.dataset.foldState).toBe("closing");
   expect(fold.inert).toBe(true);
-  act(() => fold.dispatchEvent(new Event("animationend", { bubbles: true })));
+  act(() => completeMotionAnimation(fold));
   expect(
     container.querySelector('[data-project-path="/work/beta"]')?.closest("[hidden]"),
   ).toBe(fold);
@@ -761,6 +763,7 @@ it("opens and closes immediately and keeps the summary open while crossing into 
       }),
     ),
   );
+  act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
   expect(projectSummary("/work/beta")).toBeNull();
 });
 
@@ -792,6 +795,7 @@ it("allows Tab into summary actions and edits the original project without activ
     );
     edit.click();
   });
+  act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
   expect(projectSummary("/work/beta")).toBeNull();
   const menu = document.querySelector<HTMLElement>(
     '[role="menu"][aria-label="Project options"]',
@@ -829,6 +833,7 @@ it("pins a project from its summary without activating it or starting a reorder"
   expect(props.onToggleProject).not.toHaveBeenCalled();
   expect(reorderPointerDown).not.toHaveBeenCalled();
   expect(document.activeElement).toBe(projectNameButton("/work/beta"));
+  act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
   expect(projectSummary("/work/beta")).toBeNull();
   act(() => {
     projectNameButton("/work/alpha").focus();
@@ -878,6 +883,7 @@ it("hides Retry for a project whose backend has no available loader", async () =
   expect(projectSummary("/work/beta")?.textContent).toContain(
     "Project summary unavailable",
   );
+  act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
   expect(
     projectSummary("/work/beta")?.querySelector('button[aria-label="Retry"]'),
   ).toBeNull();
@@ -922,6 +928,7 @@ it("suppresses pointer-origin focus and hides summaries during project drag", as
     );
     beta.focus();
   });
+  act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
   expect(projectSummary("/work/beta")).toBeNull();
   act(() => {
     beta.blur();
@@ -930,11 +937,13 @@ it("suppresses pointer-origin focus and hides summaries during project drag", as
   expect(projectSummary("/work/beta")).not.toBeNull();
   reorderState.draggingId = "/work/beta";
   await renderTree(props);
+  act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
   expect(projectSummary("/work/beta")).toBeNull();
   act(() => {
     beta.blur();
     beta.focus();
   });
+  act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
   expect(projectSummary("/work/beta")).toBeNull();
 });
 
@@ -978,6 +987,7 @@ it("hides the project summary while its menu or a closing project group owns the
       )!
       .click(),
   );
+  act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
   expect(projectSummary("/work/beta")).toBeNull();
   expect(
     document.querySelector('[role="menu"][aria-label="Project options"]'),
@@ -1003,6 +1013,7 @@ it("hides the project summary while its menu or a closing project group owns the
   )!;
   expect(fold.dataset.foldState).toBe("closing");
   expect(projectNameButton("/work/beta")).not.toBeNull();
+  act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
   expect(projectSummary("/work/beta")).toBeNull();
 });
 
@@ -1093,7 +1104,7 @@ it("defers unopened session sections and retains them without repeated hidden pr
   const fold = container.querySelector<HTMLElement>(
     '[data-project-path="/work/alpha"] .zen-fold-item',
   )!;
-  act(() => fold.dispatchEvent(new Event("animationend", { bubbles: true })));
+  act(() => completeMotionAnimation(fold));
   expect(fold.hidden).toBe(true);
   prepare.mockClear();
   await renderTree({ ...props, renderProjectChildren: (path) => prepare(path) });
@@ -1132,7 +1143,7 @@ it("reveals projects in batches of five independently for pins, groups and loose
     container
       .querySelectorAll('[data-fold-state="closing"]')
       .forEach((node) =>
-        node.dispatchEvent(new Event("animationend", { bubbles: true })),
+        completeMotionAnimation(node),
       );
   });
   expect(headers()).toHaveLength(15);
@@ -1191,7 +1202,7 @@ it.each(["pinned", "chats", "group", "groups", "projects"])(
       : sectionHeader(id);
     const settle = () => act(() => {
       container.querySelectorAll('[data-fold-state="closing"]').forEach((fold) =>
-        fold.dispatchEvent(new Event("animationend", { bubbles: true })),
+        completeMotionAnimation(fold),
       );
     });
     for (const list of lists) {
@@ -1372,7 +1383,7 @@ it("keeps a previously collapsed section closed after dragging and leaves the co
   const fold = container.querySelector<HTMLElement>(
     '[data-sidebar-reorder-section="workflows"] .project-tree-collapse',
   )!;
-  act(() => fold.dispatchEvent(new Event("animationend", { bubbles: true })));
+  act(() => completeMotionAnimation(fold));
   reorderState.draggingId = "workflows";
   await renderTree(props);
   reorderState.draggingId = null;
@@ -1749,3 +1760,9 @@ it.each([false, true])(
     }
   },
 );
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
+});

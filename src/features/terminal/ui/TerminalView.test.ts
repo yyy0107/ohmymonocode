@@ -1,3 +1,4 @@
+import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver";
 // @vitest-environment happy-dom
 import { act, createElement, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -158,6 +159,7 @@ it("offers copy and paste in the context menu and closes it when hidden", async 
     expect(actions[0].disabled).toBe(true);
     expect(actions[1].disabled).toBe(false);
     await act(async () => render(false));
+    await act(async () => completeMotionAnimation(document.body));
     expect(document.querySelector('[role="menu"]')).toBeNull();
   } finally {
     await act(async () => root.unmount());
@@ -428,4 +430,10 @@ it.each([
     host.remove();
     document.documentElement.style.removeProperty("--font-terminal");
   }
+});
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
 });

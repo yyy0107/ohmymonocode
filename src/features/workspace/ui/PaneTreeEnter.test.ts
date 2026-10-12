@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+import { completeMotionAnimation, motionTestDriver } from "../../../../tests/helpers/motionDriver";
+vi.mock("motion/react", async (importOriginal) => { const actual = await importOriginal<typeof import("motion/react")>(); return { ...actual, ...motionTestDriver(actual, true) }; });
 import { act, createElement, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -126,9 +128,7 @@ describe("pane enter animation", () => {
       .closest("[data-pane-enter]")!;
     expect(pane.getAttribute("data-pane-enter")).toBe("left");
 
-    const event = new Event("animationend", { bubbles: true });
-    Object.assign(event, { animationName: "pane-enter" });
-    act(() => pane.dispatchEvent(event));
+    act(() => completeMotionAnimation(pane));
     expect(container.querySelector("[data-pane-enter]")).toBeNull();
   });
 

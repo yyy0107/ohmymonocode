@@ -1788,6 +1788,13 @@ it("shows the Host queue in the desktop composer, queues while busy, and edits a
   expect(host!.session.queuedMessages?.[0].text).toBe("Edited on desktop");
   await act(async () => byLabel("Remove queued message")!.click()); await settle();
   expect(host!.session.queuedMessages).toHaveLength(1);
+  // AutoAnimate retains the removed row until its exit finishes. Happy DOM's
+  // WAAPI clock is independent of the Host synchronization microtasks.
+  await act(async () => {
+    for (const element of container.querySelectorAll("*"))
+      for (const animation of element.getAnimations()) animation.finish();
+  });
+  await settle();
   host = { ...host!, status: "idle", session: { ...host!.session, busy: false } };
   await act(async () => byLabel("Remove queued message")!.click()); await settle();
   expect(container.querySelector('[aria-label="Transcript"]')?.getAttribute("data-busy")).toBe("false");

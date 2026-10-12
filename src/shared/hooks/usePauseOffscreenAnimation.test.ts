@@ -56,11 +56,8 @@ function render(visible = true, strict = false) {
   );
 }
 
-function advance(ms: number) {
-  act(() => vi.advanceTimersByTime(ms));
-}
-function frame() {
-  return container.querySelector("span")!.textContent;
+function spinnerState() {
+  return container.querySelector<HTMLSpanElement>(".terminal-spinner")!.style.animationPlayState;
 }
 function paused() {
   return container
@@ -105,24 +102,21 @@ afterEach(() => {
 });
 
 describe("decorative animation activity", () => {
-  it("stops an offscreen spinner's timer and resumes from its visible frame", () => {
+  it("pauses an offscreen spinner's CSS loop and resumes it when visible", () => {
     render();
-    advance(80);
-    expect(frame()).toBe("⠙");
+    expect(spinnerState()).toBe("running");
     expect(paused()).toBe(false);
 
     intersect(false);
     expect(paused()).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
-    advance(800);
-    expect(frame()).toBe("⠙");
+    expect(spinnerState()).toBe("paused");
 
     intersect(true);
     intersect(true);
-    expect(vi.getTimerCount()).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
     expect(paused()).toBe(false);
-    advance(80);
-    expect(frame()).toBe("⠹");
+    expect(spinnerState()).toBe("running");
   });
 
   it("does not register observers or timers for a hidden retained surface", () => {
@@ -130,32 +124,34 @@ describe("decorative animation activity", () => {
     expect(Observer.all).toHaveLength(0);
     expect(vi.getTimerCount()).toBe(0);
     expect(paused()).toBe(true);
-    expect(frame()).toBe("⠋");
+    expect(spinnerState()).toBe("paused");
 
     render(true);
     expect(Observer.all).toHaveLength(2);
-    advance(80);
-    expect(frame()).toBe("⠙");
+    expect(spinnerState()).toBe("running");
     render(false);
     expect(Observer.all.every((o) => o.disconnected)).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
+    expect(spinnerState()).toBe("paused");
     render(true);
-    advance(80);
-    expect(frame()).toBe("⠹");
+    expect(spinnerState()).toBe("running");
   });
 
   it("keeps offscreen activity paused when the document returns", () => {
     render();
     visibility(false);
     expect(paused()).toBe(true);
+    expect(spinnerState()).toBe("paused");
     expect(vi.getTimerCount()).toBe(0);
     intersect(false);
     visibility(true);
     expect(paused()).toBe(true);
+    expect(spinnerState()).toBe("paused");
     expect(vi.getTimerCount()).toBe(0);
     intersect(true);
     expect(paused()).toBe(false);
-    expect(vi.getTimerCount()).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(spinnerState()).toBe("running");
   });
 
   it("honours live OS motion changes and the application override", () => {
@@ -163,24 +159,27 @@ describe("decorative animation activity", () => {
     render();
     expect(paused()).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
-    expect(frame()).toBe("⠋");
+    expect(spinnerState()).toBe("paused");
 
     act(() => applyReducedMotion("off"));
     expect(paused()).toBe(false);
-    advance(80);
-    expect(frame()).toBe("⠙");
+    expect(spinnerState()).toBe("running");
     act(() => applyReducedMotion("on"));
     expect(paused()).toBe(true);
+    expect(spinnerState()).toBe("paused");
     expect(vi.getTimerCount()).toBe(0);
     reduced = false;
     act(() => media.dispatchEvent(new Event("change")));
     expect(vi.getTimerCount()).toBe(0);
+    expect(spinnerState()).toBe("paused");
     act(() => applyReducedMotion("system"));
     expect(paused()).toBe(false);
-    expect(vi.getTimerCount()).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(spinnerState()).toBe("running");
     reduced = true;
     act(() => media.dispatchEvent(new Event("change")));
     expect(vi.getTimerCount()).toBe(0);
+    expect(spinnerState()).toBe("paused");
   });
 
   it("releases the old observer when a ref moves to another element", () => {
@@ -196,12 +195,15 @@ describe("decorative animation activity", () => {
     expect(paused()).toBe(true);
   });
 
-  it("keeps one timer through StrictMode ref replay and releases all activity on unmount", () => {
+  it("retains CSS activity through StrictMode ref replay and releases it on unmount", () => {
     render(true, true);
-    expect(vi.getTimerCount()).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(spinnerState()).toBe("running");
+    const spinner = container.querySelector<HTMLSpanElement>(".terminal-spinner")!;
     act(() => root.render(null));
     expect(Observer.all.every((o) => o.disconnected)).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
+    expect(spinner.style.animationPlayState).toBe("paused");
     visibility(false);
     visibility(true);
     act(() => applyReducedMotion("off"));

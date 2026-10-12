@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../shared/i18n/useTranslation";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import {
@@ -481,7 +482,7 @@ export function UsageProviderChip({
           )}
         </button>
       )}
-      {open && inline ? (
+      <PresenceBoundary propagate>{open && inline ? (
         <div
           role="group"
           aria-label={detailsLabel}
@@ -506,7 +507,7 @@ export function UsageProviderChip({
         >
           {panel}
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </>
   );
 }

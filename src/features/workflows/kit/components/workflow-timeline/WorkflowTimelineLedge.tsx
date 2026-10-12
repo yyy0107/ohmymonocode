@@ -1,3 +1,5 @@
+import { workflowEntry } from "./workflow-motion.js";
+import { motion as motionElement } from "motion/react";
 import {
   useRef,
   useState,
@@ -143,7 +145,7 @@ export function WorkflowLedge({
           title={label}
           type="button"
         >
-          <span
+          <motionElement.span {...workflowEntry()}
             aria-hidden
             className={cn(stationLampClass(station.status), "wf-land")}
             data-lamp={station.status ?? "pending"}

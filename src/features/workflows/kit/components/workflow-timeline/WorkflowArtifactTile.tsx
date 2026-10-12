@@ -1,4 +1,6 @@
-import type { CSSProperties, ReactNode } from "react";
+import { motion as motionElement } from "motion/react";
+import { workflowEntry } from "./workflow-motion.js";
+import type { ReactNode } from "react";
 import { ArrowUpRight as ArrowUpRightIcon } from "../../../../../shared/ui/icons";
 import {
   ArtifactKindIcon,
@@ -92,31 +94,26 @@ export function WorkflowArtifactTile({
   const openable = onOpen !== undefined;
   const version = artifact.version ?? 1;
   const showVersion = version >= 2;
-  const style: CSSProperties | undefined =
-    enterDelayMs === undefined || enterDelayMs <= 0
-      ? undefined
-      : { animationDelay: `${enterDelayMs}ms`, animationFillMode: "backwards" };
 
   return (
     <div className="wf-tile relative flex min-w-0 flex-col gap-1.5" data-variant="tile">
       {/* 预览框：底部渐隐由预览内容自己决定（文档缩略要「还有」的暗示，看板与图片不要）。 */}
-      <div
+      <motionElement.div {...workflowEntry(enterDelayMs)}
         aria-hidden
-        className="wf-tile-frame wf-arrive relative aspect-[16/10] w-full overflow-hidden rounded-lg border border-border panel-fill"
+        className="wf-tile-frame  relative aspect-[16/10] w-full overflow-hidden rounded-lg border border-border panel-fill"
         data-testid="workflow-artifact-tile-frame"
         inert
-        style={style}
-      >
+        >
         {preview ?? <ArtifactSheetGlyph />}
-      </div>
-      <button
+      </motionElement.div>
+      <motionElement.button {...workflowEntry(enterDelayMs)}
         aria-label={
           openable
             ? `${intl.formatMessage({ id: "chat.toolCall.workflow.run.artifacts.open" })}: ${title}`
             : undefined
         }
         className={cn(
-          "wf-tile-hit wf-arrive flex min-w-0 items-center gap-1.5 rounded-lg bg-transparent p-0 px-0.5 text-left text-ui-sm outline-none",
+          "wf-tile-hit  flex min-w-0 items-center gap-1.5 rounded-lg bg-transparent p-0 px-0.5 text-left text-ui-sm outline-none",
           openable ? "wf-tile-open cursor-pointer" : "cursor-default",
         )}
         data-artifact-id={artifact.id}
@@ -127,8 +124,7 @@ export function WorkflowArtifactTile({
         data-variant="tile"
         disabled={!openable}
         onClick={openable ? () => onOpen(artifact.id) : undefined}
-        style={style}
-        title={tooltip ?? `${kindLabel} · ${title}`}
+          title={tooltip ?? `${kindLabel} · ${title}`}
         type="button"
       >
         <ArtifactKindIcon className="size-4 shrink-0 text-foreground-subtle" kind={artifact.kind} />
@@ -144,8 +140,8 @@ export function WorkflowArtifactTile({
         {showVersion || openable ? (
           <span className="grid size-3 shrink-0 place-items-center [&>*]:col-start-1 [&>*]:row-start-1">
             {showVersion ? (
-              // 按版本重挂：同 id 再发布时尾槽弹入一次（wf-mark 的进场），悬停时让位给 ↗。
-              <span
+              // 按版本重挂：同 id 再发布时尾槽弹入一次（的进场），悬停时让位给 ↗。
+              <motionElement.span {...workflowEntry(enterDelayMs)}
                 className="wf-mark font-mono text-ui-xs leading-none tabular-nums text-foreground-subtlest"
                 data-testid="workflow-artifact-tile-version"
                 key={version}
@@ -158,7 +154,7 @@ export function WorkflowArtifactTile({
                   { id: "chat.toolCall.workflow.run.artifacts.versionTail" },
                   { version: String(version) },
                 )}
-              </span>
+              </motionElement.span>
             ) : null}
             {openable ? (
               <span
@@ -171,7 +167,7 @@ export function WorkflowArtifactTile({
             ) : null}
           </span>
         ) : null}
-      </button>
+      </motionElement.button>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { completeMotionAnimation } from "../../../tests/helpers/motionDriver";
 // @vitest-environment happy-dom
 // Keep this as .ts because the project test glob intentionally excludes .test.tsx.
 import { act, createElement } from "react";
@@ -84,7 +85,7 @@ function button(label: string): HTMLButtonElement {
   const result = [
     ...document.querySelectorAll<HTMLButtonElement>("button"),
   ].find(
-    (item) => (item.getAttribute("aria-label") ?? item.textContent) === label,
+    (item) => !item.closest("[inert]") && (item.getAttribute("aria-label") ?? item.textContent) === label,
   );
   expect(result, label).toBeDefined();
   return result!;
@@ -333,6 +334,7 @@ describe("UsageProviderChip", () => {
     await act(async () => button("Work").click());
 
     expect(onSelectAccount).toHaveBeenCalledWith("account-work");
+    await act(async () => completeMotionAnimation(document.body));
     expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 
@@ -535,4 +537,10 @@ describe("UsageProviderChip", () => {
     ].filter((item) => item.textContent === "Use reset");
     expect(useButtons).toHaveLength(2);
   });
+});
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
 });

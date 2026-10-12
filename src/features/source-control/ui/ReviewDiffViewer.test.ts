@@ -1,3 +1,4 @@
+import { startMotionClock, stopMotionClock, finishMotion, motionFrame } from "../../../../tests/helpers/sharedMotionClock";
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -71,6 +72,7 @@ function openComment() {
 }
 beforeEach(() => {
   vi.useFakeTimers();
+  startMotionClock();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   localStorage.clear();
   stage.mockClear();
@@ -83,6 +85,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  stopMotionClock();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -93,7 +96,7 @@ it.each([
   ["additions", 4, "`/repo/a.ts:4`", ">  three"],
 ] as const)(
   "sends a %s line %s comment through the existing add-to-chat event",
-  (side, line, location, quote) => {
+  async (side, line, location, quote) => {
     hover.side = side;
     hover.lineNumber = line;
     render(true);
@@ -125,6 +128,7 @@ it.each([
       expect(received[0].text).toContain(location);
       expect(received[0].text).toContain(quote);
       expect(received[0].text).toContain("Please check this");
+      await act(async () => finishMotion());
       expect(
         document.querySelector('textarea[placeholder="Leave a comment…"]'),
       ).toBeNull();
@@ -134,7 +138,7 @@ it.each([
   },
 );
 
-it("disables actions and removes the comment portal during closing, then supports rapid reversal", () => {
+it("disables actions and removes the comment portal during closing, then supports rapid reversal", async () => {
   render(true);
   openComment();
   expect(
@@ -154,7 +158,7 @@ it("disables actions and removes the comment portal during closing, then support
       (button) => button.disabled,
     ),
   ).toBe(true);
-  act(() => vi.advanceTimersByTime(100));
+  await act(async () => { vi.advanceTimersByTime(100); motionFrame(100); });
   render(true);
   expect(container.querySelector("[data-pierre]")).toBe(viewer);
   expect(
@@ -162,10 +166,10 @@ it("disables actions and removes the comment portal during closing, then support
       'button[title="Comment on line"]',
     )?.disabled,
   ).toBe(false);
-  act(() => vi.advanceTimersByTime(350));
+  await act(async () => finishMotion());
   expect(container.querySelector("[data-pierre]")).toBe(viewer);
   render(false);
-  act(() => vi.advanceTimersByTime(350));
+  await act(async () => finishMotion());
   expect(container.querySelector("[data-pierre]")).toBeNull();
 });
 

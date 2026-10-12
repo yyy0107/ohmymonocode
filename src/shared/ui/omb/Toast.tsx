@@ -1,3 +1,6 @@
+import { motion, type HTMLMotionProps } from "motion/react";
+import { immediateTransition, popAnimate, popExit, popInitial, popTransition } from "../../motion/tokens";
+import { useMotionPreference } from "../../motion/useMotionPreference";
 import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cx } from "./cx";
 
@@ -24,18 +27,21 @@ export function Toast({
   action?: ReactNode;
   children: ReactNode;
 }) {
+  const reduced = useMotionPreference();
   return (
-    <div
+    <motion.div
       role={tone === "danger" ? "alert" : "status"}
-      {...props}
+      {...props as HTMLMotionProps<"div">}
+      initial={reduced ? false : popInitial} animate={popAnimate} exit={popExit}
+      transition={reduced ? immediateTransition : popTransition}
       className={cx(
-        "omb-glass-panel flex max-w-[min(420px,calc(100vw-32px))] items-center gap-2.5 px-3.5 py-2.5 text-[13px] leading-5 text-ink motion-safe:animate-pop-in",
+        "omb-glass-panel flex max-w-[min(420px,calc(100vw-32px))] items-center gap-2.5 px-3.5 py-2.5 text-[13px] leading-5 text-ink",
         className,
       )}
     >
       {icon ?? <span aria-hidden className={cx("size-2 shrink-0 rounded-full", DOT[tone])} />}
       <div className="min-w-0 flex-1">{children}</div>
       {action}
-    </div>
+    </motion.div>
   );
 }

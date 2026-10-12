@@ -55,3 +55,9 @@ it("flips the meter when another window turns on remaining usage", async () => {
   );
   expect(container.textContent).toContain("77% left");
 });
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
+});

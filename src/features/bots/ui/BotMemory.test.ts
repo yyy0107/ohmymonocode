@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
+import { finishMotion, startMotionClock, stopMotionClock } from "../../../../tests/helpers/sharedMotionClock";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { BotSettings } from "./BotSettings";
@@ -9,6 +10,7 @@ import { setUiLanguage } from "../../../shared/i18n/language";
 
 let root: Root, node: HTMLDivElement;
 beforeEach(() => {
+  startMotionClock();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   setUiLanguage("en");
   node = document.createElement("div");
@@ -17,6 +19,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   act(() => root.unmount());
+  stopMotionClock();
   node.remove();
   vi.unstubAllGlobals();
 });
@@ -96,9 +99,12 @@ it("loads memory only when opened and edits it without submitting the settings f
   expect(dialog.textContent).toContain("2026-10-01");
   const edit = dialog.querySelector("textarea")!;
   expect(edit.value).toBe("Prefers pnpm");
+  await act(async () => finishMotion());
   type(edit, "Prefers bun");
   await act(async () => button("Save").click());
   await settle();
+  expect(document.querySelector<HTMLElement>('[role="dialog"]')?.inert).toBe(true);
+  await act(async () => finishMotion());
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   expect(host.calls).toHaveBeenCalledWith(
     "assistant.control",

@@ -1,3 +1,4 @@
+import { duration } from "../../../shared/motion/tokens";
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -79,9 +80,9 @@ describe("NotificationMuteControl", () => {
         expect(document.querySelector('[role="menu"]')).toBe(menu);
         expect(menu.inert).toBe(false);
         expect(trigger.getAttribute("aria-expanded")).toBe("true");
-        await act(async () => vi.advanceTimersByTimeAsync(180));
+        await act(async () => vi.advanceTimersByTimeAsync(duration.pop * 1000));
         await press();
-        await act(async () => vi.advanceTimersByTimeAsync(180));
+        await act(async () => vi.advanceTimersByTimeAsync(duration.pop * 1000));
         expect(document.querySelector('[role="menu"]')).toBeNull();
         expect(loadNotificationPreferences()).toEqual(original);
       } finally {
@@ -198,4 +199,10 @@ describe("NotificationMuteControl", () => {
       "Change mute duration",
     );
   });
+});
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
 });

@@ -1,7 +1,9 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { motion } from "motion/react";
+import { popTransition, immediateTransition } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
+import { useState, type CSSProperties } from "react";
 
 // Longest mark delay plus duration, with a little slack for the fade.
-const BURST_MS = 1900;
 const MARK_COUNT = 16;
 
 export type BurstRect = {
@@ -15,8 +17,6 @@ type Mark = {
   glyph: boolean;
   x: number;
   size: number;
-  delay: number;
-  duration: number;
   drift: number;
   rise: number;
   tilt: number;
@@ -30,8 +30,6 @@ function makeMarks(): Mark[] {
       // Spread across the composer with jitter so it never reads as a grid.
       x: Math.min(95, Math.max(5, ((i + Math.random()) / MARK_COUNT) * 100)),
       size: glyph ? 11 + Math.random() * 9 : 4 + Math.random() * 3,
-      delay: 120 + Math.random() * 520,
-      duration: 900 + Math.random() * 500,
       drift: (Math.random() - 0.5) * 36,
       rise: 110 + Math.random() * 130,
       tilt: (Math.random() < 0.5 ? -1 : 1) * (10 + Math.random() * 18),
@@ -53,15 +51,12 @@ export function BtwQuestionBurst({
 }) {
   const [marks] = useState(makeMarks);
 
-  useEffect(() => {
-    const timer = setTimeout(onDone, BURST_MS);
-    return () => clearTimeout(timer);
-    // One burst per mount; a new open remounts with a new key.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const reducedMotion = useMotionPreference();
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }}
+      transition={reducedMotion ? immediateTransition : popTransition} onAnimationComplete={onDone}
       aria-hidden
       className="btw-burst"
       style={{
@@ -80,8 +75,6 @@ export function BtwQuestionBurst({
             {
               "--x": `${mark.x}%`,
               "--size": `${mark.size}px`,
-              "--delay": `${mark.delay}ms`,
-              "--duration": `${mark.duration}ms`,
               "--drift": `${mark.drift}px`,
               "--rise": `${mark.rise}px`,
               "--tilt": `${mark.tilt}deg`,
@@ -95,6 +88,6 @@ export function BtwQuestionBurst({
           )}
         </span>
       ))}
-    </div>
+    </motion.div>
   );
 }

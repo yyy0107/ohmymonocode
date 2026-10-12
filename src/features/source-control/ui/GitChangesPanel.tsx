@@ -1,3 +1,6 @@
+import { motion as motionElement } from "motion/react";
+import { panelTransition, immediateTransition } from "../../../shared/motion/tokens";
+import { reducedMotionQuery as motionPreferenceQuery } from "../../../shared/lib/reducedMotion";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
   AnimatedCollapse,
@@ -313,25 +316,17 @@ export function GitChangesPanel({
           window.setTimeout(() => invalidateWatchedFiles(paths), 150);
         }}
       />
-      <div
+      <motionElement.div
+      initial={false} animate={{ gridTemplateRows: graphExpanded ? "minmax(0, 16px) minmax(0, var(--git-graph-height))" : "minmax(0, 0px) minmax(0, 28px)" }} transition={motionPreferenceQuery().matches ? immediateTransition : panelTransition} onAnimationComplete={graphMotion.finish}
         ref={graphPaneRef}
         className="git-history-panel animated-collapse-size grid shrink-0 overflow-hidden"
         style={
           {
             "--git-graph-height": `${graphHeight}px`,
-            gridTemplateRows: graphExpanded
-              ? "minmax(0, 16px) minmax(0, var(--git-graph-height))"
-              : "minmax(0, 0px) minmax(0, 28px)",
           } as CSSProperties
         }
         data-fold-state={graphMotion.foldState}
-        onTransitionEnd={(event) => {
-          if (
-            event.target === event.currentTarget &&
-            event.propertyName === "grid-template-rows"
-          )
-            graphMotion.finish();
-        }}
+
       >
         <div
           className="min-h-0 overflow-hidden"
@@ -374,7 +369,7 @@ export function GitChangesPanel({
             onOpenCommit={onOpenCommit}
           />
         </div>
-      </div>
+      </motionElement.div>
     </div>
   );
 }

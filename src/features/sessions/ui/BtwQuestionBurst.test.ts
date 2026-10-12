@@ -3,6 +3,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { startMotionClock, stopMotionClock, finishMotion } from "../../../../tests/helpers/sharedMotionClock";
 import { BtwQuestionBurst } from "./BtwQuestionBurst";
 
 describe("BtwQuestionBurst", () => {
@@ -10,7 +11,7 @@ describe("BtwQuestionBurst", () => {
   let root: Root;
 
   beforeEach(() => {
-    vi.useFakeTimers();
+    startMotionClock();
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     container = document.createElement("div");
     document.body.append(container);
@@ -21,10 +22,10 @@ describe("BtwQuestionBurst", () => {
     act(() => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
-    vi.useRealTimers();
+    stopMotionClock();
   });
 
-  it("scatters question marks over the composer and ends itself", () => {
+  it("scatters question marks over the composer and ends itself", async () => {
     const onDone = vi.fn();
     act(() =>
       root.render(
@@ -41,7 +42,7 @@ describe("BtwQuestionBurst", () => {
     expect(container.querySelectorAll(".btw-burst-mark").length).toBe(16);
     expect(container.textContent).toContain("?");
 
-    act(() => vi.advanceTimersByTime(2000));
+    await act(async () => { await finishMotion(); });
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 });

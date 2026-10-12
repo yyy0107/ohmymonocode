@@ -1,19 +1,14 @@
-import { useLayoutEffect, useRef, type RefObject } from "react";
+import { useLayoutEffect, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
 
-const DURATION = 240;
-const EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 /** Animate the card itself so native vibrancy and its shadow follow its height. */
 export function useQuickPickerMotion(
   frameRef: RefObject<HTMLDivElement | null>,
-  pickerRef: RefObject<HTMLDivElement | null>,
-  picker:
+  _pickerRef: RefObject<HTMLDivElement | null>,
+  _picker:
     "project" | "model" | "permissions" | "attachments" | "commands" | null,
 ) {
-  const lastHeight = useRef<number | null>(null);
-  const previousPicker = useRef(picker);
 
   useLayoutEffect(() => {
     const frame = frameRef.current;
@@ -21,7 +16,6 @@ export function useQuickPickerMotion(
     let sentHeight = -1;
     const fit = () => {
       const height = frame.getBoundingClientRect().height;
-      lastHeight.current = height;
       const rounded = Math.ceil(height);
       if (rounded === sentHeight) return;
       sentHeight = rounded;
@@ -37,48 +31,4 @@ export function useQuickPickerMotion(
     return () => observer.disconnect();
   }, [frameRef]);
 
-  useLayoutEffect(() => {
-    if (previousPicker.current === picker) return;
-    previousPicker.current = picker;
-    const frame = frameRef.current;
-    if (!frame) return;
-    const from = lastHeight.current;
-    const to = frame.getBoundingClientRect().height;
-    if (reducedMotionQuery().matches) return;
-
-    const panel = pickerRef.current;
-    // Reveal a stable layout as the card grows, rather than squeezing the
-    // lists and their fixed headers into every intermediate height.
-    if (panel) {
-      panel.style.height = `${panel.getBoundingClientRect().height}px`;
-      panel.style.flexShrink = "0";
-    }
-    const releasePanel = () => {
-      if (!panel) return;
-      panel.style.removeProperty("height");
-      panel.style.removeProperty("flex-shrink");
-    };
-    const resize =
-      from != null && Math.abs(from - to) > 0.5
-        ? frame.animate([{ height: `${from}px` }, { height: `${to}px` }], {
-            duration: DURATION,
-            easing: EASING,
-          })
-        : null;
-    const fade = panel?.animate([{ opacity: 0 }, { opacity: 1 }], {
-      duration: 180,
-      delay: 40,
-      easing: "ease-out",
-      fill: "backwards",
-    });
-    if (resize) resize.onfinish = releasePanel;
-    else if (fade) fade.onfinish = releasePanel;
-    else releasePanel();
-
-    return () => {
-      resize?.cancel();
-      fade?.cancel();
-      releasePanel();
-    };
-  }, [picker, frameRef, pickerRef]);
 }

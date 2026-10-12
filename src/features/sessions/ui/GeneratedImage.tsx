@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useContext, useEffect, useState } from "react";
 import { TranscriptPlatformContext } from "./TranscriptPlatform";
@@ -86,13 +87,13 @@ export function GeneratedImage({ image, attachment }: { image: GeneratedImageMet
         <span className="truncate">{image.name}</span>
         <span>{formatFileSize(state.size)}</span>
       </div>
-      {open ? (
+      <PresenceBoundary>{open ? (
         <ImageLightbox
           src={state.url}
           alt={alt}
           onClose={() => setOpen(false)}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 }

@@ -1,3 +1,7 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
+import { motion } from "motion/react";
+import { motionGeometry, panelTransition, immediateTransition, outlineRippleStep } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
   useCallback,
@@ -29,11 +33,6 @@ const SCROLL_INSET_PX = 8;
 const POPOVER_WIDTH = 288;
 const MIN_PROMPTS = 2;
 const BAR_HEIGHT_PX = 2;
-const BAR_WIDTH_PX = 11;
-const BAR_WIDTH_LIFTED_PX = 24;
-const BAR_OPACITY_IDLE = 0.15;
-const BAR_OPACITY_LIT = 0.85;
-const RIPPLE_STEP_MS = 18;
 const BAR_GAP_PX = 10;
 const BAR_GAP_MIN_PX = 1;
 const BAR_STACK_MAX_PX = 330;
@@ -62,6 +61,7 @@ export function PromptOutline({
   revealBlock,
 }: Props) {
   const { t: uiT } = useTranslation();
+  const reduced = useMotionPreference();
   const prompts = useMemo(() => promptBlocks(blocks), [blocks]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [stackBudget, setStackBudget] = useState(BAR_STACK_MAX_PX);
@@ -260,7 +260,7 @@ export function PromptOutline({
       role="toolbar"
       aria-label={uiT("Prompts")}
       aria-orientation="vertical"
-      style={{ width: BAR_WIDTH_LIFTED_PX }}
+      style={{ width: motionGeometry.outlineBarLiftedWidth }}
       onMouseEnter={() => {
         pointerInside.current = true;
       }}
@@ -297,22 +297,21 @@ export function PromptOutline({
             style={{ height: BAR_HEIGHT_PX + stack.gap }}
             className="flex w-full shrink-0 items-center justify-end outline-none"
           >
-            <span
+            <motion.span
               aria-hidden="true"
-              style={{
-                height: BAR_HEIGHT_PX,
-                width:
-                  BAR_WIDTH_PX + (BAR_WIDTH_LIFTED_PX - BAR_WIDTH_PX) * lift,
-                opacity: lit ? BAR_OPACITY_LIT : BAR_OPACITY_IDLE,
-                // The wave reaches the outer bars a beat after the hovered one.
-                transitionDelay: `${Math.min(distance, RIPPLE_SPAN) * RIPPLE_STEP_MS}ms`,
+              initial={false}
+              animate={{
+                width: motionGeometry.outlineBarWidth + (motionGeometry.outlineBarLiftedWidth - motionGeometry.outlineBarWidth) * lift,
+                opacity: lit ? motionGeometry.outlineBarOpacityLit : motionGeometry.outlineBarOpacityIdle,
               }}
-              className="rounded-full bg-content transition-[width,opacity] duration-200 ease-out"
+              transition={reduced ? immediateTransition : { ...panelTransition, delay: Math.min(distance, RIPPLE_SPAN) * outlineRippleStep }}
+              style={{ height: BAR_HEIGHT_PX }}
+              className="rounded-full bg-content"
             />
           </button>
         );
       })}
-      {open && preview && hoverIndex >= 0 ? (
+      <PresenceBoundary propagate>{open && preview && hoverIndex >= 0 ? (
         <Popover
           anchor={hover?.el ?? null}
           side="left"
@@ -337,7 +336,7 @@ export function PromptOutline({
             </p>
           ) : null}
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 }

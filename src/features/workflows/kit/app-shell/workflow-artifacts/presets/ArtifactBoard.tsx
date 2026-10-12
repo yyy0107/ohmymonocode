@@ -1,3 +1,5 @@
+import { motion as motionElement } from "motion/react";
+import { workflowEntry } from "./../../../components/workflow-timeline/workflow-motion.js";
 /**
  * `board` 预置渲染器：按 `status` 分列的卡片墙，卡片按 `key` upsert。
  *
@@ -32,7 +34,7 @@ function columnLabel(column: BoardColumnModel, labels: PresetLabels): string {
 function BoardCard({ card }: { card: BoardCardModel }) {
   return (
     // key 是卡片 id（稳定），所以只有**新卡**播揭示动画；状态变化让卡换列，但不重播。
-    <div
+    <motionElement.div {...workflowEntry()}
       className={cn(
         "rounded-lg border border-card-border panel-card px-2 py-1.5",
         REVEAL_ANIMATION_CLASS,
@@ -58,7 +60,7 @@ function BoardCard({ card }: { card: BoardCardModel }) {
           ))}
         </dl>
       ) : null}
-    </div>
+    </motionElement.div>
   );
 }
 

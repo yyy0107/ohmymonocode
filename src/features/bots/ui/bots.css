@@ -123,7 +123,6 @@
   gap: 10px;
   padding: 24px;
   font-size: var(--text-ui-sm);
-  animation: assistant-loading-in 240ms ease-out 120ms both;
 }
 /* Sits above the oldest rendered row while earlier history remains. */
 .assistant-history-loading {
@@ -134,7 +133,6 @@
   padding: 8px 0 16px;
   font-size: var(--text-ui-sm);
   opacity: 0.65;
-  animation: assistant-loading-in 240ms ease-out both;
 }
 .assistant-loading-spinner {
   animation: assistant-loading-spin 0.9s linear infinite;
@@ -142,12 +140,6 @@
 @keyframes assistant-loading-spin {
   to {
     transform: rotate(360deg);
-  }
-}
-@keyframes assistant-loading-in {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 4px, 0);
   }
 }
 .assistant-workspace .assistant-compose-dock {
@@ -262,8 +254,7 @@
   background: var(--color-surface);
   cursor: pointer;
   transition:
-    background 140ms ease,
-    opacity 140ms ease;
+    background 140ms ease, opacity 140ms ease;
 }
 :is(.assistant-chat, .assistant-settings)
   :where(
@@ -919,22 +910,8 @@
 .assistant-file-card[data-maximized] {
   left: var(--assistant-file-card-gap);
 }
-.assistant-file-card[data-fold-state="opening"] {
-  animation: assistant-file-card 180ms cubic-bezier(0.2, 0.65, 0.3, 1) both;
-}
 .assistant-file-card[data-fold-state="closing"] {
-  animation: assistant-file-card 140ms ease-in reverse both;
   pointer-events: none;
-}
-@keyframes assistant-file-card {
-  from {
-    opacity: 0;
-    transform: translate3d(12px, 0, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
 }
 .assistant-file-card-handle {
   position: absolute;
@@ -958,22 +935,8 @@
   color: var(--color-content);
   background: color-mix(in srgb, var(--color-content) 4%, var(--color-background-base));
 }
-.assistant-file-card-handle[data-fold-state="opening"] {
-  animation: assistant-file-card-handle 140ms ease-out both;
-}
 .assistant-file-card-handle[data-fold-state="closing"] {
-  animation: assistant-file-card-handle 120ms ease-in reverse both;
   pointer-events: none;
-}
-@keyframes assistant-file-card-handle {
-  from {
-    opacity: 0;
-    transform: translate(8px, -50%);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(-50%);
-  }
 }
 
 /* Settings page */
@@ -986,22 +949,8 @@
   background: var(--color-background-base);
   outline: none;
 }
-.assistant-settings-page[data-fold-state="opening"] {
-  animation: assistant-settings-page 280ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
 .assistant-settings-page[data-fold-state="closing"] {
-  animation: assistant-settings-page 280ms ease reverse both;
   pointer-events: none;
-}
-@keyframes assistant-settings-page {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
 }
 .assistant-settings-header {
   display: flex;
@@ -1134,9 +1083,6 @@
   background: transparent;
   opacity: 0.8;
 }
-.assistant-settings-disclosure > svg {
-  transition: transform 340ms ease;
-}
 .assistant-settings-disclosure[aria-expanded="true"] > svg {
   transform: rotate(180deg);
 }
@@ -1254,8 +1200,7 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   transition:
-    background 140ms ease,
-    border-color 140ms ease;
+    background 140ms ease, border-color 140ms ease;
 }
 .assistant-chip > input:checked + span {
   border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);

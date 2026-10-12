@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useMemo, useState } from "react";
 import { CreateWorktreeDialog } from "./CreateWorktreeDialog";
@@ -265,7 +266,7 @@ export function WorktreesPage({
           {prettyCwd(data.defaultRoot)}.
         </p>
       )}
-      {creating && (
+      <PresenceBoundary>{creating && (
         <CreateWorktreeDialog
           cwd={project}
           baseCwd={project}
@@ -276,8 +277,8 @@ export function WorktreesPage({
           }}
           onCancel={() => setCreating(false)}
         />
-      )}
-      {deleting && (
+      )}</PresenceBoundary>
+      <PresenceBoundary>{deleting && (
         <DeleteWorktreeDialog
           cwd={project}
           tree={deleting}
@@ -328,7 +329,7 @@ export function WorktreesPage({
             refresh();
           }}
         />
-      )}
+      )}</PresenceBoundary>
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
+import { DisclosureChevron } from "../../../shared/ui/DisclosureChevron";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { withStatusToast } from "../../../shared/ui/StatusToast";
 import { invoke } from "@tauri-apps/api/core";
@@ -22,10 +24,8 @@ import {
   Globe,
   Plus,
   RefreshCw,
-  ChevronDown,
   ListFilter,
   Check,
-  ChevronRight,
 } from "../../../shared/ui/icons";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import { mcpServerKey } from "../model/mcpInspect";
@@ -100,8 +100,8 @@ function McpPicker<T extends string>({
         <span className="min-w-0 flex-1 truncate">
           {selected?.label ?? value}
         </span>
-        <ChevronDown
-          className={`size-3.5 shrink-0 text-content/50 transition-transform ${open ? "rotate-180" : ""}`}
+        <DisclosureChevron expanded={open} direction="down"
+          className="size-3.5 shrink-0 text-content/50"
         />
       </button>
       <Popover
@@ -609,8 +609,8 @@ function McpConnections({
                     >
                       <span className="truncate">{server.name}</span>
                       {inspectable ? (
-                        <ChevronRight
-                          className={`size-3.5 shrink-0 text-content/45 transition-transform ${open ? "rotate-90" : ""}`}
+                        <DisclosureChevron expanded={open}
+                          className="size-3.5 shrink-0 text-content/45"
                         />
                       ) : null}
                     </button>
@@ -719,14 +719,14 @@ function McpConnections({
           "Claude Code and Pi status comes from their CLIs. Other providers show configured entries. Pi sign-in is available when authentication is required.",
         )}
       </p>
-      {addOpen ? (
+      <PresenceBoundary>{addOpen ? (
         <AddServerModal
           cwd={cwd}
           initialProvider={filter === "all" ? "claude" : filter}
           onClose={() => setAddOpen(false)}
           onAdded={refresh}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 }

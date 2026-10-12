@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { ChevronDown, ChevronRight, X } from "../../../shared/ui/icons";
 import {
@@ -277,7 +278,7 @@ export function CwdPicker({
           />
         ) : null}
       </button>
-      {open ? (
+      <PresenceBoundary propagate>{open ? (
         <Popover
           anchor={root}
           side={placement === "below" ? "bottom" : "top"}
@@ -405,8 +406,8 @@ export function CwdPicker({
             </div>
           ) : null}
         </Popover>
-      ) : null}
-      {open && moreOpen ? (
+      ) : null}</PresenceBoundary>
+      <PresenceBoundary propagate>{open && moreOpen ? (
         <Popover
           anchor={moreRef}
           side="right"
@@ -440,7 +441,7 @@ export function CwdPicker({
             </button>
           ))}
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </div>
   );
 }

@@ -1,4 +1,6 @@
-import type { CSSProperties, ReactNode } from "react";
+import { motion as motionElement } from "motion/react";
+import { workflowEntry } from "./workflow-motion.js";
+import type { ReactNode } from "react";
 import { ArrowUpRight as ArrowUpRightIcon } from "../../../../../shared/ui/icons";
 import type { WorkflowRunArtifactKind } from "../../_shims/protocol.js";
 import {
@@ -78,10 +80,6 @@ export function WorkflowArtifactPill({
   );
   const md = size === "md";
   // 有延迟的入场要 backwards 填充：等待期间保持起始帧（与子代理药丸同一条理由）。
-  const style: CSSProperties | undefined =
-    enterDelayMs === undefined || enterDelayMs <= 0
-      ? undefined
-      : { animationDelay: `${enterDelayMs}ms`, animationFillMode: "backwards" };
 
   // 通知摘要复用 Read 链接语法，避免工具行中出现厚重的产物药丸。
   if (variant === "link")
@@ -105,14 +103,14 @@ export function WorkflowArtifactPill({
       </button>
     );
   return (
-    <button
+    <motionElement.button {...workflowEntry(enterDelayMs)}
       aria-label={
         openable
           ? `${intl.formatMessage({ id: "chat.toolCall.workflow.run.artifacts.open" })}: ${fullTitle}`
           : undefined
       }
       className={cn(
-        "wf-pill wf-arrive flex min-w-0 max-w-full items-center bg-surface text-left",
+        "wf-pill  flex min-w-0 max-w-full items-center bg-surface text-left",
         md
           ? "h-8 gap-2 rounded-[9px] pl-2 pr-2.5 text-ui-sm"
           : "h-6 gap-1.5 rounded-md pl-1.5 pr-2 text-ui-xs",
@@ -130,7 +128,6 @@ export function WorkflowArtifactPill({
       data-testid={testId}
       disabled={!openable}
       onClick={openable ? () => onOpen(artifact.id) : undefined}
-      style={style}
       title={title ?? `${kindLabel} · ${fullTitle}`}
       type="button"
     >
@@ -152,8 +149,8 @@ export function WorkflowArtifactPill({
           data-testid="workflow-pill-tail"
         >
           {showVersion ? (
-            // 按版本重挂：同 id 再发布时尾槽弹入一次（wf-mark 的进场），悬停时让位给 ↗。
-            <span
+            // 按版本重挂：同 id 再发布时尾槽弹入一次（的进场），悬停时让位给 ↗。
+            <motionElement.span {...workflowEntry(enterDelayMs)}
               className="wf-mark font-mono text-ui-xs leading-none tabular-nums text-foreground-subtlest"
               data-testid="workflow-run-artifact-version"
               key={version}
@@ -163,7 +160,7 @@ export function WorkflowArtifactPill({
                 { id: "chat.toolCall.workflow.run.artifacts.versionTail" },
                 { version: String(version) },
               )}
-            </span>
+            </motionElement.span>
           ) : null}
           {openable ? (
             <span
@@ -176,6 +173,6 @@ export function WorkflowArtifactPill({
           ) : null}
         </span>
       ) : null}
-    </button>
+    </motionElement.button>
   );
 }

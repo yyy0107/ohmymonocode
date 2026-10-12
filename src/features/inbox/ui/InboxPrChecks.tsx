@@ -1,3 +1,6 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
+import { DetailsChevron } from "../../../shared/ui/DetailsChevron";
+import { DisclosureChevron } from "../../../shared/ui/DisclosureChevron";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { CheckRepairForm, type CheckRepair } from "./CheckRepairForm";
 import {
@@ -13,7 +16,6 @@ import { useEffect, useId, useRef, useState } from "react";
 import {
   AlertCircle,
   CheckCircle,
-  ChevronRight,
   CircleDashed,
   CircleHelp,
   CircleX,
@@ -382,8 +384,8 @@ function PrCheckRow({
             onClick={() => setExpanded(!expanded)}
             className="grid size-7 shrink-0 place-items-center rounded-lg text-content/40 hover:bg-content/3 hover:text-content focus-visible:outline focus-visible:outline-1 focus-visible:outline-content/50"
           >
-            <ChevronRight
-              className={`size-3 transition-transform motion-reduce:transition-none ${expanded ? "rotate-90" : ""}`}
+            <DisclosureChevron expanded={expanded}
+              className="size-3"
             />
           </button>
         ) : (
@@ -447,7 +449,7 @@ function PrCheckRow({
               {details.steps.length ? (
                 <details className="group/steps">
                   <summary className="flex cursor-pointer list-none items-center gap-1 text-[11px] text-content/50 hover:text-content [&::-webkit-details-marker]:hidden">
-                    <ChevronRight className="size-3 transition-transform group-open/steps:rotate-90 motion-reduce:transition-none" />
+                    <DetailsChevron className="size-3" />
                     {uiT("View run steps")}
                     <span className="ml-auto pl-2 text-right text-[10px] text-content/35 @max-[420px]/checks:hidden">
                       {describeCheckCounts(countChecks(details.steps))}
@@ -703,7 +705,7 @@ export function InboxPrChecks({
           {uiT("Saved results may be out of date.")}
         </p>
       ) : null}
-      {selection && selectionValid && repair ? (
+      <PresenceBoundary propagate>{selection && selectionValid && repair ? (
         <CheckRepairForm
           key={`${selection.scope}:${JSON.stringify(selection.checks)}`}
           anchor={selection.anchor}
@@ -715,7 +717,7 @@ export function InboxPrChecks({
           blocked={refreshing || stale || Boolean(error)}
           onClose={() => setSelection(null)}
         />
-      ) : null}
+      ) : null}</PresenceBoundary>
       {rows.length > 0 ? (
         <div className="flex items-center justify-between gap-3 py-2">
           <div
@@ -837,8 +839,8 @@ export function InboxPrChecks({
               onClick={() => setShowOthers(!showOthers)}
               className="mt-3 flex items-center gap-2 border-t border-stroke px-2 pt-4 text-left text-[11px] text-content/50 hover:text-content"
             >
-              <ChevronRight
-                className={`size-3 ${showOthers ? "rotate-90" : ""}`}
+              <DisclosureChevron expanded={showOthers}
+                className="size-3"
               />
               {describeCheckCounts({
                 ...countChecks([]),

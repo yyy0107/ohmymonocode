@@ -95,7 +95,7 @@ it.each([
   [true, true],
   [true, false],
 ])(
-  "paces the first Chinese batch (mobile=%s, streaming=%s), including already completed replies",
+  "shows the first Chinese batch immediately (mobile=%s, streaming=%s), including already completed replies",
   async (mobile, streaming) => {
     const update = await mount(mobile);
     update([reply(streaming)]);
@@ -103,20 +103,6 @@ it.each([
       vi.advanceTimersByTime(250);
     });
     await flush();
-    expect(shown()).toBe("");
-    expect(node.querySelector(".assistant-message-meta")).toBeNull();
-    act(() => vi.advanceTimersByTime(100));
-    expect(shown().length).toBeGreaterThan(0);
-    expect(shown().length).toBeLessThan(text.length);
-    expect(text.startsWith(shown())).toBe(true);
-    expect(node.querySelector(".assistant-message-meta")).toBeNull();
-    expect(node.querySelector(".word-fading")).toBeNull();
-    for (let i = 0; i < 15; i++) {
-      await act(async () => {
-        vi.advanceTimersByTime(200);
-      });
-      await flush();
-    }
     expect(shown()).toBe(text);
     expect(!!node.querySelector(".assistant-message-meta")).toBe(!mobile && !streaming);
     if (streaming) {
@@ -128,7 +114,7 @@ it.each([
   },
 );
 it.each([false, true])(
-  "shows existing history immediately and paces only later additions (mobile=%s)",
+  "shows existing history and later additions immediately (mobile=%s)",
   async (mobile) => {
     const update = await mount(mobile, [reply(true)]);
     expect(shown()).toBe(text);
@@ -138,15 +124,11 @@ it.each([false, true])(
       vi.advanceTimersByTime(250);
     });
     await flush();
-    expect(shown()).toBe(text);
-    act(() => vi.advanceTimersByTime(100));
-    expect(shown().startsWith(text)).toBe(true);
-    expect(shown().length).toBeGreaterThan(text.length);
-    expect(shown().length).toBeLessThan(text.length + extra.length);
+    expect(shown()).toBe(text + extra);
   },
 );
 it.each([false, true])(
-  "finishes a long reply before revealing a later short bubble (mobile=%s)",
+  "shows a later short bubble alongside a long received reply (mobile=%s)",
   async (mobile) => {
     const update = await mount(mobile);
     const long = text.repeat(8);
@@ -154,9 +136,7 @@ it.each([false, true])(
     await act(async () => vi.advanceTimersByTime(250));
     await flush();
     act(() => vi.advanceTimersByTime(100));
-    const firstPartial = shown();
-    expect(firstPartial.length).toBeGreaterThan(0);
-    expect(firstPartial.length).toBeLessThan(long.length);
+    expect(shown()).toBe(long);
     update([
       { ...reply(false), text: long },
       {
@@ -174,17 +154,6 @@ it.each([false, true])(
         (bubble) => bubble.textContent,
       );
     expect(bubbles()).toHaveLength(2);
-    expect(bubbles()[1]).toBe("");
-    let secondStarted = false;
-    for (let step = 0; step < 60; step++) {
-      await act(async () => vi.advanceTimersByTime(100));
-      const [first, second] = bubbles();
-      if (second) {
-        secondStarted = true;
-        expect(first).toBe(long);
-      }
-    }
-    expect(secondStarted).toBe(true);
     expect(bubbles()).toEqual([long, "完成"]);
   },
 );

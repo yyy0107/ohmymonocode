@@ -9,6 +9,7 @@ vi.mock("motion/react", async (importOriginal) => {
   return { ...actual, ...motionTestDriver(actual, true) };
 });
 import { duration } from "../motion/tokens";
+import { AnimatePresence } from "motion/react";
 import { applyReducedMotion } from "../lib/reducedMotion";
 import { Popover } from "./Popover";
 import { NativePopupHost } from "./NativePopupHost";
@@ -192,6 +193,63 @@ describe.each([false, true])(
       renderAction(false);
       act(() => button.click());
       expect(select).not.toHaveBeenCalled();
+    });
+
+    it("retains a conditionally mounted default popover and disables its actions during exit", () => {
+      const select = vi.fn();
+      const renderConditional = (open: boolean) => act(() => root.render(
+        createElement(NativePopupHost.Provider, { value: native ? host : null },
+          createElement(AnimatePresence, { propagate: true }, open
+            ? createElement(Popover, { key: "menu", anchor, "data-test-popover": "", onDismiss: dismiss },
+                createElement("button", { "data-popover-action": "", onClick: select }, "Select"),
+                createElement(NestedSurface))
+            : null)),
+      ));
+      renderConditional(true);
+      const surface = document.querySelector<HTMLElement>("[data-test-popover]")!;
+      const button = surface.querySelector<HTMLButtonElement>("button")!;
+      renderConditional(false);
+      expect(document.querySelector("[data-test-popover]")).toBe(surface);
+      expect(surface.inert).toBe(true);
+      expect(surface.getAttribute("aria-hidden")).toBe("true");
+      expect(document.querySelector("[data-nested-surface]")).toBeNull();
+      act(() => button.click());
+      expect(select).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(duration.pop * 1000));
+      expect(document.querySelector("[data-test-popover]")).toBeNull();
+    });
+
+    it("removes an externally controlled popover immediately when reduced motion is enabled", () => {
+      const renderConditional = (open: boolean) => act(() => root.render(
+        createElement(NativePopupHost.Provider, { value: native ? host : null },
+          createElement(AnimatePresence, { propagate: true }, open
+            ? createElement(Popover, { key: "menu", anchor, "data-test-popover": "" }, "Menu")
+            : null)),
+      ));
+      try {
+        act(() => applyReducedMotion("on"));
+        renderConditional(true);
+        renderConditional(false);
+        expect(document.querySelector("[data-test-popover]")).toBeNull();
+      } finally {
+        act(() => applyReducedMotion("system"));
+      }
+    });
+
+    it("finishes a conditional exit when its parent surface is hidden and does not revive it", () => {
+      const renderConditional = (open: boolean, visible: boolean) => act(() => root.render(
+        createElement(NativePopupHost.Provider, { value: native ? host : null },
+          createElement(SurfaceVisibilityContext.Provider, { value: visible },
+            createElement(AnimatePresence, { propagate: true }, open
+              ? createElement(Popover, { key: "menu", anchor, "data-test-popover": "" }, "Menu")
+              : null))),
+      ));
+      renderConditional(true, true);
+      expect(document.querySelector("[data-test-popover]")).not.toBeNull();
+      renderConditional(false, false);
+      expect(document.querySelector("[data-test-popover]")).toBeNull();
+      renderConditional(false, true);
+      expect(document.querySelector("[data-test-popover]")).toBeNull();
     });
   },
 );

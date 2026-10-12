@@ -105,7 +105,7 @@ async function show(visible?: boolean) {
   await settle();
 }
 
-it.each(["hidden", "closed"])("shows delayed Host history immediately after a %s desktop tab returns, then paces new output", async (mode) => {
+it.each(["hidden", "closed"])("shows delayed Host history immediately after a %s desktop tab returns, then shows new output immediately", async (mode) => {
   await show(true);
   expect(container.querySelector(".agent-markdown")?.textContent).toBe("已显示。");
   await show(mode === "hidden" ? false : undefined);
@@ -134,8 +134,5 @@ it.each(["hidden", "closed"])("shows delayed Host history immediately after a %s
   await act(async () => vi.advanceTimersByTime(750));
   await settle();
   const replies = () => [...container.querySelectorAll(".agent-markdown")].map(node => node.textContent);
-  expect(replies()).toEqual(["已显示。" + background, "同步带回的另一条回复。", ""]);
-  act(() => vi.advanceTimersByTime(100));
-  expect(replies()[2]!.length).toBeGreaterThan(0);
-  expect(replies()[2]!.length).toBeLessThan(fresh.length);
+  expect(replies()).toEqual(["已显示。" + background, "同步带回的另一条回复。", fresh]);
 });

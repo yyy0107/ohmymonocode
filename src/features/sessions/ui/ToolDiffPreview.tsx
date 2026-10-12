@@ -1,3 +1,4 @@
+import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { ToolPreview } from "../model/session";
@@ -128,7 +129,7 @@ export function ToolDiffPreview({
       >
         {children}
       </button>
-      {open ? (
+      <PresenceBoundary propagate>{open ? (
         <Popover
           ref={surface}
           anchor={trigger}
@@ -187,7 +188,7 @@ export function ToolDiffPreview({
             }
           />
         </Popover>
-      ) : null}
+      ) : null}</PresenceBoundary>
     </>
   );
 }

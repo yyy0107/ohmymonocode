@@ -1,12 +1,12 @@
+import { motion } from "motion/react";
+import { duration, panelTransition } from "../../../shared/motion/tokens";
 import { useMemo, useRef, type CSSProperties } from "react";
 import { useCelebrationBox, useTurnCelebration } from "./turnCelebration";
 
-// The hub must make it beyond the bubble's top edge before cleanup.
-const CELEBRATE_MS = 3100;
-const FIRST_EDGE_MS = 280;
-const EDGE_GAP_MS = 80;
-const EDGE_DRAW_MS = 320;
-const CHILD_DRAW_MS = 220;
+const FIRST_EDGE_MS = duration.msg * 1000;
+const EDGE_GAP_MS = duration.msg * 1000;
+const EDGE_DRAW_MS = duration.panel * 1000;
+const CHILD_DRAW_MS = duration.msg * 1000;
 const INSET = 8;
 
 type Point = { x: number; y: number };
@@ -64,7 +64,7 @@ export function makeConstellation(
         x: clamp(parent.x + direction * (22 + random() * 18), INSET, maxX),
         y: clamp(parent.y + (random() - 0.5) * 12, top, maxY),
         from: { x: parent.x, y: parent.y },
-        delay: parent.delay + parent.draw + 60,
+        delay: parent.delay + parent.draw,
         draw: CHILD_DRAW_MS,
         child: true,
       };
@@ -86,7 +86,7 @@ export function OrchestratorConstellation({
   startedAt?: number;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const active = useTurnCelebration(blockId, startedAt, CELEBRATE_MS);
+  const { active, opacity, y } = useTurnCelebration(blockId, startedAt);
   const box = useCelebrationBox(ref, active);
   const constellation = useMemo(
     () => (box ? makeConstellation(box.width, box.height) : null),
@@ -95,9 +95,9 @@ export function OrchestratorConstellation({
 
   if (!active) return null;
   return (
-    <span aria-hidden ref={ref} className="orchestrator-constellation">
+    <motion.span aria-hidden ref={ref} className="orchestrator-constellation" style={{ opacity, y }}>
       {box && constellation ? (
-        <span className="orchestrator-network">
+        <motion.span className="orchestrator-network" initial={false} animate={{ y: [0, -box.height] }} transition={panelTransition}>
           <svg
             className="orchestrator-edges"
             width={box.width}
@@ -111,8 +111,6 @@ export function OrchestratorConstellation({
               );
               const style = {
                 "--length": length,
-                "--delay": `${node.delay}ms`,
-                "--draw": `${node.draw}ms`,
               } as CSSProperties;
               return (
                 <g key={index}>
@@ -154,13 +152,12 @@ export function OrchestratorConstellation({
                 {
                   left: node.x,
                   top: node.y,
-                  "--delay": `${node.delay + node.draw - 40}ms`,
                 } as CSSProperties
               }
             />
           ))}
-        </span>
+        </motion.span>
       ) : null}
-    </span>
+    </motion.span>
   );
 }

@@ -1,3 +1,4 @@
+import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver";
 import { configureSharedHost } from "../../connections/model/remoteProjects";
 // @vitest-environment happy-dom
 import { act, createElement, type ComponentProps } from "react";
@@ -106,6 +107,7 @@ async function render(
       }),
     ),
   );
+  await act(async () => container.querySelectorAll('[data-settings-page][aria-hidden="true"]').forEach(completeMotionAnimation));
 }
 
 /** Opens an account row's ⋯ menu and returns the named item. */
@@ -615,6 +617,7 @@ describe("settings pages", () => {
         .click(),
     );
     expect(providerAccounts("claude")[0]?.label).toBe("Primary");
+    await act(async () => container.querySelectorAll('[data-fold-state="closing"]').forEach(completeMotionAnimation));
 
     await act(async () =>
       container
@@ -970,6 +973,7 @@ describe("settings pages", () => {
     ).find((button) => button.textContent === "Appearance")!;
 
     await act(async () => appearance.click());
+    await act(async () => container.querySelectorAll('[data-settings-page][aria-hidden="true"]').forEach(completeMotionAnimation));
 
     expect(appearance.getAttribute("aria-current")).toBe("true");
     expect(view.querySelector('[data-setting-id="theme"]')).not.toBeNull();
@@ -1536,7 +1540,7 @@ it.each([
     expect(input.value).toBe("Unsaved name");
     await press();
     await act(async () =>
-      fold.dispatchEvent(new Event("animationend", { bubbles: true })),
+      completeMotionAnimation(fold),
     );
     expect(container.querySelector(selector)).toBeNull();
     await press();
@@ -1558,9 +1562,7 @@ it.each([
         .click(),
     );
     await act(async () =>
-      reopened
-        .closest(".zen-fold-item")!
-        .dispatchEvent(new Event("animationend", { bubbles: true })),
+      completeMotionAnimation(reopened.closest(".zen-fold-item")),
     );
     await press();
     expect(container.querySelector<HTMLInputElement>(selector)!.value).toBe(
@@ -1608,6 +1610,12 @@ it("imports the current Codex login into a named profile and animates the editor
   const closing = container.querySelector('[data-fold-state="closing"]');
   expect(closing?.getAttribute("aria-hidden")).toBe("true");
   expect(closing?.hasAttribute("inert")).toBe(true);
-  await act(async () => closing?.dispatchEvent(new Event("animationend", { bubbles: true })));
+  await act(async () => completeMotionAnimation(closing));
   expect(container.querySelector('[aria-label="New Codex account"]')).toBeNull();
+});
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
 });

@@ -1,6 +1,7 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
-import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { motion, animate, useMotionValue } from "motion/react";
+import { motionDistance, msgTransition, immediateTransition } from "../../../shared/motion/tokens";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 
 /** Only messages received while this surface is visible get an entrance. */
@@ -30,32 +31,28 @@ export function useMessageArrivals(
   return (id: string) => !seen.current!.has(id);
 }
 
-/** A whole message glides in once; streamed growth uses shared height motion. */
+/** Messages enter once; streamed text only changes the containing position. */
 export function TranscriptContentMotion({
-  arrive = false, resize = true, as: Container = "div", className, children,
+  arrive = false, resize = true, as = "div", className, children,
 }: { arrive?: boolean; resize?: boolean; as?: "div" | "li"; className?: string; children: ReactNode }) {
   const visible = useSurfaceVisibility();
-  const element = useRef<HTMLElement | null>(null);
-  const initialArrival = useRef(arrive);
-  const [expanded, setExpanded] = useState(!arrive);
-  useLayoutEffect(() => { setExpanded(true); }, []);
+  const reduced = useMotionPreference();
+  const initialArrival = useRef(arrive && visible && !reduced);
+  const opacity = useMotionValue(initialArrival.current ? 0 : 1);
+  const y = useMotionValue(initialArrival.current ? motionDistance.msg : 0);
   useLayoutEffect(() => {
-    const node = element.current;
-    if (!initialArrival.current || !visible || !node?.animate || reducedMotionQuery().matches) return;
-    const animation = node.animate(
-      [{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }],
-      { duration: 280, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
-    );
-    void animation.finished.catch(() => undefined);
-    return () => animation.cancel();
-    // Updates to an existing message must not restart its entrance.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  return (
-    <Container ref={(node: HTMLElement | null) => { element.current = node; }} className={className} data-transcript-content-motion>
-      <AnimatedCollapse expanded={expanded} motion="height" animateContentResize={visible && resize} durationMs={280}>
-        {children}
-      </AnimatedCollapse>
-    </Container>
-  );
+    if (!initialArrival.current) return;
+    if (reduced || !visible) { opacity.jump(1); y.jump(0); return; }
+    const fade = animate(opacity, 1, msgTransition);
+    const rise = animate(y, 0, msgTransition);
+    return () => { fade.stop(); rise.stop(); };
+  }, [opacity, y, reduced, visible]);
+  const Container = as === "li" ? motion.li : motion.div;
+  return <Container
+    layout={visible && resize ? "position" : false}
+    initial={false}
+    style={{ opacity, y }}
+    transition={reduced ? immediateTransition : msgTransition}
+    className={className} data-transcript-content-motion
+  >{children}</Container>;
 }

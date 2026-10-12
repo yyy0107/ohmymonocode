@@ -1,3 +1,5 @@
+import { motion as motionElement } from "motion/react";
+import { workflowEntry } from "./workflow-motion.js";
 import type { CSSProperties, ReactNode } from "react";
 import { ArrowUpRight as ArrowUpRightIcon, CircleCheck as CircleCheckIcon, CircleHelp as CircleHelpIcon, CircleX as CircleXIcon, LoaderCircle as LoaderCircleIcon, Terminal as TerminalIcon } from "../../../../../shared/ui/icons";
 import { cn } from "../lib/utils.js";
@@ -58,10 +60,10 @@ export function PillStatusMark({ status }: { status: StepRunStatus | undefined }
   if (status === undefined || status === "pending") return null;
   const label = intl.formatMessage({ id: `chat.toolCall.workflow.graph.status.${status}` });
   return (
-    <span
+    <motionElement.span {...workflowEntry()}
       aria-label={label}
       className={cn(
-        "wf-mark flex size-3.5 shrink-0 items-center justify-center",
+        "flex size-3.5 shrink-0 items-center justify-center",
         // 运行圆环使用中性色，避免正常加载被读成警告。
         status === "running" && "text-foreground-subtle",
         status === "done" && "text-foreground-subtle",
@@ -82,7 +84,7 @@ export function PillStatusMark({ status }: { status: StepRunStatus | undefined }
       ) : (
         <CircleXIcon aria-hidden className="size-3.5" />
       )}
-    </span>
+    </motionElement.span>
   );
 }
 
@@ -133,14 +135,11 @@ export function WorkflowAgentPill({
   // 不用 both：forwards 会把 transform 留在元素上。
   const style = {
     ...(tinted ? { "--wf-avatar": agentColor(avatarIndex, name) } : {}),
-    ...(enterDelayMs === undefined || enterDelayMs <= 0
-      ? {}
-      : { animationDelay: `${enterDelayMs}ms`, animationFillMode: "backwards" as const }),
   } as CSSProperties;
   const settled = status !== undefined && status !== "pending";
   const hasMark = settled;
   const hasTail = hasMark || open !== undefined;
-  const Root = open === undefined ? "span" : "button";
+  const Root = open === undefined ? motionElement.span : motionElement.button;
   const body = (
     <>
       <LaneGlyph
@@ -185,10 +184,10 @@ export function WorkflowAgentPill({
     </>
   );
   return (
-    <Root
+    <Root {...workflowEntry(enterDelayMs)}
       aria-label={open?.label}
       className={cn(
-        "wf-pill wf-agent-pill wf-arrive flex rounded-full min-w-0 items-center",
+        "wf-pill wf-agent-pill  flex rounded-full min-w-0 items-center",
         size === "row"
           ? "h-6 gap-1.5 pl-1 pr-1.5 text-ui-sm"
           : "h-8 gap-2 bg-surface pl-2 pr-2.5 text-ui-sm",

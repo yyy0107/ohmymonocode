@@ -3,6 +3,7 @@ import { act, createElement, Profiler } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { startMotionClock, stopMotionClock, finishMotion } from "../../../../tests/helpers/sharedMotionClock";
 import { SkillsPage } from "./SkillsPage";
 import { SettingsView } from "../../settings/ui/SettingsView";
 import type { DiscoveredSkill } from "../../../platform/tauri/fs";
@@ -67,17 +68,13 @@ async function click(label: string) {
   return target;
 }
 
-function finishPreviewClose() {
+async function finishPreviewClose() {
   const preview = container.querySelector<HTMLElement>('[aria-label="Skill preview"]')!;
   expect(preview.getAttribute("aria-hidden")).toBe("true");
   expect(preview.inert).toBe(true);
   const layout = preview.closest(".skills-page-layout")!;
   expect(layout.getAttribute("data-fold-state")).toBe("closing");
-  act(() => {
-    const event = new Event("transitionend", { bubbles: true });
-    Object.defineProperty(event, "propertyName", { value: "grid-template-columns" });
-    layout.dispatchEvent(event);
-  });
+  await act(async () => { await finishMotion(); });
   expect(container.querySelector('[aria-label="Skill preview"]')).toBeNull();
 }
 
@@ -100,6 +97,7 @@ function deferred<T>() {
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   localStorage.clear();
+  startMotionClock();
   vi.mocked(invoke).mockReset();
   vi.mocked(invoke).mockImplementation(async (command) => {
     if (command === "list_skills") return skills;
@@ -115,6 +113,7 @@ afterEach(() => {
   act(() => root.unmount());
   container.remove();
   localStorage.clear();
+  stopMotionClock();
   vi.unstubAllGlobals();
 });
 
@@ -126,6 +125,7 @@ describe("Settings skill preview", () => {
       try {
         await render();
         const opener = await click(label);
+        await act(async () => { await finishMotion(); });
         const panel = container.querySelector<HTMLElement>(
           '[aria-label="Skill preview"]',
         )!;
@@ -146,7 +146,7 @@ describe("Settings skill preview", () => {
           panel,
         );
         await click(label);
-        finishPreviewClose();
+        await finishPreviewClose();
       } finally {
         vi.useRealTimers();
       }
@@ -155,8 +155,8 @@ describe("Settings skill preview", () => {
 
   it("closes the preview immediately when reduced motion is requested", async () => {
     vi.spyOn(window, "matchMedia").mockReturnValue({
-      matches: true,
-    } as MediaQueryList);
+      matches: true, addEventListener() {}, removeEventListener() {},
+    } as unknown as MediaQueryList);
     try {
       await render();
       await click("Project guide");
@@ -312,7 +312,7 @@ describe("Settings skill preview", () => {
       const closingForm = container.querySelector("form")!.closest<HTMLElement>(".zen-fold-item")!;
       expect(closingForm.inert).toBe(true);
       expect(closingForm.getAttribute("aria-hidden")).toBe("true");
-      act(() => closingForm.dispatchEvent(new Event("animationend", { bubbles: true })));
+      await act(async () => { await finishMotion(); });
       expect(container.querySelector("form")).toBeNull();
       expect(container.querySelector('[aria-label="Skill preview"]')).toBe(
         previewPanel,
@@ -321,7 +321,7 @@ describe("Settings skill preview", () => {
       expect(closeSettings).not.toHaveBeenCalled();
       if (preview) {
         escape();
-        finishPreviewClose();
+        await finishPreviewClose();
         expect(document.activeElement === button("Project guide")).toBe(true);
         expect(closeSettings).not.toHaveBeenCalled();
       }
@@ -409,7 +409,7 @@ describe("Settings skill preview", () => {
           }),
         ),
       );
-      finishPreviewClose();
+      await finishPreviewClose();
       expect(closeSettings).not.toHaveBeenCalled();
       expect(container.querySelector('[aria-label="Settings"]')).not.toBeNull();
       act(() =>
@@ -466,6 +466,7 @@ describe("Settings skill preview", () => {
         filter.dispatchEvent(new Event("input", { bubbles: true }));
       });
       const opener = await click("Project guide");
+      await act(async () => { await finishMotion(); });
       expect(document.activeElement).toBe(button("Close skill preview"));
       if (action === "Close skill preview") await click("Close skill preview");
       else
@@ -478,7 +479,7 @@ describe("Settings skill preview", () => {
             }),
           ),
         );
-      finishPreviewClose();
+      await finishPreviewClose();
       expect(document.activeElement).toBe(opener);
       expect(filter.value).toBe("project");
       expect(container.querySelectorAll('[role="switch"]')).toHaveLength(1);
