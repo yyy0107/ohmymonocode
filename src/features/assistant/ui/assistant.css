@@ -72,14 +72,15 @@
   align-self: start;
   gap: 4px;
 }
-/* Long histories: rows outside the viewport skip layout and paint. The chat
-   keeps the reader's row in place itself, so engines behave alike. */
+/* Keep message bubbles and their late-mounted metadata at their real height.
+   Paint containment on the whole row can clip the time and copy control when
+   the footer appears after text reveal. Cards can still skip offscreen paint. */
 .assistant-chat[data-layout="desktop"] .assistant-messages {
   overflow-anchor: none;
 }
 .assistant-chat[data-layout="desktop"]
   .assistant-messages
-  > :is(.assistant-message-row, .assistant-card, .assistant-input) {
+  > :is(.assistant-card, .assistant-input) {
   content-visibility: auto;
   contain-intrinsic-size: auto 96px;
 }
@@ -597,6 +598,11 @@
 .assistant-message-row-status {
   align-self: center;
   max-width: 100%;
+}
+.assistant-chat[data-layout="desktop"] .assistant-message-row-status {
+  /* Status text uses the available line, not a shrink-to-fit percentage box. */
+  width: 100%;
+  text-align: center;
 }
 /* A percentage cap inside a fit-content row is narrower than the text itself. */
 .assistant-message-row > .assistant-message-status {

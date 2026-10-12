@@ -283,9 +283,14 @@
   padding: 14px 24px 24px;
 }
 .assistant-chat.desktop-bots-workspace .assistant-compose {
+  align-items: center;
   border-radius: 24px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   box-shadow: none;
+}
+.assistant-chat.desktop-bots-workspace .assistant-compose textarea {
+  min-height: 28px;
+  line-height: 1.4;
 }
 .assistant-chat.desktop-bots-workspace .desktop-bots-inspector {
   grid-column: 2;
