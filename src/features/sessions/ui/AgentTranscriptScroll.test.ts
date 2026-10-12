@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
-import { act, createElement } from "react";
+import { act, createElement, useContext } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Block } from "../model/session";
 import { AgentTranscript } from "./AgentTranscript";
+import { TranscriptPlatformContext } from "./TranscriptPlatform";
 import { applyReducedMotion } from "../../../shared/lib/reducedMotion";
 
 let container: HTMLDivElement;
@@ -17,6 +18,13 @@ let endObservers: Array<{
   intersect: () => void;
   margin?: string;
 }>;
+
+function dragScrollbar(el: HTMLElement, move: () => void) {
+  el.dispatchEvent(new PointerEvent("pointerdown", { button: 0 }));
+  move();
+  el.dispatchEvent(new Event("scroll"));
+  window.dispatchEvent(new PointerEvent("pointerup", { button: 0 }));
+}
 
 beforeEach(() => {
   // Follow-state assertions use immediate motion; curve cases opt in below.
@@ -180,6 +188,26 @@ describe("subagent scrolling", () => {
 });
 
 describe("transcript scrolling", () => {
+  it.each([false, true])("uses a bounded main-agent activity window only for sheet clients (sheet=%s)", (sheet) => {
+    const blocks: Block[] = [
+      { id: "user", role: "user", text: "Investigate auth" },
+      { id: "thinking", role: "reasoning", text: "Inspecting the implementation" },
+      ...Array.from({ length: 20 }, (_, index): Block => ({
+        id: `tool-${index}`, role: "tool", text: `Read file-${index}.ts`,
+        tool: { callId: `tool-${index}`, kind: "read", status: "completed" },
+      })),
+    ];
+    function Fixture() {
+      const platform = useContext(TranscriptPlatformContext);
+      return createElement(TranscriptPlatformContext.Provider, {
+        value: { ...platform, openActivity: sheet ? () => {} : undefined },
+      }, createElement(AgentTranscript, { blocks, busy: true }));
+    }
+    act(() => root.render(createElement(Fixture)));
+    expect(container.querySelectorAll(".zen-phase-step")).toHaveLength(21);
+    expect(container.querySelectorAll(".zen-phase-live")).toHaveLength(sheet ? 1 : 0);
+  });
+
   it.each([true, false])(
     "hides the jump while the content end is above the composer without resuming following (touch=%s)",
     (touchScroll) => {
@@ -762,14 +790,14 @@ describe("transcript scrolling", () => {
 describe.each([false, true])(
   "transcript scroll stability (touch=%s)",
   (touchScroll) => {
-    function mountScroller() {
+    function mountScroller(promptMotion?: "mobile") {
       const blocks: Block[] = [
         { id: "user", role: "user", text: "Explain auth" },
         { id: "reply", role: "assistant", text: "One", streaming: true },
       ];
       act(() =>
         root.render(
-          createElement(AgentTranscript, { blocks, busy: true, touchScroll }),
+          createElement(AgentTranscript, { blocks, busy: true, touchScroll, promptMotion }),
         ),
       );
       const scroller =
@@ -779,6 +807,7 @@ describe.each([false, true])(
         scrollHeight: { get: () => geometry.height },
         clientHeight: { get: () => geometry.viewport },
         scrollTop: {
+          configurable: true,
           get: () => geometry.top,
           set: (value: number) => {
             geometry.top = Math.max(
@@ -917,10 +946,10 @@ describe.each([false, true])(
       "resumes after reaching the old bottom before a growing %s",
       (change) => {
         const { scroller, geometry, observer, blocks } = mountScroller();
-        act(() => {
+        act(() => dragScrollbar(scroller, () => {
           geometry.top = 400;
-          scroller.dispatchEvent(new Event("scroll"));
-        });
+        }));
+        expect(scroller.dataset.followLatest).toBe("false");
         // Scrolling reaches the end, but output arrives before its event.
         geometry.top = 600;
         geometry.height = 1100;
@@ -947,10 +976,9 @@ describe.each([false, true])(
 
     it("does not resume before reaching the old bottom during output growth", () => {
       const { scroller, geometry, observer } = mountScroller();
-      act(() => {
+      act(() => dragScrollbar(scroller, () => {
         geometry.top = 400;
-        scroller.dispatchEvent(new Event("scroll"));
-      });
+      }));
       geometry.top = 590;
       geometry.height = 1100;
       act(() => {
@@ -962,11 +990,22 @@ describe.each([false, true])(
 
     it("pauses following for a scrollbar move inside the bottom margin", () => {
       const { scroller, geometry, observer } = mountScroller();
-      geometry.top = 596;
-      act(() => scroller.dispatchEvent(new Event("scroll")));
+      act(() => dragScrollbar(scroller, () => { geometry.top = 596; }));
       geometry.height = 1100;
       act(() => observer.resize());
       expect(geometry.top).toBe(596);
+    });
+
+    it.runIf(touchScroll).each([false, true])("requires reading intent for unsolicited result scrolling on desktop, retaining mobile behavior (mobile=%s)", (mobile) => {
+      const { scroller, geometry, observer } = mountScroller(mobile ? "mobile" : undefined);
+      // A result replaces/reflows content while leaving the total height the
+      // same. No wheel, touch, key or scrollbar gesture occurred.
+      geometry.top = 560;
+      act(() => scroller.dispatchEvent(new Event("scroll")));
+      expect(scroller.dataset.followLatest).toBe(String(!mobile));
+      geometry.height = 1100;
+      act(() => observer.resize());
+      expect(geometry.top).toBe(mobile ? 560 : 700);
     });
 
     it("keeps following when a zoomed offset settles back by a sub-pixel", () => {
@@ -993,6 +1032,37 @@ describe.each([false, true])(
         expect(geometry.top).toBe(600);
       },
     );
+
+    it.each([true, false])("preserves following=%s when a folded tool's scroll clamp arrives after its resize", (following) => {
+      const { scroller, geometry, observer } = mountScroller();
+      if (!following) act(() => {
+        scroller.dispatchEvent(new WheelEvent("wheel", { deltaY: -4 }));
+        geometry.top = 596;
+        scroller.dispatchEvent(new Event("scroll"));
+      });
+      // A WebView can expose the new scroll range before its asynchronous
+      // scroll offset catches up. Even the pin write can settle later.
+      Object.defineProperty(scroller, "scrollTop", {
+        configurable: true,
+        get: () => geometry.top,
+        set: () => {},
+      });
+      geometry.height = 960;
+      act(() => observer.resize());
+      Object.defineProperty(scroller, "scrollTop", {
+        configurable: true,
+        get: () => geometry.top,
+        set: (value: number) => {
+          geometry.top = Math.max(0, Math.min(value, geometry.height - geometry.viewport));
+        },
+      });
+      geometry.top = 560;
+      act(() => scroller.dispatchEvent(new Event("scroll")));
+      expect(scroller.dataset.followLatest).toBe(String(following));
+      geometry.height = 1100;
+      act(() => observer.resize());
+      expect(geometry.top).toBe(following ? 700 : 560);
+    });
 
     it("keeps following paused when a resize clamps a reader to the bottom", () => {
       const { scroller, geometry, observer } = mountScroller();

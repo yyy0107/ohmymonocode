@@ -9,7 +9,7 @@ import {
 } from "../../src/features/settings/model/appearance";
 import "../../src/styles/index.css";
 
-saveTranscriptAnchor(false);
+saveTranscriptAnchor(new URLSearchParams(location.search).has("activity"));
 saveTranscriptLayout("chat");
 
 // A generated prompt with headings, lists, links, inline code and nested fences.
@@ -33,6 +33,7 @@ const response = `Here is the complete prompt:\n\n\`\`\`\`markdown\n${prompt}\n\
 const wordFade = new URLSearchParams(location.search).has("wordFade");
 
 function Fixture() {
+  const [activity, setActivity] = useState<Block[] | null>(null);
   const [reply, setReply] = useState<Block>({
     id: "reply",
     role: "assistant",
@@ -41,6 +42,7 @@ function Fixture() {
   useEffect(() => {
     let timer: number | undefined;
     Object.assign(window, {
+      showActivity: (blocks: Block[]) => setActivity(blocks),
       markdownSource: prompt,
       showMarkdownExample: (text: string) =>
         setReply({ id: "reply", role: "assistant", text }),
@@ -66,8 +68,9 @@ function Fixture() {
     return <AgentMarkdown text={reply.text} streaming={reply.streaming} />;
   return (
     <AgentTranscript
-      busy={reply.streaming}
-      blocks={[
+      cwd={activity ? "/fixture" : undefined}
+      busy={activity ? true : reply.streaming}
+      blocks={activity ?? [
         {
           id: "user",
           role: "user",

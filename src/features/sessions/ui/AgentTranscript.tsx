@@ -389,6 +389,7 @@ function AgentTranscriptComponent({
   const scrollGeometry = useRef({ top: 0, height: 0, viewport: 0 });
   const wheelHold = useRef(0);
   const scrollDirection = useRef<"up" | "down" | undefined>(undefined);
+  const readerDragging = useRef(false);
   const touchReadingUp = useRef(false);
   const prependHeight = useRef<number | null>(null);
   const prependAnchor = useRef<PrependScrollAnchor | null>(null);
@@ -528,7 +529,21 @@ function AgentTranscriptComponent({
         const reachedPreviousBottom =
           el.scrollTop > previous.top + 1 &&
           Math.abs(el.scrollTop - previousBottom) <= 1;
-        if (!layoutChanged && el.scrollTop < previous.top - 1)
+        // Layout/focus adjustments after a tool result can move the offset
+        // without changing the final dimensions. On desktop, wheel, touch and
+        // keys release following explicitly; infer a scrollbar/selection drag
+        // only while the reader holds the pointer. Keep mobile's offset check.
+        if (
+          (promptMotion === "mobile" || readerDragging.current) &&
+          !layoutChanged &&
+          el.scrollTop < previous.top - 1 &&
+          !followsAfterScroll(
+            el,
+            previous.top,
+            stickToBottom.current,
+            previousBottom,
+          )
+        )
           stickToBottom.current = false;
         if (
           !stickToBottom.current &&
@@ -561,7 +576,7 @@ function AgentTranscriptComponent({
       rememberScroll(el);
       syncJumpVisibility(el);
     },
-    [rememberScroll, syncJumpVisibility, touchScroll],
+    [rememberScroll, syncJumpVisibility, touchScroll, promptMotion],
   );
 
   const followTranscript = useCallback(
@@ -641,6 +656,15 @@ function AgentTranscriptComponent({
       if (scrollerEl.isConnected && scrollerEl.clientHeight > 0)
         syncPinned(scrollerEl);
     };
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button === 0) readerDragging.current = true;
+    };
+    const onPointerEnd = () => {
+      // Reconcile the last drag position before its queued scroll event.
+      if (readerDragging.current && scrollerEl.isConnected)
+        syncPinned(scrollerEl);
+      readerDragging.current = false;
+    };
     let release: ReturnType<typeof setTimeout> | undefined;
     const onWheel = (e: WheelEvent) => {
       if (innerScrollerTakes(scrollerEl, e)) return;
@@ -659,6 +683,7 @@ function AgentTranscriptComponent({
     };
     let touchY: number | undefined;
     const onTouchStart = (event: TouchEvent) => {
+      if (promptMotion !== "mobile") readerDragging.current = true;
       touchReadingUp.current = false;
       touchY = event.touches[0]?.clientY;
     };
@@ -678,6 +703,7 @@ function AgentTranscriptComponent({
       touchY = next;
     };
     const onTouchEnd = () => {
+      if (promptMotion !== "mobile") onPointerEnd();
       touchY = undefined;
       touchReadingUp.current = false;
       scrollDirection.current = undefined;
@@ -694,6 +720,11 @@ function AgentTranscriptComponent({
     scrollerEl.addEventListener("scroll", onScroll, { passive: true });
     scrollerEl.addEventListener("wheel", onWheel, { passive: true });
     if (touchScroll) {
+      if (promptMotion !== "mobile") {
+        scrollerEl.addEventListener("pointerdown", onPointerDown, { passive: true });
+        window.addEventListener("pointerup", onPointerEnd, { passive: true });
+        window.addEventListener("pointercancel", onPointerEnd, { passive: true });
+      }
       scrollerEl.addEventListener("touchstart", onTouchStart, {
         passive: true,
       });
@@ -704,6 +735,10 @@ function AgentTranscriptComponent({
     }
     return () => {
       clearTimeout(release);
+      readerDragging.current = false;
+      scrollerEl.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointerup", onPointerEnd);
+      window.removeEventListener("pointercancel", onPointerEnd);
       scrollerEl.removeEventListener("scroll", onScroll);
       scrollerEl.removeEventListener("wheel", onWheel);
       scrollerEl.removeEventListener("touchstart", onTouchStart);
@@ -719,6 +754,7 @@ function AgentTranscriptComponent({
     syncPinned,
     visible,
     touchScroll,
+    promptMotion,
   ]);
 
   useLayoutEffect(() => {
@@ -2680,8 +2716,8 @@ function WorkFoldLine({
 /**
  * The turn's work as phases. Related reasoning and calls stay together while
  * assistant prose remains outside as full-size transcript text. The phase the
- * agent is in stays open, with new steps scrolling inside a short window; the
- * moment it moves on the phase folds back to its header.
+ * agent is in stays open; the moment it moves on the phase folds back to its
+ * header. Only nested panels and sheet clients bound the live steps' height.
  */
 type ActivityPhasesProps = {
   blocks: Block[];
@@ -2689,6 +2725,8 @@ type ActivityPhasesProps = {
   done?: boolean;
   /** False inside a nested panel, which supplies its own gutter. */
   padded?: boolean;
+  /** Nested agent panels keep their work in a bounded live window. */
+  scrollLive?: boolean;
   onApproval?: (requestId: number, decision: ApprovalDecision) => void;
   onOpenFile?: (path: string) => void;
   onOpenDiff?: (path: string) => void;
@@ -2699,10 +2737,12 @@ const ActivityPhases = memo(function ActivityPhases({
   cwd,
   done,
   padded = true,
+  scrollLive = false,
   onApproval,
   onOpenFile,
   onOpenDiff,
 }: ActivityPhasesProps) {
+  const { openActivity } = useContext(TranscriptPlatformContext);
   const phases = useMemo(() => buildActivityPhases(blocks), [blocks]);
 
   return (
@@ -2715,6 +2755,7 @@ const ActivityPhases = memo(function ActivityPhases({
           phase={phase}
           cwd={cwd}
           active={!done && index === phases.length - 1}
+          scrollLive={scrollLive || !!openActivity}
           onApproval={onApproval}
           onOpenFile={onOpenFile}
           onOpenDiff={onOpenDiff}
@@ -2734,6 +2775,7 @@ function sameActivity(a: ActivityPhasesProps, b: ActivityPhasesProps): boolean {
     a.cwd === b.cwd &&
     a.done === b.done &&
     a.padded === b.padded &&
+    a.scrollLive === b.scrollLive &&
     a.onApproval === b.onApproval &&
     a.onOpenFile === b.onOpenFile &&
     a.onOpenDiff === b.onOpenDiff &&
@@ -2840,13 +2882,15 @@ function useTurnScrollAnchor(
  * rail. Folding is automatic — the group opens while it is the live one and
  * closes when the agent moves on — until you click, after which it stays where
  * you put it. A step still waiting on you keeps the group open regardless.
- * While live, the open body stays a short scrolling window pinned to the
- * newest step; after the turn settles an opened group is full height again.
+ * Main desktop activity stays in transcript flow, so new tools and thoughts
+ * advance the same outer scroll as prose. Nested panels and sheet clients
+ * keep a short live window pinned to the newest step.
  */
 function ActivityPhaseGroup({
   phase,
   cwd,
   active,
+  scrollLive,
   onApproval,
   onOpenFile,
   onOpenDiff,
@@ -2854,6 +2898,7 @@ function ActivityPhaseGroup({
   phase: ActivityPhase;
   cwd?: string;
   active: boolean;
+  scrollLive: boolean;
   onApproval?: (requestId: number, decision: ApprovalDecision) => void;
   onOpenFile?: (path: string) => void;
   onOpenDiff?: (path: string) => void;
@@ -2868,7 +2913,11 @@ function ActivityPhaseGroup({
   const sheet = !!openActivity && !waiting;
   const open = waiting || (sheet ? active : (override ?? active));
   const [liveScroller, setLiveScroller] = useState<HTMLDivElement | null>(null);
-  useLivePhaseScroll(liveScroller, visible && active && open, phase.steps);
+  useLivePhaseScroll(
+    liveScroller,
+    scrollLive && visible && active && open,
+    phase.steps,
+  );
   // Steps already here when the group mounted, or that landed while it was
   // folded, are history: only a step you watch arrive gets the entrance.
   const settled = useRef<Set<Block["id"]> | null>(null);
@@ -2995,7 +3044,9 @@ function ActivityPhaseGroup({
           {() => (
             <div
               ref={setLiveScroller}
-              className={active || !open ? "zen-phase-live" : undefined}
+              className={
+                scrollLive && (active || !open) ? "zen-phase-live" : undefined
+              }
             >
               <div className="flex min-w-0 flex-col">
                 {headline ? (
@@ -3342,6 +3393,7 @@ function SubagentPanel({
                 cwd={cwd}
                 done={!active}
                 padded={false}
+                scrollLive
                 onOpenFile={onOpenFile}
                 onOpenDiff={onOpenDiff}
               />
