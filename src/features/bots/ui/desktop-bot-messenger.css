@@ -40,10 +40,10 @@ html.theme-light .desktop-bots-workspace.assistant-chat {
 .assistant-chat.desktop-bots-workspace .assistant-conversation { position: relative; }
 .assistant-chat.desktop-bots-workspace .assistant-messages { padding: 28px max(24px, calc((100% - 800px) / 2)); gap: 6px; }
 .assistant-chat.desktop-bots-workspace .assistant-message-row { position: relative; padding-bottom: 10px; }
-.assistant-chat.desktop-bots-workspace .assistant-message { border-radius: 20px; padding: 12px 17px; max-width: min(85%, 680px); border: 0; }
+.assistant-chat.desktop-bots-workspace .assistant-message:where(.assistant-message-user, .assistant-message-assistant) { border-radius: 20px; padding: 12px 17px; max-width: min(85%, 680px); border: 0; }
 .assistant-chat.desktop-bots-workspace .assistant-message-user { background: var(--bots-dark-fill); color: var(--bots-light-ink); }
 .assistant-chat.desktop-bots-workspace .assistant-message-assistant { background: color-mix(in srgb, var(--color-content) 6%, var(--color-background-base)); }
-.assistant-chat.desktop-bots-workspace .assistant-message-meta { opacity: 0; height: 16px; margin: 3px 8px -12px; transition: opacity 120ms ease; }
+.assistant-chat.desktop-bots-workspace .assistant-message-meta { opacity: 0; min-height: 24px; margin: 3px 8px 0; transition: opacity 120ms ease; }
 .assistant-chat.desktop-bots-workspace .assistant-message-row:is(:hover, :focus-within) .assistant-message-meta { opacity: 1; }
 .assistant-chat.desktop-bots-workspace .desktop-bot-file-card { display: flex; align-items: center; flex-wrap: wrap; width: min(310px, 100%); border: 1px solid var(--color-stroke); border-radius: 16px; padding: 10px; background: var(--color-background-base); }
 .assistant-chat.desktop-bots-workspace .desktop-bot-file-open { display: flex; align-items: center; flex: 1; min-width: 0; gap: 12px; text-align: start; }
@@ -53,7 +53,7 @@ html.theme-light .desktop-bots-workspace.assistant-chat {
 .assistant-chat.desktop-bots-workspace .desktop-bot-file-card small { font-size: var(--text-ui-xs); color: var(--color-foreground-subtle); }
 .assistant-chat.desktop-bots-workspace .desktop-bot-file-card [role="alert"] { flex-basis: 100%; color: var(--color-destructive); }
 .assistant-chat.desktop-bots-workspace .assistant-compose-dock { max-width: none; padding: 14px 24px 24px; }
-.assistant-chat.desktop-bots-workspace .assistant-compose { display: grid; grid-template-columns: 32px minmax(0, 1fr) 36px; align-items: end; gap: 8px; padding: 9px 12px; border-radius: 28px; background: var(--color-surface-hover); border: 1px solid transparent; }
+.assistant-chat.desktop-bots-workspace .assistant-compose { display: grid; grid-template-columns: 32px minmax(0, 1fr) 36px; align-items: center; gap: 0 8px; padding: 8px 12px; border-radius: 28px; background: var(--color-surface-hover); border: 1px solid transparent; }
 .assistant-chat.desktop-bots-workspace .assistant-compose:focus-within { border-color: var(--color-stroke); }
 .assistant-chat.desktop-bots-workspace .assistant-compose > .zen-fold-item { grid-column: 1 / -1; }
 .assistant-chat.desktop-bots-workspace .assistant-compose textarea { grid-column: 2; grid-row: 2; padding: 7px 0; min-height: 36px; }
