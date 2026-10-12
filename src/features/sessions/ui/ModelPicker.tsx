@@ -910,7 +910,7 @@ export function ModelPicker({
                       className={`flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] ${
                         highlighted
                           ? "bg-selection text-content"
-                          : "text-content hover:bg-content/5"
+                          : "text-content hover:bg-content/3"
                       } ${tileTone ? "codex-effort-option" : ""}`}
                       data-effort-tone={tileTone}
                     >
@@ -947,7 +947,7 @@ export function ModelPicker({
                       className={`flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] ${
                         highlighted
                           ? "bg-selection text-content"
-                          : "text-content hover:bg-content/5"
+                          : "text-content hover:bg-content/3"
                       }`}
                     >
                       <span className="min-w-0 flex-1">{uiT("Model")}</span>
@@ -987,7 +987,7 @@ export function ModelPicker({
                     className={`flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] ${
                       highlighted
                         ? "bg-selection text-content"
-                        : "text-content hover:bg-content/5"
+                        : "text-content hover:bg-content/3"
                     }`}
                   >
                     <span className="min-w-0 flex-1">
@@ -1064,7 +1064,7 @@ export function ModelPicker({
                   ? "text-content/30"
                   : highlighted
                     ? "bg-selection text-content"
-                    : "text-content hover:bg-content/5"
+                    : "text-content hover:bg-content/3"
               }`}
             >
               <HarnessIcon harness={item.harness} className="size-4 shrink-0" />
@@ -1355,7 +1355,7 @@ function SelectPill({
                     onMouseEnter={() => setActive(index)}
                     onClick={() => pick(menuSetting, option.value)}
                     className={`flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] text-content ${
-                      highlighted ? "bg-selection" : "hover:bg-content/5"
+                      highlighted ? "bg-selection" : "hover:bg-content/3"
                     } ${tileTone ? "codex-effort-option" : ""}`}
                     data-effort-tone={tileTone}
                   >
@@ -1463,7 +1463,7 @@ function BackHeader({
       onMouseDown={(event) => event.preventDefault()}
       onMouseEnter={onHover}
       onClick={onBack}
-      className="mb-1 flex h-8 w-full shrink-0 items-center gap-1.5 rounded-lg px-2 text-left text-[12px] text-content/55 hover:bg-content/5 hover:text-content"
+      className="mb-1 flex h-8 w-full shrink-0 items-center gap-1.5 rounded-lg px-2 text-left text-[12px] text-content/55 hover:bg-content/3 hover:text-content"
     >
       <ChevronLeft className="size-3.5 shrink-0" />
       <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -1701,7 +1701,7 @@ function ModelBrowser({
                         ? "text-content/30"
                         : highlighted
                           ? "bg-selection text-content"
-                          : "text-content hover:bg-content/5"
+                          : "text-content hover:bg-content/3"
                     }`}
                     onMouseEnter={() => onActive(index)}
                   >

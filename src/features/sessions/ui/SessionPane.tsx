@@ -860,7 +860,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
             title={closePaneLabel}
             aria-label={uiT("Close pane")}
             data-no-drag
-            className="grid size-5 shrink-0 place-items-center rounded text-content/50 hover:bg-content/10 hover:text-content"
+            className="grid size-5 shrink-0 place-items-center rounded text-content/50 hover:bg-content/6 hover:text-content"
             onPointerDown={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {

@@ -172,7 +172,7 @@ export function QuickGitPopupPicker({
         </p>
         <button
           type="button"
-          className="rounded-md px-2 py-1 text-content/70 hover:bg-content/10"
+          className="rounded-md px-2 py-1 text-content/70 hover:bg-content/6"
           onClick={() => finish()}
         >
           {uiT("Close")}

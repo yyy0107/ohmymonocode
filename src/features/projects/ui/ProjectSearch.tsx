@@ -183,7 +183,7 @@ export function ProjectSearch({
           onClick={onClose}
           title={uiT("Back to files")}
           aria-label={uiT("Back to files")}
-          className="grid size-7 shrink-0 place-items-center rounded-md text-content/50 hover:bg-content/10 hover:text-content"
+          className="grid size-7 shrink-0 place-items-center rounded-md text-content/50 hover:bg-content/6 hover:text-content"
         >
           <ChevronLeft className="size-4" />
         </button>
@@ -293,7 +293,7 @@ export function ProjectSearch({
                     type="button"
                     onClick={() => openMatch(match)}
                     onDoubleClick={() => openMatch(match, true)}
-                    className="flex w-full items-start gap-2 px-2 py-1 text-left hover:bg-content/5"
+                    className="flex w-full items-start gap-2 px-2 py-1 text-left hover:bg-content/3"
                   >
                     <span className="w-7 shrink-0 pt-px text-right font-mono text-[11px] text-content/35 tabular-nums">
                       {match.line}
@@ -338,7 +338,7 @@ function Toggle({
       className={`grid size-6 place-items-center rounded-sm ${
         active
           ? "bg-selection-hover text-content"
-          : "text-content/40 hover:bg-content/10 hover:text-content/70"
+          : "text-content/40 hover:bg-content/6 hover:text-content/70"
       }`}
     >
       {children}

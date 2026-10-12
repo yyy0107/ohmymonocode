@@ -615,7 +615,7 @@ describe("AgentTranscript collapsed work", () => {
     expect(markup).toContain("Reading the diff first.");
     expect(markup).toContain("Show the steps for Reading the diff first.");
     // An open row holds its wash, so the panel reads as hanging off it.
-    expect(markup).toContain("hover:bg-content/8 bg-content/8");
+    expect(markup).toContain("hover:bg-content/5 bg-content/8");
     // The panel opens straight onto its phases. A scroll window of its own
     // here would nest one 17.5rem scroller inside the window each phase
     // already keeps, and the inner one could never reach its last row.

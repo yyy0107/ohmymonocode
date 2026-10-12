@@ -153,7 +153,7 @@ export function QuestionForm({ prompt, onReply, onInteraction, onCollapse }: Pro
                 title={uiT("Previous question")}
                 disabled={index === 0}
                 onClick={goBack}
-                className="grid size-6 place-items-center rounded-md text-content/55 hover:bg-content/10 hover:text-content focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-30"
+                className="grid size-6 place-items-center rounded-md text-content/55 hover:bg-content/6 hover:text-content focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-30"
               >
                 <ChevronLeft className="size-3.5" aria-hidden="true" />
               </button>
@@ -170,7 +170,7 @@ export function QuestionForm({ prompt, onReply, onInteraction, onCollapse }: Pro
                 title={uiT("Next question")}
                 disabled={last}
                 onClick={goForward}
-                className="grid size-6 place-items-center rounded-md text-content/55 hover:bg-content/10 hover:text-content focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-30"
+                className="grid size-6 place-items-center rounded-md text-content/55 hover:bg-content/6 hover:text-content focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-30"
               >
                 <ChevronRight className="size-3.5" aria-hidden="true" />
               </button>
@@ -178,7 +178,7 @@ export function QuestionForm({ prompt, onReply, onInteraction, onCollapse }: Pro
           ) : null}
           <button
             type="button"
-            className="ui-button ui-button-md ui-button-pill h-6 shrink-0 rounded-md px-1.5 text-[11px] text-content/55 hover:bg-content/10 hover:text-content"
+            className="ui-button ui-button-md ui-button-pill h-6 shrink-0 rounded-md px-1.5 text-[11px] text-content/55 hover:bg-content/6 hover:text-content"
             data-question-secondary
             onClick={skipCurrent}
           >
@@ -189,7 +189,7 @@ export function QuestionForm({ prompt, onReply, onInteraction, onCollapse }: Pro
               type="button"
               aria-label={uiT("Collapse question")}
               title={uiT("Collapse question")}
-              className="grid size-6 shrink-0 place-items-center rounded-md text-content/55 hover:bg-content/10 hover:text-content focus-visible:outline-2 focus-visible:outline-accent"
+              className="grid size-6 shrink-0 place-items-center rounded-md text-content/55 hover:bg-content/6 hover:text-content focus-visible:outline-2 focus-visible:outline-accent"
               data-question-collapse
               onClick={onCollapse}
             >
@@ -258,7 +258,7 @@ export function QuestionForm({ prompt, onReply, onInteraction, onCollapse }: Pro
           {index > 0 ? (
             <button
               type="button"
-              className="ui-button ui-button-md ui-button-pill h-6 shrink-0 rounded-md px-1.5 text-[11px] text-content/55 hover:bg-content/10 hover:text-content"
+              className="ui-button ui-button-md ui-button-pill h-6 shrink-0 rounded-md px-1.5 text-[11px] text-content/55 hover:bg-content/6 hover:text-content"
               data-question-secondary
               onClick={goBack}
             >
@@ -417,7 +417,7 @@ function QuestionFields({
                   className={`flex w-full items-start gap-2 rounded-md border px-2 py-1.5 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent ${
                     active
                       ? "border-content/35 bg-selection"
-                      : "border-content/10 hover:bg-content/5"
+                      : "border-content/10 hover:bg-content/3"
                   }`}
                 >
                   <span

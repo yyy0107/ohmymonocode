@@ -76,7 +76,7 @@ export const MODE_COMMAND_STYLES: Record<string, ModeCommandStyle> = {
       label: "Draft",
       title: "Draft mode",
       className:
-        "border border-dashed border-content/25 bg-content/5 text-content/70 hover:bg-content/10 hover:text-content",
+        "border border-dashed border-content/25 bg-content/5 text-content/70 hover:bg-content/6 hover:text-content",
     },
     menu: {
       label: "Draft",

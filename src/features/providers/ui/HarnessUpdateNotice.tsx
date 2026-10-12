@@ -200,7 +200,7 @@ export function HarnessUpdateNotice({
           {pending.length > 1 ? (
             <button
               type="button"
-              className="rounded-md px-2 py-1 text-[11px] font-medium text-content/70 hover:bg-content/10 hover:text-content"
+              className="rounded-md px-2 py-1 text-[11px] font-medium text-content/70 hover:bg-content/6 hover:text-content"
               onClick={() => start(pending)}
             >
               {uiT("Update all")}
@@ -210,7 +210,7 @@ export function HarnessUpdateNotice({
             type="button"
             aria-label={uiT("Dismiss harness updates")}
             disabled={busy}
-            className="grid size-6 shrink-0 place-items-center rounded-md text-content/40 hover:bg-content/10 hover:text-content disabled:opacity-40 disabled:hover:bg-transparent"
+            className="grid size-6 shrink-0 place-items-center rounded-md text-content/40 hover:bg-content/6 hover:text-content disabled:opacity-40 disabled:hover:bg-transparent"
             onClick={dismiss}
           >
             <X className="size-3" strokeWidth={2} />

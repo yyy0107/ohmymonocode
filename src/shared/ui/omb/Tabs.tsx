@@ -62,7 +62,7 @@ export function Tabs({
               "inline-flex h-8 min-w-0 items-center gap-1.5 rounded-lg px-3 text-[13px] font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-focus motion-reduce:transition-none [&_svg]:size-3.5",
               active
                 ? "bg-raised text-ink"
-                : "text-ink-secondary hover:bg-raised-hover hover:text-ink",
+                : "text-ink-secondary hover:bg-selection-hover hover:text-ink",
             )}
           >
             {item.icon}

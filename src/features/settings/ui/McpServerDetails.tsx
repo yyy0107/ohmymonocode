@@ -70,7 +70,7 @@ export function McpServerDetails({
       type="button"
       onClick={() => setGeneration((value) => value + 1)}
       disabled={state.kind === "loading"}
-      className="flex items-center gap-1.5 rounded-md border border-stroke px-2 py-1 text-xs hover:bg-content/5 disabled:opacity-50"
+      className="flex items-center gap-1.5 rounded-md border border-stroke px-2 py-1 text-xs hover:bg-content/3 disabled:opacity-50"
     >
       <RefreshCw className="size-3" />
       {uiT("Reload")}

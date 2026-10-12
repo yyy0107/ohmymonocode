@@ -56,7 +56,7 @@ export function AssistantTopicNote({
           title={t("Refresh notes")}
           disabled={loading || !active}
           onClick={() => setReload((value) => value + 1)}
-          className="grid size-9 shrink-0 place-items-center rounded-md hover:bg-content/10 disabled:opacity-40"
+          className="grid size-9 shrink-0 place-items-center rounded-md hover:bg-content/6 disabled:opacity-40"
         >
           <RefreshCw className="size-4" />
         </button>

@@ -1909,7 +1909,7 @@ function ConnectedRemoteSession({
               <button
                 type="button"
                 disabled={!online && notice.action.label !== "Dismiss"}
-                className="shrink-0 rounded-md px-2 py-1 text-content/70 hover:bg-content/8 hover:text-content disabled:opacity-40"
+                className="shrink-0 rounded-md px-2 py-1 text-content/70 hover:bg-content/5 hover:text-content disabled:opacity-40"
                 onClick={notice.action.run}
               >
                 {notice.action.label}

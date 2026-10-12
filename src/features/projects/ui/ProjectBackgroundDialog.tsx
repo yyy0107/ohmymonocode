@@ -197,7 +197,7 @@ export function ProjectBackgroundDialog({ project, name, onClose }: Props) {
             type="button"
             onClick={() => void choose()}
             disabled={busy}
-            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-content/10 px-2.5 py-1.5 text-[12px] text-content/70 hover:bg-content/10 hover:text-content disabled:opacity-40"
+            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-content/10 px-2.5 py-1.5 text-[12px] text-content/70 hover:bg-content/6 hover:text-content disabled:opacity-40"
           >
             {busy ? (
               <Loader className="size-3.5 animate-spin" aria-hidden />

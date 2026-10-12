@@ -42,7 +42,7 @@ export function CheckEvidence({
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          className="rounded px-2 py-1 text-[11px] text-content/55 hover:bg-content/5 hover:text-content"
+          className="rounded px-2 py-1 text-[11px] text-content/55 hover:bg-content/3 hover:text-content"
         >
           {uiT("Show ")}
           {annotations.length - 5} {uiT("more annotations")}
@@ -137,7 +137,7 @@ function CheckAnnotation({
                 value0: String(location),
               })}
               onClick={() => void openUrl(fileUrl)}
-              className="-my-1 -mr-1 grid size-6 shrink-0 place-items-center rounded text-content/40 hover:bg-content/5 hover:text-content"
+              className="-my-1 -mr-1 grid size-6 shrink-0 place-items-center rounded text-content/40 hover:bg-content/3 hover:text-content"
             >
               <ExternalLink className="size-3" />
             </button>

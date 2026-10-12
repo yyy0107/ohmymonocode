@@ -79,7 +79,7 @@ export function SkillPicker({
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={onStartCreate}
-              className="flex w-full items-center gap-2 border-t border-stroke px-2.5 py-2 text-left text-[12px] text-content/70 hover:bg-content/10 hover:text-content"
+              className="flex w-full items-center gap-2 border-t border-stroke px-2.5 py-2 text-left text-[12px] text-content/70 hover:bg-content/6 hover:text-content"
             >
               <Plus className="size-3.5 shrink-0" />
               {uiT("New skill")}
@@ -293,7 +293,7 @@ export function CreateSkillForm({
           type="button"
           disabled={busy}
           onClick={onCancel}
-          className="rounded-md px-2 py-1 text-[12px] text-content/50 hover:bg-content/10 hover:text-content"
+          className="rounded-md px-2 py-1 text-[12px] text-content/50 hover:bg-content/6 hover:text-content"
         >
           {uiT("Cancel")}
         </button>

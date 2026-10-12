@@ -88,7 +88,7 @@ export function OrchestrationSidebarAgents({
     (task) => task.status === "completed",
   ).length;
   const action =
-    "rounded px-1.5 py-0.5 text-[11px] text-content/55 hover:bg-content/10 hover:text-content disabled:opacity-35";
+    "rounded px-1.5 py-0.5 text-[11px] text-content/55 hover:bg-content/6 hover:text-content disabled:opacity-35";
   // Sits inside an already-lit row, so it needs its own surface to read as a
   // button rather than as another line of text.
   const solidAction =
@@ -147,7 +147,7 @@ export function OrchestrationSidebarAgents({
                 onClick={() => toggle(task.sessionId, open)}
                 // Named, because the whole session card is already a `group`.
                 className={`group/agent flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-left ${
-                  open ? "" : "hover:bg-content/10"
+                  open ? "" : "hover:bg-content/6"
                 }`}
               >
                 {/* One slot: the chevron stands in for the harness mark

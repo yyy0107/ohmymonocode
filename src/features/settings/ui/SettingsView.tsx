@@ -625,7 +625,7 @@ export function SettingsView({
             <button
               type="button"
               onClick={appearance.restoreDefaults}
-              className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-content/50 hover:bg-content/10 hover:text-content"
+              className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-content/50 hover:bg-content/6 hover:text-content"
             >
               <RotateCcw className="size-3.5" />
               {uiT("Restore defaults")}
@@ -1931,7 +1931,7 @@ function LinearSettings() {
                   key={team.id}
                   type="button"
                   onClick={() => toggleTeam(team.id)}
-                  className="flex h-7 items-center gap-2 rounded-md px-2 text-left text-[13px] text-content hover:bg-content/5"
+                  className="flex h-7 items-center gap-2 rounded-md px-2 text-left text-[13px] text-content hover:bg-content/3"
                 >
                   <span className="min-w-0 flex-1 truncate">
                     {team.name}
@@ -3163,7 +3163,7 @@ function ChatBackgroundCard({
               type="button"
               onClick={() => void appearance.onChooseChatBackground()}
               disabled={busy}
-              className="flex h-36 w-full flex-col items-center justify-center gap-2 text-content/40 hover:bg-content/5 hover:text-content/70 disabled:cursor-default disabled:opacity-40"
+              className="flex h-36 w-full flex-col items-center justify-center gap-2 text-content/40 hover:bg-content/3 hover:text-content/70 disabled:cursor-default disabled:opacity-40"
             >
               {busy ? (
                 <Loader className="size-5 animate-spin" aria-hidden />
@@ -3453,7 +3453,7 @@ function ShortcutEditor({
           } ${
             display === null
               ? "border-dashed border-content/15 text-content/35"
-              : "border-content/15 text-content/80 hover:bg-content/10"
+              : "border-content/15 text-content/80 hover:bg-content/6"
           }`}
         />
         {resetVisible ? (
@@ -3464,7 +3464,7 @@ function ShortcutEditor({
             })}
             disabled={busy}
             onClick={() => void run(onReset)}
-            className="rounded-md px-1 py-1 text-content/35 hover:bg-content/10 hover:text-content disabled:opacity-50"
+            className="rounded-md px-1 py-1 text-content/35 hover:bg-content/6 hover:text-content disabled:opacity-50"
           >
             <RotateCcw className="size-3.5" />
           </button>
@@ -3798,7 +3798,7 @@ function ProviderBinaryControl({
           setOpen((value) => !value);
           setEditing(false);
         }}
-        className={`grid size-6 place-items-center rounded hover:bg-content/10 focus-visible:outline-2 focus-visible:outline-accent ${
+        className={`grid size-6 place-items-center rounded hover:bg-content/6 focus-visible:outline-2 focus-visible:outline-accent ${
           restartRequired
             ? "text-amber-300"
             : "text-content/35 hover:text-content"
@@ -4400,7 +4400,7 @@ function ProviderAccountMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className="grid size-7 place-items-center rounded-md text-content/40 transition-transform duration-150 hover:bg-content/10 hover:text-content active:scale-[0.96] disabled:opacity-35"
+        className="grid size-7 place-items-center rounded-md text-content/40 transition-transform duration-150 hover:bg-content/6 hover:text-content active:scale-[0.96] disabled:opacity-35"
       >
         {busy ? (
           <Loader className="size-3.5 animate-spin" />
@@ -4669,7 +4669,7 @@ export function ProviderAccountsSettings() {
                   disabled={Boolean(working) || !profilesReady}
                   aria-expanded={editorExpanded && adding && Boolean(editor.importCurrent)}
                   onClick={() => toggleEditor({ provider, label: "", importCurrent: true })}
-                  className="shrink-0 rounded-md border border-content/10 px-2.5 py-1 text-[12px] text-content/70 transition-transform duration-150 hover:bg-content/10 hover:text-content active:scale-[0.97] disabled:cursor-default disabled:opacity-40"
+                  className="shrink-0 rounded-md border border-content/10 px-2.5 py-1 text-[12px] text-content/70 transition-transform duration-150 hover:bg-content/6 hover:text-content active:scale-[0.97] disabled:cursor-default disabled:opacity-40"
                 >
                   {uiT("Import current Codex login")}
                 </button>
@@ -4679,7 +4679,7 @@ export function ProviderAccountsSettings() {
                 disabled={Boolean(working) || !profilesReady}
                 aria-expanded={editorExpanded && adding && !editor.importCurrent}
                 onClick={() => startAdd(provider)}
-                className="flex shrink-0 items-center gap-1.5 rounded-md border border-content/10 px-2.5 py-1 text-[12px] text-content/70 transition-transform duration-150 hover:bg-content/10 hover:text-content active:scale-[0.97] disabled:cursor-default disabled:opacity-40"
+                className="flex shrink-0 items-center gap-1.5 rounded-md border border-content/10 px-2.5 py-1 text-[12px] text-content/70 transition-transform duration-150 hover:bg-content/6 hover:text-content active:scale-[0.97] disabled:cursor-default disabled:opacity-40"
               >
                 <Plus className="size-3.5" aria-hidden />
                 {uiT("Add account")}
@@ -4793,7 +4793,7 @@ export function ProviderAccountsSettings() {
                         title={uiT("Edit account and Data Home")}
                         aria-expanded={editorExpanded && editing}
                         onClick={() => startRename(account)}
-                        className="grid size-7 place-items-center rounded-md text-content/40 transition-transform duration-150 hover:bg-content/10 hover:text-content active:scale-[0.96] disabled:opacity-35"
+                        className="grid size-7 place-items-center rounded-md text-content/40 transition-transform duration-150 hover:bg-content/6 hover:text-content active:scale-[0.96] disabled:opacity-35"
                       >
                         <Pencil className="size-3.5" />
                       </button>
@@ -4932,7 +4932,7 @@ function ProviderAccountEditor({
           type="button"
           disabled={working}
           onClick={onCancel}
-          className="flex h-6 shrink-0 items-center rounded-[4.5px] bg-content/[0.05] px-2.5 text-[11px] text-content/45 transition-transform duration-150 hover:bg-content/10 hover:text-content active:scale-[0.97] disabled:opacity-40"
+          className="flex h-6 shrink-0 items-center rounded-[4.5px] bg-content/[0.05] px-2.5 text-[11px] text-content/45 transition-transform duration-150 hover:bg-content/6 hover:text-content active:scale-[0.97] disabled:opacity-40"
         >
           {uiT("Cancel")}
         </button>
@@ -5866,7 +5866,7 @@ function NotificationsBlocked() {
           onClick={() => {
             void openNotificationSettings().catch(() => {});
           }}
-          className="rounded-md border border-content/10 px-2 py-1 text-content/70 hover:bg-content/10 hover:text-content"
+          className="rounded-md border border-content/10 px-2 py-1 text-content/70 hover:bg-content/6 hover:text-content"
         >
           {uiT("Open System Settings")}
         </button>

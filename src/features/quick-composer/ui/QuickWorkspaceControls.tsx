@@ -160,7 +160,7 @@ export function QuickWorkspaceControls({
           beginClick("workspace");
         }}
         onClick={(event) => void show("workspace", event.currentTarget)}
-        className="-ml-1.5 flex h-6 min-w-0 max-w-48 items-center gap-1.5 rounded-md px-1.5 text-[12px] text-content/55 hover:bg-content/8 hover:text-content aria-expanded:bg-content/8 aria-expanded:text-content disabled:opacity-40"
+        className="-ml-1.5 flex h-6 min-w-0 max-w-48 items-center gap-1.5 rounded-md px-1.5 text-[12px] text-content/55 hover:bg-content/5 hover:text-content aria-expanded:bg-content/8 aria-expanded:text-content disabled:opacity-40"
       >
         <Icon className="size-3.5 shrink-0" />
         <span className="truncate">{label}</span>

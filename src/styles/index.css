@@ -222,13 +222,13 @@
   );
   --menu-hover-color: hsl(
     var(--theme-hue) var(--theme-saturation)
-      calc(var(--background-lightness) + 12.6%)
+      calc(var(--background-lightness) + 11%)
   );
   /* Settings → Appearance → Contrast moves these around the stock values;
      `--contrast-offset` is -1…1 and 0 by default. */
   --stroke-strength: calc(10% + var(--contrast-offset, 0) * 6%);
   --surface-strength: 5%;
-  --surface-hover-strength: 10%;
+  --surface-hover-strength: 7%;
   --subtlest-strength: calc(30% + var(--contrast-offset, 0) * 15%);
   --brand-color: #ffffff;
   --brand-foreground: #000000;
@@ -242,7 +242,7 @@
   --selection-subtle-strength: 5%;
   --selection-strength: 10%;
   --selection-strong-strength: 10%;
-  --selection-hover-strength: 10%;
+  --selection-hover-strength: 7%;
   --selection-emphasis-strength: 15%;
   --background-lightness: var(--theme-dark-lightness);
   --content-lightness: calc(83% + var(--contrast-offset, 0) * 12%);
@@ -263,10 +263,10 @@ html.theme-light {
   --window-color: hsl(var(--theme-hue) var(--theme-saturation) 93%);
   --panel-color: hsl(var(--theme-hue) var(--theme-saturation) 100%);
   --card-color: hsl(var(--theme-hue) var(--theme-saturation) 100%);
-  --menu-hover-color: hsl(var(--theme-hue) var(--theme-saturation) 94%);
+  --menu-hover-color: hsl(var(--theme-hue) var(--theme-saturation) 96%);
   --stroke-strength: calc(10% + var(--contrast-offset, 0) * 6%);
   --surface-strength: 3%;
-  --surface-hover-strength: 5%;
+  --surface-hover-strength: 4%;
   --subtlest-strength: calc(40% + var(--contrast-offset, 0) * 15%);
   --brand-color: #000000;
   --brand-foreground: #ffffff;
@@ -278,7 +278,7 @@ html.theme-light {
   --selection-subtle-strength: 3%;
   --selection-strength: 5%;
   --selection-strong-strength: 5%;
-  --selection-hover-strength: 5%;
+  --selection-hover-strength: 4%;
   --selection-emphasis-strength: 10%;
   color-scheme: light;
 }

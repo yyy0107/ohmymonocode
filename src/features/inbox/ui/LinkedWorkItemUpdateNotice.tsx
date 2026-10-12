@@ -162,7 +162,7 @@ export function LinkedWorkItemUpdateNotice({
               value1: String(card.number),
             })}
             onClick={dismiss}
-            className="grid size-6 shrink-0 place-items-center rounded-md text-content/40 hover:bg-content/10 hover:text-content"
+            className="grid size-6 shrink-0 place-items-center rounded-md text-content/40 hover:bg-content/6 hover:text-content"
           >
             <X className="size-3" strokeWidth={2} />
           </button>
@@ -202,7 +202,7 @@ export function LinkedWorkItemUpdateNotice({
                     void openUrl(entry.url);
                   }
                 }}
-                className="flex w-full items-start gap-2 px-3 py-2 text-left hover:bg-content/5 disabled:cursor-default disabled:hover:bg-transparent"
+                className="flex w-full items-start gap-2 px-3 py-2 text-left hover:bg-content/3 disabled:cursor-default disabled:hover:bg-transparent"
               >
                 <span className="mt-0.5 text-content/45">
                   <ActivityIcon entry={entry} />

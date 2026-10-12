@@ -105,7 +105,7 @@ it("asks for a branch name before creating from the fixed action", async () => {
   expect(create.parentElement?.className).toContain("border-t");
   expect(create.parentElement?.className).toContain("shrink-0");
   expect(create.parentElement).toBe(picker.lastElementChild);
-  expect(create.className).toContain("hover:bg-content/8");
+  expect(create.className).toContain("hover:bg-content/5");
 
   await act(async () => create.click());
   expect(gitCreateBranch).not.toHaveBeenCalled();

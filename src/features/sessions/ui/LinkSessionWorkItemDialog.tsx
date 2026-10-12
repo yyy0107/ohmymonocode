@@ -86,7 +86,7 @@ export function LinkSessionWorkItemDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md px-3 py-1.5 hover:bg-content/8 active:scale-[0.97]"
+            className="rounded-md px-3 py-1.5 hover:bg-content/5 active:scale-[0.97]"
           >
             {uiT("Cancel")}
           </button>

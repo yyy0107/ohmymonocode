@@ -87,7 +87,7 @@ export function InboxMiniCard({ card, onDismiss }: Props) {
               value1: String(card.identifier),
             })}
             onClick={onDismiss}
-            className="absolute right-1.5 top-1.5 grid size-5 place-items-center rounded text-content/40 hover:bg-content/10 hover:text-content"
+            className="absolute right-1.5 top-1.5 grid size-5 place-items-center rounded text-content/40 hover:bg-content/6 hover:text-content"
           >
             <X className="size-3" strokeWidth={2} />
           </button>

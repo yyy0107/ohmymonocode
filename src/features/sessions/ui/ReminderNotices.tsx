@@ -126,7 +126,7 @@ export function ReminderNotices({
                   aria-expanded={
                     snooze?.reminder.sessionId === reminder.sessionId
                   }
-                  className="rounded-md px-2 py-1 text-content/65 hover:bg-content/10"
+                  className="rounded-md px-2 py-1 text-content/65 hover:bg-content/6"
                   onClick={(event) => {
                     const rect = event.currentTarget.getBoundingClientRect();
                     setSnooze({ reminder, x: rect.left, y: rect.bottom + 4 });
@@ -135,7 +135,7 @@ export function ReminderNotices({
                   {uiT("Snooze")}
                 </button>
                 <button
-                  className="ml-auto rounded-md px-2 py-1 text-content/50 hover:bg-content/10"
+                  className="ml-auto rounded-md px-2 py-1 text-content/50 hover:bg-content/6"
                   onClick={() =>
                     onDismiss([reminder.sessionId], reminder.dueAt)
                   }

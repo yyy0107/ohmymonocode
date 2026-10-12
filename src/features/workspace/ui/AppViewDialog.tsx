@@ -60,7 +60,7 @@ export function AppViewDialog({
               type="button"
               aria-label={t("Close")}
               onClick={onClose}
-              className="absolute right-2 top-1.5 z-[2] grid size-7 place-items-center rounded-md text-content/45 hover:bg-content/8 hover:text-content focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="absolute right-2 top-1.5 z-[2] grid size-7 place-items-center rounded-md text-content/45 hover:bg-content/5 hover:text-content focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               <X className="size-3.5" />
             </button>

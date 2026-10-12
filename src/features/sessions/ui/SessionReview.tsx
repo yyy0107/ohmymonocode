@@ -157,7 +157,7 @@ export function SessionReview({
         type="button"
         disabled={loading}
         onClick={refresh}
-        className="rounded-md px-2 py-1 hover:bg-content/8 disabled:opacity-35"
+        className="rounded-md px-2 py-1 hover:bg-content/5 disabled:opacity-35"
       >
         {uiT("Retry")}
       </button>
@@ -271,7 +271,7 @@ export function SessionReview({
               }
               disabled={disabled || !canUndoAll}
               onClick={() => run("undo")}
-              className="h-7 rounded-md px-2.5 text-[11px] text-content/50 hover:bg-content/8 hover:text-content disabled:opacity-35"
+              className="h-7 rounded-md px-2.5 text-[11px] text-content/50 hover:bg-content/5 hover:text-content disabled:opacity-35"
             >
               {uiT("Undo")}
             </button>
@@ -286,7 +286,7 @@ export function SessionReview({
               }
               disabled={disabled}
               onClick={() => run("keep")}
-              className="h-7 rounded-md px-2.5 text-[11px] text-content/50 hover:bg-content/8 hover:text-content disabled:opacity-35"
+              className="h-7 rounded-md px-2.5 text-[11px] text-content/50 hover:bg-content/5 hover:text-content disabled:opacity-35"
             >
               {uiT("Keep")}
             </button>
@@ -316,7 +316,7 @@ export function SessionReview({
             type="button"
             aria-expanded={expanded}
             onClick={() => setExpanded((open) => !open)}
-            className="flex h-8 w-full items-center gap-1.5 border-t border-stroke px-3 text-left text-[11px] text-content/45 hover:bg-content/5 hover:text-content/70"
+            className="flex h-8 w-full items-center gap-1.5 border-t border-stroke px-3 text-left text-[11px] text-content/45 hover:bg-content/3 hover:text-content/70"
           >
             {expanded ? (
               <ChevronDown className="size-3.5" />
@@ -357,7 +357,7 @@ function FileRow({
       type="button"
       title={file.relative}
       onClick={() => onOpenDiff(file.path, { sessionId, cwd })}
-      className="flex h-8 w-full min-w-0 items-center gap-2 px-3 text-left text-content/65 hover:bg-content/5 hover:text-content"
+      className="flex h-8 w-full min-w-0 items-center gap-2 px-3 text-left text-content/65 hover:bg-content/3 hover:text-content"
     >
       <FileTypeIcon name={name} isDir={false} size={15} />
       <span className="min-w-0 flex-1 truncate font-mono text-[12px]">

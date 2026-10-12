@@ -368,7 +368,7 @@ export function ReviewIconButton({
       disabled={disabled}
       onClick={onClick}
       onPointerDown={onPointerDown}
-      className="grid size-6 shrink-0 place-items-center rounded text-content/45 hover:bg-content/10 hover:text-content disabled:opacity-40"
+      className="grid size-6 shrink-0 place-items-center rounded text-content/45 hover:bg-content/6 hover:text-content disabled:opacity-40"
     >
       {children}
     </button>

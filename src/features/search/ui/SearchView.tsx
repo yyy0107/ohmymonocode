@@ -417,7 +417,7 @@ export function SearchView({
               className={`rounded-md px-2 py-1 text-[12px] ${
                 selected
                   ? "bg-selection text-content"
-                  : "text-content/50 hover:bg-content/5 hover:text-content"
+                  : "text-content/50 hover:bg-content/3 hover:text-content"
               }`}
             >
               {uiT(item.label)}

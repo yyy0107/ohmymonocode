@@ -119,7 +119,7 @@ export function LiveAgentsPreview({
             type="button"
             aria-expanded={expanded}
             onClick={() => setExpanded((open) => !open)}
-            className="flex w-full items-center justify-center gap-1 px-2 py-1.5 text-[11px] text-content/50 hover:bg-content/8 hover:text-content"
+            className="flex w-full items-center justify-center gap-1 px-2 py-1.5 text-[11px] text-content/50 hover:bg-content/5 hover:text-content"
           >
             {expanded ? (
               <ChevronUp className="size-3" />
@@ -187,7 +187,7 @@ function LiveAgentCard({
       data-live-agent-card={agent.id}
       onClick={() => onSelect?.(agent.id)}
       className={`relative flex w-full flex-col rounded-md px-2 py-1.5 text-left ${
-        selected ? "bg-selection" : "hover:bg-content/8"
+        selected ? "bg-selection" : "hover:bg-content/5"
       }`}
     >
       <span className="flex min-w-0 items-center gap-2">

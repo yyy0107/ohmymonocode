@@ -203,7 +203,7 @@ export function ProjectNotificationSettings({
                     type="button"
                     aria-label={uiT("Clear")}
                     onClick={() => setQuery("")}
-                    className="grid size-5 shrink-0 place-items-center rounded text-content/40 hover:bg-content/8 hover:text-content/70"
+                    className="grid size-5 shrink-0 place-items-center rounded text-content/40 hover:bg-content/5 hover:text-content/70"
                   >
                     <X className="size-3.5" aria-hidden="true" />
                   </button>

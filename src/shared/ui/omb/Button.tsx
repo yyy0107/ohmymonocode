@@ -10,7 +10,7 @@ const VARIANT: Record<ButtonVariant, string> = {
   secondary:
     "border border-hairline bg-control text-ink enabled:hover:bg-raised-hover",
   ghost:
-    "border border-transparent bg-transparent text-ink enabled:hover:bg-raised-hover",
+    "border border-transparent bg-transparent text-ink enabled:hover:bg-selection-hover",
   danger:
     "border border-[color-mix(in_srgb,var(--color-danger)_45%,var(--color-hairline))] bg-transparent text-danger enabled:hover:bg-[color-mix(in_srgb,var(--color-danger)_12%,transparent)]",
 };
@@ -92,7 +92,7 @@ export function IconButton({
       title={tooltip ? label : undefined}
       data-active={active || undefined}
       className={cx(
-        "inline-flex shrink-0 items-center justify-center text-ink-secondary enabled:hover:bg-raised-hover enabled:hover:text-ink data-[active]:bg-raised data-[active]:text-ink",
+        "inline-flex shrink-0 items-center justify-center text-ink-secondary enabled:hover:bg-selection-hover enabled:hover:text-ink data-[active]:bg-raised data-[active]:text-ink",
         size === "sm" ? "size-7 [&_svg]:size-3.5" : "size-8 [&_svg]:size-4",
         shape === "round" ? "rounded-full" : "rounded-lg",
         PRESSABLE,

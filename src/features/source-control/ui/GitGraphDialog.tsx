@@ -152,7 +152,7 @@ export function GitGraphDialog({
             disabled={loading || refreshing}
             aria-label={t("Refresh Git graph")}
             title={t("Refresh Git graph")}
-            className="grid size-7 shrink-0 place-items-center rounded-lg text-content/55 hover:bg-content/5 hover:text-content focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-hover disabled:opacity-50"
+            className="grid size-7 shrink-0 place-items-center rounded-lg text-content/55 hover:bg-content/3 hover:text-content focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-hover disabled:opacity-50"
           >
             <RefreshCw
               className={`size-3.5 ${loading || refreshing ? "motion-safe:animate-spin" : ""}`}

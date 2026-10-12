@@ -147,7 +147,7 @@ export function AddRemoteProjectDialog({
               <button
                 type="button"
                 onClick={cancel}
-                className="rounded-md px-3 py-1.5 text-[12px] text-content/70 hover:bg-content/8 hover:text-content"
+                className="rounded-md px-3 py-1.5 text-[12px] text-content/70 hover:bg-content/5 hover:text-content"
               >
                 {uiT("Cancel")}
               </button>
@@ -236,7 +236,7 @@ export function AddRemoteProjectDialog({
               <button
                 type="button"
                 onClick={cancel}
-                className="rounded-md px-3 py-1.5 text-[12px] text-content/70 hover:bg-content/8 hover:text-content"
+                className="rounded-md px-3 py-1.5 text-[12px] text-content/70 hover:bg-content/5 hover:text-content"
               >
                 {uiT("Cancel")}
               </button>
@@ -261,7 +261,7 @@ function FolderRow({ name, onOpen }: { name: string; onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] text-content/75 hover:bg-content/8 hover:text-content"
+      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] text-content/75 hover:bg-content/5 hover:text-content"
     >
       <Folder
         className="size-3.5 shrink-0 text-content/45"

@@ -215,9 +215,9 @@ const MAX_WIDTH = 420;
 // outline variant lines up with the filled and ghost ones.
 const ACTION = "inline-flex items-center gap-1.5 rounded-md px-3 text-[12px]";
 const ACTION_FILLED = `${ACTION} h-6.5 bg-content text-background-base hover:bg-content/80`;
-const ACTION_OUTLINE = `${ACTION} h-7 border border-content/15 text-content/80 hover:bg-content/5`;
-const ACTION_PANEL_HEADER = `${ACTION} h-6.5 text-content/70 hover:bg-content/10 hover:text-content`;
-const ACTION_GHOST = `${ACTION} h-7 text-content/70 hover:bg-content/10 hover:text-content`;
+const ACTION_OUTLINE = `${ACTION} h-7 border border-content/15 text-content/80 hover:bg-content/3`;
+const ACTION_PANEL_HEADER = `${ACTION} h-6.5 text-content/70 hover:bg-content/6 hover:text-content`;
+const ACTION_GHOST = `${ACTION} h-7 text-content/70 hover:bg-content/6 hover:text-content`;
 const DEFAULT_WIDTH = 280;
 const LINKED_PANEL_MIN_WIDTH = 360;
 const LINKED_PANEL_DEFAULT_WIDTH = 520;
@@ -929,7 +929,7 @@ export function InboxView({
             className={`flex h-6 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md px-2 text-[12px] leading-none ${
               connectMenuOpen
                 ? "bg-selection text-content"
-                : "text-content/40 hover:bg-content/5 hover:text-content"
+                : "text-content/40 hover:bg-content/3 hover:text-content"
             }`}
           >
             <Plus className="size-3.5 shrink-0" />
@@ -958,7 +958,7 @@ export function InboxView({
             aria-expanded={!!filterMenu}
             aria-haspopup="menu"
             onClick={onFilterButtonClick}
-            className={`grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content ${
+            className={`grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content ${
               filterMenu || filtersActive ? "bg-selection text-content" : ""
             }`}
           >
@@ -976,7 +976,7 @@ export function InboxView({
                   : "Could not save read status. Please try again.",
               )
             }
-            className="grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-content/45"
+            className="grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-content/45"
           >
             <CheckCheck className="size-3.5" />
           </button>
@@ -984,7 +984,7 @@ export function InboxView({
             type="button"
             aria-label={uiT("Refresh")}
             onClick={() => setRefresh((value) => value + 1)}
-            className="grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content"
+            className="grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content"
           >
             {loading || revalidating ? (
               <LoaderCircle
@@ -1538,7 +1538,7 @@ function InboxCard({
       className={`flex w-full flex-col rounded-md border px-2.5 py-2 text-left ${
         active
           ? "border-transparent bg-selection text-content"
-          : "border-transparent text-content/80 hover:bg-content/5 hover:text-content"
+          : "border-transparent text-content/80 hover:bg-content/3 hover:text-content"
       }`}
     >
       <span className="flex items-center gap-2">
@@ -1898,7 +1898,7 @@ export function GithubPrActions({
                 setMergeAction(option.action);
                 setMergeMenuOpen(false);
               }}
-              className={`flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left hover:bg-content/8 ${
+              className={`flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left hover:bg-content/5 ${
                 option.action === mergeAction
                   ? "bg-selection text-content"
                   : "text-content/75"
@@ -1957,7 +1957,7 @@ export function GithubPrActions({
               type="button"
               disabled={busy}
               onClick={dismissConfirmation}
-              className={`h-7 rounded-md px-3 text-[12px] text-content/65 hover:bg-content/8 hover:text-content disabled:cursor-default disabled:opacity-40 ${PR_ACTION_PRESS}`}
+              className={`h-7 rounded-md px-3 text-[12px] text-content/65 hover:bg-content/5 hover:text-content disabled:cursor-default disabled:opacity-40 ${PR_ACTION_PRESS}`}
             >
               {uiT("Cancel")}
             </button>
@@ -2796,7 +2796,7 @@ export function InboxDetail({
                           value0: String(title),
                         })}
                         onClick={() => void onOpenSession?.(session.id)}
-                        className="inline-flex min-w-0 max-w-64 items-center gap-1 rounded-md bg-content/5 px-2 py-1 text-[11px] text-content/70 hover:bg-content/10 hover:text-content"
+                        className="inline-flex min-w-0 max-w-64 items-center gap-1 rounded-md bg-content/5 px-2 py-1 text-[11px] text-content/70 hover:bg-content/6 hover:text-content"
                       >
                         <span className="truncate">{title}</span>
                         {session.archived ? (
@@ -3113,7 +3113,7 @@ function CopyBranchNameButton({ branch }: { branch: string }) {
       type="button"
       title={copied ? uiT("Copied") : uiT("Copy branch name")}
       aria-label={copied ? uiT("Copied") : uiT("Copy branch name")}
-      className="shrink-0 rounded p-0.5 text-content/40 hover:bg-content/8 hover:text-content/70"
+      className="shrink-0 rounded p-0.5 text-content/40 hover:bg-content/5 hover:text-content/70"
       onClick={() => {
         void copyText(branch).then(
           () => {
@@ -3233,7 +3233,7 @@ function InboxProjectPicker({
         type="button"
         disabled={projects.length === 0}
         onClick={() => setOpen((next) => !next)}
-        className="inline-flex h-7 max-w-48 items-center gap-1.5 rounded-md border border-content/10 bg-content/5 px-2 text-[12px] text-content/80 hover:bg-content/10 hover:text-content disabled:cursor-default disabled:opacity-40"
+        className="inline-flex h-7 max-w-48 items-center gap-1.5 rounded-md border border-content/10 bg-content/5 px-2 text-[12px] text-content/80 hover:bg-content/6 hover:text-content disabled:cursor-default disabled:opacity-40"
       >
         {selected ? <InboxProjectMark project={selected} /> : null}
         <span className="min-w-0 truncate">
@@ -3266,7 +3266,7 @@ function InboxProjectPicker({
                 className={`flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-[12px] ${
                   active
                     ? "bg-selection text-content"
-                    : "text-content/80 hover:bg-content/5 hover:text-content"
+                    : "text-content/80 hover:bg-content/3 hover:text-content"
                 }`}
               >
                 <InboxProjectMark project={project} />

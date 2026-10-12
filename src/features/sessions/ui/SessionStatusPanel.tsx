@@ -222,7 +222,7 @@ function PanelHeader({
             aria-label={uiT("Collapse")}
             aria-expanded
             onClick={onToggle}
-            className="grid size-6 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content"
+            className="grid size-6 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content"
           >
             <FoldVertical className="size-3.5" />
           </button>
@@ -407,7 +407,7 @@ function PanelSections({
                   <button
                     type="button"
                     onClick={() => setMoreTasks((value) => !value)}
-                    className="w-full rounded-md py-1 pr-2 pl-8 text-left font-mono text-[11px] text-content/45 hover:bg-content/7 hover:text-content/70"
+                    className="w-full rounded-md py-1 pr-2 pl-8 text-left font-mono text-[11px] text-content/45 hover:bg-content/4 hover:text-content/70"
                   >
                     {moreTasks
                       ? uiT("Show fewer")
@@ -584,7 +584,7 @@ function Section({
           type="button"
           onClick={onClick}
           aria-expanded={expanded}
-          className={`group/status-section ${headingClassName} w-full rounded-[9px] hover:bg-content/7`}
+          className={`group/status-section ${headingClassName} w-full rounded-[9px] hover:bg-content/4`}
         >
           {heading}
         </button>
@@ -615,7 +615,7 @@ function RowButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] leading-4 text-content/70 enabled:hover:bg-content/7 enabled:hover:text-content disabled:opacity-40"
+      className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] leading-4 text-content/70 enabled:hover:bg-content/4 enabled:hover:text-content disabled:opacity-40"
       {...rest}
     >
       {children}

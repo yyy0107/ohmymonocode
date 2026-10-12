@@ -20,7 +20,7 @@ export function AppPageHeader({
           aria-label={t("Back to chat")}
           title={t("Back to chat")}
           onClick={onBack}
-          className="grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content"
+          className="grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content"
         >
           <ArrowLeft className="size-3.5" />
         </button>

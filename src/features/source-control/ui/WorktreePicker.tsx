@@ -247,7 +247,7 @@ export function WorktreePicker({
                 onMouseEnter={() => setActivePath(tree.path)}
                 onClick={() => void select(tree)}
                 title={tree.path}
-                className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left disabled:opacity-40 ${active === index ? "bg-selection" : "hover:bg-content/5"}`}
+                className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left disabled:opacity-40 ${active === index ? "bg-selection" : "hover:bg-content/3"}`}
               >
                 {tree.isMain ? (
                   <GitBranch className="size-3.5 shrink-0 text-content/50" />
@@ -291,7 +291,7 @@ export function WorktreePicker({
                 setOpen(false);
                 setCreating(true);
               }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-content/8"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-content/5"
             >
               <Plus className="size-3.5" />
               {uiT("Create worktree…")}
@@ -303,7 +303,7 @@ export function WorktreePicker({
                 setOpen(false);
                 setBranchPicker(true);
               }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-content/55 hover:bg-content/8 disabled:opacity-40"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-content/55 hover:bg-content/5 disabled:opacity-40"
             >
               <GitBranch className="size-3.5" />
               {uiT("Switch branch in this working copy…")}
@@ -316,7 +316,7 @@ export function WorktreePicker({
                   dismiss();
                   onManage();
                 }}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-content/55 hover:bg-content/8"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-content/55 hover:bg-content/5"
               >
                 <Settings className="size-3.5" />
                 {uiT("Manage worktrees…")}

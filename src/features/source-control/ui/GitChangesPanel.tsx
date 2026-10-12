@@ -251,7 +251,7 @@ export function GitChangesPanel({
               aria-expanded={branchMenuOpen}
               disabled={busy !== null}
               onClick={() => setBranchMenuOpen((open) => !open)}
-              className="grid size-5 shrink-0 place-items-center rounded-md text-content/50 hover:bg-content/10 hover:text-content disabled:opacity-40 aria-expanded:bg-content/10 aria-expanded:text-content"
+              className="grid size-5 shrink-0 place-items-center rounded-md text-content/50 hover:bg-content/6 hover:text-content disabled:opacity-40 aria-expanded:bg-content/10 aria-expanded:text-content"
             >
               {busy === "pull" ? (
                 <Loader className="size-3.5 animate-spin" />
@@ -277,7 +277,7 @@ export function GitChangesPanel({
                         )
                   }
                   onClick={() => void pull()}
-                  className="flex h-7 w-full items-center gap-2 px-3 text-left text-[12px] text-content hover:bg-content/10 disabled:opacity-40"
+                  className="flex h-7 w-full items-center gap-2 px-3 text-left text-[12px] text-content hover:bg-content/6 disabled:opacity-40"
                 >
                   {busy === "pull" ? (
                     <Loader className="size-3.5 animate-spin" />
@@ -791,7 +791,7 @@ function ChangedFiles({
             onClick={() =>
               busy === "generate" ? cancelGenerate() : void generate()
             }
-            className="group absolute top-1 right-1 grid size-5 place-items-center rounded-md bg-content/10 text-content hover:bg-content/20 hover:text-content disabled:opacity-40"
+            className="group absolute top-1 right-1 grid size-5 place-items-center rounded-md bg-content/10 text-content hover:bg-content/14 hover:text-content disabled:opacity-40"
           >
             {busy === "generate" ? (
               <>
@@ -848,7 +848,7 @@ function ChangedFiles({
                 role="menuitem"
                 disabled={!canCommitPush}
                 onClick={() => void commit(true)}
-                className="flex h-7 w-full items-center px-3 text-left text-[12px] text-content hover:bg-content/10 disabled:opacity-40"
+                className="flex h-7 w-full items-center px-3 text-left text-[12px] text-content hover:bg-content/6 disabled:opacity-40"
               >
                 {uiT("Commit & Push")}
               </button>
@@ -857,7 +857,7 @@ function ChangedFiles({
                 role="menuitem"
                 disabled={!canCommitPushPr}
                 onClick={() => void commit(true, true)}
-                className="flex h-7 w-full items-center px-3 text-left text-[12px] text-content hover:bg-content/10 disabled:opacity-40"
+                className="flex h-7 w-full items-center px-3 text-left text-[12px] text-content hover:bg-content/6 disabled:opacity-40"
               >
                 {uiT("Commit, Push & Create PR")}
               </button>
@@ -867,7 +867,7 @@ function ChangedFiles({
                 role="menuitemcheckbox"
                 aria-checked={amend}
                 onClick={() => void toggleAmend()}
-                className="flex h-7 w-full items-center justify-between gap-2 px-3 text-left text-[12px] text-content hover:bg-content/10"
+                className="flex h-7 w-full items-center justify-between gap-2 px-3 text-left text-[12px] text-content hover:bg-content/6"
               >
                 {uiT("Amend Last Commit")}
                 <span className="grid size-3.5 shrink-0 place-items-center">
@@ -1407,7 +1407,7 @@ function ChangeDirRow({
     <li>
       <div
         style={{ paddingLeft: 8 + depth * 12 }}
-        className="group flex h-7 w-full items-center gap-1 pr-2 leading-none text-content hover:bg-content/5"
+        className="group flex h-7 w-full items-center gap-1 pr-2 leading-none text-content hover:bg-content/3"
       >
         <button
           ref={toggleRef}
@@ -1566,7 +1566,7 @@ function ChangeRow({
         } ${
           active
             ? "bg-selection text-content"
-            : "text-content hover:bg-content/5"
+            : "text-content hover:bg-content/3"
         }`}
       >
         <button
@@ -1651,7 +1651,7 @@ function IconAction({
       aria-label={title}
       disabled={disabled || !visible}
       onClick={onClick}
-      className="grid size-5 place-items-center rounded text-content/55 hover:bg-content/10 hover:text-content disabled:opacity-40"
+      className="grid size-5 place-items-center rounded text-content/55 hover:bg-content/6 hover:text-content disabled:opacity-40"
     >
       {children}
     </button>

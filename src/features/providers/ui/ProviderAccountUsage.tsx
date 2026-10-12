@@ -77,7 +77,7 @@ export function AccountUsageRefresh({ usage }: { usage: AccountUsage }) {
       onClick={usage.refresh}
       aria-label={uiT("Refresh usage limits")}
       title={uiT("Refresh usage limits")}
-      className="grid size-7 place-items-center rounded-md text-content/40 transition-transform duration-150 hover:bg-content/10 hover:text-content active:scale-[0.96] disabled:opacity-40"
+      className="grid size-7 place-items-center rounded-md text-content/40 transition-transform duration-150 hover:bg-content/6 hover:text-content active:scale-[0.96] disabled:opacity-40"
     >
       <RefreshCw
         className={`size-3.5 ${usage.refreshing ? "animate-spin" : ""}`}

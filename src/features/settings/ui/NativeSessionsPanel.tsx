@@ -297,7 +297,7 @@ export function NativeSessionsPanel({
               onClick={() =>
                 void discoverNativeSessions().catch(() => undefined)
               }
-              className="grid size-7 place-items-center rounded-md text-content/50 hover:bg-content/8 hover:text-content disabled:opacity-40"
+              className="grid size-7 place-items-center rounded-md text-content/50 hover:bg-content/5 hover:text-content disabled:opacity-40"
             >
               <RefreshCw
                 className={`size-3.5 ${state.busy ? "animate-spin motion-reduce:animate-none" : ""}`}
@@ -444,7 +444,7 @@ export function NativeSessionsPanel({
                     <button
                       type="button"
                       onClick={() => setShown((value) => value + PAGE)}
-                      className="mt-1.5 rounded-md px-2 py-1 text-[12px] text-content/50 hover:bg-content/5 hover:text-content"
+                      className="mt-1.5 rounded-md px-2 py-1 text-[12px] text-content/50 hover:bg-content/3 hover:text-content"
                     >
                       {t("Show more ({count})", {
                         count: matches.length - shown,

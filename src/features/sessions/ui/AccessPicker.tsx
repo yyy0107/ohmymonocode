@@ -138,7 +138,7 @@ export function AccessPicker({
               className={`flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left ${
                 highlighted || selected
                   ? "bg-selection text-content"
-                  : "text-content hover:bg-content/5"
+                  : "text-content hover:bg-content/3"
               }`}
             >
               <RuntimeModeIcon

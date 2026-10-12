@@ -199,7 +199,7 @@ export function InboxPrChangesGlance({
                   type="button"
                   title={file.path}
                   onClick={() => onOpenFile(file.path)}
-                  className="flex w-full min-w-0 items-center gap-2 bg-content/2 px-3 py-1.5 text-left hover:bg-content/5"
+                  className="flex w-full min-w-0 items-center gap-2 bg-content/2 px-3 py-1.5 text-left hover:bg-content/3"
                 >
                   <FileTypeIcon name={name} isDir={false} size={16} />
                   <span className="flex min-w-0 flex-1 font-mono text-[12px]">

@@ -1412,7 +1412,7 @@ function CardMaximizeButton({
       title={label}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={onToggle}
-      className={`mr-1 grid size-7 shrink-0 self-center place-items-center rounded-md hover:bg-content/5 hover:text-content ${
+      className={`mr-1 grid size-7 shrink-0 self-center place-items-center rounded-md hover:bg-content/3 hover:text-content ${
         maximized ? "bg-content/8 text-content" : "text-content/55"
       }`}
     >

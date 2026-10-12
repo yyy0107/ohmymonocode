@@ -87,7 +87,7 @@ export function WorktreesPage({
           cwd={project || "~"}
           recents={projects}
           className="w-fit max-w-full shrink-0"
-          buttonClassName="h-7.5 max-w-full gap-2 bg-content/5 px-2.5 text-[13px] hover:bg-content/12 active:scale-[0.98]"
+          buttonClassName="h-7.5 max-w-full gap-2 bg-content/5 px-2.5 text-[13px] hover:bg-content/8 active:scale-[0.98]"
           onSelectProject={(path) => {
             setProject(path);
             setError(undefined);
@@ -98,7 +98,7 @@ export function WorktreesPage({
           type="button"
           disabled={!data}
           onClick={() => setCreating(true)}
-          className="flex h-7.5 items-center gap-1.5 rounded-md px-2 text-[11px] hover:bg-content/12 disabled:opacity-40 active:scale-[0.97]"
+          className="flex h-7.5 items-center gap-1.5 rounded-md px-2 text-[11px] hover:bg-content/8 disabled:opacity-40 active:scale-[0.97]"
         >
           <Plus className="size-3" />
           {uiT("Create worktree")}
@@ -235,7 +235,7 @@ export function WorktreesPage({
                   onClick={() =>
                     void revealPath(tree.path).catch((e) => setError(String(e)))
                   }
-                  className="rounded-md p-1.5 text-content/40 hover:bg-content/8 hover:text-content disabled:opacity-30"
+                  className="rounded-md p-1.5 text-content/40 hover:bg-content/5 hover:text-content disabled:opacity-30"
                 >
                   <FolderOpen className="size-4" />
                 </button>

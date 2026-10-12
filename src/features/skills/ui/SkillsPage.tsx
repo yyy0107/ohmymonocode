@@ -366,7 +366,7 @@ export function SkillsPage({
                     window.dispatchEvent(new Event(SKILLS_CHANGE_EVENT));
                     setReload((value) => value + 1);
                   }}
-                  className="grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content"
+                  className="grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content"
                 >
                   <RefreshCw className="size-3.5" />
                 </button>
@@ -379,7 +379,7 @@ export function SkillsPage({
                   }
                   ref={addSkillButton}
                   disabled={busy}
-                  className="rounded-md border border-content/10 px-2.5 py-1 text-[12px] text-content/70 hover:bg-content/10 disabled:opacity-40"
+                  className="rounded-md border border-content/10 px-2.5 py-1 text-[12px] text-content/70 hover:bg-content/6 disabled:opacity-40"
                   onClick={() => {
                     setAdding((value) => !value);
                     setCreateError(null);
@@ -509,7 +509,7 @@ export function SkillsPage({
                             aria-controls={previewOpen ? previewId : undefined}
                             aria-expanded={previewOpen && previewSkill?.path === skill.path}
                             onClick={() => onPreview(skill, "icon")}
-                            className="grid size-5 shrink-0 place-items-center rounded text-content/40 hover:bg-content/10 hover:text-content focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                            className="grid size-5 shrink-0 place-items-center rounded text-content/40 hover:bg-content/6 hover:text-content focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                           >
                             <Eye
                               className="size-3"
@@ -523,7 +523,7 @@ export function SkillsPage({
                             })}
                             title={uiT("Copy path")}
                             onClick={() => onCopyPath(skill.path)}
-                            className="grid size-5 shrink-0 place-items-center rounded text-content/40 hover:bg-content/10 hover:text-content"
+                            className="grid size-5 shrink-0 place-items-center rounded text-content/40 hover:bg-content/6 hover:text-content"
                           >
                             <Copy className="size-3" />
                           </button>
@@ -535,7 +535,7 @@ export function SkillsPage({
                             )}
                             title={uiT("Reveal in file manager")}
                             onClick={() => onReveal(skill.path)}
-                            className="grid size-5 shrink-0 place-items-center rounded text-content/40 hover:bg-content/10 hover:text-content"
+                            className="grid size-5 shrink-0 place-items-center rounded text-content/40 hover:bg-content/6 hover:text-content"
                           >
                             <FolderOpen className="size-3" />
                           </button>
@@ -577,7 +577,7 @@ export function SkillsPage({
                   aria-label={uiT("Close skill preview")}
                   title={uiT("Close preview (Escape)")}
                   onClick={() => setPreviewOpen(false)}
-                  className="grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className="grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <X className="size-3.5" />
                 </button>

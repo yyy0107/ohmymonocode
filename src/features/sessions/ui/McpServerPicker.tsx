@@ -125,7 +125,7 @@ export function McpServerPicker({
           aria-label={uiT("Close MCP picker")}
           title={uiT("Back to the conversation (Esc)")}
           onClick={() => onDismiss("escape")}
-          className="grid size-7 shrink-0 place-items-center rounded-md text-content/45 transition-colors hover:bg-content/8 hover:text-content focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+          className="grid size-7 shrink-0 place-items-center rounded-md text-content/45 transition-colors hover:bg-content/5 hover:text-content focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
         >
           <ChevronDown className="size-4" />
         </button>
@@ -171,7 +171,7 @@ export function McpServerPicker({
                   if (available) setActive(index);
                 }}
                 onClick={() => onPick(server)}
-                className={`flex h-11 w-full items-center gap-2 rounded-md px-2 py-1.5 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent ${available ? (active === index ? "bg-selection text-content" : "text-content hover:bg-content/5") : "cursor-default text-content/40"}`}
+                className={`flex h-11 w-full items-center gap-2 rounded-md px-2 py-1.5 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent ${available ? (active === index ? "bg-selection text-content" : "text-content hover:bg-content/3") : "cursor-default text-content/40"}`}
               >
                 <HarnessIcon
                   harness={
@@ -206,7 +206,7 @@ export function McpServerPicker({
       <button
         type="button"
         onClick={onManage}
-        className="flex w-full items-center gap-2 border-t border-content/10 px-3 py-2 text-left text-[12px] text-content/65 hover:bg-content/5 hover:text-content"
+        className="flex w-full items-center gap-2 border-t border-content/10 px-3 py-2 text-left text-[12px] text-content/65 hover:bg-content/3 hover:text-content"
       >
         <Settings className="size-3.5" />
         {uiT("Manage MCP Servers…")}

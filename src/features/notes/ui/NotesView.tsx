@@ -293,7 +293,7 @@ export function NotesView({
           aria-label={uiT("Refresh notes")}
           disabled={loading || topics.loading}
           onClick={() => { void refresh(); topics.refresh(); }}
-          className="grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content disabled:opacity-40"
+          className="grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content disabled:opacity-40"
         >
           <RefreshCw className="size-3.5" />
         </button>
@@ -303,7 +303,7 @@ export function NotesView({
           aria-label={uiT("New note")}
           disabled={creating}
           onClick={() => void onCreate()}
-          className="grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content disabled:opacity-40"
+          className="grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content disabled:opacity-40"
         >
           {creating ? (
             <LoaderCircle
@@ -369,7 +369,7 @@ export function NotesView({
                     data-assistant-topic
                     aria-current={selectedTopic?.key === note.key ? "true" : undefined}
                     onClick={() => setSelectedTopicKey(note.key)}
-                    className={`flex w-full flex-col rounded-md px-2.5 py-2 text-left hover:bg-content/5 ${selectedTopic?.key === note.key ? "bg-selection" : ""}`}
+                    className={`flex w-full flex-col rounded-md px-2.5 py-2 text-left hover:bg-content/3 ${selectedTopic?.key === note.key ? "bg-selection" : ""}`}
                   >
                     <span className="text-[11px] text-content/50">{note.source.name}</span>
                     <span className="line-clamp-1 text-[13px] font-semibold">{note.name}</span>
@@ -505,7 +505,7 @@ function NoteCard({
       className={`flex w-full flex-col rounded-md border px-2.5 py-2 text-left ${
         active
           ? "border-transparent bg-selection text-content"
-          : "border-transparent text-content/80 hover:bg-content/5 hover:text-content"
+          : "border-transparent text-content/80 hover:bg-content/3 hover:text-content"
       }`}
     >
       <span className="flex items-center gap-2">
@@ -952,7 +952,7 @@ function NoteEditor({
                   window.clearTimeout(saveTimer.current);
                 void enqueueNoteSave(note.id, () => onDelete(note.id));
               }}
-              className="inline-flex items-center gap-1.5 rounded-md px-3 h-7 text-[12px] text-content/70 hover:bg-content/10 hover:text-red-400"
+              className="inline-flex items-center gap-1.5 rounded-md px-3 h-7 text-[12px] text-content/70 hover:bg-content/6 hover:text-red-400"
             >
               <Trash2 className="size-3.5" />
               {uiT("Delete")}
@@ -1144,7 +1144,7 @@ function NoteTagsEditor({
             title={uiT("Remove #{value0}", { value0: String(tag) })}
             aria-label={uiT("Remove #{value0}", { value0: String(tag) })}
             onClick={() => onChange(tags.filter((item) => item !== tag))}
-            className="grid size-4 shrink-0 place-items-center rounded text-content/40 hover:bg-content/10 hover:text-content"
+            className="grid size-4 shrink-0 place-items-center rounded text-content/40 hover:bg-content/6 hover:text-content"
           >
             <X className="size-2.5" />
           </button>

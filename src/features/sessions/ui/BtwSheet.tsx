@@ -749,7 +749,7 @@ export function BtwSheet({
                       }
                       title={tab.thread ? uiT("Delete") : uiT("Discard")}
                       onClick={() => btw.closeTab(tab)}
-                      className={`mr-1 grid size-5 shrink-0 place-items-center rounded text-content/40 transition-opacity hover:bg-content/10 hover:text-content focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent ${
+                      className={`mr-1 grid size-5 shrink-0 place-items-center rounded text-content/40 transition-opacity hover:bg-content/6 hover:text-content focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent ${
                         selected ? "" : "opacity-0 group-hover:opacity-100"
                       }`}
                     >
@@ -765,7 +765,7 @@ export function BtwSheet({
                 aria-label={uiT("New side question")}
                 title={uiT("New side question")}
                 onClick={btw.startDraft}
-                className="grid size-7 shrink-0 place-items-center rounded-md text-content/45 transition-colors hover:bg-content/8 hover:text-content focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+                className="grid size-7 shrink-0 place-items-center rounded-md text-content/45 transition-colors hover:bg-content/5 hover:text-content focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
               >
                 <Plus className="size-3.5" />
               </button>
@@ -775,7 +775,7 @@ export function BtwSheet({
               aria-label={uiT("Back to the conversation")}
               title={uiT("Back to the conversation (Esc)")}
               onClick={btw.close}
-              className="grid size-7 shrink-0 place-items-center rounded-md text-content/45 transition-colors hover:bg-content/8 hover:text-content focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+              className="grid size-7 shrink-0 place-items-center rounded-md text-content/45 transition-colors hover:bg-content/5 hover:text-content focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
             >
               <ChevronDown className="size-4" />
             </button>

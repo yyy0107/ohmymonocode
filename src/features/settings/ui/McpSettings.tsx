@@ -151,7 +151,7 @@ function McpPicker<T extends string>({
                 setOpen(false);
                 trigger.current?.focus();
               }}
-              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] focus-visible:outline-2 focus-visible:outline-accent ${value === option.value ? "bg-selection text-content" : "text-content hover:bg-content/5"}`}
+              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] focus-visible:outline-2 focus-visible:outline-accent ${value === option.value ? "bg-selection text-content" : "text-content hover:bg-content/3"}`}
             >
               {option.icon}
               <span className="min-w-0 flex-1 truncate">{option.label}</span>
@@ -296,14 +296,14 @@ function AddServerModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-stroke px-3 py-1.5 text-xs hover:bg-content/5"
+            className="rounded-md border border-stroke px-3 py-1.5 text-xs hover:bg-content/3"
           >
             {uiT("Cancel")}
           </button>
           <button
             type="submit"
             disabled={busy}
-            className="rounded-md border border-stroke px-3 py-1.5 text-xs hover:bg-content/5 disabled:opacity-50"
+            className="rounded-md border border-stroke px-3 py-1.5 text-xs hover:bg-content/3 disabled:opacity-50"
           >
             {busy ? uiT("Adding…") : uiT("Add server")}
           </button>
@@ -332,7 +332,7 @@ export function McpSettings({
           railCwd={cwd}
           recents={recents}
           className="w-fit max-w-full shrink-0"
-          buttonClassName="h-7.5 max-w-full gap-2 bg-content/5 px-2.5 text-[13px] hover:bg-content/12 active:scale-[0.98]"
+          buttonClassName="h-7.5 max-w-full gap-2 bg-content/5 px-2.5 text-[13px] hover:bg-content/8 active:scale-[0.98]"
           onSelectProject={(path) =>
             setSelection({ initialCwd: cwd, project: path })
           }
@@ -486,7 +486,7 @@ function McpConnections({
             type="button"
             onClick={() => void refresh()}
             disabled={loading || busy !== null}
-            className="flex items-center gap-1.5 rounded-md border border-stroke px-3 py-1.5 text-xs hover:bg-content/5 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-md border border-stroke px-3 py-1.5 text-xs hover:bg-content/3 disabled:opacity-50"
           >
             <RefreshCw className="size-3.5" />
             {uiT("Refresh")}
@@ -505,7 +505,7 @@ function McpConnections({
                 : uiT("Showing available providers")
             }
             onClick={() => setShowAllProviders(!showAllProviders)}
-            className={`grid size-7 place-items-center rounded-md border border-content/10 hover:bg-content/5 ${showAllProviders ? "bg-selection text-content" : "text-content/55"}`}
+            className={`grid size-7 place-items-center rounded-md border border-content/10 hover:bg-content/3 ${showAllProviders ? "bg-selection text-content" : "text-content/55"}`}
           >
             <ListFilter className="size-3.5" />
           </button>
@@ -513,7 +513,7 @@ function McpConnections({
             type="button"
             aria-label={uiT("Add MCP server")}
             onClick={() => setAddOpen(true)}
-            className="grid size-7 place-items-center rounded-md border border-stroke hover:bg-content/5"
+            className="grid size-7 place-items-center rounded-md border border-stroke hover:bg-content/3"
           >
             <Plus className="size-3.5" />
           </button>
@@ -606,7 +606,7 @@ function McpConnections({
                           return next;
                         })
                       }
-                      className="-mx-1 flex max-w-full items-center gap-1 rounded px-1 text-left text-[13px] font-medium text-content enabled:hover:bg-content/5 focus-visible:outline-2 focus-visible:outline-accent"
+                      className="-mx-1 flex max-w-full items-center gap-1 rounded px-1 text-left text-[13px] font-medium text-content enabled:hover:bg-content/3 focus-visible:outline-2 focus-visible:outline-accent"
                     >
                       <span className="truncate">{server.name}</span>
                       {inspectable ? (
@@ -653,7 +653,7 @@ function McpConnections({
                       type="button"
                       disabled={busy !== null}
                       onClick={() => void login(server)}
-                      className="rounded-md border border-stroke px-2 py-1 text-xs hover:bg-content/5 disabled:opacity-50"
+                      className="rounded-md border border-stroke px-2 py-1 text-xs hover:bg-content/3 disabled:opacity-50"
                     >
                       {uiT("Sign in")}
                     </button>
@@ -686,7 +686,7 @@ function McpConnections({
                         type="button"
                         disabled={busy !== null}
                         onClick={() => void remove(server)}
-                        className="rounded-md border border-stroke px-2 py-1 text-xs hover:bg-content/5 disabled:opacity-50"
+                        className="rounded-md border border-stroke px-2 py-1 text-xs hover:bg-content/3 disabled:opacity-50"
                       >
                         {uiT("Remove")}
                       </button>
@@ -699,7 +699,7 @@ function McpConnections({
                           setError(String(cause)),
                         )
                       }
-                      className="rounded-md border border-stroke px-2 py-1 text-xs hover:bg-content/5"
+                      className="rounded-md border border-stroke px-2 py-1 text-xs hover:bg-content/3"
                     >
                       {uiT("Show config")}
                     </button>

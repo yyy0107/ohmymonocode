@@ -1883,7 +1883,7 @@ export function TurnMetricsBadge({ metrics }: { metrics?: TurnMetrics }) {
         tabIndex={0}
         aria-label={uiT("Turn metrics: {value0}", { value0: String(label) })}
         title={uiT("Turn metrics")}
-        className="grid rounded-md p-1 text-content/40 outline-none hover:bg-content/8 hover:text-content/70 focus-visible:ring-1 focus-visible:ring-accent"
+        className="grid rounded-md p-1 text-content/40 outline-none hover:bg-content/5 hover:text-content/70 focus-visible:ring-1 focus-visible:ring-accent"
       >
         <ChartBreakoutSquare className="size-3.5" />
       </span>
@@ -1974,7 +1974,7 @@ function SaveNoteButton({
         disabled={pending}
         title={saved ? uiT("Saved to Notes") : uiT("Save as note")}
         aria-label={saved ? uiT("Saved to Notes") : uiT("Save as note")}
-        className="rounded-md p-1 text-content/40 hover:bg-content/8 hover:text-content/70"
+        className="rounded-md p-1 text-content/40 hover:bg-content/5 hover:text-content/70"
         onClick={async () => {
           setError(null);
           setSaved(false);
@@ -2029,7 +2029,7 @@ function EditLastTurnButton({
       className={`rounded-md p-1 transition-[background-color,color] duration-150 focus-visible:ring-1 focus-visible:ring-accent ${
         editing
           ? "edit-last-turn-button"
-          : "text-content/40 hover:bg-content/8 hover:text-content/70"
+          : "text-content/40 hover:bg-content/5 hover:text-content/70"
       }`}
     >
       <Pencil className="size-3.5" />
@@ -2451,7 +2451,7 @@ function UserMessageBlock({
             <button
               type="button"
               aria-expanded={expanded}
-              className="mt-1 rounded px-1 py-0.5 text-xs text-content/60 hover:bg-content/8 hover:text-content"
+              className="mt-1 rounded px-1 py-0.5 text-xs text-content/60 hover:bg-content/5 hover:text-content"
               onClick={toggle}
             >
               {expanded ? uiT("Show less") : uiT("Show more")}
@@ -2488,7 +2488,7 @@ function UserMessageBlock({
                   title={uiT("Remove draft")}
                   aria-label={uiT("Remove draft")}
                   onClick={() => onRemoveDraft?.(block)}
-                  className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-content/55 hover:bg-content/10 hover:text-content"
+                  className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-content/55 hover:bg-content/6 hover:text-content"
                 >
                   <Trash2 className="size-3.5" />
                   {uiT("Remove")}
@@ -3315,7 +3315,7 @@ function SubagentPanel({
         onClick={openAgent ? () => openAgent(block) : onToggle}
         // An open row keeps the wash it lit up under the cursor, so the panel
         // below reads as hanging off it rather than off the transcript.
-        className={`group -mx-1.5 flex w-full min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors duration-200 hover:bg-content/8 ${
+        className={`group -mx-1.5 flex w-full min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors duration-200 hover:bg-content/5 ${
           open ? "bg-content/8" : ""
         }`}
       >

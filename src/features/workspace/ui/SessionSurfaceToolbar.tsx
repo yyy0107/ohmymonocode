@@ -51,7 +51,7 @@ export function SessionSurfaceActions({
           aria-label={modeLabel}
           title={modeLabel}
           onClick={() => onModeChange(mode === "split" ? "unified" : "split")}
-          className="mr-1 grid size-7.5 shrink-0 self-center place-items-center rounded-md text-content/60 hover:bg-content/5 hover:text-content"
+          className="mr-1 grid size-7.5 shrink-0 self-center place-items-center rounded-md text-content/60 hover:bg-content/3 hover:text-content"
         >
           {mode === "split" ? (
             <Maximize2 className="size-4" />
@@ -180,7 +180,7 @@ export function SessionSurfaceToolbar({
                     event.stopPropagation();
                     onClosePane();
                   }}
-                  className={`absolute right-1 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded text-content/50 hover:bg-content/10 hover:text-content group-hover:opacity-100 group-focus-within:opacity-100 ${chatActive ? "opacity-100" : "opacity-0"}`}
+                  className={`absolute right-1 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded text-content/50 hover:bg-content/6 hover:text-content group-hover:opacity-100 group-focus-within:opacity-100 ${chatActive ? "opacity-100" : "opacity-0"}`}
                 >
                   <X className="size-3" />
                 </button>
@@ -243,7 +243,7 @@ function SessionToolToggles() {
   const actions = useSessionHeaderActions();
   if (!actions) return null;
   const button = (active: boolean) =>
-    `mr-1 grid size-7.5 shrink-0 self-center place-items-center rounded-md hover:bg-content/5 hover:text-content ${
+    `mr-1 grid size-7.5 shrink-0 self-center place-items-center rounded-md hover:bg-content/3 hover:text-content ${
       active ? "bg-content/8 text-content" : "text-content/60"
     }`;
   return (

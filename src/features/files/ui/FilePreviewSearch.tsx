@@ -460,7 +460,7 @@ function FindToggle({
       aria-pressed={pressed}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className={`grid size-6 shrink-0 place-items-center rounded-md font-mono text-[11px] font-semibold hover:bg-content/10 hover:text-content ${
+      className={`grid size-6 shrink-0 place-items-center rounded-md font-mono text-[11px] font-semibold hover:bg-content/6 hover:text-content ${
         pressed ? "bg-accent/25 text-content" : "text-content/60"
       }`}
     >
@@ -490,7 +490,7 @@ function FindButton({
       disabled={disabled}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className="grid size-6 shrink-0 place-items-center rounded-md text-content/60 hover:bg-content/10 hover:text-content disabled:opacity-35"
+      className="grid size-6 shrink-0 place-items-center rounded-md text-content/60 hover:bg-content/6 hover:text-content disabled:opacity-35"
     >
       {children}
     </button>

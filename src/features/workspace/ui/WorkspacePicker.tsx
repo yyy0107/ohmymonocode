@@ -318,7 +318,7 @@ function WorkspaceModePicker({
             }
             setOpen(true);
           }}
-          className="-ml-1.5 flex h-6 min-w-0 max-w-48 items-center gap-1.5 rounded-md px-1.5 text-[12px] text-content/55 hover:bg-content/8 hover:text-content aria-expanded:bg-content/8 aria-expanded:text-content disabled:opacity-40 disabled:hover:bg-transparent active:scale-[0.97]"
+          className="-ml-1.5 flex h-6 min-w-0 max-w-48 items-center gap-1.5 rounded-md px-1.5 text-[12px] text-content/55 hover:bg-content/5 hover:text-content aria-expanded:bg-content/8 aria-expanded:text-content disabled:opacity-40 disabled:hover:bg-transparent active:scale-[0.97]"
         >
           <Icon className="size-3.5 shrink-0" />
           <span className="truncate">{label}</span>
@@ -361,7 +361,7 @@ function WorkspaceModePicker({
                 onChange(value);
                 dismiss();
               }}
-              className={`flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] hover:bg-content/8 disabled:opacity-40 ${
+              className={`flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] hover:bg-content/5 disabled:opacity-40 ${
                 mode === value ? "bg-selection text-content" : "text-content/80"
               }`}
             >
@@ -391,7 +391,7 @@ function WorkspaceModePicker({
                   closeWorktreeMenu();
                 }
               }}
-              className={`flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] text-content/80 hover:bg-content/8 hover:text-content ${
+              className={`flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] text-content/80 hover:bg-content/5 hover:text-content ${
                 worktreeMenu ? "bg-selection text-content" : ""
               }`}
             >
@@ -412,7 +412,7 @@ function WorkspaceModePicker({
                   setOpen(false);
                   onOpenSettings();
                 }}
-                className="flex h-full w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] text-content/65 hover:bg-content/8 hover:text-content active:scale-[0.98]"
+                className="flex h-full w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] text-content/65 hover:bg-content/5 hover:text-content active:scale-[0.98]"
               >
                 <Settings
                   className="size-4 shrink-0 text-content/45"
@@ -461,7 +461,7 @@ function WorkspaceModePicker({
                 disabled={!!busyPath}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => void selectWorktree(tree)}
-                className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-content/80 hover:bg-content/8 hover:text-content disabled:opacity-40"
+                className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-content/80 hover:bg-content/5 hover:text-content disabled:opacity-40"
               >
                 {busyPath === tree.path ? (
                   <Loader className="size-4 shrink-0 animate-spin text-content/55" />
@@ -647,7 +647,7 @@ export function WorktreeBasePicker({
                     onChange(ref);
                     dismiss();
                   }}
-                  className={`flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] hover:bg-content/8 ${
+                  className={`flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] hover:bg-content/5 ${
                     highlighted || selectedRow
                       ? "bg-selection text-content"
                       : "text-content/80"

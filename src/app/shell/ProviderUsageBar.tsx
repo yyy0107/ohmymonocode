@@ -327,7 +327,7 @@ export function ProviderUsageBar({
       {inline?.expanded ? null : (
         <button
           type="button"
-          className={`grid ${inline ? "size-7 rounded-lg" : "size-4.5 rounded"} shrink-0 place-items-center text-content/40 hover:bg-content/10 hover:text-content disabled:opacity-50`}
+          className={`grid ${inline ? "size-7 rounded-lg" : "size-4.5 rounded"} shrink-0 place-items-center text-content/40 hover:bg-content/6 hover:text-content disabled:opacity-50`}
           aria-label={uiT("Refresh usage")}
           title={uiT("Refresh usage")}
           disabled={refreshing}
@@ -433,7 +433,7 @@ function SessionChip({
       <button
         ref={trigger}
         type="button"
-        className={`${inline ? "flex h-7 flex-1 rounded-lg px-2" : "-mx-1 inline-flex h-5 shrink-0 rounded px-1"} min-w-0 items-center gap-1.5 whitespace-nowrap text-content/55 transition-[background-color,color,transform] duration-150 ease-out hover:bg-content/10 hover:text-content focus-visible:outline-2 focus-visible:outline-accent active:scale-[0.97]`}
+        className={`${inline ? "flex h-7 flex-1 rounded-lg px-2" : "-mx-1 inline-flex h-5 shrink-0 rounded px-1"} min-w-0 items-center gap-1.5 whitespace-nowrap text-content/55 transition-[background-color,color,transform] duration-150 ease-out hover:bg-content/6 hover:text-content focus-visible:outline-2 focus-visible:outline-accent active:scale-[0.97]`}
         aria-label={uiT("{value0} sign-in required", {
           value0: String(HARNESS_TITLE[session.harness]),
         })}

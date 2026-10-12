@@ -250,7 +250,7 @@ export function ExplorerMenu({
                 : "text-red-300/90 hover:bg-red-500/15"
               : highlighted
                 ? "bg-selection text-content"
-                : "text-content hover:bg-content/5"
+                : "text-content hover:bg-content/3"
         }`}
       >
         {item.icon ? (

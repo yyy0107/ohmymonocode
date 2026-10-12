@@ -251,7 +251,7 @@ export function CwdPicker({
         className={
           buttonClassName
             ? `${buttonClassName} ${
-                open ? "bg-selection text-content" : "hover:bg-content/5"
+                open ? "bg-selection text-content" : "hover:bg-content/3"
               } disabled:opacity-40`
             : `flex min-w-0 items-center gap-1.5 ${
                 open ? "text-content" : "text-content/50 hover:text-content"
@@ -337,7 +337,7 @@ export function CwdPicker({
                     className={`flex w-full items-center justify-between gap-3 px-2.5 py-2 text-left ${
                       active === index
                         ? "bg-selection text-content"
-                        : "text-content/80 hover:bg-content/5"
+                        : "text-content/80 hover:bg-content/3"
                     }`}
                   >
                     <span className="min-w-0 truncate text-[13px]">
@@ -370,7 +370,7 @@ export function CwdPicker({
                 className={`flex w-full items-center justify-between gap-3 px-2.5 py-2 text-left ${
                   active === moreIndex || moreOpen
                     ? "bg-selection text-content"
-                    : "text-content/80 hover:bg-content/5"
+                    : "text-content/80 hover:bg-content/3"
                 }`}
               >
                 <span className="text-[13px]">{uiT("More Projects")}</span>
@@ -394,7 +394,7 @@ export function CwdPicker({
                 className={`flex w-full items-center justify-between gap-3 px-2.5 py-2 text-left ${
                   active === newTerminalIndex
                     ? "bg-selection text-content"
-                    : "text-content/80 hover:bg-content/5"
+                    : "text-content/80 hover:bg-content/3"
                 }`}
               >
                 <span className="text-[13px]">{uiT("New terminal")}</span>
@@ -429,7 +429,7 @@ export function CwdPicker({
               title={item.path}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => pick({ kind: "recent", path: item.path })}
-              className="flex w-full items-center justify-between gap-3 px-2.5 py-2 text-left text-content/80 hover:bg-content/5 hover:text-content"
+              className="flex w-full items-center justify-between gap-3 px-2.5 py-2 text-left text-content/80 hover:bg-content/3 hover:text-content"
             >
               <span className="min-w-0 truncate text-[13px]">
                 {renderProjectLabel?.(item.path) ?? basename(item.path)}

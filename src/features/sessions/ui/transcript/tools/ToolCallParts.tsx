@@ -177,7 +177,7 @@ export function ToolCallSummary({
             className={`-my-0.5 flex min-w-0 cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-left hover:text-sky-300 ${
               chip
                 ? `max-w-full bg-content/6 hover:bg-content/10 ${targetTone}`
-                : `flex-1 hover:bg-content/6 ${targetTone}`
+                : `flex-1 hover:bg-content/4 ${targetTone}`
             }`}
           >
             <FileTypeIcon name={fileName} isDir={false} />
@@ -241,7 +241,7 @@ export function ApprovalControls({
       <button
         type="button"
         data-approval="deny"
-        className="ui-button ui-button-md ui-button-pill rounded-md bg-content/10 px-2.5 py-0.5 text-[11px] text-content/70 hover:bg-content/20"
+        className="ui-button ui-button-md ui-button-pill rounded-md bg-content/10 px-2.5 py-0.5 text-[11px] text-content/70 hover:bg-content/14"
         onClick={() => onApproval(approval.requestId, "deny")}
       >
         {uiT("Deny")}

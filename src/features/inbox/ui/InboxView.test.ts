@@ -284,7 +284,7 @@ describe("InboxDetail layout", () => {
     expect(markup).not.toContain("Related thread");
     expect(markup).not.toContain("Review MonoCode Pull Request");
     expect(reviewButton).toContain("h-6.5");
-    expect(reviewButton).toContain("hover:bg-content/10");
+    expect(reviewButton).toContain("hover:bg-content/6");
     expect(reviewButton).not.toContain("h-6.5 bg-content/10");
     expect(fixedHeader).toContain("pr-[34px]");
   });

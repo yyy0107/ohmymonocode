@@ -85,7 +85,7 @@ export function NotificationMuteDatePicker({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded px-2 py-1.5 text-xs text-content/50 hover:bg-content/5 hover:text-content focus-visible:outline-2 focus-visible:outline-accent"
+          className="rounded px-2 py-1.5 text-xs text-content/50 hover:bg-content/3 hover:text-content focus-visible:outline-2 focus-visible:outline-accent"
         >
           {uiT("Cancel")}
         </button>

@@ -137,7 +137,7 @@ type Props = {
 const ACTION =
   "inline-flex items-center gap-1.5 rounded-md px-3 text-[12px] disabled:cursor-default disabled:opacity-40";
 const ACTION_FILLED = `${ACTION} h-6.5 bg-content font-medium text-background-base hover:bg-content/80`;
-const ACTION_OUTLINE = `${ACTION} h-7 border border-content/15 text-content/80 hover:border-content/30 hover:bg-content/10 hover:text-content`;
+const ACTION_OUTLINE = `${ACTION} h-7 border border-content/15 text-content/80 hover:border-content/30 hover:bg-content/6 hover:text-content`;
 
 let rememberedAutomationId: string | null = null;
 
@@ -380,7 +380,7 @@ function AutomationsContent({
             title={uiT("New automation")}
             aria-label={uiT("New automation")}
             onClick={beginCreate}
-            className="grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content"
+            className="grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content"
           >
             <Plus className="size-3.5" />
           </button>
@@ -520,7 +520,7 @@ function AutomationCard({
       className={`group relative rounded-md border ${
         active
           ? "border-transparent bg-selection"
-          : "border-transparent hover:bg-content/5"
+          : "border-transparent hover:bg-content/3"
       }`}
     >
       <button
@@ -624,7 +624,7 @@ function AutomationPicker({
                 className={`h-7 rounded-full px-3 text-[12px] font-medium ${
                   selected
                     ? "bg-content text-background-base"
-                    : "text-content/55 hover:bg-content/8 hover:text-content"
+                    : "text-content/55 hover:bg-content/5 hover:text-content"
                 }`}
               >
                 {uiT(option.label)}
@@ -636,7 +636,7 @@ function AutomationPicker({
           <button
             type="button"
             onClick={onBlank}
-            className="flex min-h-37 flex-col rounded-xl border border-dashed border-content/15 p-4 text-left hover:border-content/25 hover:bg-content/5"
+            className="flex min-h-37 flex-col rounded-xl border border-dashed border-content/15 p-4 text-left hover:border-content/25 hover:bg-content/3"
           >
             <div className="flex gap-3">
               <span className="grid size-9 shrink-0 place-items-center rounded-full bg-content/8 text-content/70">
@@ -659,7 +659,7 @@ function AutomationPicker({
                 key={template.id}
                 type="button"
                 onClick={() => onPick(template)}
-                className="flex min-h-37 flex-col rounded-xl border border-content/10 p-4 text-left hover:border-content/16 hover:bg-content/5"
+                className="flex min-h-37 flex-col rounded-xl border border-content/10 p-4 text-left hover:border-content/16 hover:bg-content/3"
               >
                 <div className="flex gap-3">
                   <span className="grid size-9 shrink-0 place-items-center rounded-full bg-content/8 text-content/70">
@@ -722,7 +722,7 @@ function RunRow({
           void onOpenSession(sessionId);
         }}
         className={`${RUN_GRID} h-11 w-full text-left text-[13px] disabled:opacity-100 ${
-          sessionId ? "cursor-pointer hover:bg-content/5" : "cursor-default"
+          sessionId ? "cursor-pointer hover:bg-content/3" : "cursor-default"
         }`}
       >
         <span className="flex min-w-0 items-center gap-2 text-content">
@@ -1046,7 +1046,7 @@ function AutomationEditor({
                     className={`grid size-6.5 shrink-0 place-items-center rounded-md ${
                       menuOpen
                         ? "bg-selection text-content"
-                        : "text-content/50 hover:bg-content/5 hover:text-content"
+                        : "text-content/50 hover:bg-content/3 hover:text-content"
                     }`}
                   >
                     <MoreHorizontal className="size-3.5" />
@@ -1239,7 +1239,7 @@ function AutomationEditor({
                               ? "cursor-default text-content/35"
                               : triggerCategory === option.value
                                 ? "bg-selection text-content"
-                                : "text-content/70 hover:bg-content/5 hover:text-content"
+                                : "text-content/70 hover:bg-content/3 hover:text-content"
                           }`}
                         >
                           <TriggerMark
@@ -1299,7 +1299,7 @@ function AutomationEditor({
                       type="button"
                       role="menuitem"
                       onClick={() => selectTrigger(triggerCategory, event)}
-                      className="flex h-9 w-full items-center rounded-lg px-2 text-left text-[13px] text-content/75 hover:bg-content/5 hover:text-content"
+                      className="flex h-9 w-full items-center rounded-lg px-2 text-left text-[13px] text-content/75 hover:bg-content/3 hover:text-content"
                     >
                       {uiT(event.label)}
                     </button>
@@ -1795,7 +1795,7 @@ function TriggerRow({
         type="button"
         aria-label={uiT("Remove trigger")}
         onClick={onRemove}
-        className="grid size-7 shrink-0 place-items-center rounded-md text-content/35 opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-content/8 hover:text-content focus-visible:opacity-100"
+        className="grid size-7 shrink-0 place-items-center rounded-md text-content/35 opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-content/5 hover:text-content focus-visible:opacity-100"
       >
         <X className="size-3.5" />
       </button>

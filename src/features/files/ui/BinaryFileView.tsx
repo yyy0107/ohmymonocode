@@ -312,7 +312,7 @@ function ZoomButton({
       title={label}
       aria-label={label}
       onClick={onClick}
-      className="grid size-5 place-items-center rounded hover:bg-content/10 hover:text-content"
+      className="grid size-5 place-items-center rounded hover:bg-content/6 hover:text-content"
     >
       {children}
     </button>

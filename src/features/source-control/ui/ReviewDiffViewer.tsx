@@ -136,7 +136,7 @@ export const ReviewDiffViewer = memo(function ReviewDiffViewer({
             <button
               type="button"
               disabled={busy || !visible}
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 font-sans text-[11px] text-content/60 hover:bg-content/10 disabled:opacity-40"
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 font-sans text-[11px] text-content/60 hover:bg-content/6 disabled:opacity-40"
               onClick={() => onStageHunk?.(metadata)}
             >
               <Plus className="size-3" />

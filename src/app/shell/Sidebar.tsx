@@ -1263,7 +1263,7 @@ function SidebarComponent(props: SidebarProps) {
               aria-haspopup="menu"
               aria-expanded={!!filterMenu}
               onClick={onFilter}
-              className={`relative z-50 grid size-6 place-items-center rounded-md text-content/50 hover:bg-content/10 hover:text-content ${filterMenu || filtersActive ? "bg-selection text-content" : ""}`}
+              className={`relative z-50 grid size-6 place-items-center rounded-md text-content/50 hover:bg-content/6 hover:text-content ${filterMenu || filtersActive ? "bg-selection text-content" : ""}`}
             >
               <ListFilter className="size-3" />
             </button>

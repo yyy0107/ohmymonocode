@@ -223,7 +223,7 @@ export function UnifiedDiffView({
             title={uiT("Expand all files")}
             aria-label={uiT("Expand all files")}
             onClick={() => setOpen(new Set(files.map((file) => file.id)))}
-            className="grid size-7 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content"
+            className="grid size-7 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content"
           >
             <UnfoldVertical className="size-3.5" />
           </button>
@@ -233,7 +233,7 @@ export function UnifiedDiffView({
             aria-label={uiT("Collapse all files")}
             disabled={open.size === 0}
             onClick={() => setOpen(new Set())}
-            className="grid size-7 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content disabled:opacity-40"
+            className="grid size-7 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content disabled:opacity-40"
           >
             <FoldVertical className="size-3.5" />
           </button>
@@ -885,7 +885,7 @@ function FoldBar({
         title={uiT("Expand upward")}
         aria-label={uiT("Expand unmodified lines upward")}
         onClick={() => onReveal("up")}
-        className="grid size-5 place-items-center rounded text-content/40 hover:bg-content/10 hover:text-content"
+        className="grid size-5 place-items-center rounded text-content/40 hover:bg-content/6 hover:text-content"
       >
         <ChevronUp className="size-3" strokeWidth={2} />
       </button>
@@ -894,7 +894,7 @@ function FoldBar({
         title={uiT("Expand downward")}
         aria-label={uiT("Expand unmodified lines downward")}
         onClick={() => onReveal("down")}
-        className="grid size-5 place-items-center rounded text-content/40 hover:bg-content/10 hover:text-content"
+        className="grid size-5 place-items-center rounded text-content/40 hover:bg-content/6 hover:text-content"
       >
         <ChevronDown className="size-3" strokeWidth={2} />
       </button>
@@ -1084,7 +1084,7 @@ function IconButton({
       aria-label={title}
       disabled={disabled}
       onClick={onClick}
-      className="grid size-6 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content disabled:opacity-40"
+      className="grid size-6 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content disabled:opacity-40"
     >
       {children}
     </button>

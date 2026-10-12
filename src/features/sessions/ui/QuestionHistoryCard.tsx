@@ -87,7 +87,7 @@ export function QuestionHistoryCard({
     >
       <button
         type="button"
-        className="flex min-h-11 w-full items-start gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-content/5 motion-reduce:transition-none"
+        className="flex min-h-11 w-full items-start gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-content/3 motion-reduce:transition-none"
         aria-expanded={sheet ? undefined : open}
         aria-haspopup={sheet ? "dialog" : undefined}
         onClick={() => sheet ? openQuestion?.(blockId) : setOpen((value) => !value)}

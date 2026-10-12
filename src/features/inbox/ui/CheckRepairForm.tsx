@@ -186,7 +186,7 @@ export function CheckRepairForm({
           type="button"
           aria-label={uiT("Close fix picker")}
           onClick={() => dismiss()}
-          className="grid size-6 shrink-0 place-items-center rounded-md text-content/40 hover:bg-content/10 hover:text-content"
+          className="grid size-6 shrink-0 place-items-center rounded-md text-content/40 hover:bg-content/6 hover:text-content"
         >
           <X className="size-3.5" />
         </button>
@@ -246,7 +246,7 @@ export function CheckRepairForm({
               onMouseEnter={() => setActive(index)}
               onFocus={() => setActive(index)}
               onClick={() => setSessionId(session.id)}
-              className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[12px] disabled:opacity-50 ${index === active ? "bg-selection text-content" : "text-content/70 hover:bg-content/5 hover:text-content"}`}
+              className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[12px] disabled:opacity-50 ${index === active ? "bg-selection text-content" : "text-content/70 hover:bg-content/3 hover:text-content"}`}
             >
               <Icon
                 className="size-3.5 shrink-0 text-content/50"

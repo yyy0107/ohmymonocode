@@ -305,7 +305,7 @@ export function InboxCommentForm({
             title={uiT("Cancel reply")}
             aria-label={uiT("Cancel reply")}
             onClick={onCancelReply}
-            className="grid size-5 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content"
+            className="grid size-5 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content"
           >
             <X className="size-3" />
           </button>

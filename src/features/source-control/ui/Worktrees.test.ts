@@ -518,7 +518,7 @@ it.each([
     const trigger = container.querySelector<HTMLButtonElement>("button")!;
     expect(trigger.classList.contains("-ml-1.5")).toBe(true);
     expect(trigger.classList.contains("px-1.5")).toBe(true);
-    expect(trigger.classList.contains("hover:bg-content/8")).toBe(true);
+    expect(trigger.classList.contains("hover:bg-content/5")).toBe(true);
     expect(trigger.textContent?.includes("Worktree")).toBe(
       executionCwd !== "/repo",
     );

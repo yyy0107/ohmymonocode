@@ -75,7 +75,7 @@ export function SessionOverflowMenu({
         aria-expanded={mode !== null}
         onPointerDown={(event) => event.stopPropagation()}
         onClick={() => setMode((current) => (current ? null : "menu"))}
-        className="mr-1 grid size-7.5 shrink-0 self-center place-items-center rounded-md text-content/60 hover:bg-content/5 hover:text-content"
+        className="mr-1 grid size-7.5 shrink-0 self-center place-items-center rounded-md text-content/60 hover:bg-content/3 hover:text-content"
       >
         <MoreHorizontal className="size-4" />
       </button>
@@ -165,7 +165,7 @@ export function SessionOverflowMenu({
             type="button"
             data-session-usage-back
             onClick={() => setMode("menu")}
-            className="flex h-7 w-full items-center gap-1.5 rounded-lg px-2 text-left text-[12px] text-content/65 hover:bg-content/5 hover:text-content"
+            className="flex h-7 w-full items-center gap-1.5 rounded-lg px-2 text-left text-[12px] text-content/65 hover:bg-content/3 hover:text-content"
           >
             <ChevronLeft className="size-3.5" aria-hidden />
             {t("Back")}

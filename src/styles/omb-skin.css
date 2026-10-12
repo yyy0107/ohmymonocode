@@ -419,12 +419,15 @@ html.theme-light {
    already set those to concrete colours, and this rule is the same
    specificity. */
 html[data-skin] {
+  /* Hover fills sit lighter than the raised-hover step, which stays for
+     borders and emphasis. */
+  --color-hover-fill: color-mix(in srgb, var(--color-raised-hover) 55%, transparent);
   --color-background-base: var(--color-app);
   --color-background: var(--color-app);
   --window-color: var(--color-app);
   --panel-color: var(--color-panel);
   --card-color: var(--color-card);
-  --menu-hover-color: var(--color-raised-hover);
+  --menu-hover-color: var(--color-hover-fill);
   --accent-color: var(--color-accent);
   --link-color: var(--color-accent-text);
   --brand-color: var(--color-accent);
@@ -440,10 +443,10 @@ html[data-skin] {
   --color-selection: var(--color-raised);
   --color-selection-subtle: color-mix(in srgb, var(--color-raised) 72%, transparent);
   --color-selection-strong: var(--color-raised);
-  --color-selection-hover: var(--color-raised-hover);
+  --color-selection-hover: var(--color-hover-fill);
   --color-selection-emphasis: var(--color-raised-hover);
   --color-surface: color-mix(in srgb, var(--color-raised) 45%, transparent);
-  --color-surface-hover: var(--color-raised-hover);
+  --color-surface-hover: var(--color-hover-fill);
   --composer-input: var(--color-composer);
   --composer-surface: var(--color-panel);
   --composer-border: var(--color-composer-ring);
@@ -511,11 +514,11 @@ html[data-skin] .ui-pill {
 }
 html[data-skin] .ui-button:enabled:hover:not(.ui-button-primary):not(.ui-button-danger),
 html[data-skin] button.ui-pill:enabled:hover {
-  background: var(--color-raised-hover, var(--color-surface-hover));
+  background: var(--color-hover-fill);
   color: var(--color-ink, var(--color-content));
 }
 html[data-skin] .ui-icon-button:enabled:hover {
-  background: var(--color-raised-hover, var(--color-surface-hover));
+  background: var(--color-hover-fill);
 }
 html[data-skin] .ui-button.ui-button-danger:enabled:hover {
   border-color: color-mix(in srgb, var(--color-danger) 55%, var(--color-hairline));
@@ -585,7 +588,7 @@ html[data-skin] [data-composer-layout="desktop"] .composer-send:disabled {
 }
 
 html[data-skin] [data-composer-layout="desktop"] .composer-footer .composer-plus:is(:hover, [aria-expanded="true"]) {
-  background: var(--color-raised-hover);
+  background: var(--color-hover-fill);
   color: var(--color-ink);
 }
 
@@ -672,7 +675,7 @@ html[data-skin] :is([data-question-secondary], [data-approval="deny"]) {
 }
 
 html[data-skin] :is([data-question-secondary], [data-approval="deny"]):enabled:hover {
-  background: var(--color-raised-hover);
+  background: var(--color-hover-fill);
   color: var(--color-accent-text);
 }
 
@@ -780,7 +783,7 @@ html[data-skin] [data-session-dense][data-session-active="true"]:not([data-sessi
 }
 
 html[data-skin] [data-session-dense]:not([data-session-active="true"]):not([data-session-selected="true"]):not([data-session-waiting="true"]):hover {
-  background: color-mix(in srgb, var(--color-raised) 65%, transparent);
+  background: color-mix(in srgb, var(--color-raised) 45%, transparent);
 }
 
 html[data-skin] [data-session-dense][data-session-waiting="true"] {
@@ -950,7 +953,7 @@ html[data-skin] [data-session-surface-tabs] :is([data-session-tool-toggle], [dat
 }
 html[data-skin] [data-session-surface-tabs] :is([data-session-tool-toggle], [data-session-overflow-menu]):hover,
 html[data-skin] [data-session-surface-tabs] [data-session-tool-toggle][aria-pressed="true"] {
-  background: var(--color-raised);
+  background: color-mix(in srgb, var(--color-raised) 55%, transparent);
   color: var(--color-ink);
 }
 html[data-skin] [data-session-surface-tabs] [data-session-project-chip] {

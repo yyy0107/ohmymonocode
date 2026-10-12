@@ -264,7 +264,7 @@ export function SearchableProjectPicker({
             ? "bg-selection text-content"
             : appearance === "filled"
               ? "bg-content/10 text-content hover:bg-content/[0.14]"
-              : "text-content/50 hover:bg-content/5 hover:text-content"
+              : "text-content/50 hover:bg-content/3 hover:text-content"
         }${buttonClassName ? ` ${buttonClassName}` : ""}`}
       >
         {!inProject ? null : logoPath ? (
@@ -336,7 +336,7 @@ export function SearchableProjectPicker({
                       type="button"
                       onMouseEnter={() => setActive(index)}
                       onClick={() => pickProject("")}
-                      className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] font-medium ${active === index ? "bg-selection text-content" : "text-content/75 hover:bg-content/5 hover:text-content"}`}
+                      className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] font-medium ${active === index ? "bg-selection text-content" : "text-content/75 hover:bg-content/3 hover:text-content"}`}
                     >
                       <span className="grid size-4 shrink-0 place-items-center">
                         {!inProject ? (
@@ -385,7 +385,7 @@ export function SearchableProjectPicker({
                     className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left ${
                       active === index
                         ? "bg-selection text-content"
-                        : "text-content/75 hover:bg-content/5 hover:text-content"
+                        : "text-content/75 hover:bg-content/3 hover:text-content"
                     }`}
                   >
                     <span className="grid size-4 shrink-0 place-items-center">
@@ -429,7 +429,7 @@ export function SearchableProjectPicker({
                   closePicker();
                   onOpenProject();
                 }}
-                className="flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] text-content/75 hover:bg-content/8 hover:text-content"
+                className="flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] text-content/75 hover:bg-content/5 hover:text-content"
               >
                 <Plus className="size-4 shrink-0" />
                 <span>{uiT("New project")}</span>

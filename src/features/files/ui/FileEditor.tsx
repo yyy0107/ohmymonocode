@@ -1108,7 +1108,7 @@ function DiffChunkNav({
           disabled={total === 0 || index <= 0}
           onMouseDown={(event) => event.preventDefault()}
           onClick={onPrev}
-          className="grid size-6 place-items-center rounded text-content/70 hover:bg-content/10 hover:text-content disabled:opacity-35"
+          className="grid size-6 place-items-center rounded text-content/70 hover:bg-content/6 hover:text-content disabled:opacity-35"
         >
           <ChevronUp className="size-3.5" />
         </button>
@@ -1122,7 +1122,7 @@ function DiffChunkNav({
           disabled={total === 0 || index >= total - 1}
           onMouseDown={(event) => event.preventDefault()}
           onClick={onNext}
-          className="grid size-6 place-items-center rounded text-content/70 hover:bg-content/10 hover:text-content disabled:opacity-35"
+          className="grid size-6 place-items-center rounded text-content/70 hover:bg-content/6 hover:text-content disabled:opacity-35"
         >
           <ChevronDown className="size-3.5" />
         </button>

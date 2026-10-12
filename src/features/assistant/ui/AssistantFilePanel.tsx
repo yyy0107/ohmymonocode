@@ -156,7 +156,7 @@ export function AssistantFilePanel({
   const trailing = useMemo(() => {
     const maximizeLabel = maximized ? t("Restore") : t("Maximize");
     const button =
-      "grid size-7 shrink-0 self-center place-items-center rounded-md text-content/55 hover:bg-content/5 hover:text-content";
+      "grid size-7 shrink-0 self-center place-items-center rounded-md text-content/55 hover:bg-content/3 hover:text-content";
     return (
       <div className="mr-1 flex items-center">
         <button

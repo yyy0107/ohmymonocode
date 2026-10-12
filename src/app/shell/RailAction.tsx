@@ -56,7 +56,7 @@ export function RailAction({
       className={`relative flex w-full items-center gap-2 rounded-md px-2 h-8  text-left ${
         active
           ? "bg-selection text-content"
-          : "text-content/50 hover:bg-content/10 hover:text-content"
+          : "text-content/50 hover:bg-content/6 hover:text-content"
       } disabled:cursor-default disabled:opacity-40`}
     >
       {badge != null ? (
@@ -108,7 +108,7 @@ export function RailSearch({
       className={`relative flex w-full items-center gap-2 rounded-md border border-content/8 px-1.5 shadow-sm h-8 text-left ${
         active
           ? "bg-selection text-content"
-          : "text-content/50 hover:bg-content/10 hover:text-content"
+          : "text-content/50 hover:bg-content/6 hover:text-content"
       } disabled:cursor-default disabled:opacity-40`}
     >
       <Icon className="size-4 shrink-0 opacity-70" />

@@ -1172,7 +1172,7 @@ function HeaderIcon({
       className={`flex h-6 min-w-0 flex-1 items-center justify-center self-center rounded-md ${
         active
           ? "bg-selection text-content"
-          : "text-content/50 hover:bg-content/5 hover:text-content"
+          : "text-content/50 hover:bg-content/3 hover:text-content"
       }`}
     >
       {children}

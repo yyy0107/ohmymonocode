@@ -204,7 +204,7 @@ function AssignmentModel({
           setInEffort(false);
           setOpen(!open);
         }}
-        className="flex h-7 max-w-full items-center gap-1.5 rounded-md bg-content/5 px-2 text-[11px] text-content/60 hover:bg-content/10 hover:text-content"
+        className="flex h-7 max-w-full items-center gap-1.5 rounded-md bg-content/5 px-2 text-[11px] text-content/60 hover:bg-content/6 hover:text-content"
       >
         <HarnessIcon harness={task.harness} className="size-3.5 shrink-0" />
         <span className="truncate">
@@ -352,7 +352,7 @@ function AssignmentModel({
                   pick(activeChoice, settingsFor(activeChoice, option.value))
                 }
                 className={`flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] text-content ${
-                  highlighted ? "bg-selection" : "hover:bg-content/5"
+                  highlighted ? "bg-selection" : "hover:bg-content/3"
                 }`}
               >
                 <span className="min-w-0 flex-1 truncate">{option.label}</span>
@@ -507,7 +507,7 @@ export function OrchestrationPreview({
     });
   };
   const secondary =
-    "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[11px] text-content/50 hover:bg-content/8 hover:text-content disabled:opacity-35";
+    "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[11px] text-content/50 hover:bg-content/5 hover:text-content disabled:opacity-35";
   const field =
     "w-full rounded-md border border-content/12 bg-background-base/40 px-2 py-1.5 text-[12px] leading-5 text-content outline-none placeholder:text-content/35 focus:border-content/30";
   const fieldLabel = "mb-1 block text-[11px] leading-tight text-content/45";
@@ -640,7 +640,7 @@ export function OrchestrationPreview({
                 : undefined;
             return (
               <li key={task.id}>
-                <div className="flex min-h-9 min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1 hover:bg-content/5">
+                <div className="flex min-h-9 min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1 hover:bg-content/3">
                   <button
                     type="button"
                     aria-label={uiT("Details for {value0}", {
@@ -755,7 +755,7 @@ export function OrchestrationPreview({
           type="button"
           aria-expanded={showAll}
           onClick={() => setShowAll(!showAll)}
-          className="flex h-8 w-full items-center gap-1.5 border-t border-stroke px-3 text-left text-[11px] text-content/45 hover:bg-content/5 hover:text-content/70"
+          className="flex h-8 w-full items-center gap-1.5 border-t border-stroke px-3 text-left text-[11px] text-content/45 hover:bg-content/3 hover:text-content/70"
         >
           {showAll ? (
             <ChevronDown className="size-3.5" />
@@ -803,7 +803,7 @@ export function OrchestrationPreview({
                       className={`grid size-5 place-items-center rounded-[5px] text-[11px] leading-none tabular-nums ${
                         proposal.settings.maxWorkers === number
                           ? "bg-selection-hover font-medium text-content"
-                          : "text-content/45 hover:bg-content/8 hover:text-content"
+                          : "text-content/45 hover:bg-content/5 hover:text-content"
                       }`}
                     >
                       {number}

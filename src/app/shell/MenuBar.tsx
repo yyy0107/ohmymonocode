@@ -226,7 +226,7 @@ export function MenuBar({
             aria-label={uiT("Window navigation")}
             data-window-navigation
             data-tauri-drag-region="false"
-            className="mr-2 flex shrink-0 items-center"
+            className="mr-3 flex shrink-0 items-center"
           >
             <TabVisitNav
               canGoBack={canGoBack}
@@ -261,7 +261,7 @@ export function MenuBar({
               className={`rounded px-2 py-0.5 transition-colors ${
                 isActive
                   ? "bg-selection-hover text-content"
-                  : "text-content/70 hover:bg-content/10 hover:text-content"
+                  : "text-content/70 hover:bg-content/6 hover:text-content"
               }`}
             >
               {uiT(label)}

@@ -127,7 +127,7 @@ export function PrChecksTab({
 }
 
 const REFRESH_BUTTON =
-  "grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-content/45";
+  "grid size-6 shrink-0 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-content/45";
 
 function selectedChecksStillFailed(
   selected: readonly GithubPrCheck[],
@@ -380,7 +380,7 @@ function PrCheckRow({
             aria-expanded={expanded}
             aria-controls={detailsId}
             onClick={() => setExpanded(!expanded)}
-            className="grid size-7 shrink-0 place-items-center rounded-lg text-content/40 hover:bg-content/5 hover:text-content focus-visible:outline focus-visible:outline-1 focus-visible:outline-content/50"
+            className="grid size-7 shrink-0 place-items-center rounded-lg text-content/40 hover:bg-content/3 hover:text-content focus-visible:outline focus-visible:outline-1 focus-visible:outline-content/50"
           >
             <ChevronRight
               className={`size-3 transition-transform motion-reduce:transition-none ${expanded ? "rotate-90" : ""}`}
@@ -428,7 +428,7 @@ function PrCheckRow({
               <button
                 type="button"
                 onClick={() => setRetry((value) => value + 1)}
-                className="rounded px-2 py-1 hover:bg-content/5"
+                className="rounded px-2 py-1 hover:bg-content/3"
               >
                 {uiT("Retry details")}
               </button>
@@ -579,7 +579,7 @@ export function InboxPrChecks({
           title={uiT("Retry loading checks")}
           aria-label={uiT("Retry loading checks")}
           onClick={onRefresh}
-          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-content/15 px-3 text-[12px] text-content/80 hover:bg-content/5"
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-content/15 px-3 text-[12px] text-content/80 hover:bg-content/3"
         >
           <RefreshCw className="size-3.5" />
           {uiT("Retry")}

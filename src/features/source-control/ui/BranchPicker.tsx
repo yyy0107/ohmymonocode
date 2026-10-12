@@ -426,7 +426,7 @@ export function BranchPicker({
               disabled={busy}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => pick(createRow)}
-              className="flex h-7.5 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] text-content/75 hover:bg-content/8 hover:text-content disabled:opacity-60"
+              className="flex h-7.5 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] text-content/75 hover:bg-content/5 hover:text-content disabled:opacity-60"
             >
               <Plus className="size-4 shrink-0" />
               <span className="min-w-0 truncate">
@@ -499,7 +499,7 @@ function BranchList({
             className={`flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] disabled:opacity-60 ${
               highlighted || selected
                 ? "bg-selection text-content"
-                : "text-content hover:bg-content/5"
+                : "text-content hover:bg-content/3"
             }`}
           >
             {selected ? (

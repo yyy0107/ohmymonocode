@@ -245,7 +245,7 @@ function SelectSetting({
                 className={`flex w-full items-center rounded-lg px-2 py-1.5 text-left text-[13px] ${
                   highlighted || selected
                     ? "bg-selection text-content"
-                    : "text-content hover:bg-content/5"
+                    : "text-content hover:bg-content/3"
                 }`}
               >
                 {option.label}

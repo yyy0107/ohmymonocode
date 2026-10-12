@@ -72,7 +72,7 @@ export function CreateBranchDialog({ busy, error, onCreate, onCancel }: Props) {
             type="button"
             disabled={busy}
             onClick={onCancel}
-            className="rounded-md px-3 py-1.5 text-[12px] text-content/70 hover:bg-content/8 hover:text-content disabled:opacity-40"
+            className="rounded-md px-3 py-1.5 text-[12px] text-content/70 hover:bg-content/5 hover:text-content disabled:opacity-40"
           >
             {uiT("Cancel")}
           </button>

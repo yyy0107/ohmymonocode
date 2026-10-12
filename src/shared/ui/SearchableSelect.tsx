@@ -293,7 +293,7 @@ export function SearchableSelect({
                     } ${
                       highlighted
                         ? "bg-selection text-content"
-                        : "text-content/75 hover:bg-content/5 hover:text-content"
+                        : "text-content/75 hover:bg-content/3 hover:text-content"
                     }`}
                   >
                     <span className="grid size-3.5 shrink-0 place-items-center">

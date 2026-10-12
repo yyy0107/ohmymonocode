@@ -36,7 +36,7 @@ export function CopyTurnButton({
         disabled={pending}
         title={copied ? uiT("Copied") : label}
         aria-label={copied ? uiT("Copied") : label}
-        className="-ml-1 rounded-md p-1 text-content/40 hover:bg-content/8 hover:text-content/70"
+        className="-ml-1 rounded-md p-1 text-content/40 hover:bg-content/5 hover:text-content/70"
         onClick={(event) => {
           event.stopPropagation();
           setError(null);

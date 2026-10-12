@@ -48,7 +48,7 @@ export function planFileName(text: string): string {
 }
 
 const iconButton =
-  "flex size-7 shrink-0 items-center justify-center rounded-md text-content/60 hover:bg-content/8 hover:text-content disabled:opacity-40";
+  "flex size-7 shrink-0 items-center justify-center rounded-md text-content/60 hover:bg-content/5 hover:text-content disabled:opacity-40";
 
 /** Copy and download actions shared by the inline card and full plan views. */
 export function PlanActions({ text }: { text: string }) {
@@ -246,7 +246,7 @@ export function PlanDecision({
           </span>
           <button
             type="button"
-            className="ui-button ui-button-md ui-button-pill h-6 shrink-0 rounded-md px-1.5 text-[11px] text-content/55 hover:bg-content/10 hover:text-content"
+            className="ui-button ui-button-md ui-button-pill h-6 shrink-0 rounded-md px-1.5 text-[11px] text-content/55 hover:bg-content/6 hover:text-content"
             data-question-secondary
             onClick={onSkip}
           >
@@ -257,7 +257,7 @@ export function PlanDecision({
               type="button"
               aria-label={uiT("Collapse question")}
               title={uiT("Collapse question")}
-              className="grid size-6 shrink-0 place-items-center rounded-md text-content/55 hover:bg-content/10 hover:text-content focus-visible:outline-2 focus-visible:outline-accent"
+              className="grid size-6 shrink-0 place-items-center rounded-md text-content/55 hover:bg-content/6 hover:text-content focus-visible:outline-2 focus-visible:outline-accent"
               data-question-collapse
               onClick={onCollapse}
             >
@@ -282,7 +282,7 @@ export function PlanDecision({
               disabled={busy}
               onClick={() => onImplement()}
               data-question-option
-              className="flex w-full items-start gap-2 rounded-md border border-content/10 px-2 py-1.5 text-left hover:bg-content/5 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent disabled:opacity-40"
+              className="flex w-full items-start gap-2 rounded-md border border-content/10 px-2 py-1.5 text-left hover:bg-content/3 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent disabled:opacity-40"
             >
               <span
                 className="min-w-0 flex-1 text-[12px] text-content"

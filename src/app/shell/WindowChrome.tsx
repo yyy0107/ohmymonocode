@@ -171,8 +171,11 @@ export function TabVisitNav({
 
 const WINDOW_NAVIGATION_LEFT = IS_MAC ? 78 : 6;
 const WINDOW_NAVIGATION_WIDTH = 40 + 112;
+// The navigation cluster is taken out of flow. This clearance keeps the
+// titlebar actions, including Search, off the disclosure button.
+const WINDOW_NAVIGATION_GAP = 12;
 export const WINDOW_NAVIGATION_END =
-  WINDOW_NAVIGATION_LEFT + WINDOW_NAVIGATION_WIDTH;
+  WINDOW_NAVIGATION_LEFT + WINDOW_NAVIGATION_WIDTH + WINDOW_NAVIGATION_GAP;
 export const WINDOW_DRAG_BAR_HEIGHT = 40;
 
 /** Keep native window dragging independent of the active page or pane layout. */

@@ -85,7 +85,7 @@ export function GitHistoryGraph({
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-      <div className="relative flex h-7 shrink-0 items-center hover:bg-content/5">
+      <div className="relative flex h-7 shrink-0 items-center hover:bg-content/3">
         <button
           type="button"
           onClick={onToggleExpanded}
@@ -223,7 +223,7 @@ function HistoryRow({
         } ${
           active
             ? "is-selected bg-selection text-content"
-            : "text-content hover:bg-content/5"
+            : "text-content hover:bg-content/3"
         }`}
       >
         <svg

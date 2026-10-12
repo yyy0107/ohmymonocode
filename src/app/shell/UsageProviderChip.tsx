@@ -425,7 +425,7 @@ export function UsageProviderChip({
         <button
           ref={trigger}
           type="button"
-          className={`${inline ? "flex h-7 flex-1 rounded-lg px-2" : "-mx-1 inline-flex h-5 shrink-0 rounded px-1"} min-w-0 items-center gap-1.5 whitespace-nowrap text-content/55 transition-[background-color,color,transform] duration-150 ease-out hover:bg-content/10 hover:text-content focus-visible:outline-2 focus-visible:outline-accent active:scale-[0.97]`}
+          className={`${inline ? "flex h-7 flex-1 rounded-lg px-2" : "-mx-1 inline-flex h-5 shrink-0 rounded px-1"} min-w-0 items-center gap-1.5 whitespace-nowrap text-content/55 transition-[background-color,color,transform] duration-150 ease-out hover:bg-content/6 hover:text-content focus-visible:outline-2 focus-visible:outline-accent active:scale-[0.97]`}
           aria-label={uiT("{value0} usage details", {
             value0: String(providerLabel),
           })}
@@ -570,7 +570,7 @@ function ProviderAccountPicker({
       <div className="flex h-7 items-center gap-1">
         <button
           type="button"
-          className="grid size-6 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content"
+          className="grid size-6 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content"
           aria-label={uiT("Back to usage")}
           onClick={onBack}
         >
@@ -772,7 +772,7 @@ function AddProviderAccount({
       <div className="flex h-7 items-center gap-1">
         <button
           type="button"
-          className="grid size-6 place-items-center rounded-md text-content/45 hover:bg-content/10 hover:text-content disabled:opacity-40"
+          className="grid size-6 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content disabled:opacity-40"
           aria-label={uiT("Back to accounts")}
           disabled={running}
           onClick={onBack}
@@ -1156,7 +1156,7 @@ function BankedResetRow({
           <div className="flex shrink-0 gap-1">
             <button
               type="button"
-              className="h-6 rounded-md px-2 text-[10px] text-content/50 hover:bg-content/10 hover:text-content"
+              className="h-6 rounded-md px-2 text-[10px] text-content/50 hover:bg-content/6 hover:text-content"
               onClick={onCancel}
             >
               {uiT("Cancel")}

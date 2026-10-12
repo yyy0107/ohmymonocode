@@ -166,7 +166,7 @@ export function ToolDiffPreview({
             <button
               type="button"
               aria-label={uiT("Close preview")}
-              className="shrink-0 rounded p-0.5 hover:bg-content/8 hover:text-content"
+              className="shrink-0 rounded p-0.5 hover:bg-content/5 hover:text-content"
               onClick={() => dismiss(true)}
             >
               <X className="size-3" />

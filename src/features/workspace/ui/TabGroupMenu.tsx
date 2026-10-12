@@ -272,7 +272,7 @@ export function TabGroupMenu({
                   }
                 })();
               }}
-              className="grid size-9 shrink-0 place-items-center rounded-lg border border-content/10 bg-content/5 hover:bg-content/10"
+              className="grid size-9 shrink-0 place-items-center rounded-lg border border-content/10 bg-content/5 hover:bg-content/6"
             >
               <ProjectLogoIcon
                 path={logoPath}
@@ -303,7 +303,7 @@ export function TabGroupMenu({
                     onLogoChange,
                   );
                 }}
-                className="grid size-7 shrink-0 place-items-center rounded-md text-content/50 hover:bg-content/10 hover:text-content"
+                className="grid size-7 shrink-0 place-items-center rounded-md text-content/50 hover:bg-content/6 hover:text-content"
               >
                 <Trash2 className="size-3.5" />
               </button>
@@ -456,7 +456,7 @@ function MascotSwatch({
       className={`grid size-5 shrink-0 place-items-center rounded-md ${
         selected
           ? "bg-selection-hover ring-1 ring-content/50"
-          : "hover:bg-content/8"
+          : "hover:bg-content/5"
       }`}
     >
       {children}
@@ -500,7 +500,7 @@ function MenuRow({
           ? "text-content/30"
           : item.danger
             ? "text-red-300/90 hover:bg-red-500/15"
-            : "text-content hover:bg-content/5"
+            : "text-content hover:bg-content/3"
       }`}
     >
       <Icon className="size-3.5 shrink-0 text-content/55" />

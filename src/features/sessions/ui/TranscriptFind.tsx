@@ -190,7 +190,7 @@ function FindButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="grid size-6 place-items-center rounded text-content/55 hover:bg-content/10 hover:text-content disabled:opacity-30"
+      className="grid size-6 place-items-center rounded text-content/55 hover:bg-content/6 hover:text-content disabled:opacity-30"
     >
       {children}
     </button>

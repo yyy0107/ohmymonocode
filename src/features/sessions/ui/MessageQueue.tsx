@@ -162,7 +162,7 @@ export function MessageQueue({
               type="button"
               disabled={disabled || working || !canResume || !onResume}
               onClick={() => invoke(onResume)}
-              className="flex h-6 shrink-0 items-center gap-1.5 rounded-md px-1.5 hover:bg-content/10 hover:text-content"
+              className="flex h-6 shrink-0 items-center gap-1.5 rounded-md px-1.5 hover:bg-content/6 hover:text-content"
             >
               <Play className="size-3.5" />
               {uiT("Resume")}
@@ -220,7 +220,7 @@ export function MessageQueue({
                       (!editDraft.trim() && message.attachments.length === 0)
                     }
                     onClick={() => saveEdit(message)}
-                    className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-content/10 hover:text-content disabled:opacity-30"
+                    className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-content/6 hover:text-content disabled:opacity-30"
                   >
                     <Check className="size-3.5" />
                   </button>
@@ -230,7 +230,7 @@ export function MessageQueue({
                     aria-label={uiT("Cancel queued message edit")}
                     disabled={disabled || working}
                     onClick={cancelEdit}
-                    className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-content/10 hover:text-content"
+                    className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-content/6 hover:text-content"
                   >
                     <X className="size-3.5" />
                   </button>
@@ -244,7 +244,7 @@ export function MessageQueue({
                     type="button"
                     disabled={disabled || working || !canSteer || !onSteer}
                     onClick={() => invoke(() => onSteer?.(message.id))}
-                    className="flex h-6 shrink-0 items-center gap-1.5 rounded-md px-1.5 hover:bg-content/10 hover:text-content"
+                    className="flex h-6 shrink-0 items-center gap-1.5 rounded-md px-1.5 hover:bg-content/6 hover:text-content"
                   >
                     <CornerDownRight className="size-3.5" />
                     {uiT("Steer")}
@@ -255,7 +255,7 @@ export function MessageQueue({
                     aria-label={uiT("Edit queued message")}
                     disabled={disabled || working || !onEdit}
                     onClick={() => startEdit(message)}
-                    className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-content/10 hover:text-content"
+                    className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-content/6 hover:text-content"
                   >
                     <Pencil className="size-3.5" />
                   </button>
@@ -265,7 +265,7 @@ export function MessageQueue({
                     aria-label={uiT("Remove queued message")}
                     disabled={disabled || working || !onDelete}
                     onClick={() => invoke(() => onDelete?.(message.id))}
-                    className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-content/10 hover:text-content"
+                    className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-content/6 hover:text-content"
                   >
                     <Trash2 className="size-3.5" />
                   </button>

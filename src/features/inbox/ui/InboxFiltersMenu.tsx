@@ -308,7 +308,7 @@ export function InboxFiltersMenu({
               if (teamsActive) onLinearTeamsChange([]);
               if (jiraProjectsActive) onJiraProjectsChange([]);
             }}
-            className="flex h-7 w-full items-center rounded-lg px-2 text-left text-[13px] leading-none text-content/70 hover:bg-content/5 hover:text-content"
+            className="flex h-7 w-full items-center rounded-lg px-2 text-left text-[13px] leading-none text-content/70 hover:bg-content/3 hover:text-content"
           >
             {uiT("Clear filters")}
           </button>
@@ -344,7 +344,7 @@ function FilterItem({
       aria-checked={checked}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className="flex h-7 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] leading-none text-content hover:bg-content/5"
+      className="flex h-7 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] leading-none text-content hover:bg-content/3"
     >
       {icon}
       <span className="min-w-0 flex-1 truncate">{label}</span>
