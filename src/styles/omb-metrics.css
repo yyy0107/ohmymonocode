@@ -206,7 +206,8 @@ html[data-skin].compact-sidebar {
   --omb-side-action: 24px;
 }
 
-/* Project rows, as `.mobile-home-project`: the avatar slot becomes a tile
+/* Project rows, as `.mobile-home-project`: the avatar slot widens to the
+   avatar column (no tile fill)
    and the name reads at body size. */
 html[data-skin] [data-project-header] {
   align-items: center;

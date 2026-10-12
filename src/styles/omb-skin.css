@@ -804,7 +804,6 @@ html:not([data-skin]) [data-session-time] {
 }
 
 html[data-skin] [data-project-header] > [data-project-tile] {
-  background: var(--color-raised);
   color: var(--color-ink-secondary);
 }
 
