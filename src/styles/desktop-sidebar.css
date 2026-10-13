@@ -271,8 +271,8 @@ html[data-skin] [data-desktop-sidebar] {
   --desktop-sidebar-row-pad: 0px;
   --desktop-sidebar-gap: 8px;
   --desktop-sidebar-avatar: 20px;
-  --desktop-sidebar-avatar-icon: 20px;
-  --desktop-sidebar-tile-icon: 16px;
+  --desktop-sidebar-avatar-icon: var(--desktop-sidebar-icon);
+  --desktop-sidebar-tile-icon: var(--desktop-sidebar-icon);
   --desktop-sidebar-action: 20px;
   --desktop-sidebar-nest: 20px;
   --desktop-sidebar-title: 14px;
@@ -292,6 +292,15 @@ html[data-skin] [data-desktop-sidebar]::after {
   inset-block: 0;
   right: var(--desktop-sidebar-inset);
   width: 0.5px;
+  background: var(--color-composer-ring);
+  pointer-events: none;
+}
+
+html[data-skin] [data-sidebar-chrome-divider] {
+  position: absolute;
+  inset-block: 0;
+  width: 0.5px;
+  margin-left: -0.5px;
   background: var(--color-composer-ring);
   pointer-events: none;
 }
@@ -347,23 +356,30 @@ html[data-skin] [data-desktop-sidebar] > [data-project-header] {
   height: 32px;
   padding-inline: 2px;
   margin-block-start: 12px;
+  margin-inline-end: var(--desktop-sidebar-inset);
 }
 /* Match the compact project picker's 24px background. */
-html[data-skin] [data-desktop-sidebar] > [data-project-header] > button {
-  width: 24px;
-  height: 24px;
-  min-height: 24px;
+html[data-skin] [data-desktop-sidebar] > [data-project-header] > button,
+html[data-skin] [data-desktop-sidebar] [data-sidebar-search] > button {
+  width: var(--desktop-sidebar-toolbar-action);
+  height: var(--desktop-sidebar-toolbar-action);
+  min-height: var(--desktop-sidebar-toolbar-action);
   padding: 0;
   border-radius: 6px;
 }
-html[data-skin] [data-desktop-sidebar] > [data-project-header] > button svg {
-  width: 16px;
-  height: 16px;
+html[data-skin] [data-desktop-sidebar] > [data-project-header] > button svg,
+html[data-skin] [data-desktop-sidebar] [data-project-switcher] .lucide-chevron-down,
+html[data-skin] [data-desktop-sidebar] [data-sidebar-search] > div:first-child > svg,
+html[data-skin] [data-desktop-sidebar] [data-sidebar-search] > button svg {
+  width: var(--desktop-sidebar-icon);
+  height: var(--desktop-sidebar-icon);
+  flex-shrink: 0;
 }
 html[data-skin] [data-desktop-sidebar] [data-sidebar-search] {
   height: 40px;
   flex-shrink: 0;
   padding: 4px 2px;
+  margin-inline-end: var(--desktop-sidebar-inset);
   border-bottom: 0;
   gap: 4px;
 }
@@ -377,16 +393,10 @@ html[data-skin] [data-desktop-sidebar] [data-sidebar-search] input {
 }
 html[data-skin] [data-desktop-sidebar] [data-sidebar-search] > div:first-child > svg {
   left: 8px;
-  width: 16px;
-  height: 16px;
 }
-html[data-skin] [data-desktop-sidebar] [data-sidebar-search] > button {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-}
-html[data-skin] [data-desktop-sidebar] [data-project-list] > div {
+html[data-skin] [data-desktop-sidebar] [data-project-list-scroll] {
   gap: .5px;
+  padding-inline-end: var(--desktop-sidebar-inset);
 }
 html[data-skin] [data-desktop-sidebar] [data-project-list] [data-project-section] {
   margin-block-end: 12px;
@@ -452,7 +462,7 @@ html[data-skin] [data-desktop-sidebar] [data-session-avatar] {
   height: var(--desktop-sidebar-avatar);
   flex: 0 0 var(--desktop-sidebar-avatar);
 }
-html[data-skin] [data-desktop-sidebar] [data-session-avatar] svg {
+html[data-skin] [data-desktop-sidebar] [data-session-avatar] > * {
   width: var(--desktop-sidebar-avatar-icon);
   height: var(--desktop-sidebar-avatar-icon);
 }

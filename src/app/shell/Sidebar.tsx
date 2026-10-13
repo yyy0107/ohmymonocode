@@ -89,6 +89,7 @@ import { IconButton } from "../../shared/ui/forms/IconButton";
 import { WindowNavigationSpace } from "./WindowChrome";
 import { windowDragRegion } from "./startWindowDrag";
 import { SidebarTransition } from "./SidebarTransition";
+import { SidebarChromeDivider } from "./SidebarChromeDivider";
 import { SidebarTabs } from "./SidebarTabs";
 import { ResizeHandle } from "../../shared/ui/ResizeHandle";
 import { ProjectList, AddProjectButton } from "./ProjectList";
@@ -1059,6 +1060,7 @@ function SidebarComponent(props: SidebarProps) {
         className="sidebar-glass relative flex h-full min-h-0 shrink-0 flex-col"
         style={{ width: resize.dragging ? "100%" : resize.width }}
       >
+        {props.desktopMode ? <SidebarChromeDivider /> : null}
         {props.desktopMode && !props.chromeInMenuBar ? (
           <header
             data-desktop-sidebar-header

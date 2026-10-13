@@ -3,6 +3,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useDragResize } from "./useDragResize";
+import { isPaneResizing, onPaneResizeSettled } from "../lib/paneResize";
 
 let container: HTMLDivElement;
 let root: Root;
@@ -86,6 +87,24 @@ afterEach(() => {
 });
 
 describe("pane drag resizing", () => {
+  it.each(["pointerup", "pointercancel", "blur", "lostpointercapture", "unmount"])("defers expensive pane fitting until %s", (reason) => {
+    const settled = vi.fn();
+    const unsubscribe = onPaneResizeSettled(settled);
+    try {
+      startDrag();
+      pointer("pointermove", 400);
+      act(() => pendingFrame?.(0));
+      expect(isPaneResizing()).toBe(true);
+      expect(settled).not.toHaveBeenCalled();
+      if (reason === "unmount") act(() => root.render(null));
+      else if (reason === "blur") act(() => window.dispatchEvent(new Event("blur")));
+      else if (reason === "lostpointercapture") act(() => handle().dispatchEvent(new PointerEvent(reason, { pointerId: 1 })));
+      else pointer(reason, 400);
+      expect(isPaneResizing()).toBe(false);
+      expect(settled).toHaveBeenCalledOnce();
+    } finally { unsubscribe(); }
+  });
+
   it.each(["top", "bottom"] as const)("resizes a %s-facing handle with vertical pointer movement", (direction) => {
     act(() => root.render(createElement(Probe, { direction })));
     startDrag();

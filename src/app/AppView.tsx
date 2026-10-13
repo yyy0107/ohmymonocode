@@ -382,7 +382,7 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
               >
                 {!IS_MAC ? (
                   <MenuBar
-                    windowNavigationWidth={248}
+                    windowNavigationWidth="calc(var(--desktop-sidebar-chrome-width, var(--desktop-sidebar-width)) - var(--desktop-sidebar-inset))"
                     windowNavigation={desktopTitlebarNavigation}
                     navigationItems={titlebarNavigation}
                     handlers={commandHandlers}

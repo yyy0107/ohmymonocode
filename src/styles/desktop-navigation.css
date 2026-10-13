@@ -50,6 +50,7 @@ html[data-skin][data-desktop-mode] .desktop-search-trigger {
   height: 32px;
   padding: 0 10px;
   margin-bottom: 7px;
+  margin-inline: var(--desktop-sidebar-inset) calc(2 * var(--desktop-sidebar-inset));
   border: 1px solid var(--color-hairline) !important;
   border-radius: 8px;
   box-shadow: 0 1px 2px #00000008;
@@ -116,20 +117,23 @@ html[data-skin][data-desktop-mode] [data-window-drag-bar] {
 html[data-skin][data-desktop-mode] .desktop-titlebar-navigation {
   display: flex;
   align-items: center;
-  width: 228px;
+  width: max(228px, calc(var(--desktop-sidebar-chrome-width, var(--desktop-sidebar-width)) - var(--desktop-sidebar-inset) - 20px));
   max-width: 100%;
   gap: 8px;
   flex-shrink: 0;
 }
 html[data-skin][data-desktop-mode] .desktop-titlebar-navigation [data-window-visit-nav] {
-  flex: 1;
+  flex: 0 0 110px;
   min-width: 0;
   justify-content: space-between;
 }
-/* Reserve the mode switch's space so hiding it never moves window navigation. */
+/* Anchor to the sidebar edge in window chrome, independent of nav flex sizing. */
 html[data-skin][data-desktop-mode] .desktop-titlebar-mode-slot {
+  position: absolute;
+  left: calc(var(--desktop-sidebar-chrome-width, var(--desktop-sidebar-width)) - var(--desktop-sidebar-inset) - 80px);
+  top: 50%;
+  transform: translateY(-50%);
   width: 70px;
-  flex: 0 0 70px;
 }
 html[data-skin][data-desktop-mode] .desktop-titlebar-navigation [data-ui="icon-button"] {
   width: 32px;
@@ -157,6 +161,12 @@ html[data-skin][data-desktop-mode] [data-menu-bar] .desktop-titlebar-navigation 
 }
 html[data-skin][data-desktop-mode].is-mac [data-window-drag-bar] > div:has(> .desktop-titlebar-navigation) {
   padding-left: 78px;
+}
+html[data-skin][data-desktop-mode].is-mac .desktop-titlebar-navigation {
+  width: max(228px, calc(var(--desktop-sidebar-chrome-width, var(--desktop-sidebar-width)) - var(--desktop-sidebar-inset) - 88px));
+}
+html[data-skin][data-desktop-mode].is-mac .desktop-titlebar-mode-slot {
+  left: max(236px, calc(var(--desktop-sidebar-chrome-width, var(--desktop-sidebar-width)) - var(--desktop-sidebar-inset) - 80px));
 }
 html[data-skin][data-desktop-mode] .desktop-tools-layout {
   position: relative;

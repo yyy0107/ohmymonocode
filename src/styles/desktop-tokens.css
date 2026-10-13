@@ -1,4 +1,22 @@
 /* Measured desktop geometry. Mobile removes data-skin before applying its theme. */
+@property --sidebar-resize-width {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --tools-width {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --explorer-tree-width {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
 html[data-skin] {
   --text-desktop-h1: var(--text-heading-xl);
   --text-desktop-h2: 22px;
@@ -40,6 +58,8 @@ html[data-skin] {
   --desktop-settings-nav: 192px;
   --desktop-sidebar-width: 256px;
   --desktop-sidebar-inset: 8px;
+  --desktop-sidebar-icon: 16px;
+  --desktop-sidebar-toolbar-action: 24px;
   --desktop-tile-gap: 12px;
   --desktop-feedback: 60ms;
   --desktop-feedback-normal: 120ms;

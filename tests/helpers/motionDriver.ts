@@ -8,6 +8,29 @@ export function completeMotionAnimation(element: Element | null | undefined) {
 
 /** Deterministic engine boundary for gesture/portal tests; browsers verify actual interpolation. */
 export function motionTestDriver(actual: typeof Motion, presence = false) {
+  type ControlListener = (target: Record<string, any> | null, animate: boolean) => void;
+  const useAnimationControls = () => {
+    const controls = useRef<ReturnType<typeof makeControls> | null>(null);
+    if (!controls.current) controls.current = makeControls();
+    return controls.current;
+  };
+  const makeControls = () => {
+    const listeners = new Set<ControlListener>();
+    return {
+      subscribeTest: (listener: ControlListener) => {
+        listeners.add(listener);
+        return () => { listeners.delete(listener); };
+      },
+      start: (target: Record<string, any>) => {
+        for (const listener of listeners) listener(target, true);
+        return Promise.resolve();
+      },
+      set: (target: Record<string, any>) => {
+        for (const listener of listeners) listener(target, false);
+      },
+      stop: () => { for (const listener of listeners) listener(null, false); },
+    };
+  };
   const jobs = new Map<(...args: any[]) => void, number>();
   const schedule = (callback: (...args: any[]) => void) => {
     if (jobs.has(callback)) return;
@@ -55,6 +78,27 @@ export function motionTestDriver(actual: typeof Motion, presence = false) {
         const { initial: _initial, animate: _animate, exit: _exit, transition, layout: _layout, layoutId: _layoutId, onAnimationComplete: _complete, onAnimationStart: _start, ...dom } = props;
         const complete = useRef(_complete);
         complete.current = _complete;
+        const start = useRef(_start);
+        start.current = _start;
+        const controls = _animate?.subscribeTest ? _animate as ReturnType<typeof makeControls> : undefined;
+        useLayoutEffect(() => {
+          if (!controls) return;
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          let previous = "";
+          const unsubscribe = controls.subscribeTest((target, animated) => {
+            clearTimeout(timer);
+            if (!target || !node.current) return;
+            const { transition: timing, ...values } = target;
+            Object.assign(node.current.style, values);
+            const key = JSON.stringify(values);
+            if (animated && key !== previous) start.current?.(values);
+            previous = key;
+            if (!animated) return;
+            if (!timing?.duration) complete.current?.(values);
+            else timer = setTimeout(() => complete.current?.(values), timing.duration * 1000);
+          });
+          return () => { clearTimeout(timer); unsubscribe(); };
+        }, [controls]);
         const animateKey = JSON.stringify(_animate);
         useEffect(() => {
           const finish = () => { complete.current?.(_animate); if (!present) remove?.(); };
@@ -64,14 +108,14 @@ export function motionTestDriver(actual: typeof Motion, presence = false) {
         }, [present, remove, animateKey]);
         const previousAnimation = useRef(animateKey);
         useLayoutEffect(() => {
-          if (!present) return;
+          if (!present || controls) return;
           const changed = previousAnimation.current !== animateKey;
           previousAnimation.current = animateKey;
           if (changed) _start?.(_animate);
           if (!transition?.duration) { complete.current?.(_animate); return; }
           const timer = setTimeout(() => complete.current?.(_animate), transition.duration * 1000);
           return () => clearTimeout(timer);
-        }, [present, animateKey, transition?.duration]);
+        }, [present, animateKey, transition?.duration, controls]);
         useEffect(() => {
           if (present) return;
           const timer = setTimeout(() => { complete.current?.(_exit); remove?.(); }, (transition?.duration ?? 0) * 1000);
@@ -98,5 +142,5 @@ export function motionTestDriver(actual: typeof Motion, presence = false) {
     }
     return components.get(tag);
   } }) : actual.motion;
-  return { animate, cancelFrame, frame: { ...actual.frame, render: schedule, update: schedule }, motion };
+  return { animate, cancelFrame, frame: { ...actual.frame, render: schedule, update: schedule }, motion, ...(presence ? { useAnimationControls } : {}) };
 }

@@ -6,9 +6,13 @@ html[data-skin][data-desktop-mode="chat"] [data-desktop-sidebar] {
   --desktop-sidebar-title: 14px;
   --desktop-sidebar-title-line: 20px;
   --desktop-sidebar-group-row: 32px;
-  padding: 0 8px 12px;
-  box-shadow: inset -.5px 0 var(--messaging-border);
+  padding: 0 var(--desktop-sidebar-inset) 12px;
   line-height: 20px;
+}
+
+html[data-skin][data-desktop-mode="chat"] [data-desktop-sidebar]::after,
+html[data-skin][data-desktop-mode="chat"] [data-sidebar-chrome-divider] {
+  background: var(--messaging-border);
 }
 
 html[data-skin][data-desktop-mode="chat"] [data-desktop-sidebar-header] {

@@ -6,6 +6,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { suppressTextSelection } from "../lib/drag";
+import { beginPaneResize } from "../lib/paneResize";
 
 type Options = {
   min: number;
@@ -94,6 +95,7 @@ export function useDragResize({
     const startPoint = point(event);
     const startW = widthRef.current;
     handle.setPointerCapture(pointerId);
+    const endPaneResize = beginPaneResize();
     setDragging(true);
     const restoreSelection = suppressTextSelection();
     const previousCursor = document.body.style.cursor;
@@ -129,6 +131,7 @@ export function useDragResize({
       document.body.style.cursor = previousCursor;
       document.documentElement.classList.remove("is-resizing");
       setDragging(false);
+      endPaneResize();
       try {
         handle.releasePointerCapture(pointerId);
       } catch {

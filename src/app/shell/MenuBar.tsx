@@ -43,7 +43,7 @@ type Props = {
   windowActions?: ReactNode;
   windowNavigation?: ReactNode;
   /** Space occupied by custom navigation when revealing the menu with Alt. */
-  windowNavigationWidth?: number;
+  windowNavigationWidth?: number | string;
 };
 
 export const MENU_BAR_HEIGHT = 36;

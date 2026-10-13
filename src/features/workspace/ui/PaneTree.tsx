@@ -1,5 +1,5 @@
 import { beginPaneResize } from "../../../shared/lib/paneResize";
-import { motion, type TargetAndTransition } from "motion/react";
+import { motion, useAnimationControls, type TargetAndTransition } from "motion/react";
 import { panelTransition, immediateTransition, motionDistance } from "../../../shared/motion/tokens";
 import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import {
@@ -311,6 +311,7 @@ function PaneTreeComponent({
   const reduced = useMotionPreference();
   const releaseGridMotion = useRef<(() => void) | undefined>(undefined);
   const treeRef = useRef<HTMLDivElement>(null);
+  const gridControls = useAnimationControls();
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
   const draft = useRef<LayoutNode | null>(null);
@@ -561,10 +562,32 @@ function PaneTreeComponent({
     selectedId: unified ? selectedId : maximized,
     unified,
   };
+  const gridColumns = surfaceGrid ? String(surfaceGrid.style.gridTemplateColumns) : undefined;
+  const gridRows = surfaceGrid ? String(surfaceGrid.style.gridTemplateRows) : undefined;
+  useLayoutEffect(() => {
+    if (!gridColumns || !gridRows) return;
+    void gridControls.start({
+      gridTemplateColumns: gridColumns,
+      gridTemplateRows: gridRows,
+      transition: reduced || unified || !!draft.current ? immediateTransition : panelTransition,
+    });
+  }, [gridColumns, gridRows, gridControls, reduced, unified]);
   const paintLayout = (tree: LayoutNode) => {
     const container = treeRef.current;
     const { grid, selectedId, unified } = resizeConfig.current;
-    if (container) paintPaneLayout(container, tree, grid, selectedId, unified);
+    if (container) {
+      const surface = paintPaneLayout(container, tree, grid, selectedId, unified);
+      if (surface) {
+        gridControls.stop();
+        gridControls.set({
+          gridTemplateColumns: String(surface.style.gridTemplateColumns),
+          gridTemplateRows: String(surface.style.gridTemplateRows),
+        });
+        releaseGridMotion.current?.();
+        releaseGridMotion.current = undefined;
+        gridMoving.current = false;
+      }
+    }
   };
   // A stream may render React during a drag. Reapply the preview before paint
   // without publishing frame-by-frame geometry into the component tree.
@@ -777,7 +800,7 @@ function PaneTreeComponent({
       <motion.div
         layout
         initial={false}
-        animate={surfaceGrid ? { gridTemplateRows: String(surfaceGrid.style.gridTemplateRows), gridTemplateColumns: String(surfaceGrid.style.gridTemplateColumns) } : undefined}
+        animate={gridControls}
         transition={reduced || unified || !!draft.current ? immediateTransition : panelTransition}
         onAnimationStart={() => { releaseGridMotion.current?.(); releaseGridMotion.current = beginPaneResize(); gridMoving.current = true; }}
         onAnimationComplete={finishGridMotion}
@@ -1179,6 +1202,7 @@ function paintPaneLayout(
       element.setAttribute("aria-valuenow", String(Math.round(boundary * 100)));
     }
   }
+  return surface;
 }
 
 function Sash({

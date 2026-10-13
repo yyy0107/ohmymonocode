@@ -33,6 +33,7 @@ import type { TerminalMetaPatch } from "../model/terminalTab";
 import { lazySurface } from "../../../shared/ui/lazySurface";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { ResizeHandle } from "../../../shared/ui/ResizeHandle";
+import { beginPaneResize } from "../../../shared/lib/paneResize";
 import {
   createDragLabel,
   suppressTextSelection,
@@ -123,6 +124,7 @@ export function ProjectTerminalDock({
     size: number;
     pointerId: number;
     target: HTMLDivElement;
+    endPaneResize: () => void;
   } | null>(null);
   const sizeRef = useRef(dock.size);
   sizeRef.current = dock.size;
@@ -148,6 +150,7 @@ export function ProjectTerminalDock({
   useEffect(
     () => () => {
       if (frame.current != null) cancelAnimationFrame(frame.current);
+      drag.current?.endPaneResize();
     },
     [],
   );
@@ -191,6 +194,7 @@ export function ProjectTerminalDock({
       size: sizeRef.current,
       pointerId: event.pointerId,
       target: event.currentTarget,
+      endPaneResize: beginPaneResize(),
     };
     pending.current = sizeRef.current;
     painted.current = sizeRef.current;
@@ -211,6 +215,7 @@ export function ProjectTerminalDock({
     if (!current) return;
     drag.current = null;
     commit();
+    current.endPaneResize();
     setDragging(false);
     if (current.target.hasPointerCapture(current.pointerId)) {
       current.target.releasePointerCapture(current.pointerId);
@@ -230,6 +235,12 @@ export function ProjectTerminalDock({
   useLayoutEffect(() => {
     if (!visible) finishResize();
   }, [visible]);
+
+  useEffect(() => {
+    if (!dragging) return;
+    window.addEventListener("blur", finishResize);
+    return () => window.removeEventListener("blur", finishResize);
+  }, [dragging]);
 
   /** Drag the dock by its grip onto a pane to open its terminals in the split. */
   const onDockDragStart = (event: ReactPointerEvent<HTMLElement>) => {

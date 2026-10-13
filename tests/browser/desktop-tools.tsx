@@ -19,6 +19,7 @@ import { PaneTree } from "../../src/features/workspace/ui/PaneTree";
 import { newSession } from "../../src/features/sessions/model/session";
 import { TranscriptPool, TranscriptPoolOutlet } from "../../src/features/sessions/ui/TranscriptPool";
 import type { EditorPane, FilePaneTab, LayoutNode } from "../../src/features/workspace/model/layout";
+import { setSplitRatio } from "../../src/features/workspace/model/layout";
 import type { ProjectTerminalDock } from "../../src/features/projects/model/projectTerminal";
 import type { FsEntry, GitDiffIndex, GitFileDiff, GitHistory } from "../../src/platform/tauri/fs";
 import { SurfaceVisibilityContext } from "../../src/shared/ui/SurfaceVisibility";
@@ -126,9 +127,10 @@ const source: FilePaneTab = { id: "tools-source", path: sourcePath, cwd };
 const review: FilePaneTab = { id: "tools-review", path: sourcePath, cwd, review: true, changes: true, changeKind: "unstaged" };
 const initialPane: EditorPane = { id: "tools-editor", files: [source, review], activeFileId: query.get("editor") === "source" ? source.id : review.id };
 const initialDock: ProjectTerminalDock = { projectPath: cwd, side: "bottom", size: 220, open: true, pane: { id: "tools-terminal-pane", files: [{ id: "tools-pty", path: "monocode", cwd, terminal: true }], activeFileId: "tools-pty" } };
-const layout: LayoutNode = { type: "split", id: "tools-split", dir: "right", children: [{ type: "leaf", id: session.id }, { type: "leaf", id: initialPane.id }], sizes: [0.54, 0.46] };
+const initialLayout: LayoutNode = { type: "split", id: "tools-split", dir: "right", children: [{ type: "leaf", id: session.id }, { type: "leaf", id: initialPane.id }], sizes: [0.54, 0.46] };
 
 function DesktopToolsFixture() {
+  const [layout, setLayout] = useState(initialLayout);
   const [tab, setTab] = useState<SidebarProps["tab"]>("files");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [pane, setPane] = useState(initialPane);
@@ -150,7 +152,8 @@ function DesktopToolsFixture() {
     onUsageLimitResumeAtReset: noop, onUsageLimitDismiss: noop, onApproval: noop,
     onQuestionReply: noop, onOpenSessionFile: noop, onOpenPlan: noop, onUpdatePlan: noop,
     onBuildPlan: noop, onMovePane: noop, onCloseFile: noop, onCloseOtherFiles: noop,
-    onReorderFiles: noop, onFileDirtyChange: noop, onFileErrorCountChange: noop, onRatio: noop,
+    onReorderFiles: noop, onFileDirtyChange: noop, onFileErrorCountChange: noop,
+    onRatio: (splitId: string, index: number, ratio: number) => setLayout(value => setSplitRatio(value, splitId, index, ratio)),
   };
   const paneProps: ComponentProps<typeof PaneTree> = { ...handlers, visible: true, layout, sessions: [session], editorPanes: [pane], dirtyFileIds: new Set(), fileErrorCounts: new Map(), focusedId, surfaceMode: "split", composerFocused: false, recents: activity.recents, transcriptPool: pool, hideProjectPicker: false, onFocus: setFocusedId, onSubmit: () => true, onStop: noop, onCompactContext: () => true, onOpenFile: openFile, onOpenDiff: () => setPane(value => ({ ...value, activeFileId: review.id })), onNewTerminal: () => setDock(value => ({ ...value, open: true })), onSelectFile: (_pane: string, activeFileId: string) => setPane(value => ({ ...value, activeFileId })) };
   const titlebar = <DesktopTitlebarNavigation menu={<WindowMenuButton handlers={{ "Tab: New": noop }} dispatch={() => true} />} modeToggle={<DesktopModeToggle mode="code" onChange={noop} />} canGoBack onGoBack={noop} panelActive={sidebarOpen} onTogglePanel={() => setSidebarOpen(value => !value)} />;

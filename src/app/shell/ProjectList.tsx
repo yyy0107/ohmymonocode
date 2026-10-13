@@ -817,6 +817,7 @@ export function ProjectList({
         className={`flex flex-col ${scrollable ? "min-h-0 flex-1" : "shrink-0"}`}
       >
         <div
+          data-project-list-scroll
           ref={(el) => {
             lockOverscroll(el);
             scrollRef.current = el;

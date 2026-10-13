@@ -6,6 +6,7 @@ import { ProjectTerminalDock } from "./ProjectTerminalDock";
 import { createProjectTerminal } from "../../projects/model/projectTerminal";
 import { newTerminalFile } from "../../workspace/model/layout";
 import { SurfaceVisibilityContext } from "../../../shared/ui/SurfaceVisibility";
+import { isPaneResizing, onPaneResizeSettled } from "../../../shared/lib/paneResize";
 
 const lifetime = vi.hoisted(() => ({ mount: vi.fn(), unmount: vi.fn() }));
 vi.mock("./TerminalView", () => ({
@@ -64,6 +65,26 @@ afterEach(async () => {
   container.remove();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+it.each(["pointerup", "pointercancel", "lostpointercapture", "blur", "unmount"])("releases deferred terminal fitting on %s", async (reason) => {
+  await render(true);
+  const sash = container.querySelector<HTMLElement>('[role="separator"]')!;
+  sash.setPointerCapture = vi.fn();
+  sash.hasPointerCapture = vi.fn(() => true);
+  sash.releasePointerCapture = vi.fn();
+  const settled = vi.fn();
+  const unsubscribe = onPaneResizeSettled(settled);
+  try {
+    act(() => sash.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 7, clientY: 200, bubbles: true })));
+    expect(isPaneResizing()).toBe(true);
+    expect(settled).not.toHaveBeenCalled();
+    if (reason === "unmount") await act(async () => root.render(null));
+    else if (reason === "blur") act(() => window.dispatchEvent(new Event("blur")));
+    else act(() => sash.dispatchEvent(new PointerEvent(reason, { pointerId: 7, clientY: 180, bubbles: true })));
+    expect(isPaneResizing()).toBe(false);
+    expect(settled).toHaveBeenCalledOnce();
+  } finally { unsubscribe(); }
 });
 
 it("exposes the terminal dock side to its own layout", async () => {
