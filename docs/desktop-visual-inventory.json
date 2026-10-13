@@ -3,8 +3,8 @@
   "evidence": "Claude UI analysis final measured geometry, 2026-10-12; Monocode adaptations, 2026-10-13",
   "reference": "/home/wy/projects/claude-ui-analysis/final-comparison.md",
   "boundary": "Static source inventory, including compatibility and lazy components. Declarations can include JSX constants; imports and hooks do not establish reachability, measurement or runtime validation of every component.",
-  "sourceFiles": 397,
-  "componentDeclarations": 891,
+  "sourceFiles": 380,
+  "componentDeclarations": 867,
   "rows": [
     {
       "id": "app/App",
@@ -117,7 +117,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "07edd66e9204ec4dd860970fea7b1d0484cbe8fa4a1b358078a1f2559931b42d",
+      "sha256": "a455e9bf4cd6538732eefbc5f3913098c9fccf2fb64d7524aa744e5bd39dbd4f",
       "integration": "explicit component hooks"
     },
     {
@@ -313,7 +313,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "9ff670ec40abda239a8bab2507fc58c1f673a9700372b373df9ff8a675204d95",
+      "sha256": "7e2034ff0b594afa25351eb2e565200f313e52564321f23123f6d02144ff2ff1",
       "integration": "shared component adapter"
     },
     {
@@ -409,7 +409,7 @@
         "DesktopNavigation"
       ],
       "group": "shell",
-      "jsxElements": 33,
+      "jsxElements": 35,
       "hooks": [
         "desktop-mode-toggle",
         "desktop-more-navigation",
@@ -418,6 +418,7 @@
         "desktop-navigation-icon",
         "desktop-navigation-row",
         "desktop-search-trigger",
+        "desktop-titlebar-mode-slot",
         "desktop-titlebar-navigation"
       ],
       "imports": [
@@ -448,7 +449,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "caaa77f6e12e75ff28527050eb002aee765050a1f35f8551ae94d70b1b16da35",
+      "sha256": "613f13aa9c0e4bbc3a9a2a2c7f22f4754d813afafcdeac59c3f9a60a4c70910a",
       "integration": "explicit component hooks"
     },
     {
@@ -488,41 +489,6 @@
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
       "sha256": "c0fb040a9a5af3d12cc2d4bb19d43080d24c1c2ce91016152d710168f764e94c",
-      "integration": "semantic palette; local geometry retained"
-    },
-    {
-      "id": "app/shell/GithubStarPrompt",
-      "file": "src/app/shell/GithubStarPrompt.tsx",
-      "components": [
-        "GithubStarPrompt"
-      ],
-      "group": "shell",
-      "jsxElements": 7,
-      "hooks": [],
-      "imports": [
-        "src/shared/i18n/useTranslation.ts",
-        "src/features/inbox/model/githubTasks.ts",
-        "src/shared/ui/icons.tsx"
-      ],
-      "styleSources": [
-        "src/styles/desktop-tokens.css",
-        "src/styles/desktop-fonts.css",
-        "src/styles/desktop-controls.css",
-        "src/styles/desktop-workspaces.css",
-        "src/styles/desktop-sidebar.css",
-        "src/styles/desktop-navigation.css",
-        "src/styles/desktop-conversation.css",
-        "src/styles/omb-skin.css",
-        "src/styles/omb-metrics.css"
-      ],
-      "evidence": "Claude final-comparison sidebar/new and layout metrics; Monocode navigation",
-      "mapping": "Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage",
-      "target": "Sidebar288/header44/rows32/mode70×28; preserve project, provider, archived-session and native window control semantics",
-      "geometry": "Preserve unless explicitly mapped in docs/desktop-visual-spec.md",
-      "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
-      "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
-      "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "73a710e71248cf94c8f98d6c2b994a32e4a3c9cda8a5cc45b8d33bf0fc5ba63a",
       "integration": "semantic palette; local geometry retained"
     },
     {
@@ -594,7 +560,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "705827863d0dd3774d3539232d2e475ef030917da593db8050faa2d6b82e5405",
+      "sha256": "8be974eff56bd5be68005561323b761065539621bf25ff29f0afbbb561dd598a",
       "integration": "shared component adapter"
     },
     {
@@ -940,40 +906,6 @@
       "integration": "shared component adapter"
     },
     {
-      "id": "app/shell/RailAction",
-      "file": "src/app/shell/RailAction.tsx",
-      "components": [
-        "RailAction",
-        "RailSearch"
-      ],
-      "group": "shell",
-      "jsxElements": 10,
-      "hooks": [],
-      "imports": [
-        "src/shared/ui/icons.tsx"
-      ],
-      "styleSources": [
-        "src/styles/desktop-tokens.css",
-        "src/styles/desktop-fonts.css",
-        "src/styles/desktop-controls.css",
-        "src/styles/desktop-workspaces.css",
-        "src/styles/desktop-sidebar.css",
-        "src/styles/desktop-navigation.css",
-        "src/styles/desktop-conversation.css",
-        "src/styles/omb-skin.css",
-        "src/styles/omb-metrics.css"
-      ],
-      "evidence": "Claude final-comparison sidebar/new and layout metrics; Monocode navigation",
-      "mapping": "Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage",
-      "target": "Sidebar288/header44/rows32/mode70×28; preserve project, provider, archived-session and native window control semantics",
-      "geometry": "Preserve unless explicitly mapped in docs/desktop-visual-spec.md",
-      "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
-      "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
-      "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "b52ea69ba131bc725f5e0bb0f1b43a14f94bc5de689772d3ed3b2ae1ddda9386",
-      "integration": "semantic palette; local geometry retained"
-    },
-    {
       "id": "app/shell/SettingsRail",
       "file": "src/app/shell/SettingsRail.tsx",
       "components": [
@@ -1080,7 +1012,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "ce2a572f9906fd8b341f55066e143ad53a592363a6f760e532edec16093db452",
+      "sha256": "d16931ddc54c41bc2b557faceff7d2ec228d4bc70b45197db264831dad43d7ec",
       "integration": "explicit component hooks"
     },
     {
@@ -1198,42 +1130,6 @@
       "integration": "semantic palette; local geometry retained"
     },
     {
-      "id": "app/shell/SidebarUpdate",
-      "file": "src/app/shell/SidebarUpdate.tsx",
-      "components": [
-        "SidebarUpdate"
-      ],
-      "group": "shell",
-      "jsxElements": 7,
-      "hooks": [],
-      "imports": [
-        "src/shared/ui/icons.tsx",
-        "src/app/model/updater.ts",
-        "src/shared/i18n/useTranslation.ts",
-        "src/shared/lib/buildVersion.ts"
-      ],
-      "styleSources": [
-        "src/styles/desktop-tokens.css",
-        "src/styles/desktop-fonts.css",
-        "src/styles/desktop-controls.css",
-        "src/styles/desktop-workspaces.css",
-        "src/styles/desktop-sidebar.css",
-        "src/styles/desktop-navigation.css",
-        "src/styles/desktop-conversation.css",
-        "src/styles/omb-skin.css",
-        "src/styles/omb-metrics.css"
-      ],
-      "evidence": "Claude final-comparison sidebar/new and layout metrics; Monocode navigation",
-      "mapping": "Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage",
-      "target": "Sidebar288/header44/rows32/mode70×28; preserve project, provider, archived-session and native window control semantics",
-      "geometry": "Preserve unless explicitly mapped in docs/desktop-visual-spec.md",
-      "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
-      "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
-      "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "8bc584166027a36fe18cf62b27f9ac941b3359c9a527bf6a214f61e50568b2b4",
-      "integration": "semantic palette; local geometry retained"
-    },
-    {
       "id": "app/shell/TerminalDockLayout",
       "file": "src/app/shell/TerminalDockLayout.tsx",
       "components": [
@@ -1272,42 +1168,6 @@
       "runtime": "Not individually runtime-tested; see delivery matrix",
       "sha256": "79c95cd0e5631cc2202d418801d82829d4a86b641ddf89bbf08e554a8847f60a",
       "integration": "shared component adapter"
-    },
-    {
-      "id": "app/shell/TitlebarNavigation",
-      "file": "src/app/shell/TitlebarNavigation.tsx",
-      "components": [
-        "TitlebarNavigation"
-      ],
-      "group": "shell",
-      "jsxElements": 4,
-      "hooks": [],
-      "imports": [
-        "src/shared/motion/tokens.ts",
-        "src/shared/lib/reducedMotion.ts",
-        "src/shared/ui/AnimatedCollapse.tsx",
-        "src/shared/ui/SurfaceVisibility.tsx"
-      ],
-      "styleSources": [
-        "src/styles/desktop-tokens.css",
-        "src/styles/desktop-fonts.css",
-        "src/styles/desktop-controls.css",
-        "src/styles/desktop-workspaces.css",
-        "src/styles/desktop-sidebar.css",
-        "src/styles/desktop-navigation.css",
-        "src/styles/desktop-conversation.css",
-        "src/styles/omb-skin.css",
-        "src/styles/omb-metrics.css"
-      ],
-      "evidence": "Claude final-comparison sidebar/new and layout metrics; Monocode navigation",
-      "mapping": "Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage",
-      "target": "Sidebar288/header44/rows32/mode70×28; preserve project, provider, archived-session and native window control semantics",
-      "geometry": "Preserve unless explicitly mapped in docs/desktop-visual-spec.md",
-      "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
-      "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
-      "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "4bd521d1f166970d7f68723f8b618060678521c62cfe35dd85a9344b2ef06142",
-      "integration": "semantic palette; local geometry retained"
     },
     {
       "id": "app/shell/UpdateAvailableDialog",
@@ -1567,7 +1427,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "9bd6044e860b526994d589a84653484f3e2f712781607034acf76336aced5a4d",
+      "sha256": "833286c3485f440b5f353f3915135a5a8c57b2f48a409b7dac91f281783afd29",
       "integration": "semantic palette; local geometry retained"
     },
     {
@@ -1975,7 +1835,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "4fe48c3110aff12d4845729c28f31789ae7cb1f28dd9c007f364e4479be47521",
+      "sha256": "f4ea9fdd2c395a92f04e67c0c80b7a377f2590b5f11e91a7bf18228bf5145f74",
       "integration": "explicit component hooks"
     },
     {
@@ -2977,7 +2837,7 @@
         "DesktopBotMemory"
       ],
       "group": "bots",
-      "jsxElements": 49,
+      "jsxElements": 50,
       "hooks": [
         "desktop-bots-memory",
         "desktop-bots-memory-actions",
@@ -3017,7 +2877,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "217536efdb9348c944659b352dad824340b601149048341304aca25440d5dcf8",
+      "sha256": "db306389e7fd46fd9c7e58fbc0e6c685d261158af0179389aa7b8cf8956b3373",
       "integration": "explicit component hooks"
     },
     {
@@ -4020,7 +3880,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "3cd77a962ee668d77fb1a418d292a86e7f172a8fc72dac80b44072633765dc3f",
+      "sha256": "b580f255ad1fcdf2e3e05a7385a473e0e7621ed37fd6181fc5330ecee1b34516",
       "integration": "explicit component hooks"
     },
     {
@@ -4431,7 +4291,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "084cd1e69a45eaa9ee56dbb8e49e2411e370cee22b1cf6fbeac1fb37b80fba2a",
+      "sha256": "e8bbf2b355301618d28364759c81dd531ab699bd1597e5f64cb362a34eb2b2ec",
       "integration": "semantic palette; local geometry retained"
     },
     {
@@ -5622,7 +5482,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "af9638f1a1fe090c6e3279271c47e32ff0e65ff8a81dd336c91292941eb343fc",
+      "sha256": "d5a6e78b66eb8e4e7319d7f0ea3e0e751f5935b128f15312bc5f03541bdad5d8",
       "integration": "explicit component hooks"
     },
     {
@@ -5684,7 +5544,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "2ef6c4e49c8c6acb09f1c137ed8ad78fbbf1baf8ea19e2fa5eaa6deb5b711246",
+      "sha256": "a630c560b22cfcef0afdb2eb850fadfc11cdb9a31b18d2fc87c63272c9929a5e",
       "integration": "explicit component hooks"
     },
     {
@@ -6239,7 +6099,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "3c94d585b8df9d6ffccc129b67199fbb4311a383d8b6c471028cf35d81e91873",
+      "sha256": "c1f60f69ce20ff3a9259deb2bfac53653b1eefb4e65fcf83b061314479e7adb9",
       "integration": "semantic palette; local geometry retained"
     },
     {
@@ -6290,7 +6150,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "708ef0fa847272eaf32a6f2668a9ab143c9be742dd1fa2cf6c08fe75ae8924d2",
+      "sha256": "4c8e3d67e490c2c4cb2bd4cd059ce0595097e62e9a540ce3c8326dd574820b39",
       "integration": "explicit component hooks"
     },
     {
@@ -6724,7 +6584,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "e9af2adad6f5158bff9fba3e9017148e262659c4422e1e700e981d78bcaec38c",
+      "sha256": "bd7d19cfcadeda4b4929e117465e93134a2a31703211c6d6c5a86405f2dad35e",
       "integration": "semantic palette; local geometry retained"
     },
     {
@@ -7316,7 +7176,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "68b2dcc7e9a1b0af72d8ba8c76b70edc143ffc29a35d8d69582a4104aeeeebef",
+      "sha256": "6aa8dc23402cf053e94ff43fe8393cf49cf9b60948765dcd2b5aaf245e5caea4",
       "integration": "semantic palette; local geometry retained"
     },
     {
@@ -7760,45 +7620,6 @@
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
       "sha256": "21da17e45d1af16c35715d291ffdfb1199a168f3d6ac81ec799a69554925784a",
-      "integration": "shared component adapter"
-    },
-    {
-      "id": "features/sessions/ui/ModelSettings",
-      "file": "src/features/sessions/ui/ModelSettings.tsx",
-      "components": [
-        "ModelSettings",
-        "ToggleSetting",
-        "SelectSetting"
-      ],
-      "group": "sessions",
-      "jsxElements": 13,
-      "hooks": [],
-      "imports": [
-        "src/shared/ui/PresenceBoundary.tsx",
-        "src/shared/ui/icons.tsx",
-        "src/shared/ui/Popover.tsx",
-        "src/features/sessions/model/models.ts",
-        "src/features/sessions/model/session.ts"
-      ],
-      "styleSources": [
-        "src/styles/desktop-tokens.css",
-        "src/styles/desktop-fonts.css",
-        "src/styles/desktop-controls.css",
-        "src/styles/desktop-workspaces.css",
-        "src/styles/desktop-sidebar.css",
-        "src/styles/desktop-navigation.css",
-        "src/styles/desktop-conversation.css",
-        "src/styles/omb-skin.css",
-        "src/styles/omb-metrics.css"
-      ],
-      "evidence": "Claude new/chat/Code layout and typography; Monocode provider behavior",
-      "mapping": "Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage",
-      "target": "Chat composer640/radius14/input15/21; Code header32/prose14/20; retain tools, approval, attachments, provider and virtual scrolling behavior",
-      "geometry": "Preserve unless explicitly mapped in docs/desktop-visual-spec.md",
-      "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
-      "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
-      "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "f7dd54886cb8debd8d110b13081b002d4e44bea1ab3278088720ddce770a0158",
       "integration": "shared component adapter"
     },
     {
@@ -9745,7 +9566,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "8cb29961fbef8297e255f526e422b05e97249e137465775e8da7048dfa511ce4",
+      "sha256": "f342aaf9fe7a389daf0195a13c86fee070b94752b6448412d112ffe2be680918",
       "integration": "explicit component hooks"
     },
     {
@@ -9782,43 +9603,6 @@
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
       "sha256": "ca0f7ac7aff780717d407a2dcb1dc0cd9ac354104a8cd3ee009d0cf961884fa5",
-      "integration": "semantic palette; local geometry retained"
-    },
-    {
-      "id": "features/settings/ui/SkinPicker",
-      "file": "src/features/settings/ui/SkinPicker.tsx",
-      "components": [
-        "Miniature",
-        "Preview",
-        "SkinPicker"
-      ],
-      "group": "settings",
-      "jsxElements": 19,
-      "hooks": [],
-      "imports": [
-        "src/shared/i18n/useTranslation.ts",
-        "src/shared/theme/desktopSkin.ts",
-        "src/shared/ui/omb/cx.ts"
-      ],
-      "styleSources": [
-        "src/styles/desktop-tokens.css",
-        "src/styles/desktop-fonts.css",
-        "src/styles/desktop-controls.css",
-        "src/styles/desktop-workspaces.css",
-        "src/styles/desktop-sidebar.css",
-        "src/styles/desktop-navigation.css",
-        "src/styles/desktop-conversation.css",
-        "src/styles/omb-skin.css",
-        "src/styles/omb-metrics.css"
-      ],
-      "evidence": "Claude final-comparison Settings metrics; design-tokens/menu-metrics; Monocode settings content",
-      "mapping": "Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage",
-      "target": "Centered 1024×800 dialog, 192px nav, uncarded rows and shared controls; retain real settings actions",
-      "geometry": "Preserve unless explicitly mapped in docs/desktop-visual-spec.md",
-      "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
-      "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
-      "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "3332a82cd8c3bffdfe50dfa60678d22ce3e68b9d46a8919b76a678870432a0ba",
       "integration": "semantic palette; local geometry retained"
     },
     {
@@ -10076,7 +9860,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "634d98e515858f1806b7f30bdfc5bb57a9eba82829153664e8984a40acf17261",
+      "sha256": "56465a17c7184af9d9c0c7d3dcf889904092d4444d7d28135aea7dde93184af1",
       "integration": "shared component adapter"
     },
     {
@@ -10146,7 +9930,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "9338fd99cde70070f1a88fd31fe86200c0dba76fae138af547742877fce144b5",
+      "sha256": "c65ee0ce6d76d4d82ce883da7298a305d6a01c99d09c229bdb1768885a9854d2",
       "integration": "explicit component hooks"
     },
     {
@@ -10187,7 +9971,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "ad287245b89096c8ad08dbb6ca1c4b5e89a2a50cfde769583372b37c1ac436dc",
+      "sha256": "c0b1fd08e939cb4e8ccb7bb51c41789f8000f4fa76f9faacbbb210ffb24dafa6",
       "integration": "shared component adapter"
     },
     {
@@ -10329,7 +10113,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "5a2a357cae44827cce21418f9232e820c4eff4d930cef3ce6f7d7886df6008b3",
+      "sha256": "88e02827cd5472ab0d01f59d25a124bb1a17f14ab32a68e6edb3f7720fef4003",
       "integration": "explicit component hooks"
     },
     {
@@ -10377,7 +10161,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "3fe648d5cbaea16980d84a0615ff056355c9553105f01f62de640f494783700a",
+      "sha256": "643091952fd0436be94cbcbab38e52c6fd53cc8054f5aed7a0fae68837e01a2f",
       "integration": "explicit component hooks"
     },
     {
@@ -10429,7 +10213,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "3b02a5f954dbe4a83f1afec2818f140decb98bf06d5e3179e2ab0233ef7d70d5",
+      "sha256": "072b43da9a326fd2098ebec91a80d26ad3df6a4854ed379fd33c1ab2a3175b0f",
       "integration": "shared component adapter"
     },
     {
@@ -10464,7 +10248,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "b4a765b2ef307e292add08aa386f2aca3d7c45bb66bb5c091092441b94008095",
+      "sha256": "fdc01ee83967525aeae9aa0e77d1b77b7dd33de948be625aed0f7d1a00768642",
       "integration": "semantic palette; local geometry retained"
     },
     {
@@ -10511,7 +10295,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "6c36708177737822e95220eb1f820820533fb287a14b907f782c90a09b2b5593",
+      "sha256": "428682c04340cd1856c5cc5061a92c9a47911e42b0ffddd60b89f2ec794e8fcd",
       "integration": "shared component adapter"
     },
     {
@@ -10569,7 +10353,7 @@
         "Empty"
       ],
       "group": "source-control",
-      "jsxElements": 14,
+      "jsxElements": 15,
       "hooks": [],
       "imports": [
         "src/shared/ui/PresenceBoundary.tsx",
@@ -10599,7 +10383,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "e55683a5fef385db47b1287bdde2318b8006dc0ce65a9a0fb210e2a9096b7f9e",
+      "sha256": "b6b6add6c330b859f25a72df162ecdf4537c30497f314e2247899100072411ec",
       "integration": "shared component adapter"
     },
     {
@@ -10674,7 +10458,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "1f6afa484b66d4d9f19981ee8dcf9f82b04e2fd54fd22ef9042c212ce9fc2a1e",
+      "sha256": "65e75f1146d8429b5fa665d32861cde90b8d05234cc3f5dc23c6452215f1e244",
       "integration": "shared component adapter"
     },
     {
@@ -10823,7 +10607,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "eee79941eccaf8329e6b6b683e1e740e3f2d5c86ed87b2a34cba2609061bd307",
+      "sha256": "2f50dc38311bd8ed373a928271d9d0186bbc97f6315c29cadd07189a4401acf6",
       "integration": "explicit component hooks"
     },
     {
@@ -11000,7 +10784,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "0cf624b675858695c7091e1be091c7db2f9b73e07492ad050785d180f050355a",
+      "sha256": "33a8aa20db964abc8f0e1210257f6866c7d2891c9e87b36d663284fd2a831b57",
       "integration": "explicit component hooks"
     },
     {
@@ -11173,7 +10957,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "1a4ca39b3420adfb6f999405269547e536ac7e4c6c0a04620ddfc076e08991eb",
+      "sha256": "cf8b003e55bd1839174d76aeecb0b68d045492a372d72d52a1c6da434040fdaf",
       "integration": "shared component adapter"
     },
     {
@@ -15141,7 +14925,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "a470f7d449236d3d130c6b5acfee7ce3e28b7d1ec075707272e596e393f34a12",
+      "sha256": "775a53ff253f320417b02a05d4000543e3dfea174075bcbdcfb671c99587242f",
       "integration": "shared component adapter"
     },
     {
@@ -15229,7 +15013,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "1aae95b0318ac3a02fdcb805ea04e5b3bd25aa14570f53fdb1889c1a232dd6ba",
+      "sha256": "a60b2137afec5533c45bd5b4fa649a327a3279eca6906d88b08085fd8423c45a",
       "integration": "shared component adapter"
     },
     {
@@ -15333,7 +15117,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "404ee264fa2c80bf049e49742c6a98ab829aa516199512b10b7409db9983a9e3",
+      "sha256": "f7a90d6e9ed71ee1151d98347ca03e56f6b9486d8339137fbcc96183a318040a",
       "integration": "shared component adapter"
     },
     {
@@ -16167,7 +15951,7 @@
       "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "20048efad9435b22f79a0c94f6aafcc4689acfbea024b415ff7ad74975ca62fa",
+      "sha256": "9cbaa4a8414ece007831c1a7fe0b2e01fe2e4039032f7e0d260858a79d713fa8",
       "integration": "explicit component hooks"
     },
     {
@@ -16360,74 +16144,6 @@
       "integration": "semantic palette; local geometry retained"
     },
     {
-      "id": "shared/ui/omb/Avatar",
-      "file": "src/shared/ui/omb/Avatar.tsx",
-      "components": [
-        "Avatar"
-      ],
-      "group": "shared",
-      "jsxElements": 1,
-      "hooks": [],
-      "imports": [
-        "src/shared/ui/omb/cx.ts"
-      ],
-      "styleSources": [
-        "src/styles/desktop-tokens.css",
-        "src/styles/desktop-fonts.css",
-        "src/styles/desktop-controls.css",
-        "src/styles/desktop-workspaces.css",
-        "src/styles/desktop-sidebar.css",
-        "src/styles/desktop-navigation.css",
-        "src/styles/desktop-conversation.css",
-        "src/styles/omb-skin.css",
-        "src/styles/omb-metrics.css"
-      ],
-      "evidence": "Claude design-tokens/menu-metrics; repository Motion/collapse contracts",
-      "mapping": "Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage",
-      "target": "Shared semantic palette, local fonts, controls and portal lifecycle; retain public props, focus and accessibility contracts",
-      "geometry": "Preserve unless explicitly mapped in docs/desktop-visual-spec.md",
-      "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
-      "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
-      "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "aa3b4cd35bd9d8724305e5f77f7e83bde2d42aac5a9af3ad23a977fa40db31d5",
-      "integration": "semantic palette; local geometry retained"
-    },
-    {
-      "id": "shared/ui/omb/Bubble",
-      "file": "src/shared/ui/omb/Bubble.tsx",
-      "components": [
-        "Bubble"
-      ],
-      "group": "shared",
-      "jsxElements": 1,
-      "hooks": [],
-      "imports": [
-        "src/shared/motion/tokens.ts",
-        "src/shared/motion/useMotionPreference.ts",
-        "src/shared/ui/omb/cx.ts"
-      ],
-      "styleSources": [
-        "src/styles/desktop-tokens.css",
-        "src/styles/desktop-fonts.css",
-        "src/styles/desktop-controls.css",
-        "src/styles/desktop-workspaces.css",
-        "src/styles/desktop-sidebar.css",
-        "src/styles/desktop-navigation.css",
-        "src/styles/desktop-conversation.css",
-        "src/styles/omb-skin.css",
-        "src/styles/omb-metrics.css"
-      ],
-      "evidence": "Claude design-tokens/menu-metrics; repository Motion/collapse contracts",
-      "mapping": "Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage",
-      "target": "Shared semantic palette, local fonts, controls and portal lifecycle; retain public props, focus and accessibility contracts",
-      "geometry": "Preserve unless explicitly mapped in docs/desktop-visual-spec.md",
-      "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
-      "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
-      "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "fb19de46e25d2d292f3618b7b9a79b8b9f54de0fe65bf99d78c930ecbfe0341c",
-      "integration": "semantic palette; local geometry retained"
-    },
-    {
       "id": "shared/ui/omb/Button",
       "file": "src/shared/ui/omb/Button.tsx",
       "components": [
@@ -16464,240 +16180,6 @@
       "runtime": "Not individually runtime-tested; see delivery matrix",
       "sha256": "8054a817670e296d1a015e1765277283bce039b9eb3c3bf40d0104ec4f90507c",
       "integration": "explicit component hooks"
-    },
-    {
-      "id": "shared/ui/omb/Card",
-      "file": "src/shared/ui/omb/Card.tsx",
-      "components": [
-        "Card"
-      ],
-      "group": "shared",
-      "jsxElements": 1,
-      "hooks": [],
-      "imports": [
-        "src/shared/ui/omb/cx.ts"
-      ],
-      "styleSources": [
-        "src/styles/desktop-tokens.css",
-        "src/styles/desktop-fonts.css",
-        "src/styles/desktop-controls.css",
-        "src/styles/desktop-workspaces.css",
-        "src/styles/desktop-sidebar.css",
-        "src/styles/desktop-navigation.css",
-        "src/styles/desktop-conversation.css",
-        "src/styles/omb-skin.css",
-        "src/styles/omb-metrics.css"
-      ],
-      "evidence": "Claude design-tokens/menu-metrics; repository Motion/collapse contracts",
-      "mapping": "Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage",
-      "target": "Shared semantic palette, local fonts, controls and portal lifecycle; retain public props, focus and accessibility contracts",
-      "geometry": "Preserve unless explicitly mapped in docs/desktop-visual-spec.md",
-      "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
-      "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
-      "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "a5043e2c9135d6bfaa461639ce719450935d1831a7e845dde5a1bfdd854ef5c0",
-      "integration": "semantic palette; local geometry retained"
-    },
-    {
-      "id": "shared/ui/omb/GlassPanel",
-      "file": "src/shared/ui/omb/GlassPanel.tsx",
-      "components": [
-        "GlassPanel"
-      ],
-      "group": "shared",
-      "jsxElements": 1,
-      "hooks": [],
-      "imports": [
-        "src/shared/ui/omb/cx.ts"
-      ],
-      "styleSources": [
-        "src/styles/desktop-tokens.css",
-        "src/styles/desktop-fonts.css",
-        "src/styles/desktop-controls.css",
-        "src/styles/desktop-workspaces.css",
-        "src/styles/desktop-sidebar.css",
-        "src/styles/desktop-navigation.css",
-        "src/styles/desktop-conversation.css",
-        "src/styles/omb-skin.css",
-        "src/styles/omb-metrics.css"
-      ],
-      "evidence": "Claude design-tokens/menu-metrics; repository Motion/collapse contracts",
-      "mapping": "Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage",
-      "target": "Shared semantic palette, local fonts, controls and portal lifecycle; retain public props, focus and accessibility contracts",
-      "geometry": "Preserve unless explicitly mapped in docs/desktop-visual-spec.md",
-      "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
-      "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
-      "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "4dc399708a3486837f80a205523bcd5273408f9b18d33c04fd571143de7a3f91",
-      "integration": "semantic palette; local geometry retained"
-    },
-    {
-      "id": "shared/ui/omb/ImageAttachment",
-      "file": "src/shared/ui/omb/ImageAttachment.tsx",
-      "components": [
-        "ImageAttachment"
-      ],
-      "group": "shared",
-      "jsxElements": 4,
-      "hooks": [],
-      "imports": [
-        "src/shared/ui/omb/cx.ts"
-      ],
-      "styleSources": [
-        "src/styles/desktop-tokens.css",
-        "src/styles/desktop-fonts.css",
-        "src/styles/desktop-controls.css",
-        "src/styles/desktop-workspaces.css",
-        "src/styles/desktop-sidebar.css",
-        "src/styles/desktop-navigation.css",
-        "src/styles/desktop-conversation.css",
-        "src/styles/omb-skin.css",
-        "src/styles/omb-metrics.css"
-      ],
-      "evidence": "Claude design-tokens/menu-metrics; repository Motion/collapse contracts",
-      "mapping": "Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage",
-      "target": "Shared semantic palette, local fonts, controls and portal lifecycle; retain public props, focus and accessibility contracts",
-      "geometry": "Preserve unless explicitly mapped in docs/desktop-visual-spec.md",
-      "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
-      "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
-      "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "78b56dac247e1f7d550a6afbe00a8ee18e5f96845fd797f8f7fc3e90cd11a870",
-      "integration": "semantic palette; local geometry retained"
-    },
-    {
-      "id": "shared/ui/omb/ListRow",
-      "file": "src/shared/ui/omb/ListRow.tsx",
-      "components": [
-        "ListRow"
-      ],
-      "group": "shared",
-      "jsxElements": 8,
-      "hooks": [],
-      "imports": [
-        "src/shared/ui/omb/cx.ts"
-      ],
-      "styleSources": [
-        "src/styles/desktop-tokens.css",
-        "src/styles/desktop-fonts.css",
-        "src/styles/desktop-controls.css",
-        "src/styles/desktop-workspaces.css",
-        "src/styles/desktop-sidebar.css",
-        "src/styles/desktop-navigation.css",
-        "src/styles/desktop-conversation.css",
-        "src/styles/omb-skin.css",
-        "src/styles/omb-metrics.css"
-      ],
-      "evidence": "Claude design-tokens/menu-metrics; repository Motion/collapse contracts",
-      "mapping": "Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage",
-      "target": "Shared semantic palette, local fonts, controls and portal lifecycle; retain public props, focus and accessibility contracts",
-      "geometry": "Preserve unless explicitly mapped in docs/desktop-visual-spec.md",
-      "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
-      "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
-      "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "5726c0e5d71c9c98d58687f8ce556a2678e3c498407efa1610edf713c1cb8c9b",
-      "integration": "semantic palette; local geometry retained"
-    },
-    {
-      "id": "shared/ui/omb/Pill",
-      "file": "src/shared/ui/omb/Pill.tsx",
-      "components": [
-        "Pill",
-        "PillButton"
-      ],
-      "group": "shared",
-      "jsxElements": 2,
-      "hooks": [],
-      "imports": [
-        "src/shared/ui/omb/cx.ts"
-      ],
-      "styleSources": [
-        "src/styles/desktop-tokens.css",
-        "src/styles/desktop-fonts.css",
-        "src/styles/desktop-controls.css",
-        "src/styles/desktop-workspaces.css",
-        "src/styles/desktop-sidebar.css",
-        "src/styles/desktop-navigation.css",
-        "src/styles/desktop-conversation.css",
-        "src/styles/omb-skin.css",
-        "src/styles/omb-metrics.css"
-      ],
-      "evidence": "Claude design-tokens/menu-metrics; repository Motion/collapse contracts",
-      "mapping": "Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage",
-      "target": "Shared semantic palette, local fonts, controls and portal lifecycle; retain public props, focus and accessibility contracts",
-      "geometry": "Preserve unless explicitly mapped in docs/desktop-visual-spec.md",
-      "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
-      "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
-      "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "adeced6c56af459efcfec77aa73b2df3e016dd5934181ff3139f82054dfba4c5",
-      "integration": "semantic palette; local geometry retained"
-    },
-    {
-      "id": "shared/ui/omb/SearchField",
-      "file": "src/shared/ui/omb/SearchField.tsx",
-      "components": [
-        "SearchField"
-      ],
-      "group": "shared",
-      "jsxElements": 4,
-      "hooks": [],
-      "imports": [
-        "src/shared/ui/icons.tsx",
-        "src/shared/ui/omb/cx.ts"
-      ],
-      "styleSources": [
-        "src/styles/desktop-tokens.css",
-        "src/styles/desktop-fonts.css",
-        "src/styles/desktop-controls.css",
-        "src/styles/desktop-workspaces.css",
-        "src/styles/desktop-sidebar.css",
-        "src/styles/desktop-navigation.css",
-        "src/styles/desktop-conversation.css",
-        "src/styles/omb-skin.css",
-        "src/styles/omb-metrics.css"
-      ],
-      "evidence": "Claude design-tokens/menu-metrics; repository Motion/collapse contracts",
-      "mapping": "Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage",
-      "target": "Shared semantic palette, local fonts, controls and portal lifecycle; retain public props, focus and accessibility contracts",
-      "geometry": "Preserve unless explicitly mapped in docs/desktop-visual-spec.md",
-      "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
-      "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
-      "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "b556158d3efe9e51a51b6a19abc4770e0d8c10e4cf7654c707975f5a61473cbf",
-      "integration": "semantic palette; local geometry retained"
-    },
-    {
-      "id": "shared/ui/omb/SectionHeader",
-      "file": "src/shared/ui/omb/SectionHeader.tsx",
-      "components": [
-        "SectionHeader"
-      ],
-      "group": "shared",
-      "jsxElements": 6,
-      "hooks": [],
-      "imports": [
-        "src/shared/ui/DisclosureChevron.tsx",
-        "src/shared/ui/omb/cx.ts"
-      ],
-      "styleSources": [
-        "src/styles/desktop-tokens.css",
-        "src/styles/desktop-fonts.css",
-        "src/styles/desktop-controls.css",
-        "src/styles/desktop-workspaces.css",
-        "src/styles/desktop-sidebar.css",
-        "src/styles/desktop-navigation.css",
-        "src/styles/desktop-conversation.css",
-        "src/styles/omb-skin.css",
-        "src/styles/omb-metrics.css"
-      ],
-      "evidence": "Claude design-tokens/menu-metrics; repository Motion/collapse contracts",
-      "mapping": "Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage",
-      "target": "Shared semantic palette, local fonts, controls and portal lifecycle; retain public props, focus and accessibility contracts",
-      "geometry": "Preserve unless explicitly mapped in docs/desktop-visual-spec.md",
-      "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
-      "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
-      "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "0b53fe948bbfa13149a8d5dc8e539d9e6cb6b4f40de71e2fa1182c1d22d22632",
-      "integration": "semantic palette; local geometry retained"
     },
     {
       "id": "shared/ui/omb/SegmentedControl",
@@ -16767,75 +16249,6 @@
       "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
       "runtime": "Not individually runtime-tested; see delivery matrix",
       "sha256": "632c44fe8d9c628f72ceb183957acb76a3fd76b3a8e3453bdbc56c48bf6ddd39",
-      "integration": "semantic palette; local geometry retained"
-    },
-    {
-      "id": "shared/ui/omb/Toast",
-      "file": "src/shared/ui/omb/Toast.tsx",
-      "components": [
-        "Toast"
-      ],
-      "group": "shared",
-      "jsxElements": 3,
-      "hooks": [],
-      "imports": [
-        "src/shared/motion/tokens.ts",
-        "src/shared/motion/useMotionPreference.ts",
-        "src/shared/ui/omb/cx.ts"
-      ],
-      "styleSources": [
-        "src/styles/desktop-tokens.css",
-        "src/styles/desktop-fonts.css",
-        "src/styles/desktop-controls.css",
-        "src/styles/desktop-workspaces.css",
-        "src/styles/desktop-sidebar.css",
-        "src/styles/desktop-navigation.css",
-        "src/styles/desktop-conversation.css",
-        "src/styles/omb-skin.css",
-        "src/styles/omb-metrics.css"
-      ],
-      "evidence": "Claude design-tokens/menu-metrics; repository Motion/collapse contracts",
-      "mapping": "Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage",
-      "target": "Shared semantic palette, local fonts, controls and portal lifecycle; retain public props, focus and accessibility contracts",
-      "geometry": "Preserve unless explicitly mapped in docs/desktop-visual-spec.md",
-      "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
-      "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
-      "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "db26429acc0abfeab8070ee1b98c11147204599faedd7558154218e77a315bbc",
-      "integration": "semantic palette; local geometry retained"
-    },
-    {
-      "id": "shared/ui/omb/TopBar",
-      "file": "src/shared/ui/omb/TopBar.tsx",
-      "components": [
-        "TopBar",
-        "Toolbar"
-      ],
-      "group": "shared",
-      "jsxElements": 7,
-      "hooks": [],
-      "imports": [
-        "src/shared/ui/omb/cx.ts"
-      ],
-      "styleSources": [
-        "src/styles/desktop-tokens.css",
-        "src/styles/desktop-fonts.css",
-        "src/styles/desktop-controls.css",
-        "src/styles/desktop-workspaces.css",
-        "src/styles/desktop-sidebar.css",
-        "src/styles/desktop-navigation.css",
-        "src/styles/desktop-conversation.css",
-        "src/styles/omb-skin.css",
-        "src/styles/omb-metrics.css"
-      ],
-      "evidence": "Claude design-tokens/menu-metrics; repository Motion/collapse contracts",
-      "mapping": "Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage",
-      "target": "Shared semantic palette, local fonts, controls and portal lifecycle; retain public props, focus and accessibility contracts",
-      "geometry": "Preserve unless explicitly mapped in docs/desktop-visual-spec.md",
-      "themes": "light and dark: Claude measured semantic palette; user font/scale preferences retain precedence",
-      "motion": "Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules",
-      "runtime": "Not individually runtime-tested; see delivery matrix",
-      "sha256": "4fedf340ffabee5049bbb649da51166c6ea9db5ff759187bc41d077cd22861c4",
       "integration": "semantic palette; local geometry retained"
     },
     {

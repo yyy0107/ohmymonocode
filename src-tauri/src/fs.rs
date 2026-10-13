@@ -1283,16 +1283,6 @@ pub struct GitHubStatus {
     pub authenticated: bool,
 }
 
-#[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub enum GitHubStarStatus {
-    Starred,
-    NotStarred,
-    Unavailable,
-}
-
-const MONOCODE_STAR_ENDPOINT: &str = "/user/starred/hardbeat920/monocode";
-
 /// Whether the GitHub CLI is installed and has an active authenticated account.
 #[tauri::command]
 pub async fn git_github_status() -> Result<GitHubStatus, String> {
@@ -1341,46 +1331,6 @@ fn git_github_status_for() -> GitHubStatus {
 
 fn gh_rejects_active_flag(stderr: &[u8]) -> bool {
     String::from_utf8_lossy(stderr).contains("unknown flag: --active")
-}
-
-/// Whether the active GitHub CLI account has starred the MonoCode repository.
-#[tauri::command]
-pub async fn github_monocode_star_status() -> Result<GitHubStarStatus, String> {
-    tauri::async_runtime::spawn_blocking(github_monocode_star_status_for)
-        .await
-        .map_err(|error| error.to_string())
-}
-
-fn github_monocode_star_status_for() -> GitHubStarStatus {
-    let result = gh_run(
-        Path::new("."),
-        &["api", "--silent", MONOCODE_STAR_ENDPOINT],
-        true,
-    );
-    github_star_status_from_result(result)
-}
-
-fn github_star_status_from_result(result: Result<String, String>) -> GitHubStarStatus {
-    match result {
-        Ok(_) => GitHubStarStatus::Starred,
-        Err(error) if error.contains("HTTP 404") => GitHubStarStatus::NotStarred,
-        Err(_) => GitHubStarStatus::Unavailable,
-    }
-}
-
-/// Star the MonoCode repository for the active GitHub CLI account.
-#[tauri::command]
-pub async fn github_star_monocode() -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        gh_run(
-            Path::new("."),
-            &["api", "--silent", "--method", "PUT", MONOCODE_STAR_ENDPOINT],
-            true,
-        )
-        .map(|_| ())
-    })
-    .await
-    .map_err(|error| error.to_string())?
 }
 
 /// `owner/repo` for the GitHub remote of this working copy, via `gh`.
@@ -6375,22 +6325,6 @@ mod tests {
         assert!(!is_png(&[0xff, 0xd8, 0xff, 0x00]));
         assert!(!is_png(b"<html>"));
         assert!(!is_png(&[]));
-    }
-
-    #[test]
-    fn github_star_status_distinguishes_a_missing_star_from_an_unavailable_check() {
-        assert_eq!(
-            github_star_status_from_result(Ok(String::new())),
-            GitHubStarStatus::Starred
-        );
-        assert_eq!(
-            github_star_status_from_result(Err("gh: Not Found (HTTP 404)".into())),
-            GitHubStarStatus::NotStarred
-        );
-        assert_eq!(
-            github_star_status_from_result(Err("GitHub CLI is not installed".into())),
-            GitHubStarStatus::Unavailable
-        );
     }
 
     #[test]

@@ -30,13 +30,6 @@
 .mobile-sheet-backdrop[data-placement="bottom"] .mobile-sheet-header {
   touch-action: none;
 }
-/* ui/Sheet: a trailing Done needs a wider column than an icon. */
-.mobile-sheet-header.mobile-sheet-header-done {
-  grid-template-columns: 72px minmax(0, 1fr) 72px;
-}
-.mobile-sheet-header-done > :last-child {
-  justify-self: end;
-}
 .mobile-sheet-header-button {
   display: grid;
   place-items: center;
