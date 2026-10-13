@@ -404,7 +404,6 @@ import {
   loadFormatOnSave,
   loadGridArcadeEnabled,
   loadLiveAgentsEnabled,
-  loadMenuBarVisible,
   loadModelControls,
   loadNotesEnabled,
   loadKeybindingOverrides,
@@ -420,7 +419,6 @@ import {
   saveFormatOnSave,
   saveGridArcadeEnabled,
   saveLiveAgentsEnabled,
-  saveMenuBarVisible,
   saveModelControls,
   saveNotesEnabled,
   saveKeybindingOverride,
@@ -428,7 +426,6 @@ import {
   saveQuickComposerEnabled,
   saveQuickComposerShortcut,
   subscribeKeybindings,
-  subscribeMenuBarVisible,
   type KeybindingOverride,
   saveTabAnimationsEnabled,
   searchSettings,
@@ -2631,7 +2628,6 @@ function AppearancePage({ appearance }: { appearance: AppearanceSettings }) {
       <ChatBackgroundCard appearance={appearance} />
 
       <Group title={uiT("Layout")}>
-        {IS_MAC ? null : <MenuBarRow />}
         <Row
           id="interface-scale"
           label={uiT("Interface scale")}
@@ -2967,29 +2963,6 @@ function TypographyCards({ appearance }: { appearance: AppearanceSettings }) {
         </Row>
       </Group>
     </>
-  );
-}
-
-function MenuBarRow() {
-  const { t: uiT } = useTranslation();
-  const visible = useSyncExternalStore(
-    subscribeMenuBarVisible,
-    loadMenuBarVisible,
-  );
-  return (
-    <Row
-      id="menu-bar"
-      label={uiT("Menu bar")}
-      description={uiT(
-        "Keep File, Edit, View, Go, Terminal and Help visible above the title bar. When off, tap Alt to show it.",
-      )}
-    >
-      <Toggle
-        label={uiT("Show menu bar")}
-        on={visible}
-        onChange={(next) => void saveMenuBarVisible(next)}
-      />
-    </Row>
   );
 }
 

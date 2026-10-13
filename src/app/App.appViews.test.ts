@@ -562,6 +562,9 @@ vi.mock("../features/sessions/ui/SessionPane", async () => {
     },
   };
 });
+vi.mock("@tauri-apps/api/webview", () => ({
+  getCurrentWebview: () => ({ onDragDropEvent: async () => () => {} }),
+}));
 vi.mock("../features/connections/files/ui/FileEditor", async () => {
   const { createElement: el } = await import("react");
   return {
@@ -616,11 +619,14 @@ vi.mock("../features/bots/ui/DesktopBots", async () => {
 
 vi.mock("../features/workflows/ui/WorkflowsView", async () => {
   const { createElement: el } = await import("react");
+  const { AppPageHeader } = await import("../features/workspace/ui/AppPageHeader");
+  const { Workflow } = await import("../shared/ui/icons");
   const { useWorkflowApp } = await import("../features/workflows/ui/workflowAppContext");
   return {
     WorkflowsView: () => {
       const app = useWorkflowApp();
       return el("section", { "data-app-view": "workflows" },
+        el(AppPageHeader, { title: "Workflows", icon: Workflow }),
         ...["/repo", "/project-b"].map((cwd) => el("button", {
           key: cwd,
           "data-create-workflow": cwd,
@@ -694,6 +700,8 @@ vi.mock("../features/settings/ui/SettingsView", async () => {
 });
 vi.mock("../features/inbox/ui/InboxView", async () => {
   const { createElement: el, useEffect, useRef } = await import("react");
+  const { AppPageHeader } = await import("../features/workspace/ui/AppPageHeader");
+  const { Inbox } = await import("../shared/ui/icons");
   return {
     InboxView: ({
       active,
@@ -717,7 +725,7 @@ vi.mock("../features/inbox/ui/InboxView", async () => {
       return el(
         "section",
         { "data-app-view": "inbox", "data-focused": active },
-        "Inbox",
+        el(AppPageHeader, { title: "Inbox", icon: Inbox }),
         el("button", { "data-leave-view": true, onClick: onClose }),
         el("button", {
           "data-inbox-open-session": true,
@@ -961,15 +969,20 @@ const workspace = (id?: string) =>
 
 const activeTabId = () => workspace().dataset.workspaceTab;
 
+const promotedHeader = (id = activeTabId()) =>
+  container.querySelector<HTMLElement>(`[data-window-session-header="${id}"]`);
+
 const ownedTabs = (id?: string) =>
-  workspace(id).querySelector<HTMLElement>("[data-session-surface-tabs]")!;
+  (workspace(id).querySelector<HTMLElement>("[data-session-surface-tabs]") ??
+    promotedHeader(id)?.querySelector<HTMLElement>("[data-session-surface-tabs]"))!;
 
 const ownedFileTabs = (id?: string) => [
   ...workspace(id).querySelectorAll<HTMLElement>("[data-file-tab-id]"),
 ];
 
 async function clickInWorkspace(selector: string, id?: string) {
-  const button = workspace(id).querySelector<HTMLButtonElement>(selector);
+  const button = workspace(id).querySelector<HTMLButtonElement>(selector) ??
+    promotedHeader(id)?.querySelector<HTMLButtonElement>(selector);
   expect(button, selector).not.toBeNull();
   await act(async () => button!.click());
   await act(async () => vi.dynamicImportSettled());
@@ -1399,20 +1412,36 @@ describe("App workspace app views", () => {
   it.each([false, true])("opens the owning project's files from the session header with a pinned menu: %s", async (pinned) => {
     saveMenuBarVisible(pinned);
     await mount(false, "bottom", undefined, false, { cwd: "/project-b" });
-    expect(container.querySelector('[data-window-chrome] button[aria-label="Files"]')).toBeNull();
+    expect(!!container.querySelector('[data-window-session-header] button[aria-label="Files"]')).toBe(!pinned);
     expect(container.querySelector('[data-window-chrome] button[aria-label="Changes"]')).toBeNull();
     expect(container.querySelector('[data-session-tool-toggle="changes"]')).toBeNull();
     const fileButton = (id: string) => `[data-session-surface-tabs="${id}"] [data-session-tool-toggle="files"]`;
     await click(fileButton("first"));
-    expect(container.querySelector('.desktop-tools-layout')?.getAttribute('data-tools-open')).toBe('true');
-    expect(container.querySelector('[data-tools-panel="files"]')?.getAttribute('data-tools-cwd')).toBe('/repo');
+    expect(container.querySelector('.desktop-tools-layout')?.getAttribute('data-tools-open')).toBe('false');
+    expect(container.querySelector('.desktop-file-explorer')?.getAttribute('data-file-explorer-cwd')).toBe('/repo');
     expect(container.querySelector(fileButton("first"))?.getAttribute('aria-pressed')).toBe('true');
     await click(fileButton("first"));
     expect(container.querySelector('.desktop-tools-layout')?.getAttribute('data-tools-open')).toBe('false');
     await selectSession("recent");
     await click(fileButton("recent"));
-    expect(container.querySelector('[data-tools-panel="files"]')?.getAttribute('data-tools-cwd')).toBe('/project-b');
+    expect(workspace(recentId).querySelector('.desktop-file-explorer')?.getAttribute('data-file-explorer-cwd')).toBe('/project-b');
     expect(container.querySelector(fileButton("recent"))?.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it("keeps changes open while opening and closing the independent file explorer", async () => {
+    await mount();
+    await click('[data-command="View: Toggle Changes"]');
+    await click('[data-session-tool-toggle="files"]');
+    expect(container.querySelector('.desktop-tools-layout')?.getAttribute('data-tools-open')).toBe('true');
+    expect(workspace().querySelector('.desktop-file-explorer')).not.toBeNull();
+    await click('[data-open-file]');
+    expect(workspace().querySelector('[data-file-editor="/repo/file.ts"]')).not.toBeNull();
+    await click('.desktop-file-explorer [aria-label="Close file.ts"]');
+    expect(workspace().querySelector('.desktop-file-explorer')).not.toBeNull();
+    expect(workspace().querySelector('[data-file-editor]')).toBeNull();
+    await click('.desktop-file-explorer [aria-label="Close panel"]');
+    expect(workspace().querySelector('.desktop-file-explorer')).toBeNull();
+    expect(container.querySelector('.desktop-tools-layout')?.getAttribute('data-tools-open')).toBe('true');
   });
 
   it("opens Assistant as a reusable workspace page and retains its draft across chat switches", async () => {
@@ -1494,7 +1523,7 @@ describe("App workspace app views", () => {
       const dialog = document.querySelector<HTMLElement>(
         "[data-app-view-dialog]",
       )!;
-      expect(dialog.style.top).toBe("48px");
+      expect(dialog.style.top).toBe("42px");
       expect(Number(chrome.style.zIndex)).toBeGreaterThan(
         Number(dialog.style.zIndex),
       );
@@ -1610,6 +1639,36 @@ describe("App workspace app views", () => {
     ).not.toBeNull();
   });
 
+  it.each(["Inbox", "Notes", "Automations", "Workflows"].flatMap(title => [false, true].map(pinned => ({ title, pinned }))))("places the $title title in available window chrome (menu pinned=$pinned)", async ({ title, pinned }) => {
+    saveMenuBarVisible(pinned);
+    await mount();
+    const kind = title.toLowerCase();
+    await click(`[data-command="View: ${title}"]`);
+    const page = container.querySelector(`[data-app-page="${kind}"]`)!;
+    const host = container.querySelector(`[data-window-page-header="${kind}"]`);
+    expect(!!host).toBe(!pinned);
+    expect(!!page.querySelector('[data-app-page-header]')).toBe(pinned);
+    expect((host ?? page).querySelector('[data-app-page-header]')?.textContent).toBe(title);
+    const other = title === "Notes" ? "Inbox" : "Notes";
+    await click(`[data-command="View: ${other}"]`);
+    expect(container.querySelector('[data-window-page-header]')?.getAttribute('data-window-page-header') ?? null).toBe(pinned ? null : other.toLowerCase());
+    await click(`[data-command="View: ${title}"]`);
+    expect((pinned ? page : container.querySelector('[data-window-page-header]'))?.querySelector('[data-app-page-header]')?.textContent).toBe(title);
+    if (title === "Inbox") {
+      expect((pinned ? page : container.querySelector('[data-window-page-header]'))?.querySelector('[aria-label="Back to chat"]')).toBeNull();
+    }
+    if (title === "Workflows" || title === "Inbox") await click('[data-command="View: Notes"]');
+    const back = container.querySelector<HTMLButtonElement>(pinned
+      ? `[data-app-page="${title === "Workflows" || title === "Inbox" ? "notes" : kind}"] [aria-label="Back to chat"]`
+      : '[data-window-page-header] [aria-label="Back to chat"]')!;
+    await act(async () => back.click());
+    expect(page.getAttribute("aria-hidden")).toBe("true");
+    expect(container.querySelector('[data-window-page-header]')).toBeNull();
+    if (kind === "inbox" || kind === "notes") {
+      expect(mocks.viewMounted.mock.calls.filter(([view]) => view === kind)).toHaveLength(1);
+    }
+  });
+
   it.each(["Notes", "Inbox", "Automations"])("opens %s as a full-area page and preserves the hidden workspace", async (title) => {
     await mount();
     const chat = workspace(firstId);
@@ -1628,7 +1687,8 @@ describe("App workspace app views", () => {
     expect(terminal?.getAttribute("data-visible")).toBe("false");
     expect(chat.closest('[data-workspace-content]')?.getAttribute("aria-hidden")).toBe("true");
     expect(chat.closest('[data-workspace-content]')?.hasAttribute("inert")).toBe(true);
-    const back = page.querySelector<HTMLButtonElement>('[aria-label="Back to chat"], [data-leave-view]')!;
+    const back = container.querySelector<HTMLButtonElement>('[data-window-page-header] [aria-label="Back to chat"]')
+      ?? page.querySelector<HTMLButtonElement>('[aria-label="Back to chat"], [data-leave-view]')!;
     await act(async () => back.click());
     expect(page.getAttribute("aria-hidden")).toBe("true");
     expect(chat.closest('[data-workspace-content]')?.getAttribute("aria-hidden")).toBe("false");

@@ -12,7 +12,7 @@ import {
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "../../sessions/model/session";
-import type { EditorPane } from "../model/layout";
+import { layoutLeaves, type EditorPane, type LayoutNode } from "../model/layout";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { isPaneResizing } from "../../../shared/lib/paneResize";
 import { PaneTree } from "./PaneTree";
@@ -226,6 +226,35 @@ describe("session surface layout", () => {
     toggleChanges: vi.fn(),
   });
 
+  it("fits new right panels without remounting editors or replacing a later manual ratio", () => {
+    render();
+    const editor = pane("tools").querySelector<HTMLInputElement>("input")!;
+    editor.value = "unsaved editor state";
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(900);
+    const fit = vi.fn();
+    const columns: LayoutNode = {
+      type: "split", id: "columns", dir: "right",
+      children: ["chat", "tools", "review"].map(id => ({ type: "leaf", id })),
+      sizes: [0.5, 0.25, 0.25],
+    };
+    render({ layout: columns, onFitLayout: fit, editorPanes: [
+      ...props.editorPanes,
+      { id: "review", activeFileId: "diff", files: [{ id: "diff", path: "/project", cwd: "/project", changes: true, review: true }] },
+    ] });
+    expect(fit).toHaveBeenCalledTimes(1);
+    expect(fit.mock.calls[0][0]).toBe(columns);
+    const fitted = fit.mock.calls[0][1] as LayoutNode;
+    const leaves = layoutLeaves(fitted);
+    expect(leaves[1].rect.x).toBe(leaves[2].rect.x);
+    expect(leaves[1].rect.y).toBeLessThan(leaves[2].rect.y);
+    render({ layout: fitted });
+    expect(pane("tools").querySelector("input")).toBe(editor);
+    expect(editor.value).toBe("unsaved editor state");
+    expect(lifetime.unmounts).toBe(0);
+    render({ layout: { ...fitted, sizes: [0.75, 0.25] } as LayoutNode });
+    expect(fit).toHaveBeenCalledTimes(1);
+  });
+
   it("hides the owning top bar's menu when its workspace tab is hidden", () => {
     const actions = headerActions();
     props.sessions = [{ ...props.sessions[0], harness: "grok" }];
@@ -236,6 +265,26 @@ describe("session surface layout", () => {
     expect(document.querySelector('[role="menu"]')).toBeNull();
     render({ visible: true }, actions);
     expect(document.querySelector('[role="menu"]')).toBeNull();
+  });
+
+  it("promotes only one visible split chat's header without replacing the conversation", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    try {
+      render();
+      const conversation = pane("chat");
+      render({ sessionHeaderHost: host });
+      expect(host.querySelectorAll("[data-session-surface-tabs]")).toHaveLength(1);
+      expect(conversation.querySelector("[data-session-surface-tabs]")).toBeNull();
+      expect(pane("chat")).toBe(conversation);
+      render({ visible: false });
+      expect(host.childElementCount).toBe(0);
+      render({ visible: true, sessionHeaderHost: null });
+      expect(conversation.querySelector("[data-session-surface-tabs]")).not.toBeNull();
+      expect(pane("chat")).toBe(conversation);
+    } finally {
+      host.remove();
+    }
   });
 
   it("routes each split chat's overflow actions to that chat", () => {
@@ -262,6 +311,7 @@ describe("session surface layout", () => {
           ],
         },
         editorPanes: [],
+        sessionHeaderHost: document.createElement("div"),
         focusedId: "other-chat",
       },
       actions,

@@ -120,6 +120,8 @@ export type FilePaneTab = {
   projectCwd?: string;
   /** Application-owned view, unique by kind within its chat workspace. */
   appView?: { kind: AppViewKind };
+  /** Persistent file browser, retained when its last document closes. */
+  explorer?: boolean;
   plan?: PlanTabSource;
   releaseNotes?: ReleaseNotesTabSource;
   review?: boolean;
@@ -605,6 +607,7 @@ export function isWorkflowAgentTab(file: FilePaneTab): file is FilePaneTab & { w
 
 export function isVirtualDocumentTab(file: FilePaneTab): boolean {
   return (
+    !!file.explorer ||
     isWorkflowRunTab(file) ||
     isSubagentTab(file) ||
     isWorkflowAgentTab(file) ||
@@ -689,6 +692,7 @@ export function isSessionChangesTab(
 }
 
 export function editorTabKey(file: FilePaneTab): string {
+  if (file.explorer) return `explorer:${file.cwd}`;
   if (file.appView) return `app:${file.appView.kind}`;
   if (file.terminal) return `terminal:${file.id}`;
   if (file.agent) return `agent:${file.agent.sessionId}`;
@@ -724,6 +728,7 @@ export type OpenEditorTabOptions = {
 /** Tabs opened by browsing lists: files, per-file diffs, commits, session diffs. */
 export function isPreviewableTab(file: FilePaneTab): boolean {
   return (
+    !file.explorer &&
     !file.appView &&
     !file.terminal &&
     !file.agent &&
@@ -834,6 +839,10 @@ export function openEditorTab(
       : withoutPreview(file);
   const focusedPane = tab.editorPanes.find((pane) => pane.id === tab.focusedId);
   const acceptsFile = (pane: EditorPane) =>
+    !file.explorer &&
+    (!pane.files.some((entry) => entry.explorer) ||
+      (isFilesystemTab(file) && !isReviewTab(file) &&
+        pane.files.some((entry) => entry.explorer && entry.cwd === file.cwd))) &&
     !pane.files.some(
       (entry) => entry.id === pane.activeFileId && isAppViewTab(entry),
     );
@@ -904,6 +913,22 @@ export function openEditorTab(
     diffFocused: false,
     editorPanes: [...tab.editorPanes, editorPane],
   };
+}
+
+/** The browser owns normal documents; reviews keep their own pane. */
+export function openFileExplorer(tab: WorkspaceTab, cwd: string, projectCwd?: string): WorkspaceTab {
+  const existing = tab.editorPanes.find((pane) =>
+    pane.files.some((file) => file.explorer && file.cwd === cwd),
+  );
+  if (existing) return { ...tab, focusedId: existing.id, diffFocused: false };
+  const browser = { ...newFileTab(cwd, cwd, false, undefined, projectCwd), explorer: true };
+  const documents = tab.editorPanes.find((pane) => pane.files.length > 0 &&
+    pane.files.every((file) => file.cwd === cwd && isFilesystemTab(file) && !isReviewTab(file)));
+  if (documents) return {
+    ...tab, focusedId: documents.id, diffFocused: false,
+    editorPanes: tab.editorPanes.map((pane) => pane === documents ? { ...pane, files: [browser, ...pane.files] } : pane),
+  };
+  return openEditorTab(tab, browser);
 }
 
 /** Focus this working copy's Changes tab, creating it if needed. */

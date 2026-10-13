@@ -358,9 +358,9 @@ export function ProjectTerminalDock({
           onReorder={onReorderTerminals}
           onPaneDragStart={onMoveToPane ? onDockDragStart : undefined}
           trailing={
-            <div className="relative z-21 flex shrink-0 items-center self-center gap-0.5 pr-1.5">
+            <div data-terminal-toolbar-actions className="relative z-21 flex shrink-0 items-center self-center">
               <IconButton size="sm" label={newTerminalLabel} onClick={onAddTerminal}>
-                <Plus className="size-3.5" />
+                <Plus />
               </IconButton>
               <div ref={sideButton}>
                 <IconButton size="sm"
@@ -371,11 +371,11 @@ export function ProjectTerminalDock({
                     setMenu({ x: rect.left, y: rect.bottom + 4 });
                   }}
                 >
-                  <SideIcon className="size-3.5" />
+                  <SideIcon />
                 </IconButton>
               </div>
               <IconButton size="sm" label={hideTerminalLabel} onClick={onHide}>
-                <HideIcon className="size-3.5" />
+                <HideIcon />
               </IconButton>
             </div>
           }

@@ -399,16 +399,6 @@ export const SETTINGS_INDEX: SettingsEntry[] = [
     label: "Interface scale",
     keywords: "zoom font size bigger smaller ui",
   },
-  ...(IS_MAC
-    ? []
-    : [
-        {
-          id: "menu-bar",
-          section: "appearance" as const,
-          label: "Menu bar",
-          keywords: "menubar file edit view alt toolbar commands",
-        },
-      ]),
   {
     id: "show-excluded-files",
     section: "appearance",

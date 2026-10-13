@@ -1,3 +1,4 @@
+import { IconButton } from "../../shared/ui/forms/IconButton";
 import { PresenceBoundary } from "../../shared/ui/PresenceBoundary";
 import { usePreferenceState } from "../../features/settings/model/usePreferenceState";
 import { useSidebarListPreview } from "./useSidebarListPreview";
@@ -2161,6 +2162,7 @@ const SessionCard = memo(function SessionCard({
           <SessionWorkflowRunLines sessionId={session.id} isActive={isActive} />
         ) : null}
         <span
+          data-session-actions
           className={`relative flex items-center ${dense ? "shrink-0" : "mt-1 gap-2"}`}
         >
           {!dense && gitLabel ? (
@@ -2179,24 +2181,24 @@ const SessionCard = memo(function SessionCard({
           ) : dense ? null : (
             <span className="min-w-0 flex-1" />
           )}
-          <span className="relative flex shrink-0 items-center gap-px">
+          <span data-session-action-buttons className="relative flex shrink-0 items-center gap-px">
             {onArchive ? (
-              <button
-                type="button"
+              <IconButton
+                size="sm"
+                data-sidebar-toolbar-action
                 data-no-drag
                 data-tauri-drag-region="false"
                 data-session-archive
-                title={archiveLabel}
-                aria-label={`${archiveLabel} ${title}`}
+                label={`${archiveLabel} ${title}`}
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => {
                   event.stopPropagation();
                   onArchive(session.id, !session.archived);
                 }}
-                className="pointer-events-none grid size-5 place-items-center rounded-lg text-foreground-subtle opacity-0 hover:bg-surface-hover hover:text-content group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"
+                className="pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"
               >
-                <Archive className="size-3 shrink-0" />
-              </button>
+                <Archive />
+              </IconButton>
             ) : null}
             {workItemBadge}
             {session.automationId ? (
@@ -2456,10 +2458,7 @@ function formatRelative(value: number, now: number): string {
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
-    const rest = minutes % 60;
-    return rest ? `${hours}h ${rest}m` : `${hours}h`;
-  }
+  if (hours < 24) return `${hours}h`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d`;
   try {

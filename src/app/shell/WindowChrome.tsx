@@ -102,7 +102,7 @@ const WINDOW_NAVIGATION_WIDTH = 40 + 112;
 const WINDOW_NAVIGATION_GAP = 12;
 export const WINDOW_NAVIGATION_END =
   WINDOW_NAVIGATION_LEFT + WINDOW_NAVIGATION_WIDTH + WINDOW_NAVIGATION_GAP;
-export const WINDOW_DRAG_BAR_HEIGHT = 48;
+export const WINDOW_DRAG_BAR_HEIGHT = 42;
 
 /** Keep native window dragging independent of the active page or pane layout. */
 export function WindowDragBar({

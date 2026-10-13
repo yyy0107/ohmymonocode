@@ -14,7 +14,6 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Sidebar } from "./Sidebar";
 import { invoke } from "@tauri-apps/api/core";
-import type { GitBranches } from "../../platform/tauri/fs";
 import {
   loadProjectTreeExpanded,
   saveProjectTreeExpanded,
@@ -28,11 +27,6 @@ import {
   saveSessionSidebarOrder,
 } from "../../features/sessions/model/sessionFolders";
 import { saveTabGroupLabel } from "../../features/workspace/model/tabGroups";
-import {
-  loadProjectGroups,
-  saveProjectGroups,
-  saveProjectGroupAssignments,
-} from "../../features/projects/model/projectGroups";
 import { useProjectDiffStats } from "../../features/source-control/hooks/useProjectDiffStats";
 import { setUiLanguage } from "../../shared/i18n/language";
 import {
@@ -52,23 +46,6 @@ const remoteState = vi.hoisted(() => ({
   subscriptions: vi.fn(),
   request: vi.fn(),
   refresh: vi.fn(),
-}));
-const branchStates = vi.hoisted(() => new Map<string, GitBranches>());
-vi.mock("../../features/source-control/hooks/useProjectBranches", () => ({
-  useProjectBranchesState: (cwd: string, enabled: boolean) => ({
-    settled: enabled,
-    branches:
-      enabled && cwd && cwd !== "~"
-        ? branchStates.get(cwd) ?? {
-            current: "main",
-            detached: false,
-            branches: [
-              { name: "main", current: true, remote: null },
-              { name: "feature/sidebar", current: false, remote: null },
-            ],
-          }
-        : null,
-  }),
 }));
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async () => null),
@@ -182,20 +159,6 @@ const input = () =>
   container.querySelector<HTMLInputElement>(
     'input[aria-label="Search projects and conversations"], input[aria-label="Search conversations"]',
   )!;
-const scopePicker = () =>
-  container.querySelector<HTMLButtonElement>("[data-project-switcher] button")!;
-function pickScope(path: string | null) {
-  act(() => scopePicker().click());
-  const dialog = Array.from(document.querySelectorAll(
-    '[role="dialog"][aria-label="Project picker"]',
-  )).find((surface) => !surface.closest("[inert]"))!;
-  const button = path
-    ? dialog.querySelector<HTMLButtonElement>(`button[title="${path}"]`)!
-    : [...dialog.querySelectorAll<HTMLButtonElement>("button")].find(
-        (item) => item.textContent === "All projects",
-      )!;
-  act(() => button.click());
-}
 function render() {
   root.render(createElement(Sidebar, props));
 }
@@ -237,7 +200,6 @@ beforeEach(() => {
   remoteState.subscriptions.mockClear();
   remoteState.request.mockReset().mockResolvedValue(undefined);
   remoteState.refresh.mockReset();
-  branchStates.clear();
   vi.mocked(invoke).mockClear();
   vi.mocked(useProjectDiffStats).mockReset().mockReturnValue(null);
   resizeCallbacks = [];
@@ -1122,141 +1084,27 @@ describe("named project/session tree", () => {
   });
 
   it.each(["files", "changes"] as const)(
-    "switches the one full-height working copy from the project header picker in %s",
+    "keeps the full-height %s working copy and header actions without project pickers",
     (tab) => {
       props.tab = tab;
       props.onSelectWorkspace = vi.fn();
       props.onGoToFile = vi.fn();
-      measuredHeight = 300;
-      saveTabGroupLabel(A, "My alpha");
-      vi.mocked(useProjectDiffStats).mockImplementation((path, enabled) =>
-        enabled
-          ? { files: 1, additions: path === A ? 7 : 11, deletions: 2 }
-          : null,
-      );
       act(() => render());
-
-      expect(container.querySelectorAll("[data-project-path]")).toHaveLength(0);
-      expect(
-        container.querySelectorAll("[data-project-working-copy]"),
-      ).toHaveLength(1);
-      const switcher = container.querySelector<HTMLElement>(
-        "[data-project-switcher]",
-      )!;
-      const header = container.querySelector<HTMLElement>(
-        "aside > [data-project-header]",
-      )!;
-      const tablist = container.querySelector('[role="tablist"]')!;
-      const picker = switcher.querySelector<HTMLButtonElement>("button")!;
-      expect(picker.textContent).toContain("My alpha");
-      expect(picker.getAttribute("aria-label")).toBe(
-        "Switch project, current project My alpha",
-      );
-      expect(switcher.parentElement).toBe(header);
-      expect(header.textContent).not.toContain("Projects");
-      expect(header.nextElementSibling).toBe(tablist);
-      const worktreeToolbar = container.querySelector<HTMLElement>(
-        "[data-active-worktree-toolbar]",
-      )!;
-      expect(worktreeToolbar.parentElement).toBe(switcher);
-      expect(picker.parentElement?.nextElementSibling).toBe(worktreeToolbar);
-      expect(
-        worktreeToolbar
-          .querySelector(`[data-worktree-picker="${A}"]`)
-          ?.getAttribute("data-compact"),
-      ).toBe("true");
-      const quickOpen = header.querySelector<HTMLButtonElement>(
-        'button[aria-label^="Quick Open"]',
-      )!;
-      expect(quickOpen).not.toBeNull();
-      expect(
-        header.querySelector('button[aria-label="Open project"]'),
-      ).not.toBeNull();
+      expect(container.querySelector("[data-project-switcher]")).toBeNull();
+      expect(container.querySelector("[data-active-worktree-toolbar]")).toBeNull();
+      const header = container.querySelector<HTMLElement>("aside > [data-project-header]")!;
+      const quickOpen = header.querySelector<HTMLButtonElement>('button[aria-label^="Quick Open"]')!;
       act(() => quickOpen.click());
       expect(props.onGoToFile).toHaveBeenCalledTimes(1);
-      const copy = container.querySelector<HTMLElement>(
-        "[data-project-working-copy]",
-      )!;
+      expect(header.querySelector('button[aria-label="Open project"]')).not.toBeNull();
+      const copy = container.querySelector<HTMLElement>("[data-project-working-copy]")!;
       expect(copy.style.height).toBe("");
-      expect(copy.style.maxHeight).toBe("");
       expect(copy.classList.contains("flex-1")).toBe(true);
-      expect(copy.classList.contains("min-h-0")).toBe(true);
-      expect(tablist.nextElementSibling?.contains(copy)).toBe(true);
-      expect(
-        copy.classList.contains(
-          tab === "files" ? "overflow-hidden" : "overflow-y-auto",
-        ),
-      ).toBe(true);
       expect(copy.querySelector(`[data-${tab}-project="${A}"]`)).not.toBeNull();
-      expect(
-        container.querySelector('[role="tab"][title="Explorer"]')?.textContent,
-      ).toBe("Files");
-      expect(
-        container
-          .querySelector('[role="tab"][title="Changes"]')
-          ?.getAttribute("aria-label"),
-      ).toBe("Changes +7 -2");
-      expect(
-        vi
-          .mocked(useProjectDiffStats)
-          .mock.calls.filter(([, enabled]) => enabled),
-      ).toEqual(expect.arrayContaining([[A, true]]));
-      expect(
-        vi
-          .mocked(useProjectDiffStats)
-          .mock.calls.filter(([, enabled]) => enabled)
-          .every(([path]) => path === A),
-      ).toBe(true);
-
-      act(() => picker.click());
-      const dialog = document.querySelector(
-        '[role="dialog"][aria-label="Project picker"]',
-      )!;
-      expect(dialog).not.toBeNull();
-      act(() =>
-        dialog
-          .querySelector<HTMLButtonElement>(`button[title="${B}"]`)!
-          .click(),
-      );
-      expect(props.onSelectProject).toHaveBeenCalledWith(B);
-      act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
-      expect(
-        document.querySelector('[role="dialog"][aria-label="Project picker"]'),
-      ).toBeNull();
-      vi.mocked(useProjectDiffStats).mockClear();
       props.cwd = B;
       act(() => render());
-      expect(container.querySelectorAll("[data-project-path]")).toHaveLength(0);
-      expect(container.querySelectorAll(`[data-${tab}-project]`)).toHaveLength(
-        1,
-      );
-      expect(
-        container.querySelector(`[data-${tab}-project="${B}"]`),
-      ).not.toBeNull();
-      expect(
-        container.querySelector("[data-project-switcher] button")?.textContent,
-      ).toContain("beta");
-      expect(
-        container
-          .querySelector(`[data-worktree-picker="${B}"]`)
-          ?.getAttribute("data-compact"),
-      ).toBe("true");
-      expect(
-        container
-          .querySelector('[role="tab"][title="Changes"]')
-          ?.getAttribute("aria-label"),
-      ).toBe("Changes +11 -2");
-      expect(
-        vi
-          .mocked(useProjectDiffStats)
-          .mock.calls.filter(([, enabled]) => enabled),
-      ).toEqual(expect.arrayContaining([[B, true]]));
-      expect(
-        vi
-          .mocked(useProjectDiffStats)
-          .mock.calls.filter(([, enabled]) => enabled)
-          .every(([path]) => path === B),
-      ).toBe(true);
+      expect(container.querySelectorAll(`[data-${tab}-project]`)).toHaveLength(1);
+      expect(container.querySelector(`[data-${tab}-project="${B}"]`)).not.toBeNull();
     },
   );
 
@@ -1280,127 +1128,19 @@ describe("named project/session tree", () => {
   });
 
   it.each([
-    ["files", ""],
-    ["files", "~"],
-    ["changes", ""],
-    ["changes", "~"],
-  ] as const)(
-    "shows a project picker and hint for %s without a project (%s)",
-    (tab, cwd) => {
-      props.tab = tab;
-      props.cwd = cwd;
-      act(() => render());
-      const switcher = container.querySelector<HTMLElement>(
-        "[data-project-switcher]",
-      )!;
-      expect(switcher.parentElement).toBe(
-        container.querySelector("aside > [data-project-header]"),
-      );
-      expect(
-        container.querySelector("[data-active-worktree-toolbar]"),
-      ).toBeNull();
-      expect(switcher.querySelector("button")?.textContent).toContain(
-        "Choose project",
-      );
-      expect(switcher.querySelector("button")?.getAttribute("aria-label")).toBe(
-        "Choose project",
-      );
-      expect(container.querySelector("[data-project-working-copy]")).toBeNull();
-      expect(container.querySelector("[data-project-path]")).toBeNull();
-      expect(
-        container.querySelectorAll(
-          "[data-files-project], [data-changes-project]",
-        ),
-      ).toHaveLength(0);
-      expect(
-        Array.from(container.querySelectorAll("p"), (node) => node.textContent),
-      ).toContain("Choose project");
-    },
-  );
-
-  it("localizes the project picker and empty hint while preserving its custom project name", () => {
-    props.tab = "files";
-    saveTabGroupLabel(A, "My alpha");
-    setUiLanguage("zh-CN");
+    ["files", ""], ["files", "~"], ["changes", ""], ["changes", "~"],
+  ] as const)("shows the %s empty hint without a project picker (%s)", (tab, cwd) => {
+    props.tab = tab;
+    props.cwd = cwd;
     act(() => render());
-    const picker = () =>
-      container.querySelector<HTMLButtonElement>(
-        "[data-project-switcher] button",
-      )!;
-    expect(picker().textContent).toContain("My alpha");
-    expect(picker().getAttribute("aria-label")).toContain("当前项目 My alpha");
-    expect(
-      container.querySelector('[role="tab"][title="文件资源管理器"]')
-        ?.textContent,
-    ).toBe("文件");
-
-    props.cwd = "~";
-    act(() => render());
-    expect(picker().textContent).toContain("选择项目");
-    expect(picker().getAttribute("aria-label")).toBe("选择项目");
-    expect(
-      Array.from(container.querySelectorAll("p"), (node) => node.textContent),
-    ).toContain("选择项目");
+    expect(container.querySelector("[data-project-switcher]")).toBeNull();
+    expect(container.querySelector("[data-active-worktree-toolbar]")).toBeNull();
     expect(container.querySelector("[data-project-working-copy]")).toBeNull();
-  });
-
-  it("searches projects by their custom name and selects the match with Enter", () => {
-    props.tab = "files";
-    saveTabGroupLabel(B, "Archive beta");
-    act(() => render());
-    act(() =>
-      container
-        .querySelector<HTMLButtonElement>("[data-project-switcher] button")!
-        .click(),
-    );
-    const search = document.querySelector<HTMLInputElement>(
-      'input[placeholder="Search projects..."]',
-    )!;
-    act(() => {
-      Object.getOwnPropertyDescriptor(
-        HTMLInputElement.prototype,
-        "value",
-      )!.set!.call(search, "Archive");
-      search.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    const dialog = document.querySelector(
-      '[role="dialog"][aria-label="Project picker"]',
-    )!;
-    expect(dialog.querySelector(`button[title="${A}"]`)).toBeNull();
-    expect(dialog.querySelector(`button[title="${B}"]`)?.textContent).toContain(
-      "Archive beta",
-    );
-    act(() =>
-      search.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
-      ),
-    );
-    expect(props.onSelectProject).toHaveBeenCalledExactlyOnceWith(B);
-    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
-    expect(
-      document.querySelector('[role="dialog"][aria-label="Project picker"]'),
-    ).toBeNull();
-  });
-
-  it("opens the existing project flow from the project picker", () => {
-    props.tab = "files";
-    act(() => render());
-    act(() =>
-      container
-        .querySelector<HTMLButtonElement>("[data-project-switcher] button")!
-        .click(),
-    );
-    const createProject = Array.from(
-      document.querySelectorAll<HTMLButtonElement>(
-        '[role="dialog"][aria-label="Project picker"] button',
-      ),
-    ).find((button) => button.textContent === "New project")!;
-    act(() => createProject.click());
-    expect(props.onOpenProject).toHaveBeenCalledTimes(1);
+    expect(Array.from(container.querySelectorAll("p"), node => node.textContent)).toContain("Choose project");
   });
 
   it.each(["files", "changes"] as const)(
-    "keeps the open-project action next to the project header pickers in %s",
+    "keeps the open-project header action in %s",
     (tab) => {
       props.tab = tab;
       act(() => render());
@@ -1425,280 +1165,25 @@ describe("named project/session tree", () => {
     },
   );
 
-  it("defaults Sessions to all projects with the picker above tabs and search", () => {
-    props.onSelectWorkspace = vi.fn();
-    act(() => render());
-    const header = container.querySelector<HTMLElement>(
-      "aside > [data-project-header]",
-    )!;
-    const tablist = container.querySelector('[role="tablist"]')!;
-    const searchRow = input().parentElement!.parentElement!;
-    expect(header.textContent).toContain("All projects");
-    expect(header.nextElementSibling).toBe(tablist);
-    expect(header.contains(scopePicker())).toBe(true);
-    expect(tablist.nextElementSibling).toBe(searchRow);
-    expect(
-      container.querySelector("[data-active-worktree-toolbar]"),
-    ).toBeNull();
-    expect(project(A)).not.toBeNull();
-    expect(project(B)).not.toBeNull();
-  });
-
-  it("selects the current project too, scopes conversations, and restores all projects", () => {
+  it("keeps all project conversations available across project changes without a scope picker", () => {
     saveProjectTreeExpanded([A, B]);
+    props.desktopMode = "code";
     props.onSelectWorkspace = vi.fn();
     act(() => render());
-    pickScope(A);
-    expect(scopePicker().textContent).toContain("alpha");
-    expect(project(A)).not.toBeNull();
-    expect(project(B)).toBeNull();
-    expect(card("a")).not.toBeNull();
-    expect(card("b")).toBeNull();
-    expect(input().placeholder).toBe("Search conversations...");
-    expect(
-      container
-        .querySelector(`[data-worktree-picker="${A}"]`)
-        ?.getAttribute("data-compact"),
-    ).toBe("true");
-    expect(props.onSelectProject).toHaveBeenCalledExactlyOnceWith(A);
-    pickScope(null);
-    expect(scopePicker().textContent).toContain("All projects");
+    expect(container.querySelector("[data-project-switcher]")).toBeNull();
+    expect(container.querySelector("[data-active-worktree-toolbar]")).toBeNull();
     expect(card("a")).not.toBeNull();
     expect(card("b")).not.toBeNull();
-    expect(loadProjectTreeExpanded()).toEqual(new Set([A, B]));
-    expect(props.onSelectProject).toHaveBeenCalledTimes(1);
-  });
-
-  it("switches branches for a scoped project without requiring a working-copy callback", async () => {
-    act(() => render());
-    expect(container.querySelector('[aria-label="Branch main"]')).toBeNull();
-    pickScope(A);
-    const branch = container.querySelector<HTMLButtonElement>(
-      '[data-project-header] [aria-label="Branch main"]',
-    )!;
-    expect(branch).not.toBeNull();
-    await act(async () => branch.click());
-    expect(
-      document.querySelector('input[aria-label="Search or create a branch"]'),
-    ).not.toBeNull();
-    const feature = [
-      ...document.querySelectorAll<HTMLButtonElement>(
-        '[data-branch-picker] [role="option"]',
-      ),
-    ].find((row) => row.textContent === "feature/sidebar")!;
-    await act(async () => feature.click());
-    expect(invoke).toHaveBeenCalledWith("git_checkout", {
-      cwd: A,
-      name: "feature/sidebar",
-      remote: null,
-    });
-    branchStates.set(A, {
-      current: "feature/sidebar",
-      detached: false,
-      branches: [],
-    });
-    props.workspaceSwitchPending = true;
-    act(() => render());
-    expect(
-      container.querySelector('[aria-label="Branch feature/sidebar"]'),
-    ).not.toBeNull();
-    pickScope(null);
-    expect(container.querySelector("[data-active-worktree-toolbar]")).toBeNull();
-  });
-
-  it("hides the branch picker for a scoped folder without Git", () => {
-    branchStates.set(B, { current: null, detached: false, branches: [] });
-    act(() => render());
-    pickScope(B);
-    expect(scopePicker().textContent).toContain("beta");
-    expect(container.querySelector("[data-active-worktree-toolbar]")).toBeNull();
-  });
-
-  it("targets the selected project before navigation and its working copy after navigation", async () => {
-    props.gitCwd = `${A}-worktree`;
-    act(() => render());
-    pickScope(B);
-    await act(async () =>
-      container
-        .querySelector<HTMLButtonElement>('[aria-label="Branch main"]')!
-        .click(),
-    );
-    const feature = [
-      ...document.querySelectorAll<HTMLButtonElement>(
-        '[data-branch-picker] [role="option"]',
-      ),
-    ].find((row) => row.textContent === "feature/sidebar")!;
-    await act(async () => feature.click());
-    expect(invoke).toHaveBeenCalledWith("git_checkout", {
-      cwd: B,
-      name: "feature/sidebar",
-      remote: null,
-    });
-
     props.cwd = B;
-    props.gitCwd = `${B}-worktree`;
-    branchStates.set(props.gitCwd, {
-      current: "worktree-branch",
-      detached: false,
-      branches: [],
-    });
     act(() => render());
-    expect(
-      container.querySelector('[aria-label="Branch worktree-branch"]'),
-    ).not.toBeNull();
-    props.workspaceSwitchPending = true;
-    act(() => render());
-    expect(
-      container.querySelector<HTMLButtonElement>(
-        '[aria-label="Branch worktree-branch"]',
-      )!.disabled,
-    ).toBe(true);
-  });
-
-  it("activates and expands a selected collapsed project without hiding its sessions again", () => {
-    saveProjectTreeExpanded([A]);
-    props.onSessionNavigationOrder = vi.fn();
-    act(() => render());
-    pickScope(B);
-    expect(props.onSelectProject).toHaveBeenCalledExactlyOnceWith(B);
-    expect(props.onSessionNavigationOrder).toHaveBeenLastCalledWith([]);
+    expect(card("a")).not.toBeNull();
     expect(card("b")).not.toBeNull();
-    expect(project(A)).toBeNull();
-    expect(loadProjectTreeExpanded()).toEqual(new Set([A, B]));
-    query("Alpha conversation");
-    expect(card("a")).toBeNull();
-    expect(container.textContent).toContain("No matching sessions");
-    query("Hidden");
-    expect(card("b")).not.toBeNull();
-    pickScope(null);
     query("Alpha");
     expect(card("a")).not.toBeNull();
-  });
-
-  it("retains the conversation scope when visiting Files and restores all if its project is removed", () => {
-    act(() => render());
-    pickScope(B);
-    props.cwd = B;
-    props.tab = "files";
-    act(() => render());
-    expect(
-      container.querySelector(`[data-files-project="${B}"]`),
-    ).not.toBeNull();
-    act(() => scopePicker().click());
-    expect(
-      document.querySelector('[role="dialog"]')?.textContent,
-    ).not.toContain("All projects");
-    props.tab = "sessions";
-    act(() => render());
-    act(() => document.querySelectorAll('[data-popover-side][data-fold-state="closing"]').forEach(completeMotionAnimation));
-    expect(
-      document.querySelector('[role="dialog"][aria-label="Project picker"]'),
-    ).toBeNull();
-    expect(project(A)).toBeNull();
-    expect(scopePicker().textContent).toContain("beta");
-    props.cwd = A;
-    props.recents = [{ path: A, openedAt: 1 }];
-    act(() => render());
-    expect(scopePicker().textContent).toContain("All projects");
-    expect(project(A)).not.toBeNull();
-  });
-
-  it("reveals a selected project's collapsed group temporarily and hides other groups", () => {
-    saveProjectGroups([
-      { id: "group-a", name: "First group", collapsed: true },
-      { id: "group-b", name: "Second group", collapsed: true },
-    ]);
-    saveProjectGroupAssignments({ [A]: "group-a", [B]: "group-b" });
-    act(() => render());
-    pickScope(B);
-    expect(card("b")).not.toBeNull();
-    expect(container.textContent).toContain("Second group");
-    expect(container.textContent).not.toContain("First group");
-    expect(loadProjectGroups().every((group) => group.collapsed)).toBe(true);
-    pickScope(null);
-    settleFolds();
-    expect(container.textContent).toContain("First group");
     expect(card("b")).toBeNull();
-  });
-
-  it("limits missing-history search reads to the selected project", async () => {
-    saveProjectTreeExpanded([]);
-    props.loadedProjectPaths = new Set();
-    act(() => render());
-    pickScope(B);
-    props.onLoadProject = vi.fn(async () => {});
-    act(() => render());
-    query("Hidden");
-    await act(async () => {});
-    expect(props.onLoadProject).toHaveBeenCalled();
-    expect(
-      vi.mocked(props.onLoadProject).mock.calls.every(([path]) => path === B),
-    ).toBe(true);
-    expect(project(A)).toBeNull();
-  });
-
-  it("supports searching remote project names and selecting them with Enter", () => {
-    const remote = "remote://machine/host/repo";
-    rememberRemoteProject("machine", {
-      id: "remote",
-      cwd: "/host/repo",
-      name: "Remote repo",
-    });
-    remoteState.rows.set(remote, [
-      hostRow("remote-chat", "Remote conversation"),
-    ]);
-    props.recents = [...props.recents!, { path: remote, openedAt: 3 }];
-    saveTabGroupLabel(remote, "Remote repo");
-    act(() => render());
-    act(() => scopePicker().click());
-    const search = document.querySelector<HTMLInputElement>(
-      'input[placeholder="Search projects..."]',
-    )!;
-    act(() => {
-      Object.getOwnPropertyDescriptor(
-        HTMLInputElement.prototype,
-        "value",
-      )!.set!.call(search, "Remote repo");
-      search.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    act(() => {
-      search.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
-      );
-    });
-    expect(props.onSelectProject).toHaveBeenCalledExactlyOnceWith(remote);
-    expect(project(A)).toBeNull();
-    expect(card("remote-chat")).not.toBeNull();
-    pickScope(null);
-    expect(project(A)).not.toBeNull();
-  });
-
-  it("localizes all-project scope and restores it with the keyboard", () => {
-    saveTabGroupLabel(B, "My beta");
-    setUiLanguage("zh-CN");
-    act(() => render());
-    expect(scopePicker().textContent).toContain("所有项目");
-    expect(scopePicker().getAttribute("aria-label")).toContain("筛选项目");
-    act(() => scopePicker().click());
-    act(() =>
-      document
-        .querySelector<HTMLButtonElement>(
-          `[role="dialog"] button[title="${B}"]`,
-        )!
-        .click(),
-    );
-    expect(scopePicker().textContent).toContain("My beta");
-    act(() => scopePicker().click());
-    const search = document.querySelector<HTMLInputElement>(
-      'input[placeholder="搜索项目…"]',
-    )!;
-    act(() =>
-      search.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
-      ),
-    );
-    expect(scopePicker().textContent).toContain("所有项目");
-    expect(project(A)).not.toBeNull();
+    query("");
+    expect(card("b")).not.toBeNull();
+    expect(input().placeholder).toBe("Search projects and conversations...");
   });
 
   it.each(["files", "changes"] as const)(
@@ -1713,18 +1198,9 @@ describe("named project/session tree", () => {
         "aside > [data-project-header]",
       )!;
       const tablist = container.querySelector('[role="tablist"]')!;
-      const worktreeToolbar = container.querySelector<HTMLElement>(
-        "[data-active-worktree-toolbar]",
-      )!;
       expect(header.textContent).toBe("Projects");
       expect(header.nextElementSibling).toBe(tablist);
-      expect(tablist.nextElementSibling).toBe(worktreeToolbar);
-      expect(header.contains(worktreeToolbar)).toBe(false);
-      expect(
-        worktreeToolbar
-          .querySelector("[data-worktree-picker]")
-          ?.getAttribute("data-compact"),
-      ).toBe("false");
+      expect(container.querySelector("[data-active-worktree-toolbar]")).toBeNull();
       expect(
         container.querySelectorAll("[data-project-working-copy]"),
       ).toHaveLength(1);

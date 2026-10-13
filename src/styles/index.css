@@ -3,6 +3,7 @@
 @import "./desktop-tokens.css";
 @import "../shared/styles/fonts.css";
 @import "../shared/styles/typography.css";
+@import "../shared/styles/icons.css";
 @import "./controls/forms.css";
 @import "./desktop-controls.css";
 @import "./desktop-workspaces.css";
@@ -1009,7 +1010,6 @@ html.theme-light {
 }
 
 [data-composer-layout="desktop"] .composer-workspace-bar button span {
-  font-family: var(--font-sans);
   font-size: 14px;
   line-height: 20px;
 }

@@ -25,9 +25,6 @@ vi.mock("./ProjectToolsPanel", () => ({
     });
   },
 }));
-vi.mock("./SidebarTabs", () => ({
-  SidebarTabs: () => createElement("span", null, "Files / Changes"),
-}));
 let root: Root;
 let container: HTMLDivElement;
 const noop = () => {};
@@ -89,7 +86,7 @@ it("loads tools on demand, retains workspace and search through closing and reve
   render("sessions");
   expect(lifecycle.mounts).toBe(0);
   const workspace = container.querySelector("textarea");
-  render("files");
+  render("changes");
   finish();
   const search = container.querySelector<HTMLInputElement>("input")!;
   search.value = "draft query";
@@ -103,7 +100,7 @@ it("loads tools on demand, retains workspace and search through closing and reve
       .querySelector(".desktop-tools-layout")
       ?.getAttribute("data-fold-state"),
   ).toBe("closing");
-  render("files");
+  render("changes");
   finish();
   expect(search.value).toBe("draft query");
   expect(panel.inert).toBe(false);
@@ -115,7 +112,7 @@ it("loads tools on demand, retains workspace and search through closing and reve
 });
 
 it("settles immediately when reduced motion changes during closing", () => {
-  render("files");
+  render("changes");
   render("sessions");
   act(() => applyReducedMotion("on"));
   expect(
@@ -128,7 +125,7 @@ it("settles immediately when reduced motion changes during closing", () => {
 });
 
 it("supports keyboard sizing and disables hidden tools while another page is active", () => {
-  render("files");
+  render("changes");
   finish();
   const separator = container.querySelector('[role="separator"]')!;
   act(() =>
@@ -143,35 +140,28 @@ it("supports keyboard sizing and disables hidden tools while another page is act
   expect(
     container.querySelector(".desktop-tools-layout")?.getAttribute("style"),
   ).toContain("336px");
-  render("files", false);
+  render("changes", false);
   expect(container.querySelector<HTMLElement>("aside")?.inert).toBe(true);
   expect(
     container.querySelector<HTMLInputElement>("input")?.dataset.toolsVisible,
   ).toBe("false");
 });
 
-it("retains Changes through its exit and keeps both visited tool states", () => {
+it("retains the changes draft and never renders a files tab in the changes dock", () => {
   render("changes");
   finish();
-  const changes = container.querySelector<HTMLInputElement>(
-    '[data-tools-tab="changes"]',
-  )!;
+  const changes = container.querySelector<HTMLInputElement>('[data-tools-tab="changes"]')!;
   changes.value = "commit draft";
   render("sessions");
-  expect(container.querySelector('[data-tools-tab="files"]')).toBeNull();
-  expect(container.querySelector('[data-tools-tab="changes"]')).toBe(changes);
   finish();
   render("files");
-  finish();
-  expect(lifecycle.unmounts).toBe(0);
+  expect(container.querySelector('[data-tools-tab="files"]')).toBeNull();
+  expect(container.querySelector<HTMLElement>("aside")?.inert).toBe(true);
   render("changes");
   finish();
   expect(changes.value).toBe("commit draft");
   expect(changes.dataset.toolsVisible).toBe("true");
-  expect(
-    container.querySelector<HTMLInputElement>('[data-tools-tab="files"]')
-      ?.dataset.toolsVisible,
-  ).toBe("false");
+  expect(lifecycle.unmounts).toBe(0);
 });
 
 function moveHandle() {
@@ -193,7 +183,7 @@ function movePointer(type: string, x: number, y: number, pointerId = 1) {
 }
 
 it("drags the retained tools to all four edges without remounting the workspace or search", () => {
-  render("files");
+  render("changes");
   finish();
   const search = container.querySelector<HTMLInputElement>("input")!;
   const workspace = container.querySelector("textarea");
@@ -214,7 +204,7 @@ it("drags the retained tools to all four edges without remounting the workspace 
 });
 
 it.each(["escape", "pointercancel", "blur", "lostcapture", "outside", "close", "unmount"])("cancels a tools move on %s and cleans up the drag", (reason) => {
-  render("files");
+  render("changes");
   finish();
   startMove();
   movePointer("pointermove", 2, 400);
@@ -234,7 +224,7 @@ it.each(["escape", "pointercancel", "blur", "lostcapture", "outside", "close", "
 });
 
 it("moves by keyboard and keeps vertical tools mounted until closing finishes", () => {
-  render("files");
+  render("changes");
   finish();
   act(() => moveHandle().dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowUp" })));
   expect(container.querySelector(".desktop-tools-layout")?.getAttribute("data-tools-side")).toBe("top");
@@ -249,7 +239,7 @@ it("moves by keyboard and keeps vertical tools mounted until closing finishes", 
 });
 
 it("drags only the heading and coalesces pointer bursts without rerendering tools", () => {
-  render("files");
+  render("changes");
   finish();
   const renders = lifecycle.renders;
   const content = document.createElement("div");

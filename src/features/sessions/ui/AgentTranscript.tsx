@@ -244,6 +244,7 @@ type Props = {
   onOpenDiff?: (path: string) => void;
   onOpenPlan?: (blockId: string) => void;
   onOpenAgent?: (block: Block) => void;
+  onOpenQuestion?: (blockId: string) => void;
   onBuildPlan?: (blockId: string, target?: PlanBuildTarget) => void;
   /** The plan whose decision panel is open; its card omits Build. */
   decidingPlanId?: string;
@@ -306,6 +307,7 @@ function AgentTranscriptComponent({
   onOpenDiff,
   onOpenPlan,
   onOpenAgent,
+  onOpenQuestion,
   onBuildPlan,
   decidingPlanId,
   planBuildTargets = true,
@@ -332,8 +334,12 @@ function AgentTranscriptComponent({
     historyEntries,
   });
   const renderingPlatform = useMemo(
-    () => onOpenAgent ? { ...basePlatform, openAgent: onOpenAgent } : basePlatform,
-    [basePlatform, onOpenAgent],
+    () => ({
+      ...basePlatform,
+      ...(onOpenAgent ? { openAgent: onOpenAgent } : {}),
+      ...(onOpenQuestion ? { openQuestion: onOpenQuestion } : {}),
+    }),
+    [basePlatform, onOpenAgent, onOpenQuestion],
   );
   const { t: uiT } = useTranslation();
   const { liveClockInFooter, openActivity, messageMotion } = useContext(TranscriptPlatformContext);
@@ -385,6 +391,7 @@ function AgentTranscriptComponent({
   // including the first output and the final update after busy clears.
   const glideFollow = useRef(false);
   const followViewport = useRef(0);
+  const followWidth = useRef(0);
   useEffect(() => {
     const el = scroller.current;
     glideFollow.current = visible;
@@ -591,11 +598,15 @@ function AgentTranscriptComponent({
   const followTranscript = useCallback(
     (el: HTMLElement | null) => {
       if (!el) return;
-      const resized = followViewport.current !== el.clientHeight;
+      const widthChanged = followWidth.current !== el.clientWidth;
+      const resized = widthChanged || followViewport.current !== el.clientHeight;
       followViewport.current = el.clientHeight;
+      followWidth.current = el.clientWidth;
       // Keyboard motion already animates the mobile surface. Its layout
       // handoff must pin before paint, including during a streamed row glide.
-      if (promptMotion === "mobile" && resized)
+      // Wrapping during a panel resize moves the scroll range on every frame.
+      // Settle an existing glide before it can chase those changing targets.
+      if (widthChanged || (promptMotion === "mobile" && resized))
         jumpingScrollers.get(el)?.(true);
       // The browser can apply a manual scroll before dispatching its event.
       // Reconcile that offset before a streaming commit or observer pins it.
@@ -934,6 +945,11 @@ function AgentTranscriptComponent({
 
   const [turnCache] = useState(() => new TranscriptTurnCache());
   const turns = turnCache.group(blocks, managed);
+  const latestAssistantTurn = useMemo(() => {
+    for (let index = turns.length - 1; index >= 0; index--)
+      if (turns[index].some(isProseBlock)) return index;
+    return -1;
+  }, [turns]);
   const firstVisibleTurn = Math.max(0, turns.length - visibleTurnCount);
   const visibleTurns = turns.slice(firstVisibleTurn);
   const turnsRef = useRef(turns);
@@ -1388,6 +1404,7 @@ function AgentTranscriptComponent({
             <div
               key={turn[0].id}
               data-transcript-turn={turnId}
+              data-latest-assistant-turn={firstVisibleTurn + turnIndex === latestAssistantTurn || undefined}
               className={`transcript-turn flex min-w-0 flex-col${
                 isLastTurn ? " transcript-turn-live" : ""
               }${

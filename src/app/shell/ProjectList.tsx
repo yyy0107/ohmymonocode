@@ -1,3 +1,4 @@
+import { IconButton } from "../../shared/ui/forms/IconButton";
 import { duration } from "../../shared/motion/tokens";
 import { PresenceBoundary } from "../../shared/ui/PresenceBoundary";
 import { DisclosureChevron } from "../../shared/ui/DisclosureChevron";
@@ -1152,18 +1153,18 @@ function ProjectSectionHeader({
         </span>
       </button>
       {onAddGroup ? (
-        <button
-          type="button"
-          title={uiT("New project group")}
-          aria-label={uiT("New project group")}
+        <IconButton
+          size="sm"
+          shape="square"
+          data-sidebar-toolbar-action
+          label={uiT("New project group")}
           onClick={(event) => {
             const rect = event.currentTarget.getBoundingClientRect();
             onAddGroup(rect.left, rect.bottom);
           }}
-          className="grid size-5 shrink-0 place-items-center rounded-lg text-foreground-subtle hover:bg-surface-hover hover:text-content"
         >
-          <FolderPlus className="size-3.5" />
-        </button>
+          <FolderPlus />
+        </IconButton>
       ) : null}
       {onAdd ? <AddProjectButton onOpenFolder={onAdd} /> : null}
       {children}
@@ -1216,15 +1217,16 @@ function ChatProjectCard({
         onToggleExpanded={toggle}
       >
         {onNewChat ? (
-          <button
-            type="button"
-            aria-label={uiT("New chat")}
-            title={uiT("New chat")}
+          <IconButton
+            size="sm"
+            shape="square"
+            data-sidebar-toolbar-action
+            label={uiT("New chat")}
             onClick={onNewChat}
-            className="grid size-5 shrink-0 place-items-center rounded-lg text-foreground-subtle opacity-0 hover:bg-surface-hover hover:text-content group-hover/section:opacity-100 group-has-[:focus-visible]/section:opacity-100"
+            className="opacity-0 group-hover/section:opacity-100 group-has-[:focus-visible]/section:opacity-100"
           >
-            <Plus className="size-3.5" />
-          </button>
+            <Plus />
+          </IconButton>
         ) : null}
       </ProjectSectionHeader>
       <AnimatedCollapse
@@ -1391,12 +1393,15 @@ function ProjectGroupSection({
             </div>
             <span className={nameClassName}>{group.name}</span>
           </button>
-          <button
-            type="button"
+          <IconButton
+            size="sm"
+            shape="square"
+            data-sidebar-toolbar-action
+            data-sidebar-row-action
             data-no-drag
             title={uiT("Group options")}
             data-menu-trigger="sidebar"
-            aria-label={uiT("{value0} group options", {
+            label={uiT("{value0} group options", {
               value0: String(group.name),
             })}
             aria-haspopup="menu"
@@ -1405,11 +1410,10 @@ function ProjectGroupSection({
               event.stopPropagation();
               openMenu(event.currentTarget);
             }}
-            className="absolute right-1 top-1/2 hidden size-6 -translate-y-1/2 place-items-center rounded-lg text-content/55 hover:bg-surface-hover hover:text-content group-hover:grid group-has-[:focus-visible]:grid"
+            className="absolute top-1/2 -translate-y-1/2"
           >
-            <MenuHover />
-            <MoreHorizontal className="size-4" />
-          </button>
+            <MoreHorizontal />
+          </IconButton>
         </div>
       )}
       <AnimatedCollapse
@@ -1834,27 +1838,33 @@ function ProjectCard({
       {compact ? null : (
         <>
           {tree?.onNewInProject ? (
-            <button
-              type="button"
+            <IconButton
+              size="sm"
+              shape="square"
+              data-sidebar-toolbar-action
+              data-sidebar-row-action="secondary"
               data-no-drag
-              aria-label={uiT("New session in {project}", { project: name })}
+              label={uiT("New session in {project}", { project: name })}
               title={uiT("New session in {project}", { project: name })}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation();
                 tree.onNewInProject?.(item.path);
               }}
-              className="absolute right-7 top-1/2 hidden size-6 -translate-y-1/2 place-items-center rounded-lg text-content/55 hover:bg-surface-hover hover:text-content group-hover:grid group-has-[:focus-visible]:grid"
+              className="absolute top-1/2 -translate-y-1/2"
             >
-              <Plus className="size-3.5" />
-            </button>
+              <Plus />
+            </IconButton>
           ) : null}
-          <button
-            type="button"
+          <IconButton
+            size="sm"
+            shape="square"
+            data-sidebar-toolbar-action
+            data-sidebar-row-action
             data-no-drag
             title={uiT("Project options")}
             data-menu-trigger="sidebar"
-            aria-label={uiT("Project options")}
+            label={uiT("Project options")}
             aria-haspopup="menu"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => {
@@ -1866,11 +1876,10 @@ function ProjectCard({
                 event.detail === 0 ? rect.bottom : event.clientY,
               );
             }}
-            className="absolute right-1 top-1/2 hidden size-6 -translate-y-1/2 place-items-center rounded-lg text-content/55 hover:bg-surface-hover hover:text-content group-hover:grid group-has-[:focus-visible]:grid"
+            className="absolute top-1/2 -translate-y-1/2"
           >
-            <MenuHover />
-            <MoreHorizontal className="size-4" />
-          </button>
+            <MoreHorizontal />
+          </IconButton>
           {tree ? null : (
             <button
               type="button"
@@ -2141,18 +2150,19 @@ export function AddProjectButton({
     "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-ui-caption text-content/80 hover:bg-surface-hover hover:text-content";
   return (
     <>
-      <button
+      <IconButton
         ref={anchor}
-        type="button"
-        title={uiT("Open project")}
-        aria-label={uiT("Open project")}
+        size="sm"
+        shape="square"
+        data-sidebar-toolbar-action
+        label={uiT("Open project")}
+        active={open}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="grid size-5 shrink-0 place-items-center rounded-lg text-foreground-subtle hover:bg-surface-hover hover:text-content aria-expanded:bg-content/8 aria-expanded:text-content"
       >
-        <Plus className="size-3.5" />
-      </button>
+        <Plus />
+      </IconButton>
       <PresenceBoundary propagate>{open ? (
         <Popover
           anchor={anchor}

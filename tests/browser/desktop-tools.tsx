@@ -126,11 +126,13 @@ const session = { ...newSession("claude", cwd, "claude-sonnet"), id: "tools-sess
 const source: FilePaneTab = { id: "tools-source", path: sourcePath, cwd };
 const review: FilePaneTab = { id: "tools-review", path: sourcePath, cwd, review: true, changes: true, changeKind: "unstaged" };
 const initialPane: EditorPane = { id: "tools-editor", files: [source, review], activeFileId: query.get("editor") === "source" ? source.id : review.id };
+if (query.has("explorer")) initialPane.files.unshift({ id: "tools-explorer", path: cwd, cwd, explorer: true });
 const initialDock: ProjectTerminalDock = { projectPath: cwd, side: "bottom", size: 220, open: true, pane: { id: "tools-terminal-pane", files: [{ id: "tools-pty", path: "monocode", cwd, terminal: true }], activeFileId: "tools-pty" } };
 const initialLayout: LayoutNode = { type: "split", id: "tools-split", dir: "right", children: [{ type: "leaf", id: session.id }, { type: "leaf", id: initialPane.id }], sizes: [0.54, 0.46] };
 
 function DesktopToolsFixture() {
   const [layout, setLayout] = useState(initialLayout);
+  const [sessionHeaderHost, setSessionHeaderHost] = useState<HTMLDivElement | null>(null);
   const [tab, setTab] = useState<SidebarProps["tab"]>("files");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [pane, setPane] = useState(initialPane);
@@ -166,7 +168,7 @@ function DesktopToolsFixture() {
     changesOpen: false, toggleChanges: noop,
   };
   return <MotionConfig reducedMotion="user"><SessionHeaderActionsContext.Provider value={headerActions}><div className="app-shell-root desktop-workspace" data-desktop-mode="code" data-tools-fixture style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
-    <WindowDragBar windowNavigation={titlebar} />
+    <WindowDragBar windowNavigation={titlebar} windowLeading={<div ref={setSessionHeaderHost} data-window-session-header className="min-w-0 flex-1" />} />
     <div className="flex min-h-0 min-w-0 flex-1">
     <SidebarRail open={!sidebarOpen}><ActivityBar layout="rail" chromeInMenuBar {...activity} /></SidebarRail>
     <Sidebar {...sidebar} tab="sessions" open={sidebarOpen} onToggleSidebar={() => setSidebarOpen(value => !value)} chromeInMenuBar navigation={<DesktopNavigation mode="code" onNew={noop} onProjects={noop} projectsActive={false} onBots={noop} botsActive={false} activity={activity} />} footer={<ActivityBar layout="sidebar-footer" {...activity} />} />
@@ -177,7 +179,7 @@ function DesktopToolsFixture() {
             <div className="relative flex min-h-0 min-w-0 flex-row" style={{ gridArea: "main" }}>
               <div className="relative min-h-0 min-w-0 flex-1">
                 <div data-workspace-tab="tools-tab" data-active="true" className="absolute inset-0 flex h-full min-h-0 flex-col">
-                  <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col"><SurfaceVisibilityContext.Provider value><PaneTree {...paneProps} /></SurfaceVisibilityContext.Provider></div>
+                  <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col"><SurfaceVisibilityContext.Provider value><PaneTree {...paneProps} sessionHeaderHost={sessionHeaderHost} /></SurfaceVisibilityContext.Provider></div>
                 </div>
               </div>
             </div>

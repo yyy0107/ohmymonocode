@@ -700,6 +700,11 @@ function sanitizeFile(raw: unknown): FilePaneTab | null {
       appView: { kind: kind as AppViewKind },
     };
   }
+  if (value.explorer === true) {
+    if (["plan", "releaseNotes", "review", "changes", "sessionChanges", "commit", "agent", "terminal"].some((key) => value[key])) return null;
+    return { id: value.id, path: value.cwd, cwd: value.cwd, explorer: true,
+      ...(typeof value.projectCwd === "string" && value.projectCwd ? { projectCwd: value.projectCwd } : {}) };
+  }
   const plan = sanitizePlan(value.plan);
   const hasReleaseNotes = "releaseNotes" in value;
   const releaseNotes = sanitizeReleaseNotes(value.releaseNotes);

@@ -273,7 +273,7 @@ export function CwdPicker({
               />
             )}
             <span className={`${shortLabel ? "cwd-picker-full-label " : ""}truncate font-mono text-[12px]`}>{label}</span>
-            {shortLabel ? <span className="cwd-picker-short-label hidden truncate">{shortLabel}</span> : null}
+            {shortLabel ? <span data-file-label className="cwd-picker-short-label hidden truncate">{shortLabel}</span> : null}
           </>
         )}
         {chevron ? (

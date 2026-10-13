@@ -1,4 +1,7 @@
 import { WorkspaceToolsDock } from "./shell/WorkspaceToolsDock";
+import { createPortal } from "react-dom";
+import { AppPageHeaderPortalContext } from "../features/workspace/ui/AppPageHeader";
+import { windowDragRegion } from "./shell/startWindowDrag";
 import type { SidebarProps } from "./shell/Sidebar.types";
 import { PresenceBoundary } from "../shared/ui/PresenceBoundary";
 import { translate } from "../shared/i18n/language";
@@ -19,7 +22,7 @@ OrchestrationActions,
 OrchestrationWorkers
 } from "../features/orchestration/ui/OrchestrationActions";
 import {
-type CSSProperties
+useState, type CSSProperties
 } from "react";
 import { Sidebar } from "./shell/Sidebar";
 import { DesktopTitlebarNavigation } from "./shell/DesktopNavigation";
@@ -171,6 +174,7 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
     onRailBack,
     onRailForward,
     onRatio,
+    onFitPaneLayout,
     onRemoteSessionDeleted,
     onRemoveProject,
     onRenameHistorySession,
@@ -253,6 +257,14 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
     worktreeTabStats,
   } = vm;
 
+  const [sessionHeaderHost, setSessionHeaderHost] = useState<HTMLDivElement | null>(null);
+  const [pageHeaderHost, setPageHeaderHost] = useState<HTMLDivElement | null>(null);
+  const liftPageHeader = (appPage === "inbox" || appPage === "notes" || appPage === "automations" || appPage === "workflows") && !appDialog && !menuBarPinned;
+  const activeLeaves = activeTab ? leafIds(activeTab.layout) : [];
+  const singleConversation = activeLeaves.filter(id => sessions.some(session => session.id === id)).length === 1;
+  const hasWorkspacePanel = activeLeaves.length > 1 || sidebarTab !== "sessions" || !!currentProjectDock?.open;
+  const liftSessionHeader = workspaceVisible && !appDialog && !menuBarPinned &&
+    singleConversation && hasWorkspacePanel && activeTab?.surfaceMode !== "unified";
 
   const sidebarProps: SidebarProps = {
     navigation: sidebarNavigation,
@@ -397,6 +409,15 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
                 ) : null}
                 {!menuBarPinned ? (
                   <WindowDragBar
+                    windowLeading={liftSessionHeader ? (
+                      <div
+                        ref={setSessionHeaderHost}
+                        data-window-session-header={activeTabId}
+                        className="min-w-0 flex-1"
+                      />
+                    ) : liftPageHeader ? (
+                      <div ref={setPageHeaderHost} data-window-page-header={appPage} className="min-w-0 flex-1" />
+                    ) : undefined}
                     windowNavigation={desktopTitlebarNavigation}
                     navigationItems={titlebarNavigation}
                     canGoBack={tabVisitNav.canBack}
@@ -448,11 +469,15 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
                               : "hidden"
                           }
                         >
-                          <AppViewHost
-                            kind={kind}
-                            visible={appPage === kind && appDialog === null}
-                            focused={appPage === kind && appDialog === null}
-                          />
+                          <AppPageHeaderPortalContext.Provider value={kind === appPage && liftPageHeader && pageHeaderHost
+                            ? (header) => createPortal(<div {...windowDragRegion()}>{header}</div>, pageHeaderHost)
+                            : null}>
+                            <AppViewHost
+                              kind={kind}
+                              visible={appPage === kind && appDialog === null}
+                              focused={appPage === kind && appDialog === null}
+                            />
+                          </AppPageHeaderPortalContext.Provider>
                         </div>
                       ))}
                       <div
@@ -520,12 +545,18 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
                                     >
                                       <PaneTree
                                         {...sessionPaneProps}
+                                        sessionHeaderHost={liftSessionHeader && tab.id === activeTabId ? sessionHeaderHost : null}
                                         visible={
                                           workspaceVisible &&
                                           tab.id === activeTabId
                                         }
                                         surfaceMode={tab.surfaceMode ?? "split"}
                                         onOpenSessionFile={onOpenSessionFile}
+                                        onOpenFileTerminal={onOpenTerminal}
+                                        onFileMoved={onFileMoved}
+                                        onFileDeleted={onFileDeleted}
+                                        filesSearchOpen={tab.id === activeTabId && filesSearchOpen}
+                                        onFilesSearchOpenChange={setFilesSearchOpen}
                                         layout={tab.layout}
                                         sessions={sessions}
                                         editorPanes={[
@@ -563,6 +594,7 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
                                           onFileErrorCountChange
                                         }
                                         transcriptPool={transcriptPool}
+                                        onFitLayout={(previous, next) => onFitPaneLayout(tab.id, previous, next)}
                                         onRatio={(splitId, index, ratio) =>
                                           onRatio(tab.id, splitId, index, ratio)
                                         }

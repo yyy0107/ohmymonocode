@@ -1,6 +1,6 @@
 /* Measured shell geometry; desktop-only so shared controls retain mobile sizing. */
 html[data-skin][data-desktop-mode] .desktop-navigation {
-  padding: 8px 0;
+  padding: 8px var(--desktop-sidebar-inset) 8px 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -26,6 +26,13 @@ html[data-skin][data-desktop-mode] [data-ui="navigation-item"] {
   font-size: 14px;
   line-height: 20px;
 }
+html[data-skin][data-desktop-mode] .desktop-navigation [data-ui="navigation-item"] {
+  height: var(--desktop-navigation-row-height);
+  min-height: var(--desktop-navigation-row-height);
+}
+html[data-skin][data-desktop-mode] .desktop-navigation [data-ui="navigation-item"] [data-ui="navigation-icon"] {
+  height: var(--desktop-navigation-row-height);
+}
 html[data-skin][data-desktop-mode] [data-ui="navigation-item"]:hover,
 html[data-skin][data-desktop-mode] [data-ui="navigation-item"][aria-current] {
   background: var(--color-raised);
@@ -39,8 +46,8 @@ html[data-skin][data-desktop-mode] [data-ui="navigation-icon"] {
   flex-shrink: 0;
 }
 html[data-skin][data-desktop-mode] [data-ui="navigation-icon"] svg {
-  width: 20px;
-  height: 20px;
+  width: var(--desktop-sidebar-icon);
+  height: var(--desktop-sidebar-icon);
   transition: rotate 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }
 html[data-skin][data-desktop-mode] .desktop-search-trigger {
@@ -50,7 +57,7 @@ html[data-skin][data-desktop-mode] .desktop-search-trigger {
   height: 32px;
   padding: 0 10px;
   margin-bottom: 7px;
-  margin-inline: var(--desktop-sidebar-inset) calc(2 * var(--desktop-sidebar-inset));
+  margin-inline: var(--desktop-sidebar-inset);
   border: 1px solid var(--color-hairline) !important;
   border-radius: 8px;
   box-shadow: 0 1px 2px #00000008;
@@ -90,13 +97,13 @@ html[data-skin][data-desktop-mode] .desktop-mode-toggle {
   flex-shrink: 0;
 }
 html[data-skin][data-desktop-mode] .desktop-mode-toggle button {
-  width: 34px;
-  height: 26px;
+  width: var(--desktop-titlebar-action-width);
+  height: var(--desktop-titlebar-action-height);
   display: grid;
   place-items: center;
   border: 0;
   background: transparent;
-  border-radius: 5px;
+  border-radius: var(--desktop-titlebar-action-radius);
   color: var(--color-ink-tertiary);
   cursor: pointer;
 }
@@ -108,24 +115,36 @@ html[data-skin][data-desktop-mode]
   box-shadow: 0 1px 2px #00000014;
 }
 html[data-skin][data-desktop-mode] .desktop-mode-toggle svg {
-  width: 16px;
-  height: 16px;
+  width: var(--desktop-titlebar-icon);
+  height: var(--desktop-titlebar-icon);
 }
 html[data-skin][data-desktop-mode] [data-window-drag-bar] {
   background: var(--color-app);
+}
+html[data-skin][data-desktop-mode] [data-window-session-header] [data-session-surface-tabs] {
+  background: transparent;
+  border: 0;
+}
+html[data-skin][data-desktop-mode] [data-window-session-header] [data-surface-tab-strip] {
+  border-bottom: 0;
+}
+html[data-skin][data-desktop-mode] [data-window-page-header] [data-app-page-header] {
+  height: 32px;
+  min-height: 32px;
+  border: 0;
 }
 html[data-skin][data-desktop-mode] .desktop-titlebar-navigation {
   display: flex;
   align-items: center;
   width: max(228px, calc(var(--desktop-sidebar-chrome-width, var(--desktop-sidebar-width)) - var(--desktop-sidebar-inset) - 20px));
   max-width: 100%;
-  gap: 8px;
+  gap: var(--desktop-titlebar-action-gap);
   flex-shrink: 0;
 }
 html[data-skin][data-desktop-mode] .desktop-titlebar-navigation [data-window-visit-nav] {
-  flex: 0 0 110px;
+  flex: 0 0 auto;
   min-width: 0;
-  justify-content: space-between;
+  gap: var(--desktop-titlebar-action-gap);
 }
 /* Anchor to the sidebar edge in window chrome, independent of nav flex sizing. */
 html[data-skin][data-desktop-mode] .desktop-titlebar-mode-slot {
@@ -136,10 +155,10 @@ html[data-skin][data-desktop-mode] .desktop-titlebar-mode-slot {
   width: 70px;
 }
 html[data-skin][data-desktop-mode] .desktop-titlebar-navigation [data-ui="icon-button"] {
-  width: 32px;
-  height: 32px;
-  min-height: 32px;
-  border-radius: 8px;
+  width: var(--desktop-titlebar-action-height);
+  height: var(--desktop-titlebar-action-height);
+  min-height: var(--desktop-titlebar-action-height);
+  border-radius: var(--desktop-titlebar-action-radius);
   color: var(--color-ink);
 }
 html[data-skin][data-desktop-mode] .desktop-titlebar-navigation [data-ui="icon-button"][aria-disabled="true"] {
@@ -147,8 +166,8 @@ html[data-skin][data-desktop-mode] .desktop-titlebar-navigation [data-ui="icon-b
   opacity: 1;
 }
 html[data-skin][data-desktop-mode] .desktop-titlebar-navigation [data-ui="icon-button"] svg {
-  width: 18px;
-  height: 18px;
+  width: var(--desktop-titlebar-icon);
+  height: var(--desktop-titlebar-icon);
 }
 html[data-skin][data-desktop-mode] [data-window-drag-bar] > div:has(> .desktop-titlebar-navigation) {
   padding-inline: 10px;
@@ -170,6 +189,9 @@ html[data-skin][data-desktop-mode].is-mac .desktop-titlebar-mode-slot {
 }
 html[data-skin][data-desktop-mode] .desktop-tools-layout {
   position: relative;
+  container-type: inline-size;
+  isolation: isolate;
+  overflow: clip;
   display: grid;
   flex: 1;
   width: 100%;
@@ -185,14 +207,24 @@ html.is-resizing .desktop-tools-layout {
 }
 html[data-skin][data-desktop-mode] .desktop-tools-workspace {
   grid-area: workspace;
+  z-index: 0;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
+html[data-skin][data-desktop-mode] .desktop-tools-layout:is([data-tools-side="left"], [data-tools-side="right"]) > .desktop-tools-workspace:has([data-pane-chat-edge]) {
+  width: 100%;
+  min-width: min(var(--desktop-conversation-min-width), 100cqw);
+  justify-self: start;
+}
+html[data-skin][data-desktop-mode] .desktop-tools-layout[data-tools-side="left"] > .desktop-tools-workspace:has([data-pane-chat-edge]) {
+  justify-self: end;
+}
 html[data-skin][data-desktop-mode] .desktop-tools-divider {
   grid-area: divider;
+  z-index: 2;
   position: relative;
   min-width: 0;
   min-height: 0;
@@ -214,6 +246,7 @@ html[data-skin][data-desktop-mode] .desktop-tools-divider > .resize-handle::afte
 }
 html[data-skin][data-desktop-mode] .desktop-tools-panel {
   grid-area: tools;
+  z-index: 1;
   min-width: 0;
   min-height: 0;
   display: flex;
@@ -223,6 +256,7 @@ html[data-skin][data-desktop-mode] .desktop-tools-panel {
   overflow: hidden;
   background: var(--color-card);
   border: 1px solid var(--color-hairline);
+  box-shadow: var(--shadow-panel);
 }
 html[data-skin][data-desktop-mode] .desktop-tools-panel[hidden] {
   display: none;
@@ -233,13 +267,6 @@ html[data-skin][data-desktop-mode] .desktop-tools-heading {
   align-items: center;
   height: 32px;
   flex-shrink: 0;
-}
-html[data-skin][data-desktop-mode] .desktop-tools-heading .sidebar-segment {
-  flex: 1;
-  margin: 0;
-  background: transparent;
-  border-radius: 0;
-  height: 32px;
 }
 html[data-skin][data-desktop-mode] .desktop-tools-heading > button {
   display: grid;

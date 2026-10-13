@@ -81,6 +81,7 @@ type ShellProps = {
   preview: ReactNode;
   source: ReactNode;
   actions?: ReactNode;
+  showToggle?: boolean;
 };
 
 export function MarkdownViewShell({
@@ -89,13 +90,14 @@ export function MarkdownViewShell({
   preview,
   source,
   actions,
+  showToggle = true,
 }: ShellProps) {
   return (
     <div className="markdown-view-shell relative min-h-0 min-w-0 flex-1">
       <div className="markdown-view-actions pointer-events-none absolute right-2 z-20">
         <div className="pointer-events-auto flex items-center gap-1.5">
           {actions}
-          <MarkdownModeToggle mode={mode} onChange={onModeChange} />
+          {showToggle ? <MarkdownModeToggle mode={mode} onChange={onModeChange} /> : null}
         </div>
       </div>
       <div

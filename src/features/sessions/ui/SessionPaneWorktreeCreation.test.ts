@@ -28,7 +28,7 @@ vi.mock("../../../integrations/harness/core/registry", async (importOriginal) =>
   refreshHarnessCatalogs: async () => {},
   isLiveHarness: () => true,
 }));
-vi.mock("./ModelPicker", () => ({ ModelPicker: () => null }));
+vi.mock("./ModelPicker", () => ({ ModelPicker: () => null, ModelControlPills: () => null }));
 vi.mock("./SessionReview", () => ({ SessionReview: () => null }));
 
 import { newSession, type Session } from "../model/session";
@@ -38,6 +38,7 @@ import {
   startWorktreeCreation,
 } from "../../source-control/model/worktreeCreation";
 import { SessionPane, type SessionPaneProps } from "./SessionPane";
+import { TranscriptPool, TranscriptPoolOutlet } from "./TranscriptPool";
 import { saveTranscriptLayout } from "../../settings/model/appearance";
 
 let container: HTMLDivElement;
@@ -62,38 +63,44 @@ const noop = () => {};
 async function render(session: Session, extra: Partial<SessionPaneProps> = {}) {
   await act(async () => {
     root.render(
-      createElement(SessionPane, {
-        session,
-        reviewUndoLocked: false,
-        visible: true,
-        focused: true,
-        inSplit: false,
-        composerFocused: true,
-        recents: [],
-        onFocus: noop,
-        onClose: noop,
-        onCwdChange: noop,
-        onBranchChange: noop,
-        onModelChange: noop,
-        onModelSettingsChange: noop,
-        onRuntimeModeChange: noop,
-        onSubmit: () => true,
-        onStop: noop,
-        onCompactContext: () => false,
-        onDeleteQueuedMessage: noop,
-        onEditQueuedMessage: noop,
-        onQueuedMessageEditingChange: noop,
-        onSteerQueuedMessage: noop,
-        onResumeQueue: noop,
-        onApproval: noop,
-        onQuestionReply: noop,
-        onOpenFile: noop,
-        onOpenDiff: noop,
-        onOpenPlan: noop,
-        onBuildPlan: noop,
-        onNewTerminal: noop,
-        ...extra,
-      }),
+      createElement(
+        "div",
+        null,
+        createElement(SessionPane, {
+          key: session.id,
+          session,
+          reviewUndoLocked: false,
+          visible: true,
+          focused: true,
+          inSplit: false,
+          composerFocused: true,
+          recents: [],
+          onFocus: noop,
+          onClose: noop,
+          onCwdChange: noop,
+          onBranchChange: noop,
+          onModelChange: noop,
+          onModelSettingsChange: noop,
+          onRuntimeModeChange: noop,
+          onSubmit: () => true,
+          onStop: noop,
+          onCompactContext: () => false,
+          onDeleteQueuedMessage: noop,
+          onEditQueuedMessage: noop,
+          onQueuedMessageEditingChange: noop,
+          onSteerQueuedMessage: noop,
+          onResumeQueue: noop,
+          onApproval: noop,
+          onQuestionReply: noop,
+          onOpenFile: noop,
+          onOpenDiff: noop,
+          onOpenPlan: noop,
+          onBuildPlan: noop,
+          onNewTerminal: noop,
+          ...extra,
+        }),
+        extra.transcriptPool ? createElement(TranscriptPoolOutlet, { pool: extra.transcriptPool }) : null,
+      ),
     );
   });
 }
@@ -103,6 +110,38 @@ const draft: Session = {
   workspaceMode: "worktree",
   worktreeBase: "main",
 };
+
+it("restores a cached conversation at the bottom immediately when switching back", async () => {
+  const pool = new TranscriptPool();
+  const session: Session = {
+    ...draft,
+    blocks: [
+      { id: "user", role: "user", text: "Hello" },
+      { id: "reply", role: "assistant", text: "Existing reply" },
+    ],
+  };
+  await render(session, { transcriptPool: pool });
+  const scroller = container.querySelector<HTMLElement>(".agent-transcript")!;
+  let top = 600;
+  Object.defineProperties(scroller, {
+    scrollHeight: { get: () => 1000 },
+    clientHeight: { get: () => 400 },
+    clientWidth: { get: () => 800 },
+    scrollTop: { get: () => top, set: (value: number) => { top = Math.max(0, Math.min(value, 600)); } },
+  });
+  // Establish the measured viewport before parking, as ResizeObserver does.
+  await render({ ...session, blocks: [...session.blocks] }, { transcriptPool: pool });
+  const stopListening = vi.spyOn(scroller, "removeEventListener");
+  await render({ ...draft, id: "other-session" }, { transcriptPool: pool });
+  expect(scroller.isConnected).toBe(false);
+  expect(stopListening).toHaveBeenCalledWith("scroll", expect.any(Function));
+  // Detaching a cached transcript resets the browser's scroll position.
+  top = 0;
+  await render(session, { transcriptPool: pool });
+  expect(container.querySelector(".agent-transcript")).toBe(scroller);
+  expect(top).toBe(600);
+  expect(scroller.querySelector("[data-prompt-rise]")).toBeNull();
+});
 
 it.each([true, false, "hidden"] as const)("introduces the first prompt only after a visible accepted send (%s)", async accepted => {
   saveTranscriptLayout("chat");

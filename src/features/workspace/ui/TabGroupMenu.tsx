@@ -223,6 +223,7 @@ export function TabGroupMenu({
         }}
         ignore={`[data-menu-owner="${menuId}"]`}
         data-menu-owner={menuId}
+        data-ui="tab-group-menu"
         role="menu"
         tabIndex={-1}
         aria-label={ariaLabel}

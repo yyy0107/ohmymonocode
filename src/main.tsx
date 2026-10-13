@@ -37,6 +37,10 @@ import { useTranslation } from "./shared/i18n/useTranslation";
 import { WindowResizeHandles } from "./app/shell/WindowResizeHandles";
 import { WindowResizeObserver } from "./app/shell/WindowResizeObserver";
 import { WindowDragBar } from "./app/shell/WindowChrome";
+import { configureDefaultIconArtwork } from "./shared/ui/icons";
+import { desktopIconArtwork } from "./app/desktopIconArtwork";
+
+configureDefaultIconArtwork(desktopIconArtwork);
 
 performance.mark("monocode:bootstrap");
 // Let local boot IPC overlap loading/evaluating the workspace UI.

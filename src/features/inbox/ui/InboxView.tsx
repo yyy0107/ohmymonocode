@@ -1140,7 +1140,7 @@ export function InboxView({
       data-app-inbox
       className="flex min-h-0 min-w-0 flex-1 flex-col text-content"
     >
-      <AppPageHeader title={uiT("Inbox")} icon={Inbox} onBack={onClose} />
+      <AppPageHeader title={uiT("Inbox")} icon={Inbox} />
 
       <div className="flex min-h-0 min-w-0 flex-1">
         {list}

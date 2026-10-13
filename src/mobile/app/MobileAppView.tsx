@@ -13,6 +13,7 @@ import {
   Folder,
   FolderPlus,
   Info,
+  MoreVertical,
   PanelLeft,
   RefreshCw,
   Search,
@@ -82,15 +83,6 @@ function nativeAccessNotice(access: NativeSessionAccess | undefined): string {
   if (access.reason === "unsupportedPlatform")
     return translate("Native session ownership cannot be verified on this platform. Imported history is read-only.");
   return translate("Native session access could not be confirmed. Saved history keeps syncing; check other clients before continuing here.");
-}
-function HeaderMoreIcon() {
-  return (
-    <svg width={24} height={24} viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="4.5" r="2.25" fill="currentColor" />
-      <circle cx="12" cy="12" r="2.25" fill="currentColor" />
-      <circle cx="12" cy="19.5" r="2.25" fill="currentColor" />
-    </svg>
-  );
 }
 export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
   const {
@@ -463,7 +455,7 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
               }}
               disabled={busy}
             >
-              <HeaderMoreIcon />
+              <MoreVertical size={24} />
             </IconButton>
           </div>
         ) : view === "settings" && settingsPage === "root" ? (

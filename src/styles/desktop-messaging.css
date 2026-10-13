@@ -22,7 +22,7 @@ html[data-skin][data-desktop-mode="chat"] [data-desktop-sidebar-header] {
 }
 
 html[data-skin][data-desktop-mode="chat"] .desktop-navigation {
-  padding: 8px 0 24px;
+  padding: 8px var(--desktop-sidebar-inset) 24px 0;
   gap: 0;
 }
 
@@ -138,7 +138,7 @@ html[data-skin][data-desktop-mode="chat"] [data-session-surface-tabs] :is([data-
 /* Input: 752px maximum, 55px text row and 56px action row, growing for drafts. */
 html[data-skin][data-desktop-mode="chat"] .desktop-composer-dock {
   max-width: 752px;
-  padding-bottom: 16px;
+  padding-bottom: 0;
 }
 
 html[data-skin][data-desktop-mode="chat"] .desktop-empty-content [data-composer] {
@@ -203,17 +203,6 @@ html[data-skin][data-desktop-mode="chat"] [data-composer-messaging] [data-model-
   font-family: var(--font-serif);
 }
 
-html[data-skin][data-desktop-mode="chat"] [data-composer-layout="desktop"] .composer-send {
-  border: .5px solid var(--messaging-border);
-  background: var(--messaging-send);
-  color: #ffffff;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
-}
-
-html[data-skin][data-desktop-mode="chat"] [data-composer-layout="desktop"] .composer-send:hover:not(:disabled) {
-  background: var(--messaging-send-hover);
-}
-
 html[data-skin][data-desktop-mode="chat"] [data-composer-layout="desktop"] .composer-send > svg {
   width: 16px;
   height: 16px;
@@ -257,7 +246,7 @@ html[data-skin][data-desktop-mode="chat"] [data-assistant-message] .agent-markdo
 
 html[data-skin][data-desktop-mode="chat"] [data-live-footer] {
   min-height: 36px;
-  padding: 8px 16px 0;
+  padding: 8px 0 0;
   gap: 12px;
   color: var(--color-ink-secondary);
 }

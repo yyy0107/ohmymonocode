@@ -11,6 +11,7 @@ import {
 /** Collapsed tools retain their editor and PTY lifetimes until explicitly closed. */
 export function SessionSurfacePane({
   id,
+  chatEdge,
   visible,
   expanded,
   grid,
@@ -20,6 +21,7 @@ export function SessionSurfacePane({
   children,
 }: {
   id: string;
+  chatEdge?: "left" | "right";
   visible: boolean;
   expanded: boolean;
   grid: boolean;
@@ -40,6 +42,7 @@ export function SessionSurfacePane({
       transition={reduced ? immediateTransition : panelTransition}
       onAnimationComplete={finish}
       data-pane-id={id}
+      data-pane-chat-edge={chatEdge}
       data-fold-state={grid ? foldState : undefined}
       aria-hidden={!interactive}
       inert={!interactive || undefined}

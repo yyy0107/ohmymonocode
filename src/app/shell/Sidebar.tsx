@@ -12,7 +12,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  ChevronDown,
   ListFilter,
   PanelLeft,
   Search,
@@ -25,10 +24,6 @@ import { useDragResize } from "../../shared/hooks/useDragResize";
 import { useLockOverscroll } from "../../shared/hooks/useLockOverscroll";
 import { sessionRecencyAt } from "../../features/sessions/model/sessionActivity";
 import { useProjectDiffStats } from "../../features/source-control/hooks/useProjectDiffStats";
-import { useProjectBranchesState } from "../../features/source-control/hooks/useProjectBranches";
-import { BranchPicker } from "../../features/source-control/ui/BranchPicker";
-import { SidebarWorktreeSwitcher } from "../../features/source-control/ui/SidebarWorktreeSwitcher";
-import { SearchableProjectPicker } from "../../features/projects/ui/SearchableProjectPicker";
 import {
   loadSidebarWidth,
   saveSidebarWidth,
@@ -146,9 +141,6 @@ function SidebarComponent(props: SidebarProps) {
       previous.query === query ? previous : { query, paths: new Set() },
     );
   }, [query]);
-  const [sessionProjectPath, setSessionProjectPath] = useState<string | null>(
-    null,
-  );
   const [filters, setFilters] = usePreferenceState(loadSessionSidebarFilters);
   const [filterMenu, setFilterMenu] = useState<HTMLButtonElement | null>(
     null,
@@ -171,26 +163,10 @@ function SidebarComponent(props: SidebarProps) {
     () => [...collectRailProjects(recents, cwd).values()],
     [cwd, recents],
   );
-  const modeProjects = useMemo(
+  const projects = useMemo(
     () => props.desktopMode === "chat" ? [] : allProjects,
     [allProjects, props.desktopMode],
   );
-  const projects = useMemo(
-    () =>
-      tab === "sessions" && sessionProjectPath
-        ? modeProjects.filter(({ path }) =>
-            sameProjectPath(path, sessionProjectPath),
-          )
-        : modeProjects,
-    [modeProjects, tab, sessionProjectPath],
-  );
-  useEffect(() => {
-    if (
-      sessionProjectPath &&
-      !allProjects.some(({ path }) => sameProjectPath(path, sessionProjectPath))
-    )
-      setSessionProjectPath(null);
-  }, [allProjects, sessionProjectPath]);
   const chatFolders = useChatFolders(props.recents !== undefined);
   const chatPaths = useMemo(() => [...new Set([
     ...chatFolders,
@@ -718,15 +694,13 @@ function SidebarComponent(props: SidebarProps) {
   useEffect(() => {
     if (
       tab === "sessions" &&
-      (!shownExpanded.has(pathKey(cwd)) ||
-        (sessionProjectPath && !sameProjectPath(cwd, sessionProjectPath)))
+      !shownExpanded.has(pathKey(cwd))
     )
       props.onSessionNavigationOrder?.([]);
   }, [
     cwd,
     tab,
     shownExpandedKey,
-    sessionProjectPath,
     props.onSessionNavigationOrder,
   ]);
   const summariesPending =
@@ -796,18 +770,7 @@ function SidebarComponent(props: SidebarProps) {
         : undefined;
   };
 
-  const remoteCurrent = isRemoteProjectPath(cwd) || !!remoteProjectFor(cwd);
   const gitRoot = projectToolsCwd(props);
-  const headerProjectPath = tab === "sessions" ? sessionProjectPath : cwd;
-  const headerGitRoot = headerProjectPath
-    ? sameProjectPath(headerProjectPath, cwd)
-      ? gitRoot
-      : headerProjectPath
-    : "";
-  const { branches: headerBranches } = useProjectBranchesState(
-    headerGitRoot,
-    props.recents !== undefined && open,
-  );
   const changes = useProjectDiffStats(gitRoot, open);
   const additions = changes?.additions ?? 0;
   const deletions = changes?.deletions ?? 0;
@@ -1020,21 +983,6 @@ function SidebarComponent(props: SidebarProps) {
     const trigger = event.currentTarget;
     setFilterMenu((current) => (current ? null : trigger));
   };
-  const projectHeader = props.recents !== undefined;
-  const showWorktreeSwitcher =
-    cwd && cwd !== "~" && !remoteCurrent && props.onSelectWorkspace;
-  const renderWorktreeSwitcher = (compact = false) => (
-    <SidebarWorktreeSwitcher
-      key={compact ? cwd : undefined}
-      cwd={cwd}
-      compact={compact}
-      iconOnly={compact}
-      tabStats={props.worktreeTabStats}
-      onSelect={props.onSelectWorkspace}
-      pending={props.workspaceSwitchPending}
-      switchError={props.workspaceSwitchError}
-    />
-  );
   return (
     <SidebarTransition
       open={open}
@@ -1090,62 +1038,13 @@ function SidebarComponent(props: SidebarProps) {
         ) : null}
         {props.desktopMode === "chat" ? null : <div
           data-project-header
-          className={`flex h-8 min-w-0 shrink-0 items-center gap-1 ${projectHeader ? "pl-1.5" : "pl-3"} pr-2`}
+          className="flex h-8 min-w-0 shrink-0 items-center gap-1 pl-1.5 pr-2"
         >
-          {projectHeader ? (
-            <div
-              data-project-switcher
-              className="flex min-w-0 flex-1 items-center gap-1"
-            >
-              <SearchableProjectPicker
-                key={tab === "sessions" ? "session-scope" : "working-copy"}
-                cwd={tab === "sessions" ? (sessionProjectPath ?? "") : cwd}
-                railCwd={cwd}
-                recents={recents}
-                appearance="ghost"
-                compact
-                showLabel
-                className="min-w-0 shrink"
-                buttonClassName="max-w-full h-6! gap-1! px-1.5!"
-                onSelectProject={(path) => {
-                  if (tab === "sessions") {
-                    setSessionProjectPath(path);
-                    expandProject(path);
-                  }
-                  props.onSelectProject?.(path);
-                }}
-                onSelectAllProjects={
-                  tab === "sessions"
-                    ? () => setSessionProjectPath(null)
-                    : undefined
-                }
-                onOpenProject={props.onOpenProject}
-              />
-              {headerProjectPath && headerBranches?.current ? (
-                <div
-                  data-active-worktree-toolbar
-                  className="ml-auto flex min-w-0 max-w-[50%] items-center gap-1 pl-1.5"
-                >
-                  <BranchPicker
-                    key={headerGitRoot}
-                    cwd={headerGitRoot}
-                    enabled={open && !props.workspaceSwitchPending}
-                    popoverSide="bottom"
-                  />
-                  {showWorktreeSwitcher &&
-                  sameProjectPath(headerProjectPath, cwd)
-                    ? renderWorktreeSwitcher(true)
-                    : null}
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">
-              {t("Projects")}
-            </span>
-          )}
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">
+            {t(props.recents === undefined ? "Projects" : "All projects")}
+          </span>
           {props.onGoToFile ? (
-            <IconButton size="sm" label={quickOpenLabel} onClick={props.onGoToFile}>
+            <IconButton size="sm" shape="square" data-sidebar-toolbar-action label={quickOpenLabel} onClick={props.onGoToFile}>
               <Search className="size-3.5" />
             </IconButton>
           ) : null}
@@ -1174,12 +1073,12 @@ function SidebarComponent(props: SidebarProps) {
                 type="text"
                 value={query}
                 placeholder={t(
-                  props.recents === undefined || sessionProjectPath
+                  props.recents === undefined
                     ? "Search conversations..."
                     : "Search projects and conversations...",
                 )}
                 aria-label={t(
-                  props.recents === undefined || sessionProjectPath
+                  props.recents === undefined
                     ? "Search conversations"
                     : "Search projects and conversations",
                 )}
@@ -1196,26 +1095,19 @@ function SidebarComponent(props: SidebarProps) {
                 className="h-full w-full min-w-0 rounded-md bg-transparent py-0 pl-7 pr-2 text-[12px] text-content outline-none placeholder:text-content/35"
               />
             </div>
-            <button
-              type="button"
-              title={t("Filter sessions")}
-              aria-label={t("Filter sessions")}
+            <IconButton
+              size="sm"
+              shape="square"
+              data-sidebar-toolbar-action
+              label={t("Filter sessions")}
+              active={!!filterMenu || filtersActive}
               aria-haspopup="menu"
               aria-expanded={!!filterMenu}
               onClick={onFilter}
-              className={`relative z-50 grid size-6 place-items-center rounded-md text-content/50 hover:bg-content/6 hover:text-content ${filterMenu || filtersActive ? "bg-selection text-content" : ""}`}
+              className="relative z-50"
             >
-              <ListFilter className="size-3" />
-            </button>
-          </div>
-        ) : null}
-        {!projectHeader && showWorktreeSwitcher ? (
-          <div
-            data-active-worktree-toolbar
-            className="flex h-8 shrink-0 items-center px-3"
-          >
-            {renderWorktreeSwitcher()}
-            <ChevronDown className="ml-auto size-3 opacity-30" />
+              <ListFilter />
+            </IconButton>
           </div>
         ) : null}
         {searchPending ? (
@@ -1279,16 +1171,13 @@ function SidebarComponent(props: SidebarProps) {
               onRemoveProject={props.onRemoveProject}
               onOpenNotificationSettings={props.onOpenNotificationSettings}
               statsEnabled={false}
-              searchActive={searchActive || !!sessionProjectPath}
-              // A chosen project keeps "Show more" paging; only a query lists every match.
+              searchActive={searchActive}
               previewAll={searchActive}
-              previewKey={`${props.desktopMode ?? "all"}:${sessionProjectPath ?? ""}`}
+              previewKey={props.desktopMode ?? "all"}
               matchedProjectPaths={
                 searchActive
                   ? matchInfo.matched
-                  : sessionProjectPath
-                    ? new Set(projects.map(({ path }) => pathKey(path)))
-                    : undefined
+                  : undefined
               }
               scrollRef={(node) => {
                 treeScrollRef.current = node;

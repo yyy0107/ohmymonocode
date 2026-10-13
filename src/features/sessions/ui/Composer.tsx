@@ -11,6 +11,7 @@ import {
   AiIdea,
   Check,
   CircleDashed,
+  CircleStop,
   CornerDownLeft,
   CursorMagicSelection,
   FilePlus,
@@ -20,7 +21,6 @@ import {
   Internet,
   Plus,
   Share,
-  Square,
   StickyNote,
   Terminal,
   X,
@@ -3023,7 +3023,7 @@ export function ComposerAction({
         onClick={onStop}
         className="composer-stop grid size-6.5 place-items-center rounded-md bg-white text-black hover:bg-white/90"
       >
-        <Square className="size-2.5 fill-current" strokeWidth={0} />
+        <CircleStop className="size-4 [&_rect]:fill-current" />
       </button>
     );
   }

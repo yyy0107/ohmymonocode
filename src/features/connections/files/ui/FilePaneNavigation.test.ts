@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { saveEditorPreferences } from "../model/editorPreferences";
 import { EditorView } from "@codemirror/view";
 import { act, createElement, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -127,6 +128,18 @@ describe("file pane source navigation", () => {
     ].find((tab) => tab.textContent === "Preview")!;
     await act(async () => preview.click());
     expect(preview.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("applies editor options without losing an unsaved document or its selection", async () => {
+    const view = await render("/repo/preferences.ts");
+    await act(async () => view.dispatch({ changes: { from: 0, insert: "unsaved " }, selection: { anchor: 4 } }));
+    const document = view.state.doc.toString();
+    await act(async () => saveEditorPreferences({ wordWrap: false, tabSize: 8, indentGuides: false, showWhitespace: true, scrollPastEnd: true }));
+    expect(EditorView.findFromDOM(container.querySelector(".cm-editor")!)).toBe(view);
+    expect(view.state.doc.toString()).toBe(document);
+    expect(view.state.selection.main.head).toBe(4);
+    expect(view.state.tabSize).toBe(8);
+    expect(view.contentDOM.classList.contains("cm-lineWrapping")).toBe(false);
   });
 
   it.each(["md", "svg"])(

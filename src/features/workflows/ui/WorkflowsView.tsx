@@ -5,6 +5,7 @@ import { Workflow } from "../../../shared/ui/icons";
 import { TooltipProvider } from "../../../shared/ui/primitives/Tooltip";
 import { SavedWorkflowsSection } from "../kit/settings/saved-workflows/SavedWorkflowsSection";
 import { useWorkflowApp } from "./workflowAppContext";
+import { AppPageHeader } from "../../workspace/ui/AppPageHeader";
 
 export function WorkflowsView({ cwd }: { cwd: string }) {
   const { t } = useTranslation();
@@ -16,12 +17,7 @@ export function WorkflowsView({ cwd }: { cwd: string }) {
       data-app-workflows
       className="flex min-h-0 min-w-0 flex-1 flex-col text-content"
     >
-      <div className="desktop-toolbar flex h-10 shrink-0 select-none items-center border-b border-stroke">
-        <div className="flex min-w-0 flex-1 items-center gap-2 px-3 text-[13px]">
-          <Workflow className="size-3.5 shrink-0 text-content/45" />
-          <span className="min-w-0 truncate text-content">{t("Workflows")}</span>
-        </div>
-      </div>
+      <AppPageHeader title={t("Workflows")} icon={Workflow} />
       <TooltipProvider delayDuration={300}>
         <div className="content-surface min-h-0 flex-1 overflow-y-auto font-sans">
           <div className="mx-auto w-full max-w-3xl px-4 py-4">

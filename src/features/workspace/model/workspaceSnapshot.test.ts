@@ -22,6 +22,7 @@ import {
   newTab,
   newTerminalFile,
   openEditorTab,
+  openFileExplorer,
   openSessionAppView,
   splitPane,
 } from "./layout";
@@ -980,4 +981,14 @@ describe("worktree tab cleanup", () => {
     expect(snapshot.tabs.map((tab) => tab.id)).toEqual(["tab-main"]);
     expect(snapshot.sessions.map((stub) => stub.id)).toEqual(["main"]);
   });
+});
+
+
+it("restores an empty file explorer alongside an independent changes pane", () => {
+  const session = chat("explorer-chat", "/repo");
+  const explorer = openFileExplorer(newTab(session.id), "/repo");
+  const tab = openEditorTab(explorer, newChangesTab("/repo"));
+  const restored = parseWorkspaceSnapshot({ tabs: [tab], sessions: [session], activeTabId: tab.id, projectCwd: "/repo" })!;
+  expect(restored.tabs[0].editorPanes).toEqual(tab.editorPanes);
+  expect(restored.tabs[0].layout).toEqual(tab.layout);
 });

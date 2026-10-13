@@ -5,9 +5,34 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AgentTranscript } from "./AgentTranscript";
 import { messageFilesFromClipboard } from "../../../platform/tauri/clipboard";
 import { setUiLanguage } from "../../../shared/i18n/language";
+import type { Block } from "../model/session";
 
 let container: HTMLDivElement;
 let root: Root;
+
+it("keeps actions visible for the latest assistant reply until a new reply arrives", () => {
+  const blocks: Block[] = [
+    { id: "user-1", role: "user", text: "First", durationMs: 1000 },
+    { id: "reply-1", role: "assistant", text: "First answer" },
+    { id: "user-2", role: "user", text: "Second", durationMs: 1000 },
+    { id: "reply-2", role: "assistant", text: "Second answer" },
+  ];
+  const render = () => act(() => root.render(createElement(AgentTranscript, { blocks: [...blocks] })));
+  const latest = () => container.querySelectorAll("[data-latest-assistant-turn]");
+  render();
+  expect(latest()).toHaveLength(1);
+  expect(latest()[0].getAttribute("data-transcript-turn")).toBe("user-2");
+  expect(latest()[0].querySelector('[data-ui="response-actions"]')).not.toBeNull();
+
+  blocks.push({ id: "user-3", role: "user", text: "Third" });
+  render();
+  expect(latest()[0].getAttribute("data-transcript-turn")).toBe("user-2");
+
+  blocks.push({ id: "reply-3", role: "assistant", text: "New reply", streaming: true });
+  render();
+  expect(latest()).toHaveLength(1);
+  expect(latest()[0].getAttribute("data-transcript-turn")).toBe("user-3");
+});
 
 it("shows the user's send time next to the message actions", () => {
   act(() =>

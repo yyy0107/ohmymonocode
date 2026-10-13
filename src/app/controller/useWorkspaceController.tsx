@@ -1,3 +1,4 @@
+import { loadEditorPreferences } from "../../features/connections/files/model/editorPreferences";
 import { desktopModeForCwd, desktopModeTarget, loadDesktopLocations, loadDesktopMode, saveDesktopMode, type DesktopMode } from "../model/desktopMode";
 import { DesktopNavigation, DesktopModeToggle } from "../shell/DesktopNavigation";
 import { ProjectsPage } from "../../features/projects/ui/ProjectsPage";
@@ -233,6 +234,7 @@ newWorkflowRunTab,
 openEditorTab,
 openSessionChangesTab,
 pinEditorFile,
+openFileExplorer,
 openTerminalTab,
 removePane,
 resetTabToSession,
@@ -243,6 +245,7 @@ splitPane,
 surfacePanes,
 updateTerminalTab,
 withSurfacePanes,
+type LayoutNode,
 type EditorPane,
 type FilePaneTab,
 type FocusDir,
@@ -1817,8 +1820,13 @@ export function useWorkspaceController({
     sidebarTabSelection.project === pathKey(sidebarCwd)
       ? sidebarTabSelection.tab
       : loadProjectSidebarTab(sidebarCwd);
+  const showFileExplorerRef = useRef<(cwd: string) => void>(() => {});
   const setSidebarTab = useCallback((tab: SidebarTabId, project?: string) => {
     const cwd = project ?? sidebarCwdRef.current;
+    if (tab === "files") {
+      showFileExplorerRef.current(cwd);
+      return;
+    }
     saveProjectSidebarTab(cwd, tab);
     setSidebarTabSelection({
       project: pathKey(cwd),
@@ -3430,7 +3438,7 @@ export function useWorkspaceController({
     if (!tab) return;
     const found = findSurfacePane(tab, paneId);
     if (!found?.pane.files.some((file) => file.id === fileId)) return;
-    const closingFiles = found.pane.files.filter((file) => file.id !== fileId);
+    const closingFiles = found.pane.files.filter((file) => file.id !== fileId && !file.explorer);
     if (closingFiles.length === 0) return;
     const closingIds = new Set(closingFiles.map((file) => file.id));
     const unsaved = closingFiles.filter(
@@ -3739,6 +3747,30 @@ export function useWorkspaceController({
       // Keep the global close command scoped to workspace tabs and panes even
       // while the dock has focus; terminal tabs have their own close buttons.
       if (!activeTab) return;
+      const explorerPane = activeTab.editorPanes.find((pane) =>
+        pane.id === sessionId && pane.files.some((file) => file.explorer),
+      );
+      if (explorerPane) {
+        void (async () => {
+          const dirty = explorerPane.files.some((file) => dirtyFilesRef.current.has(file.id));
+          if (dirty && !(await confirmDiscardUnsaved("Close tabs with unsaved files?"))) return;
+          if (!closeLeaf(activeTab, explorerPane.id)) {
+            onCloseTab(activeTab.id);
+            return;
+          }
+          setTabs((current) => current.map((tab) => {
+            if (tab.id !== activeTab.id) return tab;
+            const next = closeLeaf(tab, explorerPane.id);
+            return next ? { ...next, editorPanes: next.editorPanes.filter((pane) => pane.id !== explorerPane.id) } : tab;
+          }));
+          setDirtyFiles((current) => {
+            const next = new Set(current);
+            for (const file of explorerPane.files) next.delete(file.id);
+            return next;
+          });
+        })();
+        return;
+      }
       const focusedSurface = findSurfacePane(activeTab, activeTab.focusedId);
       if (sessionId === undefined && focusedSurface) {
         onCloseFile(focusedSurface.pane.id, focusedSurface.pane.activeFileId);
@@ -5417,6 +5449,11 @@ export function useWorkspaceController({
     [activeTab, onFocusPane],
   );
 
+  const onFitPaneLayout = useCallback((tabId: string, previous: LayoutNode, next: LayoutNode) => {
+    setTabs(current => current.map(tab => tab.id === tabId && tab.layout === previous
+      ? { ...tab, layout: next } : tab));
+  }, []);
+
   const onRatio = useCallback(
     (tabId: string, splitId: string, index: number, ratio: number) => {
       setTabs((prev) =>
@@ -6147,9 +6184,9 @@ export function useWorkspaceController({
             entry.id === owner.id &&
             (!ownerSessionId || leafIds(entry.layout).includes(ownerSessionId))
               ? openEditorTab(
-                  { ...entry, surfaceMode: entry.surfaceMode ?? initialMode },
+                  openFileExplorer({ ...entry, surfaceMode: entry.surfaceMode ?? initialMode }, fileCwd, fileProjectCwd),
                   file,
-                  { split: "right", pin: !!options?.pin },
+                  { split: "right", pin: !!options?.pin || !loadEditorPreferences().previewTabs },
                 )
               : entry,
           ),
@@ -6173,6 +6210,26 @@ export function useWorkspaceController({
     },
     [ensureContentTab],
   );
+
+  const onShowFileExplorer = useCallback((cwd: string, executionCwd?: string, sessionId?: string) => {
+    if (!cwd || cwd === "~") return;
+    const owner = sessionId
+      ? tabsRef.current.find((tab) => leafIds(tab.layout).includes(sessionId))
+      : ensureContentTab(cwd);
+    if (!owner) return;
+    if (sessionId) activateTab(owner.id, sessionId);
+    const workingCwd = executionCwd ?? (sameProjectPath(cwd, sidebarCwdRef.current) ? gitCwdRef.current : cwd);
+    setTabs((current) => current.map((tab) => tab.id === owner.id
+      ? openFileExplorer({ ...tab, surfaceMode: "split" }, workingCwd, cwd)
+      : tab));
+    setComposerFocused(false);
+  }, [ensureContentTab, activateTab]);
+  showFileExplorerRef.current = onShowFileExplorer;
+  useEffect(() => {
+    if (sidebarTab !== "files") return;
+    onShowFileExplorer(sidebarCwd);
+    setSidebarTab("sessions");
+  }, [sidebarTab, sidebarCwd, onShowFileExplorer, setSidebarTab]);
 
   const onOpenFile = useCallback<OpenFileFn>(
     (path, navigation, options) => {
@@ -11253,21 +11310,18 @@ export function useWorkspaceController({
       terminalAvailable: isLocalProject(projectCwd),
       terminalOpen: dockVisible,
       toggleTerminal: onToggleProjectTerminal,
-      filesSessionId:
-        sidebarTab === "files" && active && sameProjectPath(sidebarCwd, active.cwd)
-          ? active.id
-          : undefined,
+      filesSessionId: activeTab?.editorPanes.some((pane) => pane.files.some((file) => file.explorer))
+        ? active?.id : undefined,
       toggleFiles: (sessionId) => {
-        const session = sessionsRef.current.find(
-          (entry) => entry.id === sessionId,
-        );
+        const session = sessionsRef.current.find((entry) => entry.id === sessionId);
         if (!session?.cwd || session.cwd === "~") return;
-        const close =
-          sidebarTab === "files" && active?.id === sessionId &&
-          sameProjectPath(sidebarCwd, session.cwd);
-        onFocusPane(sessionId);
-        setSidebarTab(close ? "sessions" : "files", session.cwd);
-        if (!close) setFilesSearchOpen(false);
+        const owner = tabsRef.current.find((tab) => leafIds(tab.layout).includes(sessionId));
+        const pane = owner?.editorPanes.find((entry) => entry.files.some((file) => file.explorer));
+        if (pane) onClosePane(pane.id);
+        else {
+          onShowFileExplorer(session.cwd, sessionWorkCwd(session), sessionId);
+          setFilesSearchOpen(false);
+        }
       },
       selectProviderAccount: onSelectProviderAccount,
       manageProviderAccounts: () =>
@@ -11284,6 +11338,9 @@ export function useWorkspaceController({
     }),
     [
       changesPaneFiles,
+      activeTab,
+      onClosePane,
+      onShowFileExplorer,
       active?.id,
       sidebarTab,
       sidebarCwd,
@@ -11662,6 +11719,7 @@ export function useWorkspaceController({
     onRailBack,
     onRailForward,
     onRatio,
+    onFitPaneLayout,
     onRemoteSessionDeleted,
     onRemoveProject,
     onRenameHistorySession,

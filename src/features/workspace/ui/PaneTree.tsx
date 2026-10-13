@@ -1,3 +1,4 @@
+import { fitToolLayout } from "../model/fitToolLayout";
 import { beginPaneResize } from "../../../shared/lib/paneResize";
 import { motion, useAnimationControls, type TargetAndTransition } from "motion/react";
 import { panelTransition, immediateTransition, motionDistance } from "../../../shared/motion/tokens";
@@ -15,6 +16,7 @@ import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import { setGrabbing, suppressTextSelection } from "../../../shared/lib/drag";
 import { ResizeHandle } from "../../../shared/ui/ResizeHandle";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
@@ -34,7 +36,7 @@ import type {
   ApprovalDecision,
   UserQuestionReply,
 } from "../../../integrations/harness";
-import type { EditorNavigationTarget } from "../../search/model/search";
+import type { EditorNavigationTarget, OpenFileFn } from "../../search/model/search";
 import {
   isTerminalTab,
   layoutLeaves,
@@ -87,6 +89,7 @@ type Shared = {
   focusedId: string;
   surfaceMode?: SessionSurfaceMode;
   windowControls?: ReactNode;
+  sessionHeaderHost?: HTMLElement | null;
   reserveWindowNavigationSpace?: boolean;
   addToChatSessionId?: string;
   composerFocused: boolean;
@@ -103,6 +106,7 @@ type Shared = {
   onFileDirtyChange: (fileId: string, dirty: boolean) => void;
   onFileErrorCountChange: (fileId: string, count: number) => void;
   onRatio: (splitId: string, index: number, ratio: number) => void;
+  onFitLayout?: (previous: LayoutNode, next: LayoutNode) => void;
   onCwdChange: (sessionId: string, cwd: string) => void;
   onBranchChange: (sessionId: string) => void;
   onWorktreeChange?: (sessionId: string, tree: Worktree) => Promise<void>;
@@ -165,7 +169,12 @@ type Shared = {
     reply: UserQuestionReply,
   ) => void;
   onQuestionInteraction?: (sessionId: string, requestId: number) => void;
-  onOpenFile: (path: string) => void;
+  onOpenFile: OpenFileFn;
+  onOpenFileTerminal?: (cwd: string) => void;
+  onFileMoved?: (from: string, to: string) => void;
+  onFileDeleted?: (path: string) => void;
+  filesSearchOpen?: boolean;
+  onFilesSearchOpenChange?: (open: boolean) => void;
   onOpenSessionFile?: (path: string, sessionId: string) => void;
   editorNavigation?: EditorNavigationTarget | null;
   onOpenDiff: (
@@ -237,6 +246,7 @@ function PaneTreeComponent({
   focusedId,
   surfaceMode = "split",
   windowControls,
+  sessionHeaderHost,
   reserveWindowNavigationSpace = false,
   addToChatSessionId,
   composerFocused,
@@ -254,6 +264,7 @@ function PaneTreeComponent({
   onFileDirtyChange,
   onFileErrorCountChange,
   onRatio,
+  onFitLayout,
   onCwdChange,
   onBranchChange,
   onWorktreeChange,
@@ -288,6 +299,11 @@ function PaneTreeComponent({
   onQuestionReply,
   onQuestionInteraction,
   onOpenFile,
+  onOpenFileTerminal,
+  onFileMoved,
+  onFileDeleted,
+  filesSearchOpen,
+  onFilesSearchOpenChange,
   onOpenSessionFile,
   editorNavigation,
   onOpenDiff,
@@ -472,9 +488,10 @@ function PaneTreeComponent({
   const unified = requestedUnified && shownUnified;
   const fullViewMotion = requestedUnified && !shownUnified;
   // A lone chat, or full view, owns a full-width top bar (title, tools,
-  // window controls). With documents beside it in split view, each column
-  // carries its own header on the same top row.
-  const ownerTopBar = hasOwnerSession && (unified || !inSplit);
+  // window controls). The shell can lift a single chat's header into its title
+  // row; otherwise split columns keep their own headers.
+  const promoteHeader = !!sessionHeaderHost && visible && hasOwnerSession && !unified;
+  const ownerTopBar = hasOwnerSession && (unified || !inSplit || promoteHeader);
   // Split view draws every column as a card on a tinted gutter, each with its
   // own header: chats side by side, and a chat beside its documents.
   const paneCards = inSplit && !unified;
@@ -501,6 +518,30 @@ function PaneTreeComponent({
         : leaves.some((leaf) => leaf.id === maximizedId)
           ? (maximizedId ?? undefined)
           : undefined;
+  const fitCallback = useRef(onFitLayout);
+  fitCallback.current = onFitLayout;
+  const fittedSize = useRef("");
+  useLayoutEffect(() => {
+    const container = treeRef.current;
+    if (!container || !visible || !ownerSession || requestedUnified || maximized || !fitCallback.current) return;
+    const fit = () => {
+      const width = container.clientWidth;
+      if (width <= 0 || draft.current) return;
+      // Sash edits keep the user's ratios; refit only for new panes or a new available width.
+      const key = `${Math.round(width)}:${ownerSession.id}:${layoutLeaves(layout).map(pane => pane.id).sort().join(",")}`;
+      if (key === fittedSize.current) return;
+      fittedSize.current = key;
+      const styles = getComputedStyle(container);
+      const chatMinimum = parseFloat(styles.getPropertyValue("--desktop-conversation-min-width")) || 420;
+      const next = fitToolLayout(layout, ownerSession.id, width, chatMinimum);
+      if (next !== layout) fitCallback.current?.(layout, next);
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [layout, visible, ownerSession?.id, requestedUnified, maximized]);
+
   // The card that was maximized before full view was requested, if any.
   const fullViewTarget = useRef<string | undefined>(undefined);
   if (!fullViewMotion) fullViewTarget.current = maximized;
@@ -782,21 +823,23 @@ function PaneTreeComponent({
     ],
   );
 
+  const ownerHeader = ownerTopBar && ownerSession ? (
+    <SurfaceVisibilityContext.Provider value={parentVisible && visible}>
+      <SessionSurfaceToolbar
+        {...toolbarProps}
+        session={ownerSession}
+        showTools={unified}
+        onPaneDragStart={
+          inSplit && !unified ? paneDragStartFor(ownerSession.id) : undefined
+        }
+        onClosePane={() => onClose(ownerSession.id)}
+      />
+    </SurfaceVisibilityContext.Provider>
+  ) : null;
+
   return (
     <div className="relative flex h-full min-h-0 min-w-0 flex-col">
-      {ownerTopBar && ownerSession ? (
-        <SurfaceVisibilityContext.Provider value={parentVisible && visible}>
-          <SessionSurfaceToolbar
-            {...toolbarProps}
-            session={ownerSession}
-            showTools={unified}
-            onPaneDragStart={
-              inSplit && !unified ? paneDragStartFor(ownerSession.id) : undefined
-            }
-            onClosePane={() => onClose(ownerSession.id)}
-          />
-        </SurfaceVisibilityContext.Provider>
-      ) : null}
+      {promoteHeader ? createPortal(ownerHeader, sessionHeaderHost) : ownerHeader}
       <motion.div
         layout
         initial={false}
@@ -806,6 +849,7 @@ function PaneTreeComponent({
         onAnimationComplete={finishGridMotion}
         ref={treeRef}
         data-pane-tree-layout
+        data-chat-overlap={ownerSession && !unified ? "" : undefined}
         data-surface-mode={unified ? "unified" : "split"}
         data-pane-cards={paneCards ? "" : undefined}
         className={`relative min-h-0 min-w-0 flex-1 ${surfaceGrid ? "animated-collapse-size grid" : ""} ${paneCards ? "pane-card-gutter" : ""}`}
@@ -833,6 +877,11 @@ function PaneTreeComponent({
             <SessionSurfacePane
               key={leaf.id}
               id={leaf.id}
+              chatEdge={
+                session && hasOwnerSession
+                  ? leaf.rect.x < PANE_BOUNDARY_EPSILON ? "left" : "right"
+                  : undefined
+              }
               grid={!!surfaceGrid}
               expanded={expanded}
               visible={visible}
@@ -931,6 +980,12 @@ function PaneTreeComponent({
                       onReorderFiles={onReorderFiles}
                       onDirtyChange={onFileDirtyChange}
                       onErrorCountChange={onFileErrorCountChange}
+                      onClosePane={onClose}
+                      onOpenTerminal={onOpenFileTerminal}
+                      onFileMoved={onFileMoved}
+                      onFileDeleted={onFileDeleted}
+                      filesSearchOpen={filesSearchOpen}
+                      onFilesSearchOpenChange={onFilesSearchOpenChange}
                       onOpenFile={onOpenFile}
                       onUpdatePlan={onUpdatePlan}
                       onBuildPlan={onBuildPlan}

@@ -61,7 +61,7 @@ html[data-skin] [data-ui="navigation-item"][data-compact] [data-ui="navigation-i
   height: 20px;
 }
 html[data-skin][data-desktop-mode="chat"] [data-ui="response-actions"] {
-  padding: 6px 12px 20px;
+  padding: 6px 16px 20px;
 }
 
 html[data-skin] [data-ui="app-surface"] > [data-ui="app-skeleton"] {

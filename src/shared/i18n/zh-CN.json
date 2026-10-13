@@ -1,4 +1,6 @@
 {
+  "File path": "文件路径",
+  "Hidden folders": "已省略的目录",
   "Main menu": "主菜单",
   "Theme, typography, translucency, workspace layout, and conversation backgrounds.": "主题、字体、半透明效果、工作区布局与对话背景。",
   "Dark and light share the same typography and accent settings.": "浅色和深色模式共用字体与强调色设置。",
@@ -141,9 +143,6 @@
   "Help: Report a Bug": "帮助：报告问题",
   "Help: Request a Feature": "帮助：提出功能建议",
   "Go": "转到",
-  "Menu bar": "菜单栏",
-  "Show menu bar": "显示菜单栏",
-  "Keep File, Edit, View, Go, Terminal and Help visible above the title bar. When off, tap Alt to show it.": "在标题栏上方始终显示文件、编辑、视图、转到、终端和帮助菜单。关闭后，单按 Alt 键即可显示。",
   "Skills and commands": "技能与命令",
   "Search skills and commands": "搜索技能与命令",
   "Loading skills and commands…": "正在加载技能与命令…",
@@ -3982,5 +3981,17 @@
   "{value}h": "{value} 小时",
   "in {amount}": "{amount}后",
   "{value}m": "{value} 分钟",
-  "soon": "即将"
+  "soon": "即将",
+  "Show file tree": "显示文件树",
+  "Preview tabs": "预览标签页",
+  "Word wrap": "自动换行",
+  "Indent guides": "缩进参考线",
+  "Show whitespace": "显示空白字符",
+  "Scroll past end": "滚动超过末尾",
+  "Tab size": "制表符宽度",
+  "Editor options": "编辑器选项",
+  "Filter files...": "筛选文件…",
+  "Resize file tree": "调整文件树宽度",
+  "Close tabs with unsaved files?": "关闭包含未保存文件的标签页？",
+  "Back to file tree": "返回文件树"
 }

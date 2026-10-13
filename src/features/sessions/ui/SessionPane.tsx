@@ -114,7 +114,6 @@ import {
 } from "../model/questionHistory";
 import type { QuestionAnswer } from "../model/userQuestion";
 import { QuestionHistoryForm } from "./QuestionHistoryForm";
-import { TranscriptPlatformContext } from "./TranscriptPlatform";
 import {
   IMPLEMENT_PLAN_PROMPT,
   skipPlanDecision,
@@ -499,18 +498,11 @@ const LocalSessionPane = memo(function LocalSessionPane({
     });
   const pendingQuestionId = useRef(session.pendingQuestion?.historyId);
   pendingQuestionId.current = session.pendingQuestion?.historyId;
-  const parentTranscriptPlatform = useContext(TranscriptPlatformContext);
-  const transcriptPlatform = useMemo(
-    () => ({
-      ...parentTranscriptPlatform,
-      // The live question is already docked in the composer.
-      openQuestion: (blockId: string) => {
-        if (blockId !== pendingQuestionId.current)
-          setOpenQuestionId(blockId);
-      },
-    }),
-    [parentTranscriptPlatform],
-  );
+  const openQuestion = useCallback((blockId: string) => {
+    // The live question is already docked in the composer.
+    if (blockId !== pendingQuestionId.current)
+      setOpenQuestionId(blockId);
+  }, []);
   const jumpToBottomRef = useRef<(() => void) | null>(null);
   const transcriptScope = useRef<HTMLDivElement>(null);
   // Workspace commands already route remote:// paths to their owning Host.
@@ -961,6 +953,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
       <div className="desktop-conversation-body @container relative flex min-h-0 min-w-0 flex-1 flex-col">
         <div
           ref={transcriptScope}
+          data-transcript-viewport={!isEmpty && !remoteSessionLoading || undefined}
           className="@container relative min-h-0 flex-1"
         >
           <AnimatePresence>{visible && focused && !session.inboxAsk ? (
@@ -1039,13 +1032,13 @@ const LocalSessionPane = memo(function LocalSessionPane({
                 sessionId={session.id}
                 onMouseDown={focusPane}
               >
-                <TranscriptPlatformContext.Provider value={transcriptPlatform}>
                 <AgentTranscript
                   clockOffsetMs={clockOffsetMs}
                   blocks={session.blocks}
                   historyEntries={transcriptHistory}
                   animateFrom={animateFrom}
                   onOpenAgent={openSubagent}
+                  onOpenQuestion={openQuestion}
                   // No working clock until the worktree exists and the agent has the message.
                   busy={
                     !!session.busy &&
@@ -1150,7 +1143,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
                     )
                   }
                 />
-                </TranscriptPlatformContext.Provider>
               </PooledTranscript>
               {!session.inboxAsk ? (
                 <TranscriptFind

@@ -37,6 +37,7 @@ import {
   openChangesTab,
   openCommitTab,
   openEditorTab,
+  openFileExplorer,
   openAppViewTab,
   openSessionAppView,
   openSessionChangesTab,
@@ -892,5 +893,29 @@ describe("placePane", () => {
     const tree = leaf("a");
     expect(placePane(tree, "b", "missing", "right")).toBe(tree);
     expect(placePane(tree, "a", "a", "right")).toBe(tree);
+  });
+});
+
+
+describe("file explorer panes", () => {
+  it("keeps the browser and its file previews separate from changes and virtual documents", () => {
+    const initial = openFileExplorer(newTab("chat"), "/repo");
+    const explorerId = initial.focusedId;
+    const browser = initial.editorPanes[0].files[0];
+    expect(isFilesystemTab(browser)).toBe(false);
+    expect(isPreviewableTab(browser)).toBe(false);
+    const first = openEditorTab(initial, newFileTab("/repo/a.ts", "/repo"));
+    const second = openEditorTab(first, newFileTab("/repo/b.ts", "/repo"));
+    expect(second.focusedId).toBe(explorerId);
+    expect(second.editorPanes[0].files.map(file => file.path)).toEqual(["/repo", "/repo/b.ts"]);
+    const review = openChangesTab(second, "/repo");
+    expect(review.focusedId).not.toBe(explorerId);
+    expect(review.editorPanes.find(pane => pane.id === explorerId)).toEqual(second.editorPanes[0]);
+    const reopened = openFileExplorer(review, "/repo");
+    expect(reopened.focusedId).toBe(explorerId);
+    expect(reopened.editorPanes).toHaveLength(2);
+    const other = openFileExplorer(reopened, "/other");
+    expect(other.focusedId).not.toBe(explorerId);
+    expect(other.editorPanes).toHaveLength(3);
   });
 });

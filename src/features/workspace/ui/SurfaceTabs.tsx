@@ -128,6 +128,10 @@ export function surfaceTabMenuItems(
 export function surfaceTabPresentation(
   file: FilePaneTab,
 ): SurfaceTabPresentation {
+  if (file.explorer) {
+    const title = translateUi("Files");
+    return { name: title, label: title, iconName: "FOLDER", tooltip: file.cwd };
+  }
   if (isAppViewTab(file)) {
     const title = translateUi(appViewTitle(file.appView.kind));
     return {
@@ -310,12 +314,14 @@ export function SurfaceTabs({
     <div data-surface-tab-strip className="flex h-10 min-w-0 shrink-0 border-b border-stroke/50">
       <div
         ref={lockOverscroll}
+        data-surface-tab-list
         role="tablist"
         aria-label={label}
         className="scrollbar-none flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto overscroll-none pl-1.5 pr-2.5"
       >
         {onPaneDragStart ? (
           <div
+            data-surface-pane-drag
             role="button"
             title={uiT("Drag to reorder pane")}
             aria-label={uiT("Drag to reorder pane")}
@@ -355,8 +361,8 @@ export function SurfaceTabs({
               }}
               className={
                 closing || opening
-                  ? "tab-motion group relative flex h-full w-full min-w-0 overflow-hidden items-center"
-                  : "reorder-item tab-motion group relative flex h-full w-56 min-w-28 shrink touch-none items-center"
+                  ? "tab-motion group group/tab relative flex h-full w-full min-w-0 overflow-hidden items-center"
+                  : "reorder-item tab-motion group group/tab relative flex h-full w-56 min-w-28 shrink touch-none items-center"
               }
               data-tab-slot-id={closing ? undefined : file.id}
               data-file-tab-id={closing ? undefined : file.id}
@@ -399,6 +405,7 @@ export function SurfaceTabs({
               <button
                 type="button"
                 role="tab"
+                data-closable
                 aria-selected={active}
                 title={appendProblems(tooltip, errors)}
                 onClick={() => {
@@ -453,9 +460,7 @@ export function SurfaceTabs({
                   event.stopPropagation();
                   onCloseFile(file.id);
                 }}
-                className={`absolute right-1 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded text-content/50 hover:bg-content/6 hover:text-content ${
-                  active ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                }`}
+                className="pointer-events-none absolute right-1 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded text-content/50 opacity-0 hover:bg-content/6 hover:text-content group-hover/tab:pointer-events-auto group-hover/tab:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
               >
                 <X className="size-3" />
               </button>

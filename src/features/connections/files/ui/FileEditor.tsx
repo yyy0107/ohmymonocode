@@ -1,3 +1,6 @@
+import { IconButton } from "../../../../shared/ui/forms/IconButton";
+import { editorPreferenceExtensions } from "../editor/editorPreferences";
+import { subscribeEditorPreferences } from "../model/editorPreferences";
 import { PresenceBoundary } from "../../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../../shared/i18n/useTranslation";
 import { acceptCompletion, completionStatus } from "@codemirror/autocomplete";
@@ -30,6 +33,8 @@ import {
 } from "@codemirror/view";
 import {
   AlertCircle,
+  Code,
+  Eye,
   ChevronDown,
   ChevronUp,
   RotateCcw,
@@ -97,6 +102,7 @@ import { editorLint } from "../editor/editorLint";
 import { editorSearch } from "../editor/editorSearch";
 import { editorScrollbar } from "../editor/editorScrollbar";
 import { FilePreviewSearch } from "./FilePreviewSearch";
+import { FileBreadcrumb } from "./FileBreadcrumb";
 import { claimEditorResource, type EditorResource } from "../model/editorResource";
 
 type EditorNavigationRequest = EditorNavigation & { token: number };
@@ -105,12 +111,14 @@ export const FILE_EDITOR_AUTOSAVE_DELAY_MS = 1_000;
 
 const editorScheme = new Compartment();
 const editorGitConfig = new Compartment();
+const editorPreferences = new Compartment();
 
 type Props = {
   path: string;
   cwd: string;
   active: boolean;
   showDiff?: boolean;
+  showPathHeader?: boolean;
   navigation?: EditorNavigationRequest | null;
   onDirtyChange: (path: string, dirty: boolean) => void;
   onErrorCountChange?: (path: string, count: number) => void;
@@ -131,6 +139,7 @@ export function FileEditor({
   cwd,
   active,
   showDiff = false,
+  showPathHeader = false,
   navigation,
   onDirtyChange,
   onErrorCountChange,
@@ -468,6 +477,9 @@ export function FileEditor({
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
+      {showPathHeader ? <FileBreadcrumb path={path} cwd={cwd} onOpenFile={onOpenFile}>
+        {markdown || svg ? <IconButton size="sm" label={uiT(mode === "preview" ? "Source" : "Preview")} onClick={() => setMode(mode === "preview" ? "source" : "preview")}>{mode === "preview" ? <Code /> : <Eye />}</IconButton> : null}
+      </FileBreadcrumb> : null}
       {showDiff && gitDiff?.eolOnly && (
         <p
           role="status"
@@ -479,6 +491,7 @@ export function FileEditor({
       )}
       {markdown || svg ? (
         <MarkdownViewShell
+          showToggle={!showPathHeader}
           mode={mode}
           onModeChange={setMode}
           preview={
@@ -542,10 +555,7 @@ export function FileEditor({
           }
         />
       )}
-      <footer className="flex h-6 shrink-0 items-center border-t border-stroke px-2.5 font-mono text-[10.5px] text-content/40">
-        <span className="min-w-0 flex-1 truncate" title={path}>
-          {relativePath}
-        </span>
+      {saveState.status !== "idle" ? <footer className="flex h-6 shrink-0 items-center justify-end border-t border-stroke px-2.5 font-mono text-[10.5px] text-content/40">
         {saveState.status === "saving" ? (
           <span>{uiT("Saving…")}</span>
         ) : saveState.status === "saved" ? (
@@ -559,7 +569,7 @@ export function FileEditor({
             {saveState.message}
           </span>
         ) : null}
-      </footer>
+      </footer> : null}
     </div>
   );
 }
@@ -797,7 +807,7 @@ export function CodeMirrorEditor({
         foldGutter(),
         highlightActiveLine(),
         highlightActiveLineGutter(),
-        EditorView.lineWrapping,
+        editorPreferences.of(editorPreferenceExtensions()),
         wrappedLineIndent,
         language.of([]),
         editorScheme.of(schemeExtensions(isLightScheme() ? "light" : "dark")),
@@ -865,6 +875,9 @@ export function CodeMirrorEditor({
           : [],
       ],
     });
+    const unsubscribePreferences = subscribeEditorPreferences(() => {
+      view.dispatch({ effects: editorPreferences.reconfigure(editorPreferenceExtensions()) });
+    });
     savedDocumentRef.current = view.state.doc;
     dirtyRef.current = false;
     viewRef.current = view;
@@ -892,6 +905,7 @@ export function CodeMirrorEditor({
 
     return () => {
       disposed = true;
+      unsubscribePreferences();
       window.clearTimeout(autosaveTimer);
       onErrorCountChangeRef.current(0);
       lockOverscroll(null);
@@ -1219,6 +1233,9 @@ const wrappedLineIndent = StateField.define<DecorationSet>({
     );
   },
   update(decorations, transaction) {
+    if (transaction.startState.tabSize !== transaction.state.tabSize) {
+      return Decoration.set(indentDecorations(transaction.state, [{ from: 0, to: transaction.state.doc.length }]));
+    }
     if (!transaction.docChanged) return decorations;
     const ranges: LineRange[] = [];
     transaction.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {

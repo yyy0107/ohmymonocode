@@ -110,15 +110,6 @@ html[data-skin] .approval-toast [data-approval="allow"] {
   order: 2;
 }
 
-html[data-skin] [data-composer-layout="desktop"] .composer-stop {
-  background: var(--color-ink);
-  color: var(--color-app);
-}
-
-html[data-skin] [data-composer-layout="desktop"] .composer-stop:hover {
-  background: color-mix(in srgb, var(--color-ink) 85%, var(--color-app));
-}
-
 html[data-skin] [data-empty-state] > p {
   color: var(--color-ink-tertiary);
 }
@@ -417,7 +408,7 @@ html[data-skin][data-desktop-mode] .desktop-session-pane {
 html[data-skin][data-desktop-mode] .desktop-composer-dock {
   width: calc(100% - var(--desktop-conversation-inset) * 2);
   max-width: calc(var(--desktop-conversation-width) + 32px);
-  padding-bottom: 24px;
+  padding-bottom: 8px;
 }
 
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] {
@@ -444,11 +435,6 @@ html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] [data
     box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] [data-ui="message-input"]:focus-within {
-  border-color: var(--color-focus);
-  box-shadow: var(--desktop-shadow-composer), 0 0 0 1px var(--color-focus);
-}
-
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] :is(.composer-field, .composer-highlight) {
   display: block;
   min-height: 43px;
@@ -459,7 +445,13 @@ html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] :is(.compose
   line-height: 22px;
 }
 
+/* Match the empty field's font metrics so the smaller hint stays centered. */
+html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-field:placeholder-shown {
+  font-size: 13px;
+}
+
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-field::placeholder {
+  font-size: 13px;
   color: var(--color-foreground-subtlest);
   -webkit-text-fill-color: var(--color-foreground-subtlest);
 }
@@ -544,8 +536,7 @@ html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-wo
   padding-left: 24px !important;
 }
 
-html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-footer > div:first-child > button,
-html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] :is(.composer-send, .composer-stop) {
+html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-footer > div:first-child > button {
   width: 32px;
   min-width: 32px;
   height: 32px;
@@ -560,15 +551,20 @@ html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-fo
 }
 
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] :is(.composer-send, .composer-stop) {
-  border-color: transparent;
-  background: var(--color-accent);
-  color: var(--color-accent-ink);
-  border: var(--desktop-border) solid var(--color-accent-border);
-  box-shadow: var(--desktop-shadow-card);
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  min-height: 26px;
+  margin: 0;
+  border-radius: 8px;
+  border: var(--desktop-border) solid transparent;
+  background: transparent;
+  color: var(--color-content);
+  box-shadow: none;
 }
 
-html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] :is(.composer-send, .composer-stop):hover {
-  background: color-mix(in srgb, var(--color-accent) 90%, var(--color-ink));
+html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] :is(.composer-send, .composer-stop):not(:disabled):is(:hover, :focus-visible) {
+  background: var(--color-control);
 }
 
 html[data-skin][data-desktop-mode="chat"] [data-composer-layout="desktop"] :is(.composer-plus, .composer-send) > svg {
@@ -611,6 +607,46 @@ html[data-skin][data-desktop-mode="chat"] [data-empty-title] {
   text-wrap: balance;
 }
 
+/* Keep the reading boundaries fixed while the transcript scrolls underneath. */
+html[data-skin][data-desktop-mode] [data-transcript-viewport] .agent-transcript {
+  /* Fade the content itself so the boundary remains visible even when the
+     WebView cannot sample the scrolling layer for backdrop blur. */
+  --transcript-edge-mask: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--desktop-transcript-edge-height),
+    #000 calc(100% - var(--desktop-transcript-edge-height)),
+    transparent
+  );
+  -webkit-mask-image: var(--transcript-edge-mask);
+  mask-image: var(--transcript-edge-mask);
+}
+
+html[data-skin][data-desktop-mode] [data-transcript-viewport]::before,
+html[data-skin][data-desktop-mode] [data-transcript-viewport]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  height: var(--desktop-transcript-edge-height);
+  z-index: 2;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--color-app) 12%, transparent);
+  -webkit-backdrop-filter: blur(var(--desktop-transcript-edge-blur));
+  backdrop-filter: blur(var(--desktop-transcript-edge-blur));
+}
+
+html[data-skin][data-desktop-mode] [data-transcript-viewport]::before {
+  top: 0;
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent);
+  mask-image: linear-gradient(to bottom, #000, transparent);
+}
+
+html[data-skin][data-desktop-mode] [data-transcript-viewport]::after {
+  bottom: 0;
+  -webkit-mask-image: linear-gradient(to top, #000, transparent);
+  mask-image: linear-gradient(to top, #000, transparent);
+}
+
 html[data-skin][data-desktop-mode] .desktop-transcript-content {
   width: calc(100% - var(--desktop-conversation-inset) * 2);
   max-width: var(--desktop-conversation-width);
@@ -627,14 +663,45 @@ html[data-skin][data-desktop-mode] .agent-transcript {
 
 html[data-skin][data-desktop-mode] [data-assistant-message],
 html[data-skin][data-desktop-mode] .desktop-activity-phases,
-html[data-skin][data-desktop-mode] .desktop-work-fold-line {
+html[data-skin][data-desktop-mode] .desktop-work-fold-line,
+html[data-skin][data-desktop-mode] [data-live-footer],
+html[data-skin][data-desktop-mode] [data-ui="response-actions"],
+html[data-skin][data-desktop-mode] .user-message-actions {
   padding-inline: 0;
+}
+
+/* Align button boundaries with the message edge and keep timestamps clear. */
+html[data-skin][data-desktop-mode] [data-ui="response-actions"] [data-ui="response-action"],
+html[data-skin][data-desktop-mode] .user-message-actions [data-ui="response-action"] {
+  margin-inline: 0;
 }
 
 /* Desktop rows share the content edge; the rail follows the 14px fold icon.
    Keep the opened work's 20px branch inset clear of the connector. */
 html[data-skin][data-desktop-mode] .transcript-turn {
   --transcript-rail-left: 7px;
+}
+
+/* Keep the row's space so revealing actions does not move the conversation. */
+@media (hover: hover) and (pointer: fine) {
+  html[data-skin][data-desktop-mode] .transcript-turn:not([data-latest-assistant-turn]) [data-ui="response-actions"] {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  html[data-skin][data-desktop-mode] .transcript-turn:not([data-latest-assistant-turn]):is(:hover, :focus-within) [data-ui="response-actions"],
+  html[data-skin][data-desktop-mode] .transcript-turn:not([data-latest-assistant-turn]) [data-ui="response-actions"]:has([aria-expanded="true"]) {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  html[data-skin][data-desktop-mode] .user-message-actions {
+    pointer-events: none;
+  }
+
+  html[data-skin][data-desktop-mode] .user-message-row:is(:hover, :focus-within) .user-message-actions {
+    pointer-events: auto;
+  }
 }
 
 html[data-skin][data-desktop-mode="chat"] [data-assistant-message] .agent-markdown {
@@ -646,8 +713,16 @@ html[data-skin][data-desktop-mode="chat"] [data-assistant-message] .agent-markdo
 
 html[data-skin][data-desktop-mode] .user-message-row {
   padding-right: 0;
-  padding-left: min(80px, 10%);
+  padding-left: 0;
   padding-bottom: 24px;
+}
+
+html[data-skin][data-desktop-mode] .user-message-hover-zone {
+  max-width: min(80%, 640px);
+}
+
+html[data-skin][data-desktop-mode] .user-message-bubble {
+  max-width: 100%;
 }
 
 html[data-skin][data-desktop-mode] .user-message-bubble:not([data-draft="true"]) {
@@ -655,7 +730,6 @@ html[data-skin][data-desktop-mode] .user-message-bubble:not([data-draft="true"])
   border-radius: var(--desktop-radius-bubble);
   background: var(--color-bubble-user);
   color: var(--color-bubble-user-ink);
-  max-width: 640px;
 }
 
 html[data-skin][data-desktop-mode="chat"] .user-message-bubble {
@@ -669,11 +743,39 @@ html[data-skin][data-desktop-mode="chat"] .user-message-bubble :is(pre[data-sele
   line-height: 22px;
 }
 
+/* Keep the conversation readable while sibling tools cover its excess width.
+   Grid tracks still shrink to zero for maximize/full-view transitions. */
+html[data-skin][data-desktop-mode] [data-pane-tree-layout][data-chat-overlap] {
+  container-type: inline-size;
+  isolation: isolate;
+  overflow: clip;
+}
+
+html[data-skin][data-desktop-mode] [data-chat-overlap] > [data-pane-chat-edge][aria-hidden="false"] {
+  width: 100%;
+  min-width: min(var(--desktop-conversation-min-width), 100cqw);
+  justify-self: start;
+  z-index: 0;
+}
+
+html[data-skin][data-desktop-mode] [data-chat-overlap] > [data-pane-chat-edge="right"][aria-hidden="false"] {
+  justify-self: end;
+}
+
+html[data-skin][data-desktop-mode] [data-chat-overlap] > [data-pane-id]:not([data-pane-chat-edge]) {
+  z-index: 1;
+}
+
 /* Code retains real split/resize/PTY geometry; only frame insets change. */
 html[data-skin][data-desktop-mode="code"] .pane-card {
   border-radius: var(--desktop-radius-card);
   background: var(--color-card);
   border: var(--desktop-border) solid var(--color-composer-ring);
+}
+
+/* A single conversation stays borderless even beside file or terminal cards. */
+html[data-skin][data-desktop-mode="code"] [data-pane-chat-edge] > div > [data-pane-card-frame] {
+  border: 0;
 }
 
 html[data-skin][data-desktop-mode="code"] [data-workspace-tab] > .pane-card,
@@ -715,6 +817,11 @@ html[data-skin][data-desktop-mode] [data-surface-tab-strip] .surface-tab {
   line-height: 1.4615384615;
 }
 
+/* Keep title suffixes clear of the absolutely positioned close button. */
+html[data-skin][data-desktop-mode] [data-surface-tab-strip] .surface-tab[data-closable] {
+  padding-right: 28px;
+}
+
 html[data-skin][data-desktop-mode] [data-session-surface-tabs] :is([data-session-tool-toggle], [data-session-overflow-menu]) {
   width: 26px;
   height: 26px;
@@ -730,7 +837,6 @@ html[data-skin][data-desktop-mode="code"] [data-assistant-message] .agent-markdo
 
 html[data-skin][data-desktop-mode="code"] .user-message-bubble,
 html[data-skin][data-desktop-mode="code"] .user-message-bubble:not([data-draft="true"]) {
-  max-width: 640px;
   padding: 12px 16px 12px 12px;
   border-radius: var(--desktop-radius-bubble);
   font-size: 16px;
@@ -749,17 +855,17 @@ html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] [data
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 6px;
-  padding: 11px 12px;
-  border-radius: var(--desktop-radius-composer);
+  padding: 4px 12px;
+  border-radius: 10px;
   box-shadow: var(--desktop-shadow-composer);
-  min-height: 56px;
+  min-height: 42px;
 }
 
 /* Environment above the input; one independent action row below it. Keeping
  * the retained nodes in place makes mode changes preserve drafts and menus. */
 html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] .composer-surface {
   /* Share the action row's minimum size, including scaled 16px text and padding. */
-  --composer-action-row-height: max(28px, calc(16px * var(--font-scale, 1) + 8px));
+  --composer-action-row-height: max(30px, calc(16px * var(--font-scale, 1) + 10px));
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -785,15 +891,16 @@ html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] :is(.
 
 html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] .composer-footer {
   position: static;
-  min-height: 24px;
+  min-height: 32px;
+  align-items: center;
   padding: 0;
 }
 
 html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] .composer-plus-container {
   position: absolute;
-  left: 0;
-  /* The containing block ends inside the input shell's 1px border. */
-  top: calc(100% + 1px);
+  left: 12px;
+  /* Account for the input border and the action row's 2px downward offset. */
+  top: calc(100% + 3px);
   display: flex;
   align-items: center;
   height: var(--composer-action-row-height);
@@ -814,23 +921,28 @@ html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] .comp
 }
 
 html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] .composer-toolbar {
+  position: relative;
+  top: 2px;
   grid-row: 3;
   grid-column: 1;
   flex: none;
   flex-wrap: nowrap;
   min-height: var(--composer-action-row-height);
-  margin-left: 24px;
+  margin-left: 36px;
   padding: 2px 4px;
   justify-content: space-between;
 }
 
 html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] .composer-context-controls {
+  position: relative;
+  top: 2px;
   grid-row: 3;
   grid-column: 2;
   margin: 0 6px 0 4px;
 }
 
 html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] .composer-environment-badge {
+  font-family: var(--font-sans);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -942,25 +1054,17 @@ html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] .comp
 }
 
 html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] :is(.composer-toolbar button, .composer-footer > div:first-child > button) {
-  min-height: 20px;
+  min-height: 22px;
   height: auto;
-  padding-block: 2px;
+  padding-block: 3px;
   border-radius: 4px;
 }
 
 html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] .composer-footer > div:first-child > button {
-  height: 20px;
+  height: 22px;
   padding: 0;
   width: 20px;
   min-width: 20px;
-}
-
-html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] :is(.composer-send, .composer-stop) {
-  width: 32px;
-  min-width: 32px;
-  height: 32px;
-  min-height: 32px;
-  border-radius: 8px;
 }
 
 html[data-skin][data-desktop-mode="code"] .desktop-empty-content {
@@ -971,6 +1075,11 @@ html[data-skin][data-desktop-mode="code"] .desktop-empty-content {
 
 html[data-skin][data-desktop-mode="code"] .desktop-empty-greeting {
   flex: 1 1 auto;
+}
+
+/* The action row sits 2px below its grid track; align it with sibling cards. */
+html[data-skin][data-desktop-mode="code"] [data-pane-chat-edge] > div > [data-pane-card-frame] :is(.desktop-composer-dock, .desktop-empty-content) {
+  padding-bottom: 2px;
 }
 
 html[data-skin][data-desktop-mode] .project-terminal-card-gutter {
@@ -1078,10 +1187,6 @@ html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] :is(
 
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-send:disabled { opacity: .5; }
 
-html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-send-arrow { display: block; width: 16px; height: 16px; }
+html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-send-arrow { display: none; }
 
-html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-send-return { display: none; }
-
-html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-stop { background: var(--color-ink); color: var(--color-app); border-color: transparent; }
-
-html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-stop:hover { background: var(--color-ink-secondary); }
+html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-send-return { display: block; width: 16px; height: 16px; }

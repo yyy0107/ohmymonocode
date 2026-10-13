@@ -97,7 +97,6 @@ body,
 :is(.mobile-sheet, .mobile-modal, .mobile-notices, .fixed[role="alert"],
   [role="dialog"], [data-popover-side]) {
   --mobile-popup-font-step: 2px;
-  --mobile-popup-stroke-step: 0.25;
   --mobile-popup-line-step: 0.5px;
   --text-xs: calc(0.75rem + var(--mobile-popup-font-step));
   --text-sm: calc(0.875rem + var(--mobile-popup-font-step));
@@ -105,13 +104,6 @@ body,
   --text-lg: calc(1.125rem + var(--mobile-popup-font-step));
   --text-xl: calc(1.25rem + var(--mobile-popup-font-step));
   --text-2xl: calc(1.5rem + var(--mobile-popup-font-step));
-}
-/* Only application chrome carries this marker; preview SVGs keep their strokes. */
-:is(.mobile-sheet, .mobile-modal, .mobile-notices, .fixed[role="alert"],
-  [role="dialog"], [data-popover-side]) svg[data-ui-icon],
-:is(.mobile-sheet, .mobile-modal, .mobile-notices, .fixed[role="alert"],
-  [role="dialog"], [data-popover-side]) svg[data-ui-icon] > [stroke-width] {
-  stroke-width: calc(var(--ui-icon-stroke-width) + var(--mobile-popup-stroke-step));
 }
 /* Shared content uses Tailwind borders. Preserve the popover frame's measured
    border; its glass rim below supplies the extra visual weight. */

@@ -84,6 +84,10 @@ const GIT_STATUS_COLOR: Record<string, string> = {
 
 type Props = {
   cwd: string;
+  compact?: boolean;
+  activePath?: string;
+  /** A transient file picker: local expansion/selection, navigation only. */
+  navigationOnly?: boolean;
   /** Display identity for the root when it differs from the physical folder. */
   rootLabel?: string;
   onOpenFile: OpenFileFn;
@@ -257,6 +261,9 @@ function explorerItems(
 // intact unless file-tree props, local state, or subscriptions actually change.
 export const FileTree = memo(function FileTree({
   cwd,
+  compact = false,
+  activePath,
+  navigationOnly = false,
   rootLabel,
   onOpenFile,
   onOpenTerminal,
@@ -266,8 +273,13 @@ export const FileTree = memo(function FileTree({
   gitStatuses,
 }: Props) {
   const { t: uiT } = useTranslation();
-  const [expanded, setExpanded] = useState(() => loadExpanded(cwd));
-  const [selectedPath, setSelectedPath] = useState(() => loadSelected(cwd));
+  const [expanded, setExpanded] = useState(() => navigationOnly ? new Set([cwd]) : loadExpanded(cwd));
+  const [selectedPath, setSelectedPath] = useState(() => navigationOnly ? activePath ?? null : loadSelected(cwd));
+  useEffect(() => {
+    if (!activePath) return;
+    setSelectedPath(activePath);
+    if (!navigationOnly) saveSelected(cwd, activePath);
+  }, [activePath, cwd, navigationOnly]);
   const [children, setChildren] = useState<FsEntry[] | null>(() =>
     peekDir(cwd),
   );
@@ -291,7 +303,31 @@ export const FileTree = memo(function FileTree({
   const rootRef = useRef<HTMLDivElement>(null);
   const lockOverscroll = useLockOverscroll<HTMLDivElement>();
   const name = rootLabel?.trim() || basename(cwd);
-  const rootOpen = expanded.has(cwd);
+  const rootOpen = (compact && !navigationOnly) || expanded.has(cwd);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!navigationOnly || !root) return;
+    let done = false;
+    let frame = 0;
+    const focusInitialRow = () => {
+      if (done) return;
+      const rows = Array.from(root.querySelectorAll<HTMLElement>('[role="treeitem"]'));
+      const row = activePath ? rows.find(item => item.title === activePath) : rows[0];
+      if (!row) return;
+      row.focus({ preventScroll: true });
+      row.scrollIntoView?.({ block: "nearest" });
+      done = document.activeElement === row;
+    };
+    const scheduleFocus = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(focusInitialRow);
+    };
+    const observer = new MutationObserver(scheduleFocus);
+    observer.observe(root, { childList: true, subtree: true });
+    scheduleFocus();
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+  }, [navigationOnly, activePath, cwd]);
 
   const toggle = (path: string) => {
     setMenu(null);
@@ -299,21 +335,21 @@ export const FileTree = memo(function FileTree({
       const next = new Set(prev);
       if (next.has(path)) next.delete(path);
       else next.add(path);
-      saveExpanded(cwd, next);
+      if (!navigationOnly) saveExpanded(cwd, next);
       return next;
     });
   };
 
   const onSelect = (path: string) => {
     setSelectedPath(path);
-    saveSelected(cwd, path);
+    if (!navigationOnly) saveSelected(cwd, path);
   };
 
   const onFilePointerDown = (
     path: string,
     event: ReactPointerEvent<HTMLButtonElement>,
   ) => {
-    if (event.button !== 0 || fileDragCleanup.current) return;
+    if (navigationOnly || event.button !== 0 || fileDragCleanup.current) return;
     const handle = event.currentTarget;
     const pointerId = event.pointerId;
     const startX = event.clientX;
@@ -651,6 +687,7 @@ export const FileTree = memo(function FileTree({
   dropFilesRef.current = dropFiles;
 
   const openMenu = (target: MenuTarget, x: number, y: number) => {
+    if (navigationOnly) return;
     setCreating(null);
     setRenaming(null);
     onSelect(target.path);
@@ -873,6 +910,7 @@ export const FileTree = memo(function FileTree({
       e.preventDefault();
       return;
     }
+    if (navigationOnly) return;
     const mod = e.metaKey || e.ctrlKey;
     const key = shortcutLetter(e);
     if (mod && !e.altKey && e.shiftKey && key === "c") {
@@ -931,6 +969,8 @@ export const FileTree = memo(function FileTree({
       return el.closest<HTMLElement>("[role='treeitem']")?.title ?? cwd;
     };
 
+    if (navigationOnly) return;
+
     let cancelled = false;
     let unlisten: (() => void) | undefined;
     void getCurrentWebview()
@@ -957,7 +997,7 @@ export const FileTree = memo(function FileTree({
       cancelled = true;
       unlisten?.();
     };
-  }, [cwd]);
+  }, [cwd, navigationOnly]);
 
   useEffect(() => {
     const unsub = subscribeDirsChanged(() => setEpoch((n) => n + 1));
@@ -1006,6 +1046,45 @@ export const FileTree = memo(function FileTree({
     };
   }, [cwd, epoch]);
 
+  const rootRow = (
+    <div className="flex h-7 shrink-0 items-center">
+      <button
+        type="button"
+        data-explorer-root
+        role={navigationOnly ? "treeitem" : undefined}
+        aria-level={navigationOnly ? 1 : undefined}
+        aria-selected={navigationOnly ? selectedPath === cwd : undefined}
+        aria-expanded={rootOpen}
+        title={cwd}
+        onClick={() => {
+          onSelect(cwd);
+          toggle(cwd);
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openMenu(
+            { path: cwd, isDir: true, isRoot: true },
+            e.clientX,
+            e.clientY,
+          );
+        }}
+        className={`flex min-w-0 flex-1 items-center gap-1 h-full rounded-lg pl-2 text-left outline-none focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-accent/40 hover:bg-surface-hover ${
+          dragOverPath === cwd || (navigationOnly && selectedPath === cwd) ? "bg-selection" : ""
+        }`}
+      >
+        <span className="grid size-4 shrink-0 place-items-center text-content/50">
+          <DisclosureChevron expanded={rootOpen}
+            className="size-3.5"
+          />
+        </span>
+        <span className={navigationOnly ? "min-w-0 truncate text-ui-base text-content" : "min-w-0 truncate text-[11px] font-semibold tracking-[0.08em] text-content/50 uppercase"}>
+          {name}
+        </span>
+      </button>
+    </div>
+  );
+
   return (
     <TreeCtx.Provider
       value={{
@@ -1037,7 +1116,7 @@ export const FileTree = memo(function FileTree({
         onKeyDown={onKeyDown}
         onContextMenu={onBackgroundMenu}
       >
-        <div
+        {!compact ? <><div
           className="desktop-toolbar flex h-9 shrink-0 items-center gap-px overflow-visible border-b border-stroke px-2"
           onContextMenu={(e) => e.stopPropagation()}
         >
@@ -1077,39 +1156,8 @@ export const FileTree = memo(function FileTree({
             </HeaderIcon>
           ) : null}
         </div>
-        <div className="flex h-7 shrink-0 items-center">
-          <button
-            type="button"
-            data-explorer-root
-            aria-expanded={rootOpen}
-            title={cwd}
-            onClick={() => {
-              onSelect(cwd);
-              toggle(cwd);
-            }}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              openMenu(
-                { path: cwd, isDir: true, isRoot: true },
-                e.clientX,
-                e.clientY,
-              );
-            }}
-            className={`flex min-w-0 flex-1 items-center gap-1 h-full rounded-lg pl-2 text-left outline-none focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-accent/40 hover:bg-surface-hover ${
-              dragOverPath === cwd ? "bg-selection" : ""
-            }`}
-          >
-            <span className="grid size-4 shrink-0 place-items-center text-content/50">
-              <DisclosureChevron expanded={rootOpen}
-                className="size-3.5"
-              />
-            </span>
-            <span className="min-w-0 truncate text-[11px] font-semibold tracking-[0.08em] text-content/50 uppercase">
-              {name}
-            </span>
-          </button>
-        </div>
+        {rootRow}
+        </> : null}
         <div
           ref={lockOverscroll}
           className="min-h-0 flex-1 overflow-y-auto overscroll-none"
@@ -1119,20 +1167,20 @@ export const FileTree = memo(function FileTree({
               {opError}
             </p>
           ) : null}
-          <AnimatedCollapse expanded={rootOpen}>
-            <div
-              role="tree"
-              aria-label={uiT("{value0} files", { value0: String(name) })}
-            >
-              <TreeChildren
-                parent={cwd}
-                depth={0}
-                entries={children}
-                loading={children === null && !error}
-                error={error}
-              />
-            </div>
-          </AnimatedCollapse>
+          <div role="tree" aria-label={uiT("{value0} files", { value0: String(name) })}>
+            {navigationOnly ? rootRow : null}
+            <AnimatedCollapse expanded={rootOpen}>
+              <div role={navigationOnly ? "group" : undefined}>
+                <TreeChildren
+                  parent={cwd}
+                  depth={navigationOnly ? 1 : 0}
+                  entries={children}
+                  loading={children === null && !error}
+                  error={error}
+                />
+              </div>
+            </AnimatedCollapse>
+          </div>
         </div>
       </div>
       <PresenceBoundary propagate>{menu ? (
@@ -1325,6 +1373,8 @@ function TreeNode({ entry, depth }: { entry: FsEntry; depth: number }) {
           type="button"
           role="treeitem"
           title={entry.path}
+          aria-selected={selected}
+          aria-level={depth + 1}
           aria-expanded={entry.isDir ? open : undefined}
           onClick={onClick}
           onDoubleClick={() => {

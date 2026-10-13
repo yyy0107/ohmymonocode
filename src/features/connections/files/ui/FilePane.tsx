@@ -1,3 +1,6 @@
+import { FileExplorerFrame } from "./FileExplorerFrame";
+import { IconButton } from "../../../../shared/ui/forms/IconButton";
+import type { OpenFileFn } from "../../../search/model/search";
 import { useTranslation } from "../../../../shared/i18n/useTranslation";
 import { lazySurface } from "../../../../shared/ui/lazySurface";
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
@@ -28,7 +31,7 @@ import type { TerminalMetaPatch } from "../../../terminal/model/terminalTab";
 import type { EditorNavigationTarget } from "../../../search/model/search";
 import { editorPathsEqual } from "../../../search/model/search";
 import type { PlanBuildTarget, Session } from "../../../sessions/model/session";
-import { Play } from "../../../../shared/ui/icons";
+import { Play, X } from "../../../../shared/ui/icons";
 import { BuildTargetButton } from "../../../sessions/ui/SecondOpinionButton";
 import {
   loadDiffViewer,
@@ -85,7 +88,13 @@ type Props = {
   onDirtyChange: (fileId: string, dirty: boolean) => void;
   onErrorCountChange: (fileId: string, count: number) => void;
   onReorderFiles: (paneId: string, ids: string[]) => void;
-  onOpenFile: (path: string) => void;
+  onOpenFile: OpenFileFn;
+  onClosePane?: (paneId: string) => void;
+  onOpenTerminal?: (cwd: string) => void;
+  onFileMoved?: (from: string, to: string) => void;
+  onFileDeleted?: (path: string) => void;
+  filesSearchOpen?: boolean;
+  onFilesSearchOpenChange?: (open: boolean) => void;
   onUpdatePlan: (sessionId: string, blockId: string, text: string) => void;
   onBuildPlan: (
     sessionId: string,
@@ -116,12 +125,21 @@ function FilePaneComponent({
   onErrorCountChange,
   onReorderFiles,
   onOpenFile,
+  onClosePane,
+  onOpenTerminal,
+  onFileMoved,
+  onFileDeleted,
+  filesSearchOpen,
+  onFilesSearchOpenChange,
   onUpdatePlan,
   onBuildPlan,
   editorNavigation,
   onPaneDragStart,
   onTerminalMetaChange,
 }: Props) {
+  const { t } = useTranslation();
+  const explorer = pane.files.find((file) => file.explorer);
+  const documents = explorer ? pane.files.filter((file) => !file.explorer) : pane.files;
   const diffViewer = useSyncExternalStore(
     subscribeDiffViewer,
     loadDiffViewer,
@@ -138,27 +156,26 @@ function FilePaneComponent({
       (diffViewer === "unified" && isReviewTab(activeFile)));
   const commitReview = !!activeFile && isCommitTab(activeFile);
 
-  return (
-    <div
-      className="flex h-full min-h-0 min-w-0 flex-1 flex-col"
-      onMouseDown={() => onFocus(pane.id)}
-    >
-      {!assistantPage && (showTabs || tabsTrailing) ? (
+  const renderHeader = (leading?: ReactNode, trailing?: ReactNode, showDocument?: () => void) => (
+    !assistantPage && (explorer || showTabs || tabsTrailing) ? (
         <SurfaceTabs
-          files={pane.files}
+          files={documents}
           activeFileId={pane.activeFileId}
           dirtyFileIds={dirtyFileIds}
           fileErrorCounts={fileErrorCounts}
-          onSelectFile={(fileId) => onSelectFile(pane.id, fileId)}
+          onSelectFile={(fileId) => { showDocument?.(); onSelectFile(pane.id, fileId); }}
           onCloseFile={(fileId) => onCloseFile(pane.id, fileId)}
           onCloseOtherFiles={(fileId) => onCloseOtherFiles(pane.id, fileId)}
           onPinFile={onPinFile}
           onReorder={(ids) => onReorderFiles(pane.id, ids)}
           onPaneDragStart={onPaneDragStart}
-          leading={tabsLeading}
-          trailing={tabsTrailing}
+          leading={<>{tabsLeading}{leading}</>}
+          trailing={<>{trailing}{tabsTrailing}{explorer && onClosePane ? <IconButton size="sm" data-file-toolbar-action label={t("Close panel")} onClick={() => onClosePane(pane.id)}><X /></IconButton> : null}</>}
         />
-      ) : null}
+    ) : null
+  );
+
+  const content = (
       <div className="relative min-h-0 flex-1">
         {sessionReview ? (
           <div className="absolute inset-0 h-full">
@@ -185,6 +202,7 @@ function FilePaneComponent({
         ) : null}
         {pane.files.map((file) => {
           if (
+            file.explorer ||
             isCommitTab(file) ||
             isChangesTab(file) ||
             isSessionChangesTab(file) ||
@@ -261,6 +279,7 @@ function FilePaneComponent({
                   path={file.path}
                   cwd={file.cwd}
                   showDiff={!!file.review}
+                  showPathHeader={!!explorer && file.id === pane.activeFileId}
                   active={focused && file.id === pane.activeFileId}
                   navigation={
                     editorNavigation &&
@@ -281,6 +300,13 @@ function FilePaneComponent({
           );
         })}
       </div>
+  );
+  return (
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" onMouseDown={() => onFocus(pane.id)}>
+      {explorer ? <FileExplorerFrame key={explorer.cwd} cwd={explorer.cwd} focused={focused} hasDocument={documents.length > 0}
+        renderHeader={renderHeader} onOpenFile={onOpenFile} onOpenTerminal={onOpenTerminal} activePath={activeFile?.explorer ? undefined : activeFile?.path} onFileMoved={onFileMoved} onFileDeleted={onFileDeleted}
+        searchOpen={filesSearchOpen} onSearchOpenChange={onFilesSearchOpenChange}>{content}</FileExplorerFrame>
+        : <>{renderHeader()}{content}</>}
     </div>
   );
 }
@@ -303,6 +329,12 @@ export const FilePane = memo(FilePaneComponent, (previous, next) => {
     previous.onDirtyChange !== next.onDirtyChange ||
     previous.onErrorCountChange !== next.onErrorCountChange ||
     previous.onReorderFiles !== next.onReorderFiles ||
+    previous.onClosePane !== next.onClosePane ||
+    previous.onOpenTerminal !== next.onOpenTerminal ||
+    previous.onFileMoved !== next.onFileMoved ||
+    previous.onFileDeleted !== next.onFileDeleted ||
+    previous.filesSearchOpen !== next.filesSearchOpen ||
+    previous.onFilesSearchOpenChange !== next.onFilesSearchOpenChange ||
     previous.onOpenFile !== next.onOpenFile ||
     previous.onUpdatePlan !== next.onUpdatePlan ||
     previous.onBuildPlan !== next.onBuildPlan ||

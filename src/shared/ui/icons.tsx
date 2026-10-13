@@ -1,5 +1,13 @@
-/** Lucide chrome set (matching ZCode). Named per-glyph imports keep the bundle tree-shaken. */
+/** Default chrome glyphs. Platform artwork is supplied through IconArtworkContext. */
 import {
+  AudioLines as AudioLinesIcon,
+  Bell as BellIcon,
+  MoreVertical as MoreVerticalIcon,
+  SquarePen as SquarePenIcon,
+  SunMoon as SunMoonIcon,
+  UserRound as UserRoundIcon,
+  Vibrate as VibrateIcon,
+  Volume2 as Volume2Icon,
   AlertCircle as AlertCircleIcon,
   AppWindow as AppWindowIcon,
   Archive as ArchiveIcon,
@@ -25,6 +33,7 @@ import {
   CircleDashed as CircleDashedIcon,
   CircleDot as CircleDotIcon,
   CircleHelp as CircleHelpIcon,
+  CircleStop as CircleStopIcon,
   CircleX as CircleXIcon,
   Clock as ClockIcon,
   CloudUpload as CloudUploadIcon,
@@ -140,7 +149,26 @@ import {
   type LucideIcon,
   type LucideProps,
 } from "lucide-react";
-import { forwardRef, type CSSProperties, type Ref } from "react";
+import {
+  createContext,
+  forwardRef,
+  useContext,
+  type CSSProperties,
+  type ReactNode,
+  type Ref,
+} from "react";
+
+let defaultIconArtwork: Readonly<Record<string, ReactNode>> = {};
+
+/** Configure before mounting UI, including independently mounted toast roots. */
+export function configureDefaultIconArtwork(artwork: Readonly<Record<string, ReactNode>>) {
+  defaultIconArtwork = artwork;
+}
+
+/** Optional, theme-aware artwork on a 24px grid; unspecified icons use the default glyph. */
+export const IconArtworkContext = createContext<
+  Readonly<Record<string, ReactNode>> | null
+>(null);
 
 /** Props shared by every chrome icon. */
 export type IconProps = LucideProps;
@@ -152,6 +180,40 @@ function wrap(Glyph: LucideIcon, name: string) {
     { strokeWidth = 2, style, ...props }: IconProps,
     ref: Ref<SVGSVGElement>,
   ) {
+    const artwork = (useContext(IconArtworkContext) ?? defaultIconArtwork)[name];
+    if (artwork) {
+      const {
+        size = 24,
+        color = "currentColor",
+        absoluteStrokeWidth: _absoluteStrokeWidth,
+        children,
+        ...svgProps
+      } = props;
+      return (
+        <svg
+          ref={ref}
+          width={size}
+          height={size}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="none"
+          color={color}
+          aria-hidden={
+            props["aria-label"] || props["aria-labelledby"] || props.role
+              ? undefined
+              : true
+          }
+          focusable="false"
+          {...svgProps}
+          data-ui-icon={name}
+          data-ui-icon-artwork=""
+          style={style}
+        >
+          {artwork}
+          {children}
+        </svg>
+      );
+    }
     return (
       <Glyph
         ref={ref}
@@ -173,6 +235,14 @@ function wrap(Glyph: LucideIcon, name: string) {
   return Component;
 }
 
+export const AudioLines = wrap(AudioLinesIcon, "AudioLines");
+export const Bell = wrap(BellIcon, "Bell");
+export const MoreVertical = wrap(MoreVerticalIcon, "MoreVertical");
+export const SquarePen = wrap(SquarePenIcon, "SquarePen");
+export const SunMoon = wrap(SunMoonIcon, "SunMoon");
+export const UserRound = wrap(UserRoundIcon, "UserRound");
+export const Vibrate = wrap(VibrateIcon, "Vibrate");
+export const Volume2 = wrap(Volume2Icon, "Volume2");
 export const AlertCircle = wrap(AlertCircleIcon, "AlertCircle");
 export const AppWindow = wrap(AppWindowIcon, "AppWindow");
 export const Archive = wrap(ArchiveIcon, "Archive");
@@ -202,6 +272,7 @@ export const CircleAlert = wrap(CircleAlertIcon, "CircleAlert");
 export const CircleDashed = wrap(CircleDashedIcon, "CircleDashed");
 export const CircleDot = wrap(CircleDotIcon, "CircleDot");
 export const CircleHelp = wrap(CircleHelpIcon, "CircleHelp");
+export const CircleStop = wrap(CircleStopIcon, "CircleStop");
 export const CircleX = wrap(CircleXIcon, "CircleX");
 export const CloudUpload = wrap(CloudUploadIcon, "CloudUpload");
 export const Clock = wrap(ClockIcon, "Clock");
@@ -328,7 +399,10 @@ export const List = wrap(ListIcon, "List");
 export const ListChecks = wrap(ListChecksIcon, "ListChecks");
 export const Download = wrap(DownloadIcon, "Download");
 export const Loader2 = wrap(Loader2Icon, "Loader2");
-export const MessageCircleQuestion = wrap(MessageCircleQuestionIcon, "MessageCircleQuestion");
+export const MessageCircleQuestion = wrap(
+  MessageCircleQuestionIcon,
+  "MessageCircleQuestion",
+);
 export const Repeat2 = wrap(Repeat2Icon, "Repeat2");
 export const SquareKanban = wrap(SquareKanbanIcon, "SquareKanban");
 export const Table = wrap(TableIcon, "Table");

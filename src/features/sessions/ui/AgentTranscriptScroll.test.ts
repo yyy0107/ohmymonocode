@@ -524,7 +524,7 @@ describe("transcript scrolling", () => {
     expect(top).toBe(stopped);
   });
 
-  it.each([false, true])("pins a running mobile transcript on keyboard resize (stream glide active: %s)", (streaming) => {
+  it.each([false, true].flatMap(streaming => [false, true].map(widthReflow => ({ streaming, widthReflow }))))("pins viewport reflow before paint (width=$widthReflow, stream glide=$streaming)", ({ streaming, widthReflow }) => {
     applyReducedMotion("off");
     let now = 0;
     vi.spyOn(performance, "now").mockImplementation(() => now);
@@ -551,15 +551,17 @@ describe("transcript scrolling", () => {
       ],
       busy: true,
       touchScroll: true,
-      promptMotion: "mobile",
+      promptMotion: widthReflow ? undefined : "mobile",
     })));
     const scroller = container.querySelector<HTMLDivElement>(".agent-transcript")!;
     let height = 1000;
     let viewport = 500;
+    let width = 850;
     let top = 0;
     Object.defineProperties(scroller, {
       scrollHeight: { get: () => height },
       clientHeight: { get: () => viewport },
+      clientWidth: { get: () => width },
       scrollTop: {
         get: () => top,
         set: (value: number) => { top = Math.max(0, Math.min(value, height - viewport)); },
@@ -580,14 +582,16 @@ describe("transcript scrolling", () => {
       expect(top).toBeGreaterThan(500);
       expect(top).toBeLessThan(560);
     }
-    viewport = 300;
-    // A scroll event can arrive before ResizeObserver reports the keyboard.
+    if (widthReflow) { width = 420; height += 200; }
+    else viewport = 300;
+    // A scroll event can arrive before ResizeObserver reports the new size.
     act(() => scroller.dispatchEvent(new Event("scroll")));
     act(() => observer.resize());
     expect(top).toBe(height - viewport);
     tick(1100);
     expect(top).toBe(height - viewport);
-    viewport = 500;
+    if (widthReflow) { width = 850; height -= 200; }
+    else viewport = 500;
     act(() => observer.resize());
     expect(top).toBe(height - viewport);
     // Fresh stream growth still glides once the viewport has settled.
@@ -599,7 +603,7 @@ describe("transcript scrolling", () => {
     expect(top).toBeLessThan(height - viewport);
     for (let time = 1166; time < 2000; time += 16) tick(time);
     expect(top).toBe(height - viewport);
-    // Opening the keyboard while reading history must keep that position.
+    // A viewport resize while reading history must keep that position.
     act(() => {
       const touch = new Event("touchstart");
       Object.defineProperty(touch, "touches", { value: [{ clientY: 100 }] });
@@ -608,7 +612,8 @@ describe("transcript scrolling", () => {
       scroller.dispatchEvent(new Event("scroll"));
     });
     const readingTop = top;
-    viewport = 300;
+    if (widthReflow) { width = 420; height += 200; }
+    else viewport = 300;
     act(() => observer.resize());
     expect(top).toBe(readingTop);
   });

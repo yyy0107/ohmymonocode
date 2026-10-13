@@ -24,7 +24,7 @@ async function resizing(page: Page) {
 
 async function openTools(page: Page) {
   await page.setViewportSize({ width: 2200, height: 1000 });
-  await page.goto("/tests/browser/desktop-tools.html?editor=source");
+  await page.goto("/tests/browser/desktop-tools.html?editor=source&explorer");
   await expect(page.locator(".cm-editor").first()).toBeVisible();
   await expect(page.locator(".xterm")).toBeVisible();
   await expect.poll(() => resizing(page)).toBe(false);
@@ -58,7 +58,7 @@ test("keeps the split aligned with its sash when file content rerenders during a
   expect(Math.abs((await chat.boundingBox())!.width - preview)).toBeLessThan(1);
 });
 
-for (const kind of ["tools", "terminal", "sidebar"] as const) {
+for (const kind of ["tools", "terminal", "explorer", "sidebar"] as const) {
   test(`${kind} resize follows the pointer without repeated PTY resizing`, async ({ page }) => {
     await openTools(page);
     if (kind === "tools") {
@@ -79,7 +79,7 @@ for (const kind of ["tools", "terminal", "sidebar"] as const) {
     await painted(page);
     const count = () => page.evaluate(() => (window as FixtureWindow).toolsFixture.rpc.filter(call => call.command === "pty_resize").length);
     const countBefore = await count();
-    const handle = page.getByRole("separator", { name: { tools: "Resize panel", terminal: "Resize terminal", sidebar: "Resize sidebar" }[kind] });
+    const handle = page.getByRole("separator", { name: { tools: "Resize panel", terminal: "Resize terminal", explorer: "Resize file tree", sidebar: "Resize sidebar" }[kind] });
     await expect(handle).toBeVisible();
     const box = (await handle.boundingBox())!;
     const x = box.x + box.width / 2;
@@ -91,7 +91,7 @@ for (const kind of ["tools", "terminal", "sidebar"] as const) {
     expect(await resizing(page)).toBe(true);
     for (let step = 1; step <= 8; step++) {
       await page.mouse.move(
-        x + (kind === "terminal" ? 0 : (kind === "sidebar" ? 1 : -1) * step * 10),
+        x + (kind === "terminal" ? 0 : (kind === "explorer" || kind === "sidebar" ? 1 : -1) * step * 10),
         y - (kind === "terminal" ? step * 10 : 0),
       );
       await painted(page);
@@ -101,7 +101,7 @@ for (const kind of ["tools", "terminal", "sidebar"] as const) {
     expect(Math.abs((kind === "terminal" ? moved.y - box.y : moved.x - box.x))).toBeGreaterThan(70);
     await page.mouse.up();
     await expect.poll(() => resizing(page)).toBe(false);
-    await expect.poll(count).toBe(countBefore + 1);
+    if (kind !== "explorer") await expect.poll(count).toBe(countBefore + 1);
     await expect(terminal).toHaveAttribute("data-resize-retained", "true");
     if (kind === "sidebar") {
       const gap = await page.evaluate(() => {

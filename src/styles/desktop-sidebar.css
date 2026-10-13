@@ -230,14 +230,19 @@ html[data-skin] [data-session-dense] > [role="img"][aria-label] {
   height: 6px;
 }
 
+html[data-skin] [data-session-dense]:has([data-session-archive]):is(:hover, :focus-within) [data-session-time] {
+  opacity: 0;
+}
+
+html[data-skin] [data-session-dense] :is([data-session-actions], [data-session-action-buttons]) {
+  position: static;
+}
+
 html[data-skin] [data-session-dense] [data-session-archive] {
   position: absolute;
   inset-block-start: 50%;
-  inset-inline-end: 8px;
-  width: var(--desktop-sidebar-action);
-  height: var(--desktop-sidebar-action);
-  border-radius: 999px;
-  background: var(--color-panel);
+  /* Dense cards retain their 1px border inside the shared action column. */
+  inset-inline-end: calc(var(--desktop-sidebar-action-inset) - 1px);
   transform: translateY(-50%);
 }
 
@@ -355,22 +360,31 @@ html[data-skin].is-mac [data-desktop-sidebar-header] {
 html[data-skin] [data-desktop-sidebar] > [data-project-header] {
   height: 32px;
   padding-inline: 2px;
+  padding-inline-end: var(--desktop-sidebar-action-inset);
   margin-block-start: 12px;
   margin-inline-end: var(--desktop-sidebar-inset);
 }
-/* Match the compact project picker's 24px background. */
-html[data-skin] [data-desktop-sidebar] > [data-project-header] > button,
-html[data-skin] [data-desktop-sidebar] [data-sidebar-search] > button {
+/* Sidebar actions share one rounded rectangular hover surface. */
+html[data-skin] [data-desktop-sidebar] [data-ui="icon-button"][data-sidebar-toolbar-action] {
   width: var(--desktop-sidebar-toolbar-action);
   height: var(--desktop-sidebar-toolbar-action);
   min-height: var(--desktop-sidebar-toolbar-action);
   padding: 0;
   border-radius: 6px;
 }
-html[data-skin] [data-desktop-sidebar] > [data-project-header] > button svg,
-html[data-skin] [data-desktop-sidebar] [data-project-switcher] .lucide-chevron-down,
-html[data-skin] [data-desktop-sidebar] [data-sidebar-search] > div:first-child > svg,
-html[data-skin] [data-desktop-sidebar] [data-sidebar-search] > button svg {
+html[data-skin] [data-desktop-sidebar] [data-ui="icon-button"][data-sidebar-row-action] {
+  position: absolute;
+  inset-inline-end: var(--desktop-sidebar-action-inset);
+  display: none;
+}
+html[data-skin] [data-desktop-sidebar] [data-ui="icon-button"][data-sidebar-row-action="secondary"] {
+  inset-inline-end: calc(var(--desktop-sidebar-action-inset) + var(--desktop-sidebar-toolbar-action) + var(--desktop-sidebar-action-gap));
+}
+html[data-skin] [data-desktop-sidebar] .group:is(:hover, :has(:focus-visible)) > [data-ui="icon-button"][data-sidebar-row-action] {
+  display: inline-flex;
+}
+html[data-skin] [data-desktop-sidebar] [data-ui="icon-button"][data-sidebar-toolbar-action] > svg,
+html[data-skin] [data-desktop-sidebar] [data-sidebar-search] > div:first-child > svg {
   width: var(--desktop-sidebar-icon);
   height: var(--desktop-sidebar-icon);
   flex-shrink: 0;
@@ -379,6 +393,7 @@ html[data-skin] [data-desktop-sidebar] [data-sidebar-search] {
   height: 40px;
   flex-shrink: 0;
   padding: 4px 2px;
+  padding-inline-end: var(--desktop-sidebar-action-inset);
   margin-inline-end: var(--desktop-sidebar-inset);
   border-bottom: 0;
   gap: 4px;
@@ -405,7 +420,8 @@ html[data-skin] [data-desktop-sidebar] :is([data-project-rows], [data-chat-proje
   padding-inline: 0;
 }
 html[data-skin] [data-desktop-sidebar] [data-sidebar-section-header] {
-  padding-inline: 6px;
+  padding-inline-start: 6px;
+  padding-inline-end: var(--desktop-sidebar-action-inset);
 }
 html[data-skin] [data-desktop-sidebar] [data-sidebar-section-toggle] {
   padding-inline: 0;
@@ -423,7 +439,7 @@ html[data-skin] [data-desktop-sidebar] [data-project-header] .project-name {
 html[data-skin] [data-desktop-sidebar] .project-tree-header {
   min-height: var(--desktop-sidebar-project-row);
   height: var(--desktop-sidebar-project-row);
-  padding-inline: 2px;
+  padding-inline: var(--desktop-sidebar-row-inset) 2px;
   border-radius: 8px;
 }
 html[data-skin] [data-desktop-sidebar] .project-tree-header [data-project-tile] {
@@ -447,15 +463,16 @@ html[data-skin] [data-desktop-sidebar] [data-session-dense] {
   min-height: var(--desktop-sidebar-row);
   height: var(--desktop-sidebar-row);
   padding-block: 0;
-  padding-inline: 2px;
+  /* Account for the card border so root icons share the project/nav axis. */
+  padding-inline: calc(var(--desktop-sidebar-row-inset) - 1px) 2px;
   gap: var(--desktop-sidebar-gap);
   border-radius: 8px;
 }
 html[data-skin] [data-desktop-sidebar] [data-session-dense]:not([data-session-shortcut]) {
-  padding-inline-start: 22px;
+  padding-inline-start: calc(var(--desktop-sidebar-row-inset) + var(--desktop-sidebar-nest) - 1px);
 }
 html[data-skin] [data-desktop-sidebar] [data-session-dense][data-density="compact"]:not([data-session-shortcut]) {
-  padding-inline-start: 42px;
+  padding-inline-start: calc(var(--desktop-sidebar-row-inset) + 2 * var(--desktop-sidebar-nest) - 1px);
 }
 html[data-skin] [data-desktop-sidebar] [data-session-avatar] {
   width: var(--desktop-sidebar-avatar);
@@ -475,9 +492,9 @@ html[data-skin] [data-desktop-sidebar] :is([data-session-group-row], [data-proje
   height: var(--desktop-sidebar-group-row);
   padding-block: 0;
 }
-html[data-skin] [data-desktop-sidebar] :is(.project-tree-header, [data-project-group-header]) > button[data-no-drag]:not([data-project-tile]) {
-  width: var(--desktop-sidebar-action);
-  height: var(--desktop-sidebar-action);
+html[data-skin] [data-desktop-sidebar] [data-project-group-header] > button > div:first-child {
+  width: var(--desktop-sidebar-avatar);
+  flex: 0 0 var(--desktop-sidebar-avatar);
 }
 html[data-skin] [data-desktop-sidebar] :is([data-sidebar-list-toggle], [data-session-list-toggle]) {
   min-height: var(--desktop-sidebar-group-row);

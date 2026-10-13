@@ -16,8 +16,7 @@ import { SurfaceVisibilityContext } from "../../shared/ui/SurfaceVisibility";
 import { ResizeHandle } from "../../shared/ui/ResizeHandle";
 import { beginPaneResize } from "../../shared/lib/paneResize";
 import { duration } from "../../shared/motion/tokens";
-import { X } from "../../shared/ui/icons";
-import { SidebarTabs } from "./SidebarTabs";
+import { GitCompare, X } from "../../shared/ui/icons";
 import { ProjectToolsPanel } from "./ProjectToolsPanel";
 import type { SidebarProps } from "./Sidebar.types";
 import { useWorkspaceToolsMove } from "./useWorkspaceToolsMove";
@@ -44,7 +43,7 @@ const DROP_RECTS: Record<PaneEdge, CSSProperties> = {
   bottom: { left: 0, top: "70%", width: "100%", height: "30%" },
 };
 
-/** The explorer moves out of the session sidebar without changing its handlers. */
+/** Source control keeps its own movable dock beside the workspace file browser. */
 export function WorkspaceToolsDock({
   sidebar,
   visible,
@@ -55,14 +54,10 @@ export function WorkspaceToolsDock({
   children: ReactNode;
 }) {
   const { t } = useTranslation();
-  const open = visible && sidebar.tab !== "sessions";
+  const open = visible && sidebar.tab === "changes";
   const { foldState, finish } = useCollapseMotion(open, duration.panel * 1000);
-  const toolTab = useRef<"files" | "changes">(
-    sidebar.tab === "changes" ? "changes" : "files",
-  );
-  if (sidebar.tab !== "sessions") toolTab.current = sidebar.tab;
-  const visited = useRef(new Set<"files" | "changes">());
-  if (open) visited.current.add(toolTab.current);
+  const visited = useRef(false);
+  if (open) visited.current = true;
   const layout = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLElement>(null);
   const [side, setSide] = useState<PaneEdge>("right");
@@ -254,11 +249,7 @@ export function WorkspaceToolsDock({
             >
               <span aria-hidden="true" />
             </button>
-            <SidebarTabs
-              tabs={["files", "changes"]}
-              tab={toolTab.current}
-              onTabChange={sidebar.onTabChange}
-            />
+            <span className="flex min-w-0 flex-1 items-center gap-2 px-2 text-ui-base"><GitCompare className="size-4" />{t("Changes")}</span>
             <button
               type="button"
               aria-label={t("Close panel")}
@@ -267,24 +258,7 @@ export function WorkspaceToolsDock({
               <X />
             </button>
           </AppHeader>
-          {(["files", "changes"] as const)
-            .filter((tab) => visited.current.has(tab))
-            .map((tab) => {
-              const active = open && toolTab.current === tab;
-              return (
-                <div
-                  key={tab}
-                  className="min-h-0 min-w-0 flex-1 flex-col"
-                  style={{ display: toolTab.current === tab ? "flex" : "none" }}
-                  hidden={toolTab.current !== tab}
-                  inert={!active}
-                >
-                  <SurfaceVisibilityContext.Provider value={active}>
-                    <RetainedProjectToolsPanel {...sidebar} tab={tab} open={active} />
-                  </SurfaceVisibilityContext.Provider>
-                </div>
-              );
-            })}
+          {visited.current ? <RetainedProjectToolsPanel {...sidebar} tab="changes" open={open} /> : null}
         </SurfaceVisibilityContext.Provider>
       </AppSurface>
       {move.target ? (

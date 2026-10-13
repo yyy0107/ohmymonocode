@@ -22,6 +22,9 @@ html[data-skin] .popover-open {
 }
 
 /* Density belongs to the menu, including portal menus, rather than the app mode. */
+html[data-skin] [data-ui="tab-group-menu"] {
+  --desktop-menu-icon: var(--desktop-project-menu-icon);
+}
 html[data-skin] :is([data-menu-density="compact"], .popover-frame:has([data-menu-density="compact"])) {
   --desktop-menu-row: 24px;
   --desktop-menu-font: 13px;
