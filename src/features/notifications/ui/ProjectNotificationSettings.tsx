@@ -1,11 +1,10 @@
-import { motion } from "motion/react";
-import { panelTransition, immediateTransition, motionGeometry } from "../../../shared/motion/tokens";
-import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
+import { Switch } from "../../../shared/ui/forms/Switch";
+import { Checkbox } from "../../../shared/ui/forms/Checkbox";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronRight, Folder, Minus, Search, X } from "../../../shared/ui/icons";
+import { ChevronRight, Folder, Search, X } from "../../../shared/ui/icons";
 import { NotificationMuteControl } from "./NotificationMuteControl";
-import { SecondaryButton } from "../../../shared/ui/SecondaryButton";
+import { Button } from "../../../shared/ui/forms/Button";
 import { ProjectLogoIcon } from "../../projects/ui/ProjectLogoIcon";
 import { ProjectMascot } from "../../projects/ui/ProjectMascot";
 import { useTabGroupLogos } from "../../projects/hooks/useTabGroupLogos";
@@ -48,7 +47,6 @@ export function ProjectNotificationSettings({
   notificationSettingsRequest = 0,
   highlighted = false,
 }: Props) {
-  const reduced = useMotionPreference();
   const { t: uiT } = useTranslation();
   const notificationProjects = useNotificationProjects([
     cwd,
@@ -150,7 +148,7 @@ export function ProjectNotificationSettings({
         </div>
         {projects.length ? (
           <div className="shrink-0 pb-0.5">
-            <SecondaryButton
+            <Button variant="secondary"
               type="button"
               aria-pressed={selecting}
               onClick={() => {
@@ -159,7 +157,7 @@ export function ProjectNotificationSettings({
               }}
             >
               {selecting ? uiT("Done") : uiT("Select projects")}
-            </SecondaryButton>
+            </Button>
           </div>
         ) : null}
       </div>
@@ -422,40 +420,15 @@ export function ProjectNotificationSettings({
                             className="flex min-h-11 cursor-pointer items-center justify-between gap-6 border-b border-content/5 py-3.5 text-[13px] text-content last:border-b-0 hover:text-content/75"
                           >
                             <span>{category.label}</span>
-                            <span className="relative flex shrink-0">
-                              <input
-                                type="checkbox"
-                                role="switch"
-                                aria-label={uiT("{value0} for {value1}", {
-                                  value0: String(category.label),
-                                  value1: String(project.name),
-                                })}
-                                aria-describedby={
-                                  muted ? muteHintId : undefined
-                                }
-                                checked={
-                                  !preferences[project.id]?.disabled.includes(
-                                    category.id,
-                                  )
-                                }
-                                onChange={(event) =>
-                                  setCategory(
-                                    project.id,
-                                    category.id,
-                                    event.target.checked,
-                                  )
-                                }
-                                className="peer sr-only"
-                              />
-                              <span
-                                className="relative h-5 w-9 rounded-full bg-content/20 transition-colors peer-checked:bg-accent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent motion-reduce:transition-none"
-                                aria-hidden="true"
-                              />
-                              <motion.span initial={false} animate={{ x: !preferences[project.id]?.disabled.includes(category.id) ? `var(--desktop-switch-travel, ${motionGeometry.switchTravel}px)` : 0 }} transition={reduced ? immediateTransition : panelTransition}
-                                className="pointer-events-none absolute left-0.5 top-0.5 size-4 rounded-full bg-white"
-                                aria-hidden="true"
-                              />
-                            </span>
+                            <Switch
+                              aria-label={uiT("{value0} for {value1}", {
+                                value0: String(category.label),
+                                value1: String(project.name),
+                              })}
+                              aria-describedby={muted ? muteHintId : undefined}
+                              checked={!preferences[project.id]?.disabled.includes(category.id)}
+                              onCheckedChange={(checked) => setCategory(project.id, category.id, checked)}
+                            />
                           </label>
                         ))}
                       </div>
@@ -483,30 +456,10 @@ function ProjectSelection({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <span className="relative flex size-4 shrink-0 items-center justify-center">
-      <input
-        type="checkbox"
-        aria-label={label}
-        checked={checked}
-        ref={(input) => {
-          if (input) input.indeterminate = mixed;
-        }}
-        onChange={(event) => onChange(event.target.checked)}
-        className="peer size-4 cursor-pointer appearance-none rounded border border-content/20 bg-transparent checked:border-accent checked:bg-accent indeterminate:border-accent indeterminate:bg-accent hover:border-content/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-      />
-      {mixed ? (
-        <Minus
-          data-desktop-checkbox-mark
-          className="pointer-events-none absolute size-3 text-white"
-          aria-hidden="true"
-        />
-      ) : (
-        <Check
-          data-desktop-checkbox-mark
-          className="pointer-events-none absolute hidden size-3 text-white peer-checked:block"
-          aria-hidden="true"
-        />
-      )}
-    </span>
+    <Checkbox
+      aria-label={label}
+      checked={mixed ? "indeterminate" : checked}
+      onCheckedChange={(next) => onChange(next === true)}
+    />
   );
 }

@@ -5,7 +5,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatedCollapse } from "../../../../shared/ui/AnimatedCollapse";
 import { CircleHelp as CircleHelpIcon } from "../../../../shared/ui/icons";
 import type { WorkflowRunPendingQuestion, WorkflowRunState } from "../_shims/protocol.js";
-import { cn } from "../components/lib/utils.js";
+import { cn } from "../../../../shared/lib/cn";
 import { laneDisplayName } from "../components/workflow-graph/lane-name.js";
 import { phaseDisplayName } from "../components/workflow-graph/phase-name.js";
 import type { WorkflowCausalityGraphData } from "../components/workflow-graph/types.js";

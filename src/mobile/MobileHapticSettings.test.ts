@@ -31,16 +31,16 @@ it("shows localized native failure details after trying output vibration", () =>
 afterEach(() => { act(() => root.unmount()); node.remove(); vi.restoreAllMocks(); });
 
 it("persists independent device switches and updates the visible controls immediately", () => {
-  const switches = node.querySelectorAll<HTMLInputElement>('input[role="switch"]');
+  const switches = node.querySelectorAll<HTMLButtonElement>('[role="switch"]');
   act(() => switches[0].click());
   expect(loadHapticPreferences()).toEqual({ interactions: false, output: true, strength: "gentle" });
-  expect(switches[0].checked).toBe(false);
+  expect(switches[0].getAttribute("aria-checked")).toBe("false");
   act(() => switches[1].click());
   expect(loadHapticPreferences().output).toBe(false);
   expect(node.querySelector<HTMLButtonElement>("#output-haptic-strength")!.disabled).toBe(true);
   act(() => saveHapticPreferences({ interactions: true, output: true, strength: "standard" }));
-  expect(switches[0].checked).toBe(true);
-  expect(switches[1].checked).toBe(true);
+  expect(switches[0].getAttribute("aria-checked")).toBe("true");
+  expect(switches[1].getAttribute("aria-checked")).toBe("true");
   expect(node.querySelector("#output-haptic-strength")!.textContent).toContain("Standard");
 });
 

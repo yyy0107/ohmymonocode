@@ -12,9 +12,9 @@
 import { useCallback, useRef, useState, type RefObject } from "react";
 import { RotateCcw as RotateCcwIcon } from "../../../../../shared/ui/icons";
 import type { WorkflowRunState } from "../../_shims/protocol.js";
-import { Button } from "../ui/button.js";
-import { Popover, PopoverAnchor, PopoverContent, PopoverTitle } from "../ui/popover.js";
-import { Spinner } from "../ui/spinner.js";
+import { Button } from "../../../../../shared/ui/forms/Button";
+import { Popover, PopoverAnchor, PopoverContent, PopoverTitle } from "../../../../../shared/ui/primitives/Popover.js";
+import { Spinner } from "../../../../../shared/ui/primitives/Spinner.js";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 import { useTranslation } from "../../../../../shared/i18n/useTranslation";
 import { ModelControlPills, ModelPicker } from "../../../../sessions/ui/ModelPicker";

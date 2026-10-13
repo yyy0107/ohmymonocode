@@ -26,7 +26,7 @@ import {
   type PresetLabels,
 } from "./parts.js";
 import type { TableSpec } from "./spec.js";
-import { cn } from "../../../components/lib/utils.js";
+import { cn } from "../../../../../../shared/lib/cn";
 
 /** 小卡片里只露前几行——它是一个「有东西了」的信号，不是阅读面。 */
 const COMPACT_ROWS = 3;

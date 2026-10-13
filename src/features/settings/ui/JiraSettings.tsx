@@ -1,8 +1,9 @@
+import { useMaskEmails } from "../model/displayPrefs";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { withStatusToast } from "../../../shared/ui/StatusToast";
 import { useCallback, useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { SecondaryButton } from "../../../shared/ui/SecondaryButton";
+import { Button } from "../../../shared/ui/forms/Button";
 import { PrivateEmail } from "../../../shared/ui/PrivateEmail";
 import { clearInboxCache } from "../../inbox/model/githubTasks";
 import {
@@ -19,6 +20,7 @@ import {
 } from "../../inbox/model/jira";
 
 export function JiraSettings() {
+  const masked = useMaskEmails();
   const { t: uiT } = useTranslation();
   const [status, setStatus] = useState<JiraStatus | null>(null);
   const [site, setSite] = useState("");
@@ -120,12 +122,12 @@ export function JiraSettings() {
           <div className="min-w-0 text-[12px] text-content/65">
             <p className="break-all">{status.site}</p>
             <p className="flex min-w-0">
-              <PrivateEmail key={status.email} email={status.email} />
+              <PrivateEmail masked={masked} key={status.email} email={status.email} />
             </p>
           </div>
-          <SecondaryButton onClick={() => void disconnect()} disabled={busy}>
+          <Button variant="secondary" onClick={() => void disconnect()} disabled={busy}>
             {busy ? uiT("Disconnecting") : uiT("Disconnect")}
-          </SecondaryButton>
+          </Button>
         </div>
       ) : (
         <form
@@ -170,7 +172,7 @@ export function JiraSettings() {
               className="flex flex-col gap-1 text-[12px] text-content/65"
             >
               {field.label}
-              <input
+              <input data-ui="input"
                 aria-label={field.label}
                 type={field.type}
                 value={field.value}
@@ -185,12 +187,12 @@ export function JiraSettings() {
             </label>
           ))}
           <div className="flex items-center gap-3">
-            <SecondaryButton
+            <Button variant="secondary"
               type="submit"
               disabled={busy || !site.trim() || !email.trim() || !token.trim()}
             >
               {busy ? uiT("Connecting") : uiT("Connect")}
-            </SecondaryButton>
+            </Button>
             <button
               type="button"
               onClick={() =>
@@ -216,12 +218,12 @@ export function JiraSettings() {
             <span className="text-[13px] font-medium text-content">
               {uiT("Projects")}
             </span>
-            <SecondaryButton
+            <Button variant="secondary"
               disabled={busy || checking}
               onClick={() => void loadProjects()}
             >
               {uiT("Refresh projects")}
-            </SecondaryButton>
+            </Button>
           </div>
           <p className="text-[12px] text-content/45">
             {uiT("Unchecked projects stay out of the inbox.")}
@@ -231,7 +233,7 @@ export function JiraSettings() {
               key={project.id}
               className="flex items-center gap-2 text-[13px] text-content"
             >
-              <input
+              <input data-ui="checkbox"
                 type="checkbox"
                 checked={!hiddenIds.includes(project.id)}
                 disabled={busy}

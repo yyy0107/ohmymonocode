@@ -110,7 +110,7 @@
   direction: rtl;
   text-align: left;
   font-size: calc(var(--mobile-font-md) + 1px);
-  font-weight: 650;
+  font-weight: var(--font-weight-semibold);
 }
 .mobile-git-file-row > svg {
   flex-shrink: 0;

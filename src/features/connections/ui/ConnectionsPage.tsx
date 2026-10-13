@@ -358,7 +358,7 @@ function AddDeviceDialog({
         >
           <label className="flex flex-col gap-1.5 text-ui-caption text-foreground-subtle">
             {t("Device name")}
-            <input
+            <input data-ui="input"
               autoFocus
               required
               maxLength={80}

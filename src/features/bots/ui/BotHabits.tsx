@@ -236,7 +236,7 @@ export function BotHabits({
         </ul>
       )}
       <AnimatedCollapse expanded={!draft}>
-        <button
+        <button data-ui="button" data-variant="secondary"
           type="button"
           className="assistant-habit-add"
           disabled={busy || !!draft}
@@ -249,7 +249,7 @@ export function BotHabits({
         <div className="assistant-habit-editor" inert={!draft}>
           <label>
             {t("Name")}
-            <input
+            <input data-ui="input"
               value={shown.name}
               maxLength={80}
               disabled={busy}
@@ -259,7 +259,7 @@ export function BotHabits({
           </label>
           <label>
             {t("What to do")}
-            <textarea
+            <textarea data-ui="textarea"
               value={shown.prompt}
               maxLength={4000}
               disabled={busy}
@@ -306,7 +306,7 @@ export function BotHabits({
           {shown.schedule.scheduleKind === "hourly" ? (
             <label>
               {t("Minute")}
-              <input
+              <input data-ui="input"
                 type="number"
                 min={0}
                 max={59}
@@ -324,7 +324,7 @@ export function BotHabits({
           ) : (
             <label>
               {t("Time")}
-              <input
+              <input data-ui="input"
                 type="time"
                 value={shown.schedule.time}
                 onKeyDown={onEnter}
@@ -337,14 +337,14 @@ export function BotHabits({
           )}
           <small>{t("Times are in {zone}.", { zone: timeZone })}</small>
           <div className="assistant-habit-editor-actions">
-            <button
+            <button data-ui="button" data-variant="secondary"
               type="button"
               disabled={pending}
               onClick={() => setDraft(undefined)}
             >
               {t("Cancel")}
             </button>
-            <button
+            <button data-ui="button" data-variant="primary"
               type="button"
               className="assistant-primary"
               disabled={busy || !shown.name.trim() || !shown.prompt.trim()}

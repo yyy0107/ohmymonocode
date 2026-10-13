@@ -9,7 +9,7 @@ import { workflowRunStopReasonMessageId } from "../components/workflow-graph/run
 import { memo, type ReactNode } from "react";
 import { ArrowUpRight as ArrowUpRightIcon, List as ListIcon, RotateCcw as RotateCcwIcon, SlidersHorizontal as SlidersHorizontalIcon, Square as SquareIcon } from "../../../../shared/ui/icons";
 import type { WorkflowRunState, WorkflowRunUsage } from "../_shims/protocol.js";
-import { Button } from "../components/ui/button.js";
+import { Button } from "../../../../shared/ui/forms/Button";
 import { ControlHintTooltip } from "../ControlHintTooltip.js";
 import { useWorkflowIntl } from "../i18n/IntlProvider.js";
 import type { workflowRunResultView } from "./workflowRunPanel.js";
@@ -137,7 +137,7 @@ export const WorkflowRunStatusHeader = memo(function WorkflowRunStatusHeader({
             onClick={(event) => onConfigureFrom(event.currentTarget)}
             size="sm"
             type="button"
-            variant="outline"
+            variant="secondary"
           >
             <SlidersHorizontalIcon className="size-3.5" />
             {intl.formatMessage({ id: "chat.toolCall.workflow.run.configure" })}
@@ -155,7 +155,7 @@ export const WorkflowRunStatusHeader = memo(function WorkflowRunStatusHeader({
               onClick={onResume}
               size="sm"
               type="button"
-              variant="outline"
+              variant="secondary"
             >
               <RotateCcwIcon className="size-3.5" />
               {resumeLabel}
@@ -183,7 +183,7 @@ export const WorkflowRunStatusHeader = memo(function WorkflowRunStatusHeader({
             onClick={onCancel}
             size="sm"
             type="button"
-            variant="outline"
+            variant="secondary"
           >
             <SquareIcon className="size-3.5 fill-current" />
             {cancelLabel}

@@ -47,8 +47,8 @@ try {
     const dockCard = result.geometry[`${theme}-combined`]['.project-terminal-card'];
     result.geometry[`${theme}-combined`].toolsGrid = await page.locator('.desktop-tools-layout').evaluate(element => ({ tracks: getComputedStyle(element).gridTemplateColumns, marginRight: getComputedStyle(element.querySelector('.desktop-tools-panel')).marginRight }));
     expect(result.geometry[`${theme}-combined`].toolsGrid.tracks.split(' ').at(-1)).toBe('288px');
-    expect(result.geometry[`${theme}-combined`].toolsGrid.marginRight).toBe('8px');
-    expect(result.geometry[`${theme}-combined`]['.desktop-tools-panel'].width).toBeCloseTo(280, 0);
+    expect(result.geometry[`${theme}-combined`].toolsGrid.marginRight).toBe('12px');
+    expect(result.geometry[`${theme}-combined`]['.desktop-tools-panel'].width).toBeCloseTo(276, 0);
     expect(tools.height).toBeGreaterThan(dockCard.height * 3);
     expect(dockCard.x + dockCard.width).toBeLessThan(tools.x);
     expect(tools.y + tools.height).toBeCloseTo(dockCard.y + dockCard.height, 0);
@@ -90,7 +90,7 @@ try {
     await expect(composer).toHaveAttribute('data-retained', 'composer');
     expect(await nativeCalls('pty_spawn')).toHaveLength(1);
     expect(await nativeCalls('pty_kill')).toHaveLength(0);
-    result.checks.push(`${theme}: production nesting keeps Files full-height and terminal confined to workspace; tools track288 includes margin8 so visible panel280; real conversation + FilePane Changes review + xterm coexist; SourceControl/CodeMirror render and tool/tab switching retains nodes`);
+    result.checks.push(`${theme}: production nesting keeps Files full-height and terminal confined to workspace; tools track288 includes margin12 so visible panel276; real conversation + FilePane Changes review + xterm coexist; SourceControl/CodeMirror render and tool/tab switching retains nodes`);
 
     await page.evaluate(() => window.toolsFixture.setTerminalOpen(false));
     const dock = page.locator('[data-terminal-dock-layout]');

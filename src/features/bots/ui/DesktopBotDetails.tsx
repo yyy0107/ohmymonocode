@@ -49,7 +49,7 @@ export function DesktopBotDetails({ identity, memory, runtime, activity, automat
     }
   }}>
     <header className="desktop-bot-details-heading">
-      <button type="button" className="assistant-icon-button" disabled={selected === "settings"} aria-label={t("Back to settings")} onClick={() => setSelected("settings")}><ChevronLeft size={18} /></button>
+      <button data-ui="icon-button" type="button" className="assistant-icon-button" disabled={selected === "settings"} aria-label={t("Back to settings")} onClick={() => setSelected("settings")}><ChevronLeft size={18} /></button>
       <h3 ref={heading} tabIndex={-1}>{t(label)}</h3>
     </header>
     <div className="desktop-bot-detail-pages">

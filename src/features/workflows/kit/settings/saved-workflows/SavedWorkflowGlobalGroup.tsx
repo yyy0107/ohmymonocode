@@ -5,7 +5,7 @@ import {
   TID_WORKFLOW_GLOBAL_GROUP,
   testId,
 } from "../../_shims/shared.js";
-import { Button } from "../../components/ui/button.js";
+import { Button } from "../../../../../shared/ui/forms/Button";
 import { ControlHintTooltip } from "../../ControlHintTooltip.js";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 import type { AutomationWorkspaceOption } from "../automationWorkspaceOptions.js";

@@ -8,7 +8,7 @@ import {
 } from "react";
 import { MENU_BAR_HEIGHT } from "../../../app/shell/MenuBar";
 import { WINDOW_DRAG_BAR_HEIGHT } from "../../../app/shell/WindowChrome";
-import { startWindowDrag } from "../../../app/shell/startWindowDrag";
+import { windowDragRegion } from "../../../app/shell/startWindowDrag";
 import {
   gitHistory,
   subscribeGitChanged,
@@ -132,8 +132,7 @@ export function GitGraphDialog({
         className="flex min-h-0 min-w-0 flex-1 flex-col text-content"
       >
         <header
-          data-tauri-drag-region="deep"
-          onMouseDownCapture={startWindowDrag}
+          {...windowDragRegion()}
           className="desktop-toolbar flex h-10 shrink-0 select-none items-center gap-2 border-b border-stroke px-3"
         >
           <GitBranch className="size-4 shrink-0 text-content/65" />

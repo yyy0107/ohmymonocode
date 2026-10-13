@@ -86,7 +86,7 @@ Code输入文字按[用户居中反馈](/tmp/codex-clipboard-df3a6089-610f-45e9-
 
 弹窗使用200ms透明度和`.98↔1`缩放；退出期间保留节点、禁止交互与嵌套Portal，完成后恢复焦点。AppViewDialog仅在其为当前顶层弹窗时处理Tab首尾循环，过滤不可用控件，尊重子控件的defaultPrevented及嵌套Portal，原业务Escape处理保持。菜单保留定位、子菜单、键盘和焦点行为。纵向展开/收起统一使用`AnimatedCollapse`；网格使用`useCollapseMotion`和`animated-collapse-size`；关闭保持零轨道，直接调整尺寸时禁用过渡，终端隐藏时保持挂载。所有动态效果遵循系统和应用的减少动态效果偏好。
 
-颜色与兼容语义在`omb-skin.css`，尺寸在`desktop-tokens.css`，字体在`desktop-fonts.css`，共享控件在`desktop-controls.css`；设置/其他工作区在`desktop-workspaces.css`，侧栏和会话分别在独立的desktop样式文件。`omb-metrics.css`只保留尚需兼容的业务尺寸，不再覆盖已接管的输入、消息和标签几何。公共组件的props、ref、受控状态和无障碍角色保持兼容。
+颜色在 `desktop-theme.css`，桌面尺寸在 `desktop-tokens.css`，字体与排版统一在 `src/shared/styles/fonts.css` 和 `typography.css`。共享控件通过明确的 `data-ui` 标记接入平台样式；设置、工作区、侧栏、会话各自管理布局。旧 OMB 层和兼容转导出已移除。
 
 具体已运行的检查、截图和未验收环境见[本轮交付记录](desktop-visual-delivery.md)。Chromium154.0.8037.97及Playwright WebKit26.6的离线夹具检查已通过；Projects两主题的WebKit卡片y173相对目标y172存在1 CSS px差异，按记录中的容差通过。该结果不替代WebKitGTK、真实Tauri窗口、provider流式输出或真实PTY验收。旧Grok证据和组件清单可作历史追溯，不能作为本规格的Claude运行态验收结果。
 

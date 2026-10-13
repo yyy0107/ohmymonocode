@@ -1,4 +1,5 @@
 import { AnimatePresence } from "motion/react";
+import { desktopModeForCwd } from "../../../app/model/desktopMode";
 import { sessionComposerConfiguration } from "../model/composerConfiguration";
 import { SessionWorktreeIcon } from "./SessionWorktreeIcon";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
@@ -704,6 +705,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
   const composer = (
     <Composer
       key={session.id}
+      messagingLayout={desktopModeForCwd(session.cwd) === "chat"}
       disabled={
         workspaceSwitchingSessionId === session.id ||
         (nativeReadOnly && !session.busy)

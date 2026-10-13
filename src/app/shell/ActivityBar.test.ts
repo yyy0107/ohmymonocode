@@ -101,12 +101,12 @@ it("keeps a 48px bar with title-row fallback and routes destinations to workspac
   expect(container.querySelector("nav")?.classList.contains("w-12")).toBe(true);
   expect(
     container
-      .querySelector('[data-tauri-drag-region="deep"]')
+      .querySelector('[data-window-drag-region="deep"]')
       ?.classList.contains("h-10"),
   ).toBe(true);
   props.chromeInMenuBar = true;
   await render();
-  expect(container.querySelector('[data-tauri-drag-region="deep"]')).toBeNull();
+  expect(container.querySelector('[data-window-drag-region="deep"]')).toBeNull();
   const quickOpen = [
     ...container.querySelectorAll<HTMLButtonElement>("button"),
   ].find((button) => button.title.startsWith("Quick Open"))!;
@@ -136,7 +136,7 @@ it("keeps a 48px bar with title-row fallback and routes destinations to workspac
   await render();
   expect(
     container
-      .querySelector('[data-tauri-drag-region="deep"]')
+      .querySelector('[data-window-drag-region="deep"]')
       ?.classList.contains("h-10"),
   ).toBe(true);
 });

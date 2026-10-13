@@ -129,7 +129,7 @@
 .assistant-chat.desktop-bots-workspace .desktop-bots-contact-title strong {
   flex: 1;
   font-size: var(--text-ui-base);
-  font-weight: 550;
+  font-weight: var(--font-weight-semibold);
 }
 .assistant-chat.desktop-bots-workspace .desktop-bots-contact-title time {
   color: var(--color-foreground-subtle);
@@ -208,7 +208,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 550;
+  font-weight: var(--font-weight-semibold);
 }
 .assistant-chat.desktop-bots-workspace .desktop-bots-header-title > span {
   color: var(--color-foreground-subtle);

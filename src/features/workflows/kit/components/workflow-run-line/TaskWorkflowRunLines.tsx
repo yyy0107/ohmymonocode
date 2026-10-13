@@ -9,7 +9,7 @@ import type {
   SessionWorkflowRunSummary,
 } from "../../_shims/protocol.js";
 import { isSessionWorkflowRunLive } from "../../_shims/protocol.js";
-import { cn } from "../lib/utils.js";
+import { cn } from "../../../../../shared/lib/cn";
 import { ControlHintTooltip } from "../../ControlHintTooltip.js";
 import {
   STATUS_DOT,

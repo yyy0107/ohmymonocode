@@ -362,7 +362,7 @@ export function FilePreviewSearch({
                 : "border-content/10"
             }`}
           >
-            <input
+            <input data-ui="input"
               ref={inputRef}
               type="text"
               value={query}
@@ -373,7 +373,7 @@ export function FilePreviewSearch({
               autoCapitalize="off"
               spellCheck={false}
               onChange={(event) => updateQuery(event.currentTarget.value)}
-              className="desktop-field h-6 min-w-0 flex-1 border-0 bg-transparent p-0 font-mono text-[12px] text-content outline-none"
+              className="h-6 min-w-0 flex-1 border-0 bg-transparent p-0 font-mono text-[12px] text-content outline-none"
             />
             <span
               aria-live="polite"

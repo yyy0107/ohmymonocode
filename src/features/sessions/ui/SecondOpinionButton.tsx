@@ -391,6 +391,7 @@ export function SecondOpinionButton({
   return (
     <>
       <button
+        data-ui="response-action"
         ref={button}
         type="button"
         title={label}

@@ -1,6 +1,6 @@
 // Monocode shim for ZCode's CodeBlock: a read-only scrollable code view.
 import type { HTMLAttributes } from "react";
-import { cn } from "../lib/utils.js";
+import { cn } from "../../../../../shared/lib/cn";
 
 export function CodeBlock({ code, language, className, showLineNumbers, renderMermaid: _renderMermaid, ...props }: HTMLAttributes<HTMLDivElement> & { code: string; language?: string; showLineNumbers?: boolean; renderMermaid?: boolean }) {
   const lines = code.replace(/\n$/, "").split("\n");

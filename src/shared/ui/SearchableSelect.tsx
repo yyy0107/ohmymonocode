@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
 } from "react";
 import { Check, ChevronDown, Search } from "./icons";
 import { LAYER } from "../lib/layers";
@@ -20,6 +21,7 @@ export type SearchableSelectOption = {
   value: string;
   label: string;
   keywords?: string;
+  icon?: ReactNode;
 };
 
 export function SearchableSelect({
@@ -36,6 +38,13 @@ export function SearchableSelect({
   searchable = true,
   codeLabels = false,
   align = "start",
+  onOpen,
+  width,
+  maxHeight = 240,
+  className = "",
+  menuClassName = "",
+  checkPosition = "start",
+  commitOnTab = false,
 }: {
   label: string;
   value: string;
@@ -51,6 +60,13 @@ export function SearchableSelect({
   /** Render technical values with the desktop code font, including portal options. */
   codeLabels?: boolean;
   align?: PopoverAlign;
+  onOpen?: () => void;
+  width?: number;
+  maxHeight?: number;
+  className?: string;
+  menuClassName?: string;
+  checkPosition?: "start" | "end";
+  commitOnTab?: boolean;
 }) {
   const { t: uiT } = useTranslation();
   const reduced = useMotionPreference();
@@ -94,9 +110,9 @@ export function SearchableSelect({
   const openMenu = () => {
     if (disabled) return;
     setMenuWidth(
-      variant === "pill" || variant === "row"
+      width ?? (variant === "pill" || variant === "row"
         ? Math.max(240, root.current?.getBoundingClientRect().width ?? 0)
-        : root.current?.getBoundingClientRect().width,
+        : root.current?.getBoundingClientRect().width),
     );
     setQuery("");
     setActive(
@@ -106,6 +122,7 @@ export function SearchableSelect({
       ),
     );
     setOpen(true);
+    onOpen?.();
   };
 
   useEffect(() => {
@@ -143,6 +160,10 @@ export function SearchableSelect({
     setQuery("");
   }, [disabled]);
 
+  useEffect(() => {
+    if (open && !query) setActive(Math.max(0, options.findIndex(option => option.value === value)));
+  }, [open, options, value]);
+
   const pick = (next: string) => {
     onChange(next);
     close(true);
@@ -173,6 +194,12 @@ export function SearchableSelect({
       setActive(Math.max(0, filtered.length - 1));
       return;
     }
+    if (event.key === "Tab" && commitOnTab) {
+      const option = filtered[active];
+      if (option && option.value !== value) onChange(option.value);
+      close(true);
+      return;
+    }
     if (event.key === "Enter") {
       event.preventDefault();
       const option = filtered[active];
@@ -187,11 +214,7 @@ export function SearchableSelect({
   return (
     <div
       ref={root}
-      className={
-        variant === "pill" || variant === "row"
-          ? "relative inline-flex max-w-56 shrink-0"
-          : "relative min-w-0"
-      }
+      className={`${variant === "pill" || variant === "row" ? "relative inline-flex max-w-56 shrink-0" : "relative min-w-0"} ${className}`}
     >
       <button
         ref={trigger}
@@ -199,7 +222,7 @@ export function SearchableSelect({
         disabled={disabled}
         aria-label={`${label}: ${selected?.label ?? placeholder}`}
         aria-expanded={open}
-        aria-haspopup="dialog"
+        aria-haspopup={searchable ? "dialog" : "listbox"}
         data-desktop-select-trigger={variant}
         onClick={() => (open ? close() : openMenu())}
         onKeyDown={(event) => {
@@ -220,6 +243,7 @@ export function SearchableSelect({
                   : "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-content/10 bg-background-base px-2.5 text-left text-[13px] outline-none hover:border-content/20 focus:border-content/25 disabled:opacity-50 active:scale-[0.99]"
         }
       >
+        {selected?.icon ? <span className="grid size-4 shrink-0 place-items-center">{selected.icon}</span> : null}
         <span
           data-code-label={(codeLabels && !!selected) || undefined}
           className={`min-w-0 truncate leading-normal ${variant === "panel" ? "flex-1 text-right" : variant === "pill" || variant === "row" ? "" : "flex-1"} ${selected ? "text-content" : "text-content/40"}`}
@@ -237,14 +261,15 @@ export function SearchableSelect({
         align={align}
         gap={4}
         width={menuWidth}
-        maxHeight={longMenu ? 240 : undefined}
-        constrainHeight={longMenu}
+        maxHeight={longMenu || maxHeight !== 240 ? maxHeight : undefined}
+        constrainHeight={longMenu || maxHeight !== 240}
         layer={popoverLayer}
-        role="dialog"
+        role={searchable ? "dialog" : undefined}
         aria-label={uiT("{value0} options", { value0: String(label) })}
         data-dialog-popover
+        data-menu-density={compact ? "compact" : "normal"}
         onDismiss={(reason) => close(reason === "escape")}
-        className="flex flex-col overflow-hidden"
+        className={`flex flex-col overflow-hidden ${menuClassName}`}
       >
         {searchable ? (
           <label className="flex h-8 shrink-0 items-center gap-2 border-b border-stroke px-2.5 text-content/45 focus-within:text-content/70">
@@ -276,6 +301,7 @@ export function SearchableSelect({
           ref={list}
           id={listId}
           role="listbox"
+          data-ui="select-list"
           aria-label={label}
           aria-activedescendant={searchable ? undefined : activeId}
           tabIndex={searchable ? undefined : 0}
@@ -294,6 +320,8 @@ export function SearchableSelect({
                   type="button"
                   role="option"
                   data-desktop-select-option
+                  data-ui="select-option"
+                  data-highlighted={highlighted || undefined}
                   tabIndex={-1}
                   aria-selected={isSelected}
                   onMouseDown={(event) => event.preventDefault()}
@@ -307,14 +335,14 @@ export function SearchableSelect({
                       : "text-content/75 hover:bg-content/3 hover:text-content"
                   }`}
                 >
-                  <span className="grid size-3.5 shrink-0 place-items-center">
-                    {isSelected ? (
-                      <Check className="size-3" strokeWidth={2} />
-                    ) : null}
-                  </span>
+                  {checkPosition === "start" ? <span className="grid size-3.5 shrink-0 place-items-center">
+                    {isSelected ? <Check data-ui="select-check" className="size-3" strokeWidth={2} /> : null}
+                  </span> : null}
+                  {option.icon ? <span className="grid size-4 shrink-0 place-items-center">{option.icon}</span> : null}
                   <span data-code-label={codeLabels || undefined} className="min-w-0 flex-1 truncate leading-normal">
                     {option.label}
                   </span>
+                  {checkPosition === "end" && isSelected ? <Check data-ui="select-check" className="size-4 shrink-0" /> : null}
                 </button>
               );
             })

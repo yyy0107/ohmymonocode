@@ -241,13 +241,13 @@ export function ColorPickerPopover({ value, onChange }: Props) {
           style={{ background: preview }}
           aria-hidden
         />
-        <input
+        <input data-ui="input"
           type="text"
           value={preview}
           spellCheck={false}
           aria-label={uiT("Hex color")}
           onChange={(e) => onHexInput(e.target.value)}
-          className="desktop-field min-w-0 flex-1 rounded-md border border-content/10 bg-content/5 px-2 py-1 font-mono text-[12px] text-content outline-none ring-accent/40 focus:ring-1"
+          className="min-w-0 flex-1 rounded-md border border-content/10 bg-content/5 px-2 py-1 font-mono text-[12px] text-content outline-none ring-accent/40 focus:ring-1"
         />
       </div>
     </div>

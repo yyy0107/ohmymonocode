@@ -151,7 +151,7 @@ export function WorkspacePicker({
       ) : null}
       {composerControls ? (
         <label className="composer-worktree-checkbox hidden items-center gap-1">
-          <input
+          <input data-ui="checkbox"
             type="checkbox"
             className="composer-worktree-checkbox-input"
             checked={mode === "worktree"}

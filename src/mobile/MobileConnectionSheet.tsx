@@ -1,3 +1,4 @@
+import { Button } from "../shared/ui/forms/Button";
 import { AnimatePresence, motion } from "motion/react";
 import { popTransition, immediateTransition, motionDistance } from "../shared/motion/tokens";
 import { useMotionPreference } from "../shared/motion/useMotionPreference";
@@ -154,7 +155,7 @@ export function MobileConnectionSheet({
             >
               <label>
                 {t("Host URL")}
-                <input
+                <input data-ui="input"
                   type="url"
                   placeholder="http://192.168.1.10:3774"
                   value={url}
@@ -168,7 +169,7 @@ export function MobileConnectionSheet({
               </label>
               <label>
                 {t("Pairing code")}
-                <input
+                <input data-ui="input"
                   className="mobile-pairing-code"
                   placeholder="XD5J-2J3U"
                   value={token}
@@ -186,8 +187,8 @@ export function MobileConnectionSheet({
                   {error}
                 </p>
               )}
-              <button
-                className="mobile-button mobile-primary"
+              <Button variant="primary"
+
                 type="submit"
                 disabled={disabled || !url.trim() || !token.trim()}
               >
@@ -199,7 +200,7 @@ export function MobileConnectionSheet({
                   )}
                   {t(disabled ? "Connecting…" : "Connect")}
                 </MobileSwap>
-              </button>
+              </Button>
             </form>
           )}
           {method === "scan" && shownError && (
@@ -207,9 +208,9 @@ export function MobileConnectionSheet({
               <p className="mobile-form-error" role="alert">
                 {shownError}
               </p>
-              <button
+              <Button variant="secondary"
                 type="button"
-                className="mobile-button"
+
                 disabled={disabled}
                 onClick={() => {
                   scanned.current = "";
@@ -217,7 +218,7 @@ export function MobileConnectionSheet({
                 }}
               >
                 {t("Scan again")}
-              </button>
+              </Button>
             </>
           )}
         </motion.div>

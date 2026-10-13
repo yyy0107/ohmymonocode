@@ -8,7 +8,7 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import { cn } from "../lib/utils.js";
+import { cn } from "../../../../../shared/lib/cn";
 import { laneDisplayName } from "../workflow-graph/lane-name.js";
 import { phaseDisplayName } from "../workflow-graph/phase-name.js";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";

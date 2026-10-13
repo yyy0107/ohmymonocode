@@ -6,7 +6,7 @@ import { ChevronDown, Plus, RefreshCw, X } from "../../../shared/ui/icons";
 
 import { Composer } from "./Composer";
 import { AgentTranscript } from "./AgentTranscript";
-import { GlassBackdrop } from "../../../app/shell/GlassBackdrop";
+import { GlassBackdrop } from "../../../shared/ui/GlassBackdrop";
 import { BtwQuestionBurst, type BurstRect } from "./BtwQuestionBurst";
 import { preferredModelSettings, resolveModel } from "../model/models";
 import {

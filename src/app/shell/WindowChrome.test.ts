@@ -68,6 +68,8 @@ function press(target: Element) {
     cancelable: true,
     button: 0,
     detail: 1,
+    clientX: 100,
+    clientY: 24,
   });
   act(() => target.dispatchEvent(event));
   return event;

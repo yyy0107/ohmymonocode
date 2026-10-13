@@ -1,6 +1,7 @@
+import { SearchableSelect } from "../../../shared/ui/SearchableSelect";
 import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { AnimatePresence, animate, motion, useIsPresent } from "motion/react";
-import { immediateTransition, motionDistance, motionGeometry, panelTransition } from "../../../shared/motion/tokens";
+import { immediateTransition, motionDistance, panelTransition } from "../../../shared/motion/tokens";
 import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { SurfaceAppearance } from "../../../shared/ui/SurfaceAppearance";
 import { activePreferenceStore } from "../model/sharedPreferences";
@@ -8,7 +9,7 @@ import { uploadPreferenceBackground } from "../model/preferenceAssets";
 import { usePreferenceState } from "../model/usePreferenceState";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import { formatBuildVersion } from "../../../shared/lib/buildVersion";
-import { startWindowDrag } from "../../../app/shell/startWindowDrag";
+import { windowDragRegion } from "../../../app/shell/startWindowDrag";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { setUiLanguage, type UiLanguage } from "../../../shared/i18n/language";
@@ -18,7 +19,6 @@ import { ask } from "@tauri-apps/plugin-dialog";
 import {
   ArrowDownCircle,
   Check,
-  ChevronDown,
   ExternalLink,
   FolderOpen,
   Globe,
@@ -57,7 +57,7 @@ import {
 } from "../../../shared/ui/ColorPickerPopover";
 import { Popover } from "../../../shared/ui/Popover";
 import { MenuHover } from "../../../shared/ui/MenuHover";
-import { SecondaryButton } from "../../../shared/ui/SecondaryButton";
+import { Button } from "../../../shared/ui/forms/Button";
 import {
   announceHarnessesRefreshed,
   hasHarnessUpdate,
@@ -76,11 +76,11 @@ import { McpSettings } from "./McpSettings";
 import { InboxProviderMark } from "../../inbox/ui/InboxProviderMark";
 import { RemoveProjectDialog } from "../../projects/ui/RemoveProjectDialog";
 import { SettingsNav } from "../../../app/shell/SettingsRail";
-import { Switch } from "../../workflows/kit/components/ui/switch";
+import { Switch } from "../../../shared/ui/forms/Switch";
 import { SettingsSearchInput } from "../../workflows/kit/settings/SettingsSearchInput";
 import {
 } from "../../workflows/kit/settings/SettingsPageParts";
-import { Input } from "../../workflows/kit/components/ui/input";
+import { Input } from "../../../shared/ui/forms/Input";
 import {
   activeScheme,
   activeScope,
@@ -612,8 +612,7 @@ export function SettingsView({
       className="flex min-h-0 min-w-0 flex-1 flex-col text-content"
     >
       <div
-        data-tauri-drag-region="deep"
-        onMouseDownCapture={startWindowDrag}
+        {...windowDragRegion()}
         className="desktop-toolbar flex h-10 shrink-0 select-none items-center border-b border-stroke"
       >
         <div className="flex min-w-0 flex-1 items-center gap-2 px-3 text-[13px]">
@@ -648,7 +647,7 @@ export function SettingsView({
               key={cwd}
               cwd={cwd}
               agentPicker={(props) => (
-                <Select label={uiT("Filter skills by agent")} {...props} />
+                <SearchableSelect searchable={false} align="end" width={280} maxHeight={320} commitOnTab checkPosition="end" className="max-w-52" label={uiT("Filter skills by agent")} {...props} />
               )}
               header={
                 <PageHeader
@@ -1497,17 +1496,17 @@ function GithubSettings() {
       <Row label={uiT("Connection")} description={description}>
         <span className="text-[12px] text-content/50">{label}</span>
         {!checking && !status?.installed ? (
-          <SecondaryButton
+          <Button variant="secondary"
             onClick={() => {
               void openUrl("https://cli.github.com/").catch(() => {});
             }}
           >
             {uiT("Installation guide")}
-          </SecondaryButton>
+          </Button>
         ) : null}
-        <SecondaryButton onClick={() => void checkStatus()} disabled={checking}>
+        <Button variant="secondary" onClick={() => void checkStatus()} disabled={checking}>
           {checking ? uiT("Checking") : uiT("Check again")}
-        </SecondaryButton>
+        </Button>
       </Row>
       {error ? (
         <p className="border-b border-content/5 px-4 pb-3 text-[12px] text-red-400/90 last:border-b-0">
@@ -1598,16 +1597,16 @@ function GitlabSettings() {
             <span className="max-w-56 truncate text-[12px] text-content/50">
               {url}
             </span>
-            <SecondaryButton
+            <Button variant="secondary"
               onClick={() => void onDisconnect()}
               disabled={busy}
             >
               {uiT("Disconnect")}
-            </SecondaryButton>
+            </Button>
           </div>
         ) : (
           <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
-            <label className="flex h-7 w-52 max-w-full shrink-0 items-center rounded-md border border-content/10 px-2 focus-within:border-content/20">
+            <label data-ui="input-group" className="flex h-7 w-52 max-w-full shrink-0 items-center rounded-md border border-content/10 px-2 focus-within:border-content/20">
               <input
                 type="url"
                 value={url}
@@ -1619,7 +1618,7 @@ function GitlabSettings() {
                 className="min-w-0 flex-1 bg-transparent text-[12px] text-content outline-none placeholder:text-content/35"
               />
             </label>
-            <label className="flex h-7 w-52 max-w-full shrink-0 items-center rounded-md border border-content/10 px-2 focus-within:border-content/20">
+            <label data-ui="input-group" className="flex h-7 w-52 max-w-full shrink-0 items-center rounded-md border border-content/10 px-2 focus-within:border-content/20">
               <input
                 type="password"
                 value={token}
@@ -1634,12 +1633,12 @@ function GitlabSettings() {
                 className="min-w-0 flex-1 bg-transparent text-[12px] text-content outline-none placeholder:text-content/35"
               />
             </label>
-            <SecondaryButton
+            <Button variant="secondary"
               onClick={() => void onSave()}
               disabled={busy || !token.trim()}
             >
               {busy ? uiT("Saving") : uiT("Connect")}
-            </SecondaryButton>
+            </Button>
           </div>
         )}
       </Row>
@@ -1732,16 +1731,16 @@ function AzureDevOpsSettings() {
             <span className="max-w-56 truncate text-[12px] text-content/50">
               {url}
             </span>
-            <SecondaryButton
+            <Button variant="secondary"
               onClick={() => void onDisconnect()}
               disabled={busy}
             >
               {uiT("Disconnect")}
-            </SecondaryButton>
+            </Button>
           </div>
         ) : (
           <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
-            <label className="flex h-7 w-52 max-w-full shrink-0 items-center rounded-md border border-content/10 px-2 focus-within:border-content/20">
+            <label data-ui="input-group" className="flex h-7 w-52 max-w-full shrink-0 items-center rounded-md border border-content/10 px-2 focus-within:border-content/20">
               <input
                 type="url"
                 value={url}
@@ -1753,7 +1752,7 @@ function AzureDevOpsSettings() {
                 className="min-w-0 flex-1 bg-transparent text-[12px] text-content outline-none placeholder:text-content/35"
               />
             </label>
-            <label className="flex h-7 w-52 max-w-full shrink-0 items-center rounded-md border border-content/10 px-2 focus-within:border-content/20">
+            <label data-ui="input-group" className="flex h-7 w-52 max-w-full shrink-0 items-center rounded-md border border-content/10 px-2 focus-within:border-content/20">
               <input
                 type="password"
                 value={token}
@@ -1768,12 +1767,12 @@ function AzureDevOpsSettings() {
                 className="min-w-0 flex-1 bg-transparent text-[12px] text-content outline-none placeholder:text-content/35"
               />
             </label>
-            <SecondaryButton
+            <Button variant="secondary"
               onClick={() => void onSave()}
               disabled={busy || !token.trim()}
             >
               {busy ? uiT("Saving") : uiT("Connect")}
-            </SecondaryButton>
+            </Button>
           </div>
         )}
       </Row>
@@ -1890,12 +1889,12 @@ function LinearSettings() {
         )}
       >
         {connected ? (
-          <SecondaryButton onClick={() => void onDisconnect()} disabled={busy}>
+          <Button variant="secondary" onClick={() => void onDisconnect()} disabled={busy}>
             {uiT("Disconnect")}
-          </SecondaryButton>
+          </Button>
         ) : (
           <div className="flex max-w-full flex-wrap items-center gap-2">
-            <label className="flex h-7 w-52 max-w-full shrink-0 items-center rounded-md border border-content/10 px-2 focus-within:border-content/20">
+            <label data-ui="input-group" className="flex h-7 w-52 max-w-full shrink-0 items-center rounded-md border border-content/10 px-2 focus-within:border-content/20">
               <input
                 type="password"
                 value={token}
@@ -1910,12 +1909,12 @@ function LinearSettings() {
                 className="min-w-0 flex-1 bg-transparent text-[12px] text-content outline-none placeholder:text-content/35"
               />
             </label>
-            <SecondaryButton
+            <Button variant="secondary"
               onClick={() => void onSave()}
               disabled={busy || !token.trim()}
             >
               {busy ? uiT("Saving") : uiT("Connect")}
-            </SecondaryButton>
+            </Button>
           </div>
         )}
       </Row>
@@ -2023,13 +2022,13 @@ function UpdateRow({
       description={status}
     >
       <div className="flex items-center gap-2">
-        <SecondaryButton
+        <Button variant="secondary"
           onClick={() => onOpenWhatsNew(snapshot.currentVersion)}
           disabled={snapshot.currentVersion === "…"}
         >
           {uiT("What's new")}
-        </SecondaryButton>
-        <SecondaryButton onClick={() => void onClick()} disabled={busy}>
+        </Button>
+        <Button variant="secondary" onClick={() => void onClick()} disabled={busy}>
           {busy ? (
             <Loader className="size-3.5 animate-spin" aria-hidden />
           ) : hasUpdate ? (
@@ -2038,7 +2037,7 @@ function UpdateRow({
             <RefreshCw className="size-3.5" aria-hidden />
           )}
           {hasUpdate ? uiT("Download") : uiT("Check for updates")}
-        </SecondaryButton>
+        </Button>
       </div>
     </Row>
   );
@@ -2640,7 +2639,7 @@ function AppearancePage({ appearance }: { appearance: AppearanceSettings }) {
             "Zoom the whole interface. You can also use Ctrl+=, Ctrl+-, and Ctrl+0 (Cmd on macOS).",
           )}
         >
-          <Select
+          <SearchableSelect searchable={false} align="end" width={280} maxHeight={320} commitOnTab checkPosition="end" className="max-w-52"
             label={uiT("Interface scale")}
             value={String(Math.round(appearance.uiScale * 100))}
             options={UI_SCALE_PERCENTS.map((percent) => ({
@@ -2760,9 +2759,9 @@ function FontFamilySelect({
         />
       ) : null}
       <div className="w-40">
-        <Select
+        <SearchableSelect searchable={false} align="end" width={280} maxHeight={320} commitOnTab checkPosition="end" className="max-w-52"
           label={label}
-          fontMenu="family"
+          menuClassName="settings-font-select-menu"
           value={custom ? CUSTOM_FONT : value}
           options={[
             { value: "", label: defaultLabel },
@@ -2796,9 +2795,9 @@ function FontWeightSelect({
   const { t: uiT } = useTranslation();
   return (
     <div className="w-28">
-      <Select
+      <SearchableSelect searchable={false} align="end" width={280} maxHeight={320} commitOnTab checkPosition="end" className="max-w-52"
         label={label}
-        fontMenu="weight"
+        menuClassName="settings-font-select-menu"
         value={String(value)}
         options={FONT_WEIGHTS.map((weight) => ({
           value: String(weight),
@@ -3063,7 +3062,7 @@ function ChatBackgroundCard({
         </div>
         {hasImage ? (
           <div className="mt-3 flex items-center justify-end gap-2">
-            <SecondaryButton
+            <Button variant="secondary"
               onClick={() => void appearance.onChooseChatBackground()}
               disabled={busy}
             >
@@ -3071,14 +3070,14 @@ function ChatBackgroundCard({
                 <Loader className="size-3.5 animate-spin" aria-hidden />
               ) : null}
               {uiT("Change")}
-            </SecondaryButton>
-            <SecondaryButton
+            </Button>
+            <Button
               onClick={() => void appearance.onClearChatBackground()}
               disabled={busy}
-              danger
+              variant="danger"
             >
               {uiT("Remove")}
-            </SecondaryButton>
+            </Button>
           </div>
         ) : null}
         {appearance.chatBackgroundError ? (
@@ -3323,7 +3322,7 @@ function ShortcutEditor({
   return (
     <div className="relative w-40 shrink-0">
       <div className="flex items-center gap-0.5">
-        <input
+        <input data-ui="input"
           type="text"
           readOnly
           aria-label={uiT("Change {value0} shortcut", { value0: String(name) })}
@@ -3753,7 +3752,7 @@ function ProviderBinaryControl({
             >
               {uiT("CLI path")}
             </label>
-            <input
+            <input data-ui="input"
               id={`${provider}-binary-path`}
               ref={editInput}
               type="text"
@@ -3762,7 +3761,7 @@ function ProviderBinaryControl({
               disabled={working}
               autoFocus
               onChange={(event) => setDraft(event.target.value)}
-              className="desktop-field mt-1.5 h-8 w-full rounded-md border border-content/10 bg-content/[0.04] px-2 font-mono text-[11px] text-content outline-none placeholder:font-sans placeholder:text-content/35 focus:border-accent/45 disabled:opacity-50"
+              className="mt-1.5 h-8 w-full rounded-md border border-content/10 bg-content/[0.04] px-2 font-mono text-[11px] text-content outline-none placeholder:font-sans placeholder:text-content/35 focus:border-accent/45 disabled:opacity-50"
             />
             <p className="mt-1.5 text-[10px] text-content/40">
               {uiT(
@@ -3778,7 +3777,7 @@ function ProviderBinaryControl({
               </span>
             ) : null}
             <div className="mt-3 flex justify-end gap-2">
-              <SecondaryButton
+              <Button variant="secondary"
                 disabled={working}
                 onClick={() => {
                   setDraft(loadProviderBinaryPath(provider) ?? "");
@@ -3787,18 +3786,18 @@ function ProviderBinaryControl({
                 }}
               >
                 {uiT("Cancel")}
-              </SecondaryButton>
+              </Button>
               {overridden ? (
-                <SecondaryButton
+                <Button variant="secondary"
                   disabled={working}
                   onClick={() => void useAuto()}
                 >
                   {uiT("Use auto-detected path")}
-                </SecondaryButton>
+                </Button>
               ) : null}
-              <SecondaryButton type="submit" disabled={working}>
+              <Button variant="secondary" type="submit" disabled={working}>
                 {uiT("Save path")}
-              </SecondaryButton>
+              </Button>
             </div>
           </form>
         ) : (
@@ -3837,7 +3836,7 @@ function ProviderBinaryControl({
             ) : null}
             <div className="mt-3 flex justify-end gap-2">
               {error ? (
-                <SecondaryButton
+                <Button variant="secondary"
                   disabled={working}
                   aria-label={uiT("Retry {value0} {value1}", {
                     value0: String(title),
@@ -3853,9 +3852,9 @@ function ProviderBinaryControl({
                   {overridden
                     ? uiT("Retry configured path")
                     : uiT("Retry auto-detect")}
-                </SecondaryButton>
+                </Button>
               ) : null}
-              <SecondaryButton
+              <Button variant="secondary"
                 aria-label={uiT("Open {value0} CLI location", {
                   value0: String(title),
                 })}
@@ -3874,8 +3873,8 @@ function ProviderBinaryControl({
               >
                 <ExternalLink className="size-3.5" />
                 {uiT("Open location")}
-              </SecondaryButton>
-              <SecondaryButton
+              </Button>
+              <Button variant="secondary"
                 aria-label={uiT("Edit {value0} CLI path", {
                   value0: String(title),
                 })}
@@ -3884,7 +3883,7 @@ function ProviderBinaryControl({
               >
                 <Pencil className="size-3.5" />
                 {uiT("Edit path")}
-              </SecondaryButton>
+              </Button>
             </div>
           </>
         )}
@@ -4071,7 +4070,7 @@ function ProvidersPage({
         title={uiT("Agent CLIs")}
         action={
           <div className="flex items-center gap-2">
-            <SecondaryButton
+            <Button variant="secondary"
               aria-label={uiT("Refresh agent CLIs")}
               aria-busy={refreshing}
               disabled={refreshing}
@@ -4083,8 +4082,8 @@ function ProvidersPage({
                 <RefreshCw className="size-3.5" aria-hidden />
               )}
               {refreshing ? uiT("Refreshing") : uiT("Refresh")}
-            </SecondaryButton>
-            <Select
+            </Button>
+            <SearchableSelect searchable={false} align="end" width={280} maxHeight={320} commitOnTab checkPosition="end" className="max-w-52"
               label={uiT("Provider defaults scope")}
               value={scope}
               options={scopeOptions}
@@ -4661,7 +4660,7 @@ export function ProviderAccountsSettings() {
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       {needsSignIn || signingIn ? (
-                        <SecondaryButton
+                        <Button variant="secondary"
                           disabled={Boolean(working)}
                           aria-label={uiT("Sign in to {account}", { account: account.label })}
                           onClick={() => void signIn(account)}
@@ -4670,7 +4669,7 @@ export function ProviderAccountsSettings() {
                             <Loader className="size-3.5 animate-spin" aria-hidden />
                           ) : null}
                           {uiT(signingIn ? "Waiting for browser…" : "Sign in")}
-                        </SecondaryButton>
+                        </Button>
                       ) : null}
                       <button
                         type="button"
@@ -4839,7 +4838,7 @@ function ProviderAccountEditor({
       </div>
       {!editor.importCurrent && <label className="mt-2 block">
         <span className="text-[11px] text-content/60">{uiT("Data Home (optional)")}</span>
-        <input
+        <input data-ui="input"
           type="text"
           value={editor.dataHome ?? ""}
           disabled={working}
@@ -4848,7 +4847,7 @@ function ProviderAccountEditor({
             ? (editor.provider === "codex" ? "~/.codex" : "~/.claude")
             : (editor.provider === "codex" ? "~/.codex-work" : "~/.claude-work")}
           onChange={event => onDataHome?.(event.target.value)}
-          className="desktop-field mt-1 h-8 w-full rounded-md border border-content/10 bg-content/[0.04] px-2.5 font-mono text-[12px] text-content outline-none focus:border-accent/45 disabled:opacity-50"
+          className="mt-1 h-8 w-full rounded-md border border-content/10 bg-content/[0.04] px-2.5 font-mono text-[12px] text-content outline-none focus:border-accent/45 disabled:opacity-50"
         />
         <span className="mt-1 block text-[10px] text-content/40">
           {uiT(editor.accountId
@@ -5029,7 +5028,7 @@ function ProviderRow({
       }
     >
       {newerCopy && !switched ? (
-        <SecondaryButton
+        <Button variant="secondary"
           aria-label={uiT("Use {value0} {value1} at {value2}", {
             value0: String(HARNESS_TITLE[harness]),
             value1: newerCopy.version,
@@ -5045,10 +5044,10 @@ function ProviderRow({
             <ArrowDownCircle className="size-3.5 text-accent" aria-hidden />
           )}
           {uiT("Use {value0}", { value0: newerCopy.version })}
-        </SecondaryButton>
+        </Button>
       ) : null}
       {updatable && update.status !== "updated" ? (
-        <SecondaryButton
+        <Button variant="secondary"
           aria-label={uiT("Update {value0}", {
             value0: String(HARNESS_TITLE[harness]),
           })}
@@ -5065,10 +5064,10 @@ function ProviderRow({
             : update.status === "failed"
               ? uiT("Retry")
               : uiT("Update")}
-        </SecondaryButton>
+        </Button>
       ) : null}
       {current ? (
-        <Select
+        <SearchableSelect searchable={false} align="end" width={280} maxHeight={320} commitOnTab checkPosition="end" className="max-w-52"
           label={uiT("{value0} model", {
             value0: String(HARNESS_TITLE[harness]),
           })}
@@ -5087,12 +5086,12 @@ function ProviderRow({
           }))}
         />
       ) : null}
-      <SecondaryButton
+      <Button variant="secondary"
         onClick={() => current && onDefault(harness, current.id)}
         disabled={isDefault || !current}
       >
         {isDefault ? uiT("Default") : uiT("Use by default")}
-      </SecondaryButton>
+      </Button>
       {available ? (
         <div className="flex items-center gap-2">
           <span className="text-[12px] text-content/50">
@@ -5191,14 +5190,14 @@ function ArchivePage({
                 </div>
               </div>
               {onRestoreProject ? (
-                <SecondaryButton onClick={() => onRestoreProject(project.path)}>
+                <Button variant="secondary" onClick={() => onRestoreProject(project.path)}>
                   {uiT("Restore")}
-                </SecondaryButton>
+                </Button>
               ) : null}
               {onDeleteProject ? (
-                <SecondaryButton danger onClick={() => setDeleting(project)}>
+                <Button variant="danger" onClick={() => setDeleting(project)}>
                   {uiT("Delete")}
-                </SecondaryButton>
+                </Button>
               ) : null}
             </div>
           ))
@@ -5253,17 +5252,17 @@ function ArchivePage({
               <span className="shrink-0 text-[11px] text-content/35 tabular-nums">
                 {formatDate(session.updatedAt)}
               </span>
-              <SecondaryButton
+              <Button variant="secondary"
                 onClick={() => onArchiveSession(session.id, false)}
               >
                 {uiT("Unarchive")}
-              </SecondaryButton>
-              <SecondaryButton
-                danger
+              </Button>
+              <Button
+                variant="danger"
                 onClick={() => onDeleteSession(session.id)}
               >
                 {uiT("Delete")}
-              </SecondaryButton>
+              </Button>
             </div>
           ))
         )}
@@ -5800,215 +5799,5 @@ function Toggle({
         playCue("switch");
       }}
     />
-  );
-}
-
-/** Theme-aware dropdown for a Settings row: a trigger button opening a Popover listbox. Used instead of a native select, whose option popup is OS-rendered and unreadable in dark mode on Windows/Linux. */
-function Select({
-  label,
-  value,
-  options,
-  onChange,
-  onOpen,
-  fontMenu,
-}: {
-  label: string;
-  value: string;
-  options: { value: string; label: string; icon?: ReactNode }[];
-  onChange: (value: string) => void;
-  onOpen?: () => void;
-  fontMenu?: "family" | "weight";
-}) {
-  const reduced = useMotionPreference();
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(() =>
-    Math.max(
-      0,
-      options.findIndex((option) => option.value === value),
-    ),
-  );
-  const root = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const activeOption = useRef<HTMLButtonElement>(null);
-  const fontListbox = useRef<HTMLDivElement>(null);
-  const listId = useId();
-  const selected = options.find((option) => option.value === value);
-  const activeId =
-    options[active] != null ? `${listId}-opt-${active}` : undefined;
-
-  useEffect(() => {
-    if (!open) return;
-    setActive(
-      Math.max(
-        0,
-        options.findIndex((option) => option.value === value),
-      ),
-    );
-  }, [open, value, options]);
-
-  useEffect(() => {
-    if (open) onOpen?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    activeOption.current?.scrollIntoView({ block: "nearest" });
-  }, [active, open]);
-
-  const pick = (next: string) => {
-    onChange(next);
-    setOpen(false);
-    trigger.current?.focus();
-  };
-
-  const onMenuKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActive((i) => Math.min(options.length - 1, i + 1));
-      return;
-    }
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActive((i) => Math.max(0, i - 1));
-      return;
-    }
-    if (e.key === "Home") {
-      e.preventDefault();
-      setActive(0);
-      return;
-    }
-    if (e.key === "End") {
-      e.preventDefault();
-      setActive(options.length - 1);
-      return;
-    }
-    if (e.key === "Tab") {
-      const option = options[active];
-      if (option && option.value !== value) onChange(option.value);
-      setOpen(false);
-      trigger.current?.focus();
-      return;
-    }
-    if (e.key === "Enter") {
-      e.preventDefault();
-      const option = options[active];
-      if (option) pick(option.value);
-    }
-  };
-
-  const optionElements = options.map((option, index) => {
-    const isSelected = option.value === value;
-    const highlighted = index === active;
-    return (
-      <button
-        key={option.value}
-        ref={highlighted ? activeOption : undefined}
-        type="button"
-        id={`${listId}-opt-${index}`}
-        role="option"
-        data-desktop-select-option
-        data-settings-font-option={fontMenu ? "" : undefined}
-        data-highlighted={highlighted || undefined}
-        tabIndex={-1}
-        aria-selected={isSelected}
-        onMouseDown={(e) => e.preventDefault()}
-        onMouseEnter={() => setActive(index)}
-        onClick={() => pick(option.value)}
-        className="relative isolate flex min-h-7 w-full items-center gap-2 rounded-md bg-transparent px-2 py-1 text-left text-ui-base text-foreground"
-      >
-        <span
-          aria-hidden="true"
-          data-menu-hover
-          className={`absolute inset-0 -z-10 rounded-[inherit] ${highlighted ? "bg-menu-hover" : ""}`}
-        />
-        {option.icon ? (
-          <span className="grid size-4 shrink-0 place-items-center">
-            {option.icon}
-          </span>
-        ) : null}
-        <span className="min-w-0 flex-1 truncate">{option.label}</span>
-        {isSelected ? (
-          <Check
-            data-settings-font-check={fontMenu ? "" : undefined}
-            className="size-4 shrink-0 text-foreground-subtle"
-          />
-        ) : null}
-      </button>
-    );
-  });
-
-  return (
-    <div ref={root} className="relative max-w-52">
-      <button
-        type="button"
-        ref={trigger}
-        aria-label={`${label}: ${selected?.label ?? value}`}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        onClick={() => setOpen((prev) => !prev)}
-        className="desktop-field flex h-8 w-full items-center justify-between gap-1.5 rounded-lg border border-input-border bg-input pl-3 pr-2 text-left text-ui-base text-foreground outline-none transition-colors hover:border-input-border-hover focus-visible:border-input-border-focused aria-expanded:border-input-border-hover"
-      >
-        <span className="flex min-w-0 flex-1 items-center gap-1.5">
-          {selected?.icon ? (
-            <span className="grid size-4 shrink-0 place-items-center">
-              {selected.icon}
-            </span>
-          ) : null}
-          <span className="min-w-0 truncate">
-            {selected ? selected.label : value}
-          </span>
-        </span>
-        <motion.span
-          className="inline-flex shrink-0"
-          initial={false}
-          animate={{ rotate: open ? motionGeometry.selectAngle : 0 }}
-          transition={reduced ? immediateTransition : panelTransition}
-        >
-          <ChevronDown className="desktop-select-arrow size-3.5 text-foreground-subtle" />
-        </motion.span>
-      </button>
-      <Popover
-        open={open}
-        anchor={root}
-        side="bottom"
-        align="end"
-        width={280}
-        maxHeight={320}
-        autoFocus
-        onDismiss={(reason) => {
-          setOpen(false);
-          if (reason === "escape") trigger.current?.focus();
-        }}
-        role={fontMenu ? undefined : "listbox"}
-        aria-label={fontMenu ? undefined : label}
-        aria-activedescendant={fontMenu ? undefined : activeId}
-        data-settings-font-menu={fontMenu}
-        tabIndex={-1}
-        onKeyDown={onMenuKey}
-        onFocus={fontMenu ? (event) => {
-          if (event.target === event.currentTarget) {
-            fontListbox.current?.focus({ preventScroll: true });
-          }
-        } : undefined}
-        className={fontMenu ? "overflow-hidden p-0" : "overflow-y-auto overscroll-contain p-1"}
-      >
-        {fontMenu ? (
-          <div data-settings-font-gutter className="overflow-y-auto overscroll-contain p-1" style={{ maxHeight: "inherit" }}>
-            <div
-              ref={fontListbox}
-              role="listbox"
-              aria-label={label}
-              aria-activedescendant={activeId}
-              tabIndex={-1}
-              data-settings-font-listbox
-              className="p-0 outline-none"
-            >
-              {optionElements}
-            </div>
-          </div>
-        ) : optionElements}
-      </Popover>
-    </div>
   );
 }

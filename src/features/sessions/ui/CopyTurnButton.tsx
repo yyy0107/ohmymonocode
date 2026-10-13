@@ -32,6 +32,7 @@ export function CopyTurnButton({
   return (
     <>
       <button
+        data-ui="response-action"
         type="button"
         disabled={pending}
         title={copied ? uiT("Copied") : label}

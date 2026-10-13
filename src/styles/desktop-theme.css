@@ -1,0 +1,174 @@
+/* Desktop semantic palette and utility color bindings. Layout belongs to each surface. */
+@theme {
+  --animate-caret: caret-blink 1s step-end infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-status-pulse: status-pulse 1.6s steps(2, jump-none) infinite;
+}
+
+@theme {
+  --color-app: var(--color-background-base);
+  --color-raised: var(--color-selection);
+  --color-raised-hover: var(--color-selection-hover);
+  --color-composer: var(--composer-input, var(--card-color));
+  --color-composer-ring: var(--color-stroke);
+  --color-inset: var(--color-surface);
+  --color-control: var(--color-selection-subtle);
+  --color-hairline: var(--color-stroke);
+  --color-ink: var(--color-content);
+  --color-ink-secondary: var(--color-foreground-subtle);
+  --color-ink-tertiary: var(--color-foreground-subtlest);
+  --color-accent-border: var(--color-accent);
+  --color-accent-text: var(--color-accent);
+  --color-accent-ink: #ffffff;
+  --color-focus: var(--color-accent);
+  --color-bubble-user: var(--color-selection-strong);
+  --color-bubble-user-ink: var(--color-content);
+  --color-danger: var(--color-destructive);
+  --color-danger-ink: #ffffff;
+  --color-success-ink: #ffffff;
+}
+
+@keyframes caret-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 50%; }
+  to { background-position: -200% 50%; }
+}
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 0.25; }
+  30% { opacity: 1; }
+  60% { opacity: 0.25; }
+}
+
+[data-skin="midnight"] {
+  --color-app: #242423;
+  --color-panel: #20201e;
+  --color-raised: #383733;
+  --color-raised-hover: #44433e;
+  --color-composer: #30302d;
+  --color-composer-ring: rgb(240 239 236 / 24%);
+  --color-card: #2d2c29;
+  --color-menu: #2d2c29;
+  --color-inset: #272724;
+  --color-control: #ffffff13;
+  --color-hairline: rgb(240 239 236 / 15%);
+  --color-ink: #f0efec;
+  --color-ink-secondary: #c7c5be;
+  --color-ink-tertiary: #aaa79f;
+  --color-accent: #c6613f;
+  --color-accent-border: rgb(240 239 236 / 24%);
+  --color-accent-text: #eca78f;
+  --color-focus: #e39478;
+  --color-accent-ink: #ffffff;
+  --color-bubble-user: #383733;
+  --color-bubble-user-ink: #f0efec;
+  --color-success: #32d74b;
+  --color-danger: #ff5667;
+  --color-danger-ink: #151515;
+  --color-success-ink: #151515;
+  --color-warning: #ffb65c;
+  --color-scrollbar: #ffffff33;
+  --color-backdrop: #00000080;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+}
+
+[data-skin="daylight"] {
+  --color-app: #f9f9f7;
+  --color-panel: #faf9f5;
+  --color-raised: #f0efec;
+  --color-raised-hover: #e8e6e1;
+  --color-composer: #ffffff;
+  --color-composer-ring: rgb(30 30 29 / 30%);
+  --color-card: #ffffff;
+  --color-menu: #ffffff;
+  --color-inset: #f9f9f7;
+  --color-control: rgb(115 114 108 / 8%);
+  --color-hairline: rgb(31 30 29 / 15%);
+  --color-ink: #141413;
+  --color-ink-secondary: #383835;
+  --color-ink-tertiary: #7b7974;
+  --color-accent: #c6613f;
+  --color-accent-border: rgb(31 30 29 / 30%);
+  --color-accent-text: #a34c30;
+  --color-focus: #c6613f;
+  --color-accent-ink: #ffffff;
+  --color-bubble-user: #f0efec;
+  --color-bubble-user-ink: #141413;
+  --color-success: #1e7f35;
+  --color-danger: #c02b3a;
+  --color-danger-ink: #ffffff;
+  --color-success-ink: #ffffff;
+  --color-warning: #8a5a00;
+  --color-scrollbar: #0b0b0b33;
+  --color-backdrop: #00000066;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+}
+
+html[data-skin][data-skin] {
+  /* Legacy utilities, menu layers and shared controls use the same hover ink. */
+  --color-hover-fill: var(--cds-fill-ghost-hover);
+  --color-background-base: var(--color-app);
+  --color-background: var(--color-app);
+  --window-color: var(--color-app);
+  --panel-color: var(--color-panel);
+  --card-color: var(--color-card);
+  --menu-hover-color: var(--color-hover-fill);
+  --accent-color: var(--color-accent);
+  --link-color: var(--color-accent-text);
+  --brand-color: var(--color-accent);
+  --brand-foreground: var(--color-accent-ink);
+  --color-content: var(--color-ink);
+  --color-foreground: var(--color-ink);
+  --color-foreground-subtle: var(--color-ink-secondary);
+  --color-foreground-subtlest: var(--color-ink-tertiary);
+  --color-stroke: var(--color-hairline);
+  --color-border: var(--color-hairline);
+  --color-border-hover: var(--color-raised-hover);
+  --color-destructive: var(--color-danger);
+  --color-selection: var(--color-raised);
+  --color-selection-subtle: color-mix(in srgb, var(--color-raised) 72%, transparent);
+  --color-selection-strong: var(--color-raised);
+  --color-selection-hover: var(--color-hover-fill);
+  --color-selection-emphasis: var(--color-raised-hover);
+  --color-surface: color-mix(in srgb, var(--color-raised) 45%, transparent);
+  --color-surface-hover: var(--color-hover-fill);
+  --composer-input: var(--color-composer);
+  --composer-surface: var(--color-panel);
+  --composer-border: var(--color-composer-ring);
+  --composer-border-hover: var(--color-hairline);
+  --composer-hover: var(--color-raised-hover);
+  --composer-placeholder: var(--color-ink-tertiary);
+  --composer-muted: var(--color-ink-secondary);
+}
+
+/* Messaging palette; geometry and component state live in their own layers. */
+html[data-skin] {
+  --messaging-border: var(--color-hairline);
+  --messaging-divider: var(--color-hairline);
+  --messaging-send: #c6613f;
+  --messaging-send-hover: #b65333;
+  --messaging-spark: #d97757;
+  --messaging-skeleton: rgb(115 114 108 / 50%);
+}
+html[data-skin="daylight"][data-desktop-mode="chat"] {
+  --color-app: #f9f9f7;
+  --color-panel: #f9f9f7;
+  --color-card: #ffffff;
+  --color-composer: #ffffff;
+  --color-raised: #f0efec;
+  --color-raised-hover: #e7e6e1;
+  --color-control: #f0efec;
+  --color-ink: #141413;
+  --color-ink-secondary: #4d4c48;
+  --color-ink-tertiary: #7b7974;
+  --color-bubble-user: #f0efec;
+  --color-bubble-user-ink: #141413;
+  --messaging-border: rgb(31 30 29 / 30%);
+  --messaging-divider: rgb(31 30 29 / 15%);
+}

@@ -943,7 +943,7 @@ export function BotChat({
           <div className="assistant-availability" role="alert">
             <p>{t(connectError)}</p>
             <div className="assistant-availability-actions">
-              <button
+              <button data-ui="button" data-variant="primary"
                 type="button"
                 className="assistant-primary"
                 onClick={() => setAttempt((n) => n + 1)}

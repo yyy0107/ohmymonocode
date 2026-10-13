@@ -1,3 +1,4 @@
+import { IconButton } from "../shared/ui/forms/IconButton";
 import { motion } from "motion/react";
 import { motionGeometry, panelTransition } from "../shared/motion/tokens";
 import { useEffect, useId, useRef, useState } from "react";
@@ -76,16 +77,16 @@ export function MobileGitReviewSheet({
       onExited={onExited}
       title={sheetTitle}
       header={{ title, action: (
-        <button
+        <IconButton
           type="button"
           className="mobile-sheet-header-button mobile-git-wrap"
-          aria-label={t("Wrap lines")}
+          label={t("Wrap lines")}
           title={t("Wrap lines")}
           aria-pressed={wrap}
           onClick={() => setWrap((value) => !value)}
         >
           <WrapText size={22} />
-        </button>
+        </IconButton>
       ) }}
       surface="solid"
       detents

@@ -1,8 +1,10 @@
+import { Button } from "../../shared/ui/forms/Button";
+import { IconButton } from "../../shared/ui/forms/IconButton";
 import { MobileSpinner } from "../MobileSpinner";
 import { saveConnectionAppearance } from "../connectionAppearance";
 import { resolveBotTarget as resolveAssistantTarget } from "../../features/bots/model/botNavigation";
 import { delegateSession } from "../../features/bots/model/delegateSession";
-import { type ReactNode, type MouseEvent, type RefObject } from "react";
+import { MobileEmpty } from "../MobileEmpty";
 import {
   ArrowLeft,
   Chatting,
@@ -31,7 +33,6 @@ import { MobileHostStatus } from "../MobileHostStatus";
 import { MobileDeviceChips } from "../MobileDeviceChips";
 import { MobileHostUnavailable } from "../MobileHostUnavailable";
 import { loadLastOnline } from "../lastOnline";
-import { useTranslation } from "../../shared/i18n/useTranslation";
 import { setUiLanguage, translate } from "../../shared/i18n/language";
 import { nativeProviderLabel, nativeSyncNotice, type NativeSessionAccess } from "../../integrations/harness/core/nativeSessions";
 import { saveFollowUpBehavior } from "../../features/settings/model/settings";
@@ -89,56 +90,6 @@ function HeaderMoreIcon() {
       <circle cx="12" cy="12" r="2.25" fill="currentColor" />
       <circle cx="12" cy="19.5" r="2.25" fill="currentColor" />
     </svg>
-  );
-}
-function IconButton({
-  label,
-  children,
-  onClick,
-  disabled,
-  inactive,
-  buttonRef,
-}: {
-  label: string;
-  children: ReactNode;
-  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
-  disabled?: boolean;
-  inactive?: boolean;
-  buttonRef?: RefObject<HTMLButtonElement | null>;
-}) {
-  const { t } = useTranslation();
-  return (
-    <button
-      ref={buttonRef}
-      className="mobile-icon-button"
-      type="button"
-      aria-label={t(label)}
-      title={t(label)}
-      onClick={onClick}
-      disabled={disabled}
-      inert={inactive}
-      aria-hidden={inactive || undefined}
-    >
-      {children}
-    </button>
-  );
-}
-function Empty({
-  icon,
-  title,
-  children,
-}: {
-  icon: ReactNode;
-  title: string;
-  children: ReactNode;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div className="mobile-empty">
-      <div className="mobile-empty-icon">{icon}</div>
-      <h2>{t(title)}</h2>
-      <p>{children}</p>
-    </div>
   );
 }
 export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
@@ -388,15 +339,15 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
       <div className="mobile-assistant-background" inert={pageOverlayOpen} aria-hidden={pageOverlayOpen || undefined}>
       <header ref={header} className="mobile-header" data-floating={floatingHeader} data-project={view === "home" && homePageOpen} data-search={view === "home" && searchOpen} inert={drawerOpen || pageOverlayOpen || hostPickerOpen}>
         {view === "chat" && sessionEntrySource === "project" ? (
-          <IconButton label="Back" onClick={() => project && isChatFolder(project.cwd)
+          <IconButton label={t("Back")} onClick={() => project && isChatFolder(project.cwd)
             ? openChats()
             : openHome(projects.find((item) => item.id === project?.id))}>
             <ArrowLeft size={22} />
           </IconButton>
         ) : view === "chat" || (view === "home" && !homePageOpen) ? (
           <IconButton
-            label="Menu"
-            inactive={view === "home" && searchOpen}
+            label={t("Menu")}
+            inert={view === "home" && searchOpen} aria-hidden={(view === "home" && searchOpen) || undefined}
             onClick={() => {
               setComposerPanel(null);
               setHomeMenuOpen(false);
@@ -406,12 +357,12 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
             <PanelLeft size={22} />
           </IconButton>
         ) : view === "home" ? (
-          <IconButton label="Back" inactive={searchOpen} onClick={() => openHome()}>
+          <IconButton label={t("Back")} inert={searchOpen} aria-hidden={searchOpen || undefined} onClick={() => openHome()}>
             <ArrowLeft size={22} />
           </IconButton>
         ) : client.connection || settingsPage !== "root" ? (
           <IconButton
-            label="Back"
+            label={t("Back")}
             onClick={() =>
               settingsPage !== "root"
                 ? changeSettingsPage(mobileSettingsParent(settingsPage))
@@ -488,7 +439,7 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
             {/* The computer stands in until the session reports its context
                 window; then the button becomes the context ring. */}
             <IconButton
-              label="Status"
+              label={t("Status")}
               onClick={(event) => {
                 // Keep the placeholder at full strength while loading.
                 if (!snapshot || loading || !sessionConfirmed) return;
@@ -500,7 +451,7 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
               <MobileSessionContextRing store={snapshotStore} catalog={catalog} loading={loading} />
             </IconButton>
             <IconButton
-              label="Session actions"
+              label={t("Session actions")}
               onClick={(event) => {
                 // Like the status button, stay visible but inert while loading.
                 if (!snapshot || loading || !sessionConfirmed) return;
@@ -516,11 +467,11 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
             </IconButton>
           </div>
         ) : view === "settings" && settingsPage === "root" ? (
-          <IconButton buttonRef={aboutTrigger} label="About" onClick={() => setAboutOpen((open) => !open)}>
+          <IconButton ref={aboutTrigger} label={t("About")} onClick={() => setAboutOpen((open) => !open)}>
             <Info size={22} />
           </IconButton>
         ) : view === "home" && (!homeChats || searchOpen) ? (
-          <IconButton buttonRef={homeChats ? undefined : searchTrigger} label={searchOpen ? "Close search" : "Search conversations"} onClick={toggleHomeSearch}>
+          <IconButton ref={homeChats ? undefined : searchTrigger} label={t(searchOpen ? "Close search" : "Search conversations")} onClick={toggleHomeSearch}>
             {searchOpen ? <X size={22} /> : <Search size={22} />}
           </IconButton>
         ) : null}
@@ -540,7 +491,7 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
             </span>
             {client.connection && (
               <IconButton
-                label="Reconnect"
+                label={t("Reconnect")}
                 disabled={busy || hostStatus.state === "reconnecting"}
                 onClick={() => void reconnect()}
               >
@@ -786,18 +737,18 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
               {t("Loading conversation…")}
             </div>
           ) : !project ? (
-            <Empty icon={<Folder size={28} />} title="Open your first project">
+            <MobileEmpty icon={<Folder size={28} />} title={t("Open your first project")}>
               {t("Add a folder from your connected computer to get started.")}
-              <button
-                className="mobile-button"
+              <Button variant="secondary"
+
                 onClick={(event) => openAddProject(event.currentTarget)}
               >
                 <FolderPlus size={16} />
                 {t("Open project")}
-              </button>
-            </Empty>
+              </Button>
+            </MobileEmpty>
           ) : (
-            <Empty
+            <MobileEmpty
               icon={<Chatting size={30} />}
               title={
                 sessionId
@@ -810,7 +761,7 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
                 : t("Start a conversation in {project}.", {
                     project: project?.name || t("your project"),
                   })}
-            </Empty>
+            </MobileEmpty>
           )}
           {nativeReadOnly ? <p className="mobile-native-readonly" role="status">
             {nativeSyncNotice(snapshot?.nativeStatus) ?? nativeAccessNotice(nativeAccess)}

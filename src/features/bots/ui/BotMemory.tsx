@@ -153,7 +153,7 @@ export function BotMemoryEditor({
         </ul>
       )}
       <div className="assistant-memory-add">
-        <input
+        <input data-ui="input"
           aria-label={t("Add a fact for the assistant to remember")}
           placeholder={t("Add a fact for the assistant to remember")}
           value={adding}
@@ -162,7 +162,7 @@ export function BotMemoryEditor({
           onChange={(e) => setAdding(e.target.value)}
           onKeyDown={onEnter(add)}
         />
-        <button
+        <button data-ui="button" data-variant="secondary"
           type="button"
           disabled={busy || !adding.trim()}
           onClick={() => void add()}

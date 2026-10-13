@@ -71,6 +71,7 @@ export function SessionFiltersMenu({
       maxHeight={480}
       onDismiss={onClose}
       role="menu"
+      data-menu-density="compact"
       aria-label={uiT("Filter sessions")}
       onContextMenu={(event) => event.preventDefault()}
       className="overflow-y-auto overscroll-none p-1"

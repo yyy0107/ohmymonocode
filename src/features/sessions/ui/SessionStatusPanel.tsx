@@ -26,7 +26,7 @@ import {
   Maximize2,
   Terminal,
 } from "../../../shared/ui/icons";
-import { GlassBackdrop } from "../../../app/shell/GlassBackdrop";
+import { GlassBackdrop } from "../../../shared/ui/GlassBackdrop";
 import { useSessionHeaderActions } from "../../workspace/ui/SessionHeaderActions";
 import type { Block } from "../model/session";
 import {

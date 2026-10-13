@@ -1,5 +1,4 @@
 import { preferenceStorage } from "./sharedPreferences";
-import { isDesktopDocument } from "../../../shared/theme/desktopAppearance";
 import {
   applyReducedMotion,
   type ReducedMotionPreference,
@@ -40,13 +39,13 @@ export interface AppearanceProfile {
   hue: number;
   saturation: number;
   contrast: number;
-  /** Font family name; empty uses the system interface font. */
+  /** Font family name; empty uses the shared interface font. */
   uiFont: string;
   uiWeight: FontWeight;
   /** Font family name; empty follows the interface font. */
   contentFont: string;
   contentWeight: FontWeight;
-  /** Empty uses the platform's default code font (Anthropic Mono on desktop). */
+  /** Empty uses the bundled JetBrains Mono code font. */
   codeFont: string;
   codeWeight: FontWeight;
 }
@@ -122,19 +121,16 @@ export const DEFAULT_PROFILE: AppearanceProfile = {
   saturation: THEME_SATURATION_DEFAULT,
   contrast: CONTRAST_DEFAULT,
   uiFont: "",
-  uiWeight: 500,
+  uiWeight: 400,
   contentFont: "",
-  contentWeight: 500,
+  contentWeight: 400,
   codeFont: "",
-  codeWeight: 500,
+  codeWeight: 400,
 };
 
-/** Missing desktop preferences use the reference's regular weight. Stored
- * profiles keep every valid weight; the phone retains its existing default. */
+/** Unset preferences use regular weight on both platforms; saved choices win. */
 export function defaultAppearanceProfile(): AppearanceProfile {
-  return isDesktopDocument()
-    ? { ...DEFAULT_PROFILE, uiWeight: 400, contentWeight: 400, codeWeight: 400 }
-    : { ...DEFAULT_PROFILE };
+  return { ...DEFAULT_PROFILE };
 }
 
 const FONT_SIZE_KEYS: Record<FontSizeKind, string> = {

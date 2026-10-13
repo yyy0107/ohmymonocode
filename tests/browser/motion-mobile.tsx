@@ -9,7 +9,6 @@ import { MobileDrawer } from "../../src/mobile/MobileDrawer";
 import { MobilePageTransition } from "../../src/mobile/MobilePageTransition";
 import { installKeyboardMotion } from "../../src/mobile/keyboardMotion";
 import { applyMobileSkin } from "../../src/mobile/theme/skin";
-import "../../src/styles/index.css";
 import "../../src/mobile/theme/index.css";
 import "../../src/mobile/styles/index.css";
 import "../../src/mobile/motion.css";
@@ -42,7 +41,7 @@ function Fixture() {
       <MobileSheetPresence open={sheet}><MobileSheet key="sheet" title="Motion sheet" onClose={()=>setSheet(false)} detents
         header={{title:"Tool details",subtitle:"Drag down to dismiss or up to expand"}}>
         <div style={{padding:20}}><h2>Retained sheet content</h2><p>Pull a short distance to spring back, or pass the existing threshold to close.</p>
-        <input aria-label="Retained sheet input" defaultValue="Draft stays mounted"/><p style={{height:120}}>Native content scrolling stays available.</p></div>
+        <input data-ui="input" aria-label="Retained sheet input" defaultValue="Draft stays mounted"/><p style={{height:120}}>Native content scrolling stays available.</p></div>
       </MobileSheet></MobileSheetPresence>
     </div>
   </MotionConfig>;

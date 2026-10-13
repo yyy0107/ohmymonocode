@@ -1,3 +1,5 @@
+> 历史记录：本文的 OMB 样式、布局与令牌方案已移除，不再作为实现规范。当前规则见 [AGENTS.md](../AGENTS.md)。
+
 # 桌面皮肤尺寸与密度
 
 > 2026-10-13 的 Claude 参考桌面重构已取代本文全部旧皮肤、密度、按钮、设置和动画规格。当前依据见 [Claude 参考桌面规格](desktop-visual-spec.md) 与 [本轮交付记录](desktop-visual-delivery.md)。下文仅保留历史证据；九皮肤、Classic 和旧 Grok 映射不代表当前有效外观，历史 WebKit 验证不代表新样式已经验收。

@@ -11,10 +11,10 @@ import {
 } from "../../_shims/shared.js";
 import type { IMonocodeAgentService, MonocodeAgentSavedWorkflowTarget } from "../../_shims/services.js";
 import { CodeBlock } from "../../components/ai-elements/code-block.js";
-import { Button } from "../../components/ui/button.js";
-import { Spinner } from "../../components/ui/spinner.js";
-import { toast } from "../../components/ui/toast.js";
-import { cn } from "../../components/lib/utils.js";
+import { Button } from "../../../../../shared/ui/forms/Button";
+import { Spinner } from "../../../../../shared/ui/primitives/Spinner.js";
+import { toast } from "../../../../../shared/ui/primitives/Toast.js";
+import { cn } from "../../../../../shared/lib/cn";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 import { logger } from "../../logger.js";
 import { SettingsBreadcrumbReporter } from "../SettingsHeaderBreadcrumb.js";

@@ -1,6 +1,6 @@
 import { MessageCircleQuestion as MessageCircleQuestionIcon } from "../../../../shared/ui/icons";
 import type { WorkflowRunPendingQuestion } from "../_shims/protocol.js";
-import { cn } from "../components/lib/utils.js";
+import { cn } from "../../../../shared/lib/cn";
 import { useWorkflowIntl } from "../i18n/IntlProvider.js";
 import { workflowRunQuestionWaitedLabel } from "./workflowRunQuestions.js";
 

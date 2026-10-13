@@ -1,7 +1,7 @@
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { GlassBackdrop } from "../../../app/shell/GlassBackdrop";
+import { GlassBackdrop } from "../../../shared/ui/GlassBackdrop";
 import {
   isHarnessAvailable,
   probeHarnessAvailability,

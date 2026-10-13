@@ -1,6 +1,6 @@
 import { motion as motionElement } from "motion/react";
-import { panelTransition, immediateTransition, motionGeometry } from "../../../shared/motion/tokens";
-import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
+import { panelTransition, immediateTransition } from "../../../shared/motion/tokens";
+import { Switch } from "../../../shared/ui/forms/Switch";
 import { reducedMotionQuery as motionPreferenceQuery } from "../../../shared/lib/reducedMotion";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { withStatusToast } from "../../../shared/ui/StatusToast";
@@ -96,7 +96,6 @@ export function SkillsPage({
   agentPicker?: (props: AgentPickerProps) => ReactNode;
 }): ReactNode {
   const { t: uiT } = useTranslation();
-  const reduced = useMotionPreference();
   const lockOverscroll = useLockOverscroll<HTMLDivElement>();
   const previewId = useId();
   const previewOpener = useRef<string | null>(null);
@@ -463,24 +462,14 @@ export function SkillsPage({
                           <span className="w-20 shrink-0 truncate text-right font-sans text-[11px] text-content/40">
                             {skill.source}
                           </span>
-                          <button
-                            type="button"
-                            role="switch"
+                          <Switch
                             aria-label={uiT(
                               "Include {value0} in MonoCode catalog",
                               { value0: String(skill.name) },
                             )}
-                            aria-checked={!disabled}
-                            onClick={() => onToggle(skill.path, disabled)}
-                            className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${disabled ? "bg-content/20" : "bg-accent"}`}
-                          >
-                            <motionElement.span
-                              initial={false}
-                              animate={{ x: disabled ? 0 : motionGeometry.toggleTravel }}
-                              transition={reduced ? immediateTransition : panelTransition}
-                              className="absolute top-0.5 left-0.5 size-4 rounded-full bg-white"
-                            />
-                          </button>
+                            checked={!disabled}
+                            onCheckedChange={(checked) => onToggle(skill.path, checked)}
+                          />
                         </div>
                         {skill.description ? (
                           <p

@@ -60,10 +60,10 @@ export function DesktopRoomEditor({ room, bots, rpc, onSaved }: { room?: BotRoom
   return <form className="desktop-bot-group-editor" aria-label={t(base ? "Room settings" : "New room")} onSubmit={event => { event.preventDefault(); void mutate("save"); }}>
     <h3>{t(base ? "Room settings" : "New room")}</h3>
     <fieldset disabled={busy || !!room?.archivedAt}>
-      <label>{t("Room name")}<input aria-label={t("Room name")} value={name} maxLength={100} onChange={event => setName(event.target.value)} /></label>
+      <label>{t("Room name")}<input data-ui="input" aria-label={t("Room name")} value={name} maxLength={100} onChange={event => setName(event.target.value)} /></label>
       <DesktopBotMembers bots={bots} ids={members} ordered onChange={setMembers} />
       <small>{t("Choose 1–10 members. Each speaks once in the listed order.")}</small>
-      <label>{t("Member timeout (seconds)")}<input type="number" min={.001} max={240} step="any" value={timeout} onChange={event => setMemberTimeout(event.target.value)} /></label>
+      <label>{t("Member timeout (seconds)")}<input data-ui="input" type="number" min={.001} max={240} step="any" value={timeout} onChange={event => setMemberTimeout(event.target.value)} /></label>
     </fieldset>
     {error && <p role="alert">{t(error)}</p>}
     <footer><button type="submit" disabled={busy || !!room?.archivedAt || !valid || (!!base && !dirty)}>{t(base ? "Save room" : "Create room")}</button>

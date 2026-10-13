@@ -36,7 +36,8 @@ function renderAgentMarkdown(sample = SAMPLE): string {
 type Rule = { selectors: string[]; body: string };
 
 function cssRules(): Rule[] {
-  const css = readFileSync(CSS_PATH, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const css = readFileSync(resolve(process.cwd(), "src/shared/styles/conversation.css"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
   const rules: Rule[] = [];
   for (const match of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     rules.push({

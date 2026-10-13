@@ -2,7 +2,7 @@
 // groups, run with arguments, detail, run history, create via chat).
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { Workflow } from "../../../shared/ui/icons";
-import { TooltipProvider } from "../kit/components/ui/tooltip";
+import { TooltipProvider } from "../../../shared/ui/primitives/Tooltip";
 import { SavedWorkflowsSection } from "../kit/settings/saved-workflows/SavedWorkflowsSection";
 import { useWorkflowApp } from "./workflowAppContext";
 

@@ -1,3 +1,4 @@
+import { useMaskEmails } from "../../settings/model/displayPrefs";
 import type { ProviderAccountIdentity } from "../model/providerAccountIdentity";
 import { PrivateEmail } from "../../../shared/ui/PrivateEmail";
 
@@ -10,6 +11,7 @@ export function ProviderAccountSubtitle({
   fallback?: string;
   className?: string;
 }) {
+  const masked = useMaskEmails();
   const name = identity?.name?.trim();
   const account = identity?.email || name || fallback;
   if (!identity?.plan && !identity?.email && !name) {
@@ -21,7 +23,7 @@ export function ProviderAccountSubtitle({
   return (
     <span className={`inline-flex min-w-0 items-baseline gap-1 ${className}`}>
       {identity?.email ? (
-        <PrivateEmail key={identity.email} email={identity.email} />
+        <PrivateEmail masked={masked} key={identity.email} email={identity.email} />
       ) : account ? (
         <span className="min-w-0 truncate" title={account}>{account}</span>
       ) : null}

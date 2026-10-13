@@ -237,7 +237,7 @@ export function BotImSettings({
             )}
             <label>
               {t("App ID")}
-              <input
+              <input data-ui="input"
                 value={draft.appId}
                 onChange={(event) => edit("appId", event.target.value)}
                 disabled={busy}
@@ -247,7 +247,7 @@ export function BotImSettings({
             </label>
             <label>
               {t("App Secret")}
-              <input
+              <input data-ui="input"
                 type="password"
                 value={draft.appSecret}
                 onChange={(event) => edit("appSecret", event.target.value)}
@@ -263,7 +263,7 @@ export function BotImSettings({
             </label>
             <label>
               {t("Your Feishu open_id")}
-              <input
+              <input data-ui="input"
                 value={draft.ownerOpenId}
                 onChange={(event) => edit("ownerOpenId", event.target.value)}
                 disabled={busy}
@@ -284,7 +284,7 @@ export function BotImSettings({
               </p>
             )}
             <div className="assistant-im-actions">
-              <button
+              <button data-ui="button" data-variant="primary"
                 type="button"
                 className="assistant-primary"
                 disabled={busy || !valid}

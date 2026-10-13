@@ -4,7 +4,7 @@
 import { useContext } from "react";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { Workflow } from "../../../shared/ui/icons";
-import { TooltipProvider } from "../kit/components/ui/tooltip";
+import { TooltipProvider } from "../../../shared/ui/primitives/Tooltip";
 import { TaskWorkflowRunLines } from "../kit/components/workflow-run-line/TaskWorkflowRunLines";
 import { useWorkflowIntl } from "../kit/i18n/IntlProvider";
 import { WorkflowActivityContext, workflowActivityEntries } from "../model/workflowActivity";

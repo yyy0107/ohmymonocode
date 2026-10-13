@@ -1,3 +1,5 @@
+import { Button } from "../shared/ui/forms/Button";
+import { IconButton } from "../shared/ui/forms/IconButton";
 import { MobileSpinner } from "./MobileSpinner";
 import {
   useCallback,
@@ -195,9 +197,9 @@ export function MobileNotes({
         {selectedTopic ? (
           <>
             <header className="mobile-notes-header">
-              <button className="mobile-sheet-header-button" aria-label={t("Back")} disabled={!visible} onClick={back}>
+              <IconButton className="mobile-sheet-header-button" label={t("Back")} disabled={!visible} onClick={back}>
                 <ArrowLeft size={24} />
-              </button>
+              </IconButton>
               <h1>{t("Assistant memory")}</h1>
               <File size={20} aria-hidden="true" />
             </header>
@@ -221,13 +223,13 @@ export function MobileNotes({
         ) : (
           <>
             <header className="mobile-notes-header">
-              <button
+              <IconButton
                 className="mobile-sheet-header-button"
-                aria-label={t("Close")}
+                label={t("Close")}
                 onClick={back}
               >
                 <X size={24} />
-              </button>
+              </IconButton>
               <h1>{t("Notes")}</h1>
               {working ? (
                 <MobileSpinner
@@ -242,20 +244,20 @@ export function MobileNotes({
             </header>
             <div className="mobile-notes-search">
               <Search size={20} aria-hidden="true" />
-              <input
+              <input data-ui="input"
                 aria-label={t("Filter notes")}
                 placeholder={t("Filter notes")}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
               />
-              <button
+              <IconButton
                 className="mobile-sheet-header-button"
-                aria-label={t("Refresh notes")}
+                label={t("Refresh notes")}
                 disabled={loading || topics.loading || working || !visible}
                 onClick={() => { void refresh(); topics.refresh(); }}
               >
                 <RefreshCw size={18} />
-              </button>
+              </IconButton>
             </div>
             <div className="mobile-notes-scroll" data-mobile-page-scroll>
               {error && (
@@ -404,14 +406,14 @@ function MobileNoteViewer({
   return (
     <>
       <header className="mobile-notes-header">
-        <button
+        <IconButton
           className="mobile-sheet-header-button"
-          aria-label={t("Back")}
+          label={t("Back")}
           disabled={blocked}
           onClick={back}
         >
           <ArrowLeft size={24} />
-        </button>
+        </IconButton>
         <h1>{t("Note")}</h1>
         <File size={20} aria-hidden="true" />
       </header>
@@ -436,13 +438,13 @@ function MobileNoteViewer({
           </div>
         )}
         <div className="mobile-note-actions">
-          <button
-            className="mobile-button mobile-primary"
+          <Button variant="primary"
+
             disabled={blocked || !note.body.trim()}
             onClick={() => void addToChat()}
           >
             {t("Add to chat")}
-          </button>
+          </Button>
         </div>
         {!!actionError && (
           <p role="alert" className="mobile-notes-error">

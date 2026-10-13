@@ -38,11 +38,11 @@ type SkinInfo = {
 };
 
 export const MOBILE_SKIN_INFO: Record<MobileSkin, SkinInfo> = {
-  midnight: { label: "Midnight", scheme: "dark", app: "#070707" },
+  midnight: { label: "Midnight", scheme: "dark", app: "#262624" },
   foundry: { label: "Foundry", scheme: "dark", app: "#100e0b" },
   graphite: { label: "Graphite", scheme: "dark", app: "#111214" },
   dusk: { label: "Dusk", scheme: "dark", app: "#121014" },
-  daylight: { label: "Daylight", scheme: "light", app: "#fcfcfc" },
+  daylight: { label: "Daylight", scheme: "light", app: "#f9f9f7" },
   atelier: { label: "Atelier", scheme: "light", app: "#f5f1eb" },
   lagoon: { label: "Lagoon", scheme: "light", app: "#dfeceb" },
   linen: { label: "Linen", scheme: "light", app: "#eceff3" },

@@ -7,30 +7,30 @@
    subtree — the Settings picker's live previews — open another skin. The
    selectors outrank the desktop `html.theme-light` token block. */
 
-/* Midnight: Near-black and cool, sampled from the upstream dark theme. */
+/* Midnight: Warm charcoal counterpart of the mobile reference. */
 :is(html, .mobile-skin-scope)[data-mobile-skin="midnight"] {
   color-scheme: dark;
-  --color-m-app: #070707;
-  --color-m-panel: #111111;
-  --color-m-raised: #2f2f2f;
-  --color-m-raised-hover: #3d3d3d;
-  --color-m-card: #262626;
-  --color-m-menu: #262626;
-  --color-m-composer: #2f2f2f;
-  --color-m-composer-ring: transparent;
-  --color-m-inset: #191919;
-  --color-m-control: #2f2f2f;
-  --color-m-hairline: #333333;
-  --color-m-ink: #fcfcfc;
-  --color-m-ink-secondary: #fcfcfc99;
-  --color-m-ink-tertiary: #fcfcfc90;
-  --color-m-accent: #1084fe;
-  --color-m-accent-border: #459ffe;
-  --color-m-accent-text: #7fc0ff;
+  --color-m-app: #262624;
+  --color-m-panel: #1f1e1d;
+  --color-m-raised: #30302e;
+  --color-m-raised-hover: #3d3d38;
+  --color-m-card: #30302e;
+  --color-m-menu: #30302e;
+  --color-m-composer: #30302e;
+  --color-m-composer-ring: #45453f;
+  --color-m-inset: #1f1e1d;
+  --color-m-control: #3d3d38;
+  --color-m-hairline: #45453f;
+  --color-m-ink: #faf9f5;
+  --color-m-ink-secondary: #b5b3ad;
+  --color-m-ink-tertiary: #a4a299;
+  --color-m-accent: #4682d5;
+  --color-m-accent-border: #75a4e4;
+  --color-m-accent-text: #91b7ec;
   --color-m-accent-ink: #ffffff;
-  --color-m-focus: #459ffe;
-  --color-m-bubble-user: #5a5a5a;
-  --color-m-bubble-user-ink: #fcfcfc;
+  --color-m-focus: #75a4e4;
+  --color-m-bubble-user: #141413;
+  --color-m-bubble-user-ink: #faf9f5;
   --color-m-success: #38d591;
   --color-m-success-ink: #072114;
   --color-m-danger: #ff5667;
@@ -231,30 +231,30 @@
   --radius-m-lg: 8px;
   --radius-m-xl: 12px;
 }
-/* Daylight: Midnight's light twin; your own bubble is inverted. */
+/* Daylight: Warm paper, ivory navigation and quiet neutral selection. */
 :is(html, .mobile-skin-scope)[data-mobile-skin="daylight"] {
   color-scheme: light;
-  --color-m-app: #fcfcfc;
-  --color-m-panel: #f7f7f7;
-  --color-m-raised: #e1e1e1;
-  --color-m-raised-hover: #d7d7d7;
-  --color-m-card: #eeeeee;
-  --color-m-menu: #fcfcfc;
-  --color-m-composer: #fcfcfc;
-  --color-m-composer-ring: #e4e4e4;
-  --color-m-inset: #e6e6e6;
-  --color-m-control: #dedede;
-  --color-m-hairline: #d0d0d0;
-  --color-m-ink: #0d0d0d;
-  --color-m-ink-secondary: #575757;
-  --color-m-ink-tertiary: #5c5c5c;
-  --color-m-accent: #0b62c4;
-  --color-m-accent-border: #1084fe;
-  --color-m-accent-text: #0b5cb8;
+  --color-m-app: #f9f9f7;
+  --color-m-panel: #f5f4ed;
+  --color-m-raised: #ffffff;
+  --color-m-raised-hover: #e8e6dc;
+  --color-m-card: #f0eee6;
+  --color-m-menu: #ffffff;
+  --color-m-composer: #ffffff;
+  --color-m-composer-ring: #dedcd1;
+  --color-m-inset: #f0eee6;
+  --color-m-control: #e8e6dc;
+  --color-m-hairline: #dedcd1;
+  --color-m-ink: #141413;
+  --color-m-ink-secondary: #6b6963;
+  --color-m-ink-tertiary: #73726c;
+  --color-m-accent: #326bb8;
+  --color-m-accent-border: #4682d5;
+  --color-m-accent-text: #326bb8;
   --color-m-accent-ink: #ffffff;
-  --color-m-focus: #0b62c4;
-  --color-m-bubble-user: #070707;
-  --color-m-bubble-user-ink: #fcfcfc;
+  --color-m-focus: #4682d5;
+  --color-m-bubble-user: #f0eee6;
+  --color-m-bubble-user-ink: #141413;
   --color-m-success: #1f7a4d;
   --color-m-success-ink: #ffffff;
   --color-m-danger: #c02b3a;

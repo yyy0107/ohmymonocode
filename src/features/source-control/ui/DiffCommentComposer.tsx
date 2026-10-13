@@ -66,7 +66,7 @@ export function DiffCommentComposer({
             <X className="size-3" />
           </button>
         </div>
-        <textarea
+        <textarea data-ui="textarea"
           autoFocus
           rows={3}
           value={comment}

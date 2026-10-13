@@ -8,7 +8,7 @@ import {
   type RefObject,
 } from "react";
 import { reducedMotionQuery } from "../../../../../shared/lib/reducedMotion";
-import { cn } from "../lib/utils.js";
+import { cn } from "../../../../../shared/lib/cn";
 import { STATUS_DOT } from "../workflow-graph/run-status-presentation.js";
 import type { StepRunStatus } from "../workflow-graph/types.js";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";

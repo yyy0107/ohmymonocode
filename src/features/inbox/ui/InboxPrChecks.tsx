@@ -1,3 +1,4 @@
+import { Button } from "../../../shared/ui/forms/Button";
 import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { DetailsChevron } from "../../../shared/ui/DetailsChevron";
 import { DisclosureChevron } from "../../../shared/ui/DisclosureChevron";
@@ -636,7 +637,7 @@ export function InboxPrChecks({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {repair && rows.some((row) => row.state === "fail") ? (
-            <button
+            <Button variant="primary"
               ref={allFixRef}
               type="button"
               disabled={refreshing || stale || Boolean(error)}
@@ -652,7 +653,7 @@ export function InboxPrChecks({
               aria-expanded={Boolean(
                 selection && selection.anchor === allFixRef.current,
               )}
-              className="ui-button ui-button-primary primary-action inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium focus-visible:outline focus-visible:outline-1 focus-visible:outline-content/50"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium focus-visible:outline focus-visible:outline-1 focus-visible:outline-content/50"
             >
               <Sparkles className="size-3.5" />
               {uiT("Fix all failed")}
@@ -662,7 +663,7 @@ export function InboxPrChecks({
               >
                 {counts.fail}
               </span>
-            </button>
+            </Button>
           ) : null}
           <button
             type="button"

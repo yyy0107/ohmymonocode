@@ -184,9 +184,10 @@
   display: none;
 }
 .mobile-composer.mobile-composer-card {
-  --mobile-composer-control: 44px;
-  --mobile-composer-input-inset: 18px;
-  --mobile-composer-surface: var(--color-m-composer);
+  --mobile-composer-control: 36px;
+  --mobile-send-size: 36px;
+  --mobile-composer-input-inset: 16px;
+  --mobile-composer-surface: var(--m-composer-fill);
   border-radius: var(--radius-m-composer);
   padding: 0;
   border: 0;
@@ -194,4 +195,29 @@
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   box-shadow: none;
+}
+
+.mobile-app .mobile-chat > .mobile-empty .mobile-empty-icon {
+  margin-bottom: 11px;
+  opacity: 1;
+  color: var(--color-m-accent);
+}
+
+.mobile-app .mobile-chat > .mobile-empty .mobile-empty-icon > svg {
+  width: 43px;
+  height: 43px;
+}
+
+.mobile-app .mobile-chat > .mobile-empty h2 {
+  max-width: 300px;
+  font-family: var(--m-message-serif);
+  font-size: 28px;
+  font-weight: var(--font-weight-normal);
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+
+.mobile-app .mobile-assistant-header .mobile-assistant-activity {
+  border-radius: 0 0 14px 14px;
+  background: var(--color-m-app);
 }

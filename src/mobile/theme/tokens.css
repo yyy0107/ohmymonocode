@@ -57,22 +57,7 @@
   --text-m-caption--line-height: 14px;
 
   --ease-m-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --animate-m-typing: m-typing 1.2s ease-in-out infinite;
 
-}
-
-/* Keyframes stay global: plain stylesheets reference them, not only utilities. */
-@keyframes m-typing {
-  0%,
-  60%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.45;
-  }
-  30% {
-    transform: translateY(-3px);
-    opacity: 1;
-  }
 }
 
 /* Tokens no utility generates, kept outside @theme so they are never
@@ -115,8 +100,5 @@ html[data-mobile-glass="solid"] {
     --m-duration-msg: 0s;
     --m-duration-pop: 0s;
     --m-duration-panel: 0s;
-  }
-  .animate-m-typing {
-    animation: none;
   }
 }

@@ -1,3 +1,5 @@
+import { Button } from "../shared/ui/forms/Button";
+import { IconButton } from "../shared/ui/forms/IconButton";
 import { lightImpact, attentionHaptic } from "./haptics";
 import { useTranscriptHaptics } from "./useTranscriptHaptics";
 import type { BotFeedbackProps as AssistantFeedbackProps } from "../features/bots/ui/BotChatChrome";
@@ -103,14 +105,14 @@ function MobileAssistantHeader({
         className="mobile-header mobile-assistant-header"
         data-floating="true"
       >
-        <button
+        <IconButton
           type="button"
-          className="mobile-icon-button"
+
           onClick={onClose}
-          aria-label={t("Back")}
+          label={t("Back")}
         >
           <ArrowLeft size={22} />
-        </button>
+        </IconButton>
         <div className="mobile-header-title" data-capsule="true">
           <div className="mobile-assistant-profile">
             <strong>{name}</strong>
@@ -141,18 +143,18 @@ function MobileAssistantHeader({
             </div>
           </AnimatedCollapse>
         </div>
-        <button
+        <IconButton
           ref={menu}
           type="button"
-          className="mobile-icon-button"
-          aria-label={t("Assistant options")}
+
+          label={t("Assistant options")}
           aria-haspopup="dialog"
           aria-expanded={menuOpen}
           disabled={!onSettings}
           onClick={() => setMenuOpen((v) => !v)}
         >
           <MoreHorizontal size={22} />
-        </button>
+        </IconButton>
       </header>
       <MobileSheet
         open={menuOpen}
@@ -217,14 +219,14 @@ function MobileAssistantSettingsPanel({
     >
       <section className="mobile-assistant-settings-page">
         <header className="mobile-assistant-settings-header">
-          <button
+          <IconButton
             type="button"
-            className="mobile-icon-button"
+
             onClick={onClose}
-            aria-label={t("Back")}
+            label={t("Back")}
           >
             <ArrowLeft size={22} />
-          </button>
+          </IconButton>
           <strong>
             {t(initialSetup ? "Set up assistant" : "Assistant settings")}
           </strong>
@@ -495,6 +497,7 @@ function MobileAssistantComposerView({ vm }: { vm: MobileAssistantComposerViewMo
             <button
               type="button"
               className="mobile-assistant-send"
+              data-stop="true"
               aria-label={t("Stop")}
               disabled={busy}
               onClick={onStop}
@@ -624,7 +627,7 @@ function MobileAssistantMemoryDetail({
       onClose={onClose}
     >
       <div className="mobile-assistant-memory-detail">
-        <textarea
+        <textarea data-ui="textarea"
           aria-label={t("Edit fact")}
           value={draft}
           maxLength={1000}
@@ -637,22 +640,22 @@ function MobileAssistantMemoryDetail({
           </small>
         )}
         <div className="mobile-assistant-memory-actions">
-          <button
+          <Button variant="danger"
             type="button"
-            className="mobile-button mobile-assistant-memory-forget"
+            className="mobile-assistant-memory-forget"
             disabled={busy || !open}
             onClick={onForget}
           >
             {t("Forget")}
-          </button>
-          <button
+          </Button>
+          <Button variant="primary"
             type="button"
-            className="mobile-button mobile-primary"
+
             disabled={busy || !open || !changed}
             onClick={() => onSave(draft)}
           >
             {t("Save")}
-          </button>
+          </Button>
         </div>
       </div>
     </MobileSheet>
@@ -714,7 +717,7 @@ function MobileAssistantSelect({
       {hint && <small className="mobile-assistant-select-hint">{hint}</small>}
       <MobileSheet open={open} title={label} onClose={close}>
         {searchable && (
-          <input
+          <input data-ui="input"
             type="search"
             className="mobile-assistant-select-search"
             aria-label={t("Search options…")}

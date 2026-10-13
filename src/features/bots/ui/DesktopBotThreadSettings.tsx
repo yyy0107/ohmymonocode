@@ -73,19 +73,19 @@ export function DesktopBotThreadSettings({ bot, thread, defaultBotId, rpc, onSav
     <button className="desktop-bots-management-toggle" type="button" aria-expanded={open} aria-controls={disclosure} onClick={() => setOpen((value) => !value)}><span>{t("Thread settings")}</span><ChevronRight size={16} /></button>
     <AnimatedCollapse expanded={open}><div id={disclosure}>
     <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
-      <label>{t("Thread title")}<input aria-label={t("Thread title")} maxLength={200} value={title} disabled={busy} onChange={(event) => setTitle(event.target.value)} /></label>
-      <label className="desktop-bots-model-follow"><input type="checkbox" checked={!override} disabled={busy} onChange={(event) => setOverride(event.target.checked ? undefined : { harness: bot.harness, model: bot.model, modelSettings: { ...bot.modelSettings } })} />{t("Follow bot model")}</label>
+      <label>{t("Thread title")}<input data-ui="input" aria-label={t("Thread title")} maxLength={200} value={title} disabled={busy} onChange={(event) => setTitle(event.target.value)} /></label>
+      <label className="desktop-bots-model-follow"><input data-ui="checkbox" type="checkbox" checked={!override} disabled={busy} onChange={(event) => setOverride(event.target.checked ? undefined : { harness: bot.harness, model: bot.model, modelSettings: { ...bot.modelSettings } })} />{t("Follow bot model")}</label>
       <AnimatedCollapse expanded={!!override}>
         <div className="desktop-bots-model-override">
-          <label>{t("Agent")}<span className="desktop-bots-model-picker"><HarnessIcon harness={shownOverride.harness} className="size-4 shrink-0" /><select aria-label={t("Thread agent")} value={shownOverride.harness} disabled={busy} onChange={(event) => {
+          <label>{t("Agent")}<span className="desktop-bots-model-picker"><HarnessIcon harness={shownOverride.harness} className="size-4 shrink-0" /><select data-ui="select" aria-label={t("Thread agent")} value={shownOverride.harness} disabled={busy} onChange={(event) => {
             const harness = event.target.value as RemoteProvider;
             selectModel(harness, catalog?.models[harness]?.[0]?.id ?? "");
           }}>{harnesses.map((harness) => <option key={harness} value={harness}>{HARNESS_TITLE[harness]}</option>)}</select></span></label>
-          <label>{t("Thread model override")}<select aria-label={t("Thread model override")} value={shownOverride.model} disabled={busy} onChange={(event) => selectModel(shownOverride.harness, event.target.value)}>
+          <label>{t("Thread model override")}<select data-ui="select" aria-label={t("Thread model override")} value={shownOverride.model} disabled={busy} onChange={(event) => selectModel(shownOverride.harness, event.target.value)}>
             {!models.some((model) => model.id === shownOverride.model) && <option value={shownOverride.model}>{shownOverride.model || t("Select model")}</option>}
             {models.map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}
           </select></label>
-          {controls.map((control) => <label key={control.id}>{t(control.label)}<select aria-label={t(control.label)} value={shownOverride.modelSettings?.[control.id] ?? control.value} disabled={busy} onChange={(event) => setOverride({ ...shownOverride, modelSettings: { ...shownOverride.modelSettings, [control.id]: event.target.value } })}>
+          {controls.map((control) => <label key={control.id}>{t(control.label)}<select data-ui="select" aria-label={t(control.label)} value={shownOverride.modelSettings?.[control.id] ?? control.value} disabled={busy} onChange={(event) => setOverride({ ...shownOverride, modelSettings: { ...shownOverride.modelSettings, [control.id]: event.target.value } })}>
             {control.options.map((option) => <option key={option.value} value={option.value}>{t(option.label)}</option>)}
           </select></label>)}
           {(catalogError || catalog?.errors[shownOverride.harness]) && <p role="alert">{t(catalogError ?? catalog!.errors[shownOverride.harness]!)} <button type="button" onClick={() => void loadModels()}>{t("Retry")}</button></p>}

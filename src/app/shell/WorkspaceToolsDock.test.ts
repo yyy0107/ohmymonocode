@@ -7,9 +7,10 @@ import { applyReducedMotion } from "../../shared/lib/reducedMotion";
 import { WorkspaceToolsDock } from "./WorkspaceToolsDock";
 import type { SidebarProps } from "./Sidebar.types";
 
-const lifecycle = vi.hoisted(() => ({ mounts: 0, unmounts: 0 }));
+const lifecycle = vi.hoisted(() => ({ mounts: 0, unmounts: 0, renders: 0 }));
 vi.mock("./ProjectToolsPanel", () => ({
   ProjectToolsPanel: function Tools({ tab }: { tab: "files" | "changes" }) {
+    lifecycle.renders++;
     const visible = useSurfaceVisibility();
     useEffect(() => {
       lifecycle.mounts++;
@@ -33,6 +34,7 @@ const noop = () => {};
 beforeEach(() => {
   lifecycle.mounts = 0;
   lifecycle.unmounts = 0;
+  lifecycle.renders = 0;
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   container = document.createElement("div");
   document.body.append(container);
@@ -170,4 +172,113 @@ it("retains Changes through its exit and keeps both visited tool states", () => 
     container.querySelector<HTMLInputElement>('[data-tools-tab="files"]')
       ?.dataset.toolsVisible,
   ).toBe("false");
+});
+
+function moveHandle() {
+  return container.querySelector<HTMLButtonElement>(".desktop-tools-move")!;
+}
+
+function startMove() {
+  const grid = container.querySelector<HTMLElement>(".desktop-tools-layout")!;
+  grid.getBoundingClientRect = () => new DOMRect(0, 0, 1000, 800);
+  moveHandle().setPointerCapture = vi.fn();
+  moveHandle().releasePointerCapture = vi.fn();
+  act(() => moveHandle().dispatchEvent(new PointerEvent("pointerdown", {
+    bubbles: true, button: 0, pointerId: 1, clientX: 850, clientY: 8,
+  })));
+}
+
+function movePointer(type: string, x: number, y: number, pointerId = 1) {
+  act(() => window.dispatchEvent(new PointerEvent(type, { pointerId, clientX: x, clientY: y })));
+}
+
+it("drags the retained tools to all four edges without remounting the workspace or search", () => {
+  render("files");
+  finish();
+  const search = container.querySelector<HTMLInputElement>("input")!;
+  const workspace = container.querySelector("textarea");
+  search.value = "keep filter";
+  for (const [side, x, y] of [["left", 2, 400], ["top", 500, 2], ["bottom", 500, 798], ["right", 998, 400]] as const) {
+    startMove();
+    movePointer("pointermove", x, y);
+    expect(container.querySelector(".desktop-tools-layout")?.getAttribute("data-moving")).toBe("true");
+    movePointer("pointerup", x, y);
+    expect(container.querySelector(".desktop-tools-layout")?.getAttribute("data-tools-side")).toBe(side);
+    expect(container.querySelector("input")).toBe(search);
+    expect(search.value).toBe("keep filter");
+    expect(container.querySelector("textarea")).toBe(workspace);
+    expect(document.querySelector(".drag-ghost")).toBeNull();
+  }
+  expect(lifecycle.mounts).toBe(1);
+  expect(lifecycle.unmounts).toBe(0);
+});
+
+it.each(["escape", "pointercancel", "blur", "lostcapture", "outside", "close", "unmount"])("cancels a tools move on %s and cleans up the drag", (reason) => {
+  render("files");
+  finish();
+  startMove();
+  movePointer("pointermove", 2, 400);
+  expect(document.querySelector(".drag-ghost")).not.toBeNull();
+  if (reason === "escape") act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+  if (reason === "pointercancel") movePointer("pointercancel", 2, 400);
+  if (reason === "blur") act(() => window.dispatchEvent(new Event("blur")));
+  if (reason === "lostcapture") act(() => moveHandle().dispatchEvent(new Event("lostpointercapture")));
+  if (reason === "outside") movePointer("pointerup", -10, 400);
+  if (reason === "close") render("sessions");
+  if (reason === "unmount") act(() => root.render(null));
+  expect(document.querySelector(".drag-ghost")).toBeNull();
+  expect(document.documentElement.classList.contains("is-reordering")).toBe(false);
+  expect(document.body.style.cursor).not.toBe("grabbing");
+  movePointer("pointerup", 2, 400);
+  if (reason !== "unmount") expect(container.querySelector(".desktop-tools-layout")?.getAttribute("data-tools-side")).toBe("right");
+});
+
+it("moves by keyboard and keeps vertical tools mounted until closing finishes", () => {
+  render("files");
+  finish();
+  act(() => moveHandle().dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowUp" })));
+  expect(container.querySelector(".desktop-tools-layout")?.getAttribute("data-tools-side")).toBe("top");
+  render("sessions");
+  expect(container.querySelector<HTMLElement>("aside")?.inert).toBe(true);
+  expect(container.querySelector<HTMLElement>("aside")?.hidden).toBe(false);
+  const end = new Event("transitionend", { bubbles: true });
+  Object.defineProperty(end, "propertyName", { value: "grid-template-rows" });
+  act(() => container.querySelector(".desktop-tools-layout")!.dispatchEvent(end));
+  expect(container.querySelector<HTMLElement>("aside")?.hidden).toBe(true);
+  expect(lifecycle.unmounts).toBe(0);
+});
+
+it("drags only the heading and coalesces pointer bursts without rerendering tools", () => {
+  render("files");
+  finish();
+  const renders = lifecycle.renders;
+  const content = document.createElement("div");
+  content.dataset.largeFileTree = "";
+  for (let index = 0; index < 1000; index++) content.append(document.createElement("span"));
+  container.querySelector("aside")!.append(content);
+  let frame: FrameRequestCallback | undefined;
+  const request = vi.fn((callback: FrameRequestCallback) => { frame = callback; return 42; });
+  const cancel = vi.fn();
+  vi.stubGlobal("requestAnimationFrame", request);
+  vi.stubGlobal("cancelAnimationFrame", cancel);
+  startMove();
+  movePointer("pointermove", 2, 400);
+  const ghost = document.querySelector<HTMLElement>(".drag-ghost-card")!;
+  expect(ghost.querySelector("[data-large-file-tree]")).toBeNull();
+  expect(ghost.querySelectorAll("*").length).toBeLessThan(20);
+  const before = ghost.style.transform;
+  movePointer("pointermove", 450, 2);
+  movePointer("pointermove", 500, 2);
+  movePointer("pointermove", 550, 2);
+  expect(request).toHaveBeenCalledTimes(1);
+  expect(ghost.style.transform).toBe(before);
+  act(() => frame?.(0));
+  expect(ghost.style.transform).not.toBe(before);
+  expect(lifecycle.renders).toBe(renders);
+  movePointer("pointermove", 500, 798);
+  // Release wins even if the final paint hasn't run.
+  movePointer("pointerup", 998, 400);
+  expect(container.querySelector(".desktop-tools-layout")?.getAttribute("data-tools-side")).toBe("right");
+  expect(cancel).toHaveBeenCalledWith(42);
+  expect(document.querySelector(".drag-ghost")).toBeNull();
 });

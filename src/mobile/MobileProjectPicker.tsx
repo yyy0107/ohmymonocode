@@ -1,3 +1,5 @@
+import { Button } from "../shared/ui/forms/Button";
+import { IconButton } from "../shared/ui/forms/IconButton";
 import {
   useCallback,
   useEffect,
@@ -150,29 +152,29 @@ export function MobileProjectPicker({
                 {t("Browse folders on {host}.", { host: hostName })}
               </p>
             </div>
-            <button
+            <IconButton
               type="button"
-              className="mobile-icon-button"
-              aria-label={t("Cancel")}
+
+              label={t("Cancel")}
               disabled={blocked}
               onClick={close}
             >
               <X size={20} />
-            </button>
+            </IconButton>
           </header>
           <div className="mobile-project-picker-navigation">
-            <button
+            <Button variant="secondary"
               type="button"
-              className="mobile-button"
+
               disabled={blocked}
               onClick={() => void browse()}
             >
               <Computer size={18} />
               <span>{t("Home folder")}</span>
-            </button>
-            <button
+            </Button>
+            <Button variant="secondary"
               type="button"
-              className="mobile-button"
+
               disabled={blocked || !parent}
               onClick={() => {
                 if (parent) void browse(parent);
@@ -180,7 +182,7 @@ export function MobileProjectPicker({
             >
               <ArrowUp size={18} />
               <span>{t("Parent folder")}</span>
-            </button>
+            </Button>
           </div>
           <form
             className="mobile-project-picker-path"
@@ -189,7 +191,7 @@ export function MobileProjectPicker({
               if (!blocked && path.trim()) void browse(path.trim());
             }}
           >
-            <input
+            <input data-ui="input"
               aria-label={t("Folder path")}
               placeholder={t("Folder path")}
               value={path}
@@ -210,17 +212,17 @@ export function MobileProjectPicker({
               spellCheck={false}
               disabled={blocked}
             />
-            <button
+            <Button variant="secondary"
               type="submit"
-              className="mobile-button"
+
               aria-label={t("Go to folder")}
               title={t("Go to folder")}
               disabled={blocked || loading || !path.trim()}
             >
               <ChevronRight size={20} />
-            </button>
+            </Button>
           </form>
-          <input
+          <input data-ui="input"
             type="search"
             aria-label={t("Filter folders")}
             placeholder={t("Filter folders")}
@@ -275,26 +277,26 @@ export function MobileProjectPicker({
                 {"key" in error ? t(error.key) : error.message}
               </p>
               {browseFailed && (
-                <button
+                <Button variant="secondary"
                   type="button"
-                  className="mobile-button"
+
                   disabled={blocked || loading}
                   onClick={() => void browse(requestedPath.current)}
                 >
                   {t("Retry")}
-                </button>
+                </Button>
               )}
             </div>
           )}
         </div>
-        <button
+        <Button variant="primary"
           type="button"
-          className="mobile-button mobile-primary mobile-project-picker-open"
+          className="mobile-project-picker-open"
           disabled={blocked || loading || !path.trim()}
           onClick={() => void open()}
         >
           {t(opening ? "Opening…" : "Open project")}
-        </button>
+        </Button>
       </div>
     </MobileSheet>
   );

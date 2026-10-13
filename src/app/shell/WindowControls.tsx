@@ -2,6 +2,7 @@ import { useTranslation } from "../../shared/i18n/useTranslation";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Copy, Minus, Square, X } from "../../shared/ui/icons";
 import { useEffect, useState } from "react";
+import { deferredWindowRefresh } from "./windowResizeWork";
 
 export function WindowControls() {
   const { t: uiT } = useTranslation();
@@ -10,21 +11,22 @@ export function WindowControls() {
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     let mounted = true;
+    let revision = 0;
 
     const win = getCurrentWindow();
+    const readMaximized = async () => {
+      const current = ++revision;
+      try {
+        const max = await win.isMaximized();
+        if (mounted && current === revision) setIsMaximized(max);
+      } catch {}
+    };
+    const refresh = deferredWindowRefresh(() => { void readMaximized(); });
+    void readMaximized();
     void win
-      .isMaximized()
-      .then((max) => {
-        if (mounted) setIsMaximized(max);
-      })
-      .catch(() => {});
-
-    void win
-      .onResized(async () => {
-        try {
-          const max = await win.isMaximized();
-          if (mounted) setIsMaximized(max);
-        } catch {}
+      .onResized(() => {
+        revision++;
+        refresh.schedule();
       })
       .then((unlistenFn) => {
         if (mounted) {
@@ -37,6 +39,7 @@ export function WindowControls() {
 
     return () => {
       mounted = false;
+      refresh.dispose();
       unlisten?.();
     };
   }, []);

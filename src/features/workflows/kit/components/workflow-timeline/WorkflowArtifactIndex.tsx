@@ -9,7 +9,7 @@ import {
   artifactKindMessageId,
 } from "../../app-shell/workflow-artifacts/artifactPresentation.js";
 import type { PresetLabels } from "../../app-shell/workflow-artifacts/presets/index.js";
-import { cn } from "../lib/utils.js";
+import { cn } from "../../../../../shared/lib/cn";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 import type { WorkflowCompletionArtifact } from "./WorkflowArtifactTile.js";
 import { PILL_STAGGER_MS } from "./WorkflowTimeline.js";

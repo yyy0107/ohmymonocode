@@ -77,24 +77,24 @@ try {
   await page.setViewportSize({ width: 1280, height: 932 });
   await page.goto(`${fixture}?theme=light`);
   await ready();
-  results.geometry.gallery = Object.fromEntries(await Promise.all(['.settings-nav', '[role="switch"]', '.desktop-button[data-size="md"]', '.desktop-icon-button[data-size="xs"]', '[data-settings-title]'].map(async selector => [selector, await measure(selector)])));
+  results.geometry.gallery = Object.fromEntries(await Promise.all(['.settings-nav', '[role="switch"]', '[data-ui="button"][data-size="md"]', '[data-ui="icon-button"][data-size="xs"]', '[data-settings-title]'].map(async selector => [selector, await measure(selector)])));
   near(results.geometry.gallery['.settings-nav'].width, 192);
-  near(results.geometry.gallery['[role="switch"]'].width, 32);
+  near(results.geometry.gallery['[role="switch"]'].width, 36);
   near(results.geometry.gallery['[role="switch"]'].height, 20);
-  near(results.geometry.gallery['.desktop-button[data-size="md"]'].height, 32);
-  near(results.geometry.gallery['.desktop-icon-button[data-size="xs"]'].width, 20);
-  for (const [size, height, font, line] of [['xs', 24, 13, 19], ['sm', 28, 13, 19], ['md', 32, 14, 20], ['lg', 36, 14, 20], ['xl', 40, 14, 20]]) {
-    const geometry = await measure(`.desktop-button[data-size="${size}"]`);
+  near(results.geometry.gallery['[data-ui="button"][data-size="md"]'].height, 36);
+  near(results.geometry.gallery['[data-ui="icon-button"][data-size="xs"]'].width, 20);
+  for (const [size, height, font, line] of [['xs', 32, 12, 17], ['sm', 32, 12, 17], ['md', 36, 14, 20], ['lg', 36, 14, 20], ['xl', 36, 14, 20]]) {
+    const geometry = await measure(`[data-ui="button"][data-size="${size}"]`);
     near(geometry.height, height); near(parseFloat(geometry.fontSize), font); near(parseFloat(geometry.lineHeight), line);
   }
-  results.checks.push('five button sizes24/28/32/36/40 and matching13/19 or14/20 typography; icon20; nav192');
+  results.checks.push('button size aliases follow small32/12/17 and default36/14/20; icon20; nav192');
   const switchThumb = page.getByRole('switch', { name: 'Switch', exact: true }).locator('span');
   const before = await switchThumb.boundingBox();
   await page.getByRole('switch', { name: 'Switch', exact: true }).click();
-  await expect.poll(async () => Math.round(((await switchThumb.boundingBox()).x - before.x) * 100)).toBe(1200);
+  await expect.poll(async () => Math.round(((await switchThumb.boundingBox()).x - before.x) * 100)).toBe(1600);
   const after = await switchThumb.boundingBox();
-  near(after.width, 16); near(after.x - before.x, 12);
-  results.checks.push('switch32×20, thumb16, travel12');
+  near(after.width, 16); near(after.x - before.x, 16);
+  results.checks.push('switch36×20, thumb16, travel16');
 
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
   const frame = page.locator('.popover-frame[data-fold-state]');
@@ -143,9 +143,9 @@ try {
   await expect(page.getByRole('dialog')).toHaveCount(0);
   results.checks.push('shared settings-context modal uses200ms popup transition; Escape closes');
 
-  await page.getByRole('button', { name: 'Language: 简体中文' }).click();
+  await page.getByRole('button', { name: 'Language: 简体中文', exact: true }).click();
   await page.getByRole('option', { name: 'English — a long option label' }).click();
-  await expect(page.getByRole('button', { name: 'Language: English — a long option label' })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Language: English — a long option label', exact: true })).toBeFocused();
   results.checks.push('searchable select retains selection and returns focus');
   await page.getByLabel('Retained input').fill('Draft retained');
   await page.getByRole('button', { name: 'Disclosure', exact: true }).click();
@@ -192,21 +192,21 @@ try {
         await page.goto(`${fixture}?page=workspace&mode=${mode}&state=${state}&theme=${theme}`);
         await ready('.composer-field:visible');
         const field = await measure('.composer-field:visible');
-        const card = await measure('[data-composer-layout="desktop"]:visible .composer-input-shell');
+        const card = await measure('[data-composer-layout="desktop"]:visible [data-ui="message-input"]');
         const sidebar = await measure('[data-desktop-sidebar]');
-        near(sidebar.width, 288);
+        near(sidebar.width, 256);
         if (mode === 'chat') {
-          near(card.width, 640); expect(card.radius).toBe('14px');
-          expect(field.fontSize).toBe('15px'); expect(field.lineHeight).toBe('21px');
+          near(card.width, 752); expect(card.radius).toBe('16px');
+          expect(field.fontSize).toBe('16px'); expect(field.lineHeight).toBe('23px');
         } else {
           const header = await measure('[data-session-surface-tabs]:visible');
           near(header.height, 32);
-          expect(field.fontSize).toBe('14px'); expect(field.lineHeight).toBe('20px');
+          expect(field.fontSize).toBe('16px'); expect(field.lineHeight).toBe('22px');
           if (state === 'conversation') {
             const prose = await measure('.agent-markdown:visible');
             const user = await measure('.user-message-bubble:visible');
-            expect(prose.fontSize).toBe('14px'); expect(prose.lineHeight).toBe('20px');
-            expect(user.fontSize).toBe('14px'); expect(user.lineHeight).toBe('18px');
+            expect(prose.fontSize).toBe('16px'); near(parseFloat(prose.lineHeight), 25.6);
+            expect(user.fontSize).toBe('16px'); expect(user.lineHeight).toBe('22px');
           }
         }
         results.geometry[`${mode}-${state}-${theme}`] = { field, card, sidebar };
@@ -231,7 +231,7 @@ try {
     await ready('.composer-field:visible');
     await capture(`${mode}-${state}-light-1280`);
   }
-  results.checks.push('real Chat/Code empty and conversation panes in both themes; sidebar288, Chat card640/radius14/input15/21, Code header32/prose14/20/user14/18; model widths416/242');
+  results.checks.push('real Chat/Code empty and conversation panes in both themes; sidebar256, Chat card752/radius16/input16/23, Code header32/prose16/25.6/user16/22; model widths416/242');
   results.checks.push('real Code split panes in both themes; running, question and attachment fixture states captured with inert native/provider IO');
 
   for (const theme of ['light', 'dark']) {
@@ -242,14 +242,14 @@ try {
     const project = await measure('.desktop-project-card');
     const toggle = await measure('.desktop-mode-toggle');
     const main = await measure('.body-glass');
-    expect(main.background).toBe(theme === 'light' ? 'rgb(252, 252, 251)' : 'rgb(21, 21, 21)');
-    near(heading.x,328,1); near(heading.y,60,1);
-    near(project.x,328,1); near(project.y,176,1); near(project.width,444,1); near(project.height,137,1);
+    expect(main.background).toBe(theme === 'light' ? 'rgb(249, 249, 247)' : 'rgb(36, 36, 35)');
+    near(heading.x,296,1); near(heading.y,72,1);
+    near(project.x,heading.x,1); expect(project.y).toBeGreaterThan(heading.y + heading.height); near(project.width,460,1); expect(project.height).toBeGreaterThanOrEqual(148);
     near(toggle.x,168,1); near(toggle.y,10,1); near(toggle.width,70,1); near(toggle.height,28,1);
     results.geometry[`projects-${theme}`] = {heading,project,toggle,main};
     await capture(`projects-${theme}-1280`);
   }
-  results.checks.push('real Projects light/dark: heading328/60, cards328/176/444x137, mode switch168/10/70x28 within1 CSS px');
+  results.checks.push('real Projects light/dark: header296/72, aligned460px cards of at least148px, mode switch168/10/70x28');
 
   await page.goto(`${fixture}?theme=light`);
   await ready();

@@ -4,9 +4,9 @@ import {
   TID_WORKFLOW_META_DISCARD,
   TID_WORKFLOW_META_SAVE,
 } from "../../_shims/shared.js";
-import { Button } from "../../components/ui/button.js";
-import { Spinner } from "../../components/ui/spinner.js";
-import { cn } from "../../components/lib/utils.js";
+import { Button } from "../../../../../shared/ui/forms/Button";
+import { Spinner } from "../../../../../shared/ui/primitives/Spinner.js";
+import { cn } from "../../../../../shared/lib/cn";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 import { SettingsFormTextarea } from "../SettingsFormTextarea.js";
 import type {
@@ -114,7 +114,7 @@ export function SavedWorkflowMetaForm({
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="lg"
               data-testid={TID_WORKFLOW_META_DISCARD}
               disabled={saving}

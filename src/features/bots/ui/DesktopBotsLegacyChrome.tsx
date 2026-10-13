@@ -86,7 +86,7 @@ function DesktopBotsLegacyHeader({
       <div className="assistant-header-actions">
         {controls && (
           <>
-            <button
+            <button data-ui="icon-button"
               type="button"
               className="assistant-icon-button"
               aria-label={toggleLabel}
@@ -96,7 +96,7 @@ function DesktopBotsLegacyHeader({
             >
               {controls.continuable ? <Play size={18} /> : <Pause size={18} />}
             </button>
-            <button
+            <button data-ui="icon-button"
               type="button"
               className="assistant-icon-button assistant-danger"
               aria-label={t("Disable assistant")}
@@ -109,7 +109,7 @@ function DesktopBotsLegacyHeader({
           </>
         )}
         {onSettings && (
-          <button
+          <button data-ui="icon-button"
             type="button"
             className="assistant-icon-button"
             aria-label={t("Settings")}
@@ -122,7 +122,7 @@ function DesktopBotsLegacyHeader({
           </button>
         )}
         {onClose && (
-          <button
+          <button data-ui="icon-button"
             type="button"
             className="assistant-icon-button"
             aria-label={t("Close")}
@@ -201,7 +201,7 @@ function DesktopBotsLegacySettingsPanel({
     >
       <header className="assistant-settings-header">
         {!initialSetup && (
-          <button
+          <button data-ui="icon-button"
             type="button"
             className="assistant-icon-button"
             onClick={onClose}
@@ -313,7 +313,7 @@ export function DesktopBotsComposer({
             />}
           />
         </AnimatedCollapse>
-        <textarea
+        <textarea data-ui="textarea"
           ref={input}
           rows={1}
           aria-label={t("Message assistant")}
@@ -334,7 +334,7 @@ export function DesktopBotsComposer({
           }}
         />
         <div className="assistant-compose-actions">
-          <button
+          <button data-ui="icon-button"
             type="button"
             className="assistant-icon-button"
             aria-label={t("Attach files")}

@@ -2,7 +2,7 @@ import { workflowEntry } from "./workflow-motion.js";
 import { workflowFold } from "./workflow-motion.js";
 import { motion as motionElement } from "motion/react";
 import type { ReactNode } from "react";
-import { cn } from "../lib/utils.js";
+import { cn } from "../../../../../shared/lib/cn";
 import type { TimelineRail, TimelineStation } from "./timeline-model.js";
 import {
   CAPTION_X,

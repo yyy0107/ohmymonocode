@@ -1,3 +1,4 @@
+import { Button } from "../shared/ui/forms/Button";
 import { motion } from "motion/react";
 import { motionGeometry, panelTransition } from "../shared/motion/tokens";
 import { useListReorderMotion } from "../shared/hooks/useListReorderMotion";
@@ -503,10 +504,10 @@ function MobileHomeView({ vm }: { vm: MobileHomeViewModel }) {
         {root && !needle && !hasProjects && !projectsPending && !projectsUnavailable && (
           <section className="mobile-home-projects" aria-label={t("Projects")}>
             <MobileEmpty icon={<Folder size={40} />} title={t("Projects")}
-              action={<button type="button" className="mobile-button mobile-home-add"
+              action={<Button variant="secondary" type="button" className="mobile-home-add"
                 onClick={(event) => onAddProject(event.currentTarget)}>
                 <FolderPlus size={21} />{t("Open project")}
-              </button>}>
+              </Button>}>
               {t("Choose a project")}
             </MobileEmpty>
           </section>

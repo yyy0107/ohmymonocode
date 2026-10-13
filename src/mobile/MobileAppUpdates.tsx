@@ -1,3 +1,4 @@
+import { Button } from "../shared/ui/forms/Button";
 import { MobileSpinner } from "./MobileSpinner";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { App } from "@capacitor/app";
@@ -216,8 +217,8 @@ export function MobileAppUpdates({
             </p>
           )}
           <div className="mobile-update-actions">
-            <button
-              className="mobile-button"
+            <Button variant="secondary"
+
               disabled={checking || installing}
               aria-busy={checking}
               onClick={() => void check()}
@@ -230,10 +231,10 @@ export function MobileAppUpdates({
                 )}
                 {t(checking ? "Checking for updates…" : "Check for updates")}
               </MobileSwap>
-            </button>
+            </Button>
             {available && (
-              <button
-                className="mobile-button mobile-primary"
+              <Button variant="primary"
+
                 disabled={installing || checking}
                 aria-busy={installing}
                 onClick={() => void install()}
@@ -248,7 +249,7 @@ export function MobileAppUpdates({
                     ? t("Downloading… {percent}%", { percent: progress })
                     : t("Download and install")}
                 </MobileSwap>
-              </button>
+              </Button>
             )}
           </div>
           {installing && (

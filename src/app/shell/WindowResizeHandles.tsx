@@ -3,8 +3,9 @@ import {
   getCurrentWindow,
   type Window as TauriWindow,
 } from "@tauri-apps/api/window";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { IS_LINUX, IS_WIN } from "../../platform/tauri/platform";
+import { deferredWindowRefresh } from "./windowResizeWork";
 
 type ResizeDirection = Parameters<TauriWindow["startResizeDragging"]>[0];
 
@@ -45,22 +46,22 @@ const INTERACTIVE_TARGETS = [
   ".xterm .scrollbar",
 ].join(",");
 
-function resizeDirection(x: number, y: number): ResizeDirection | null {
+function resizeDirection(x: number, y: number, edge: number, corner: number): ResizeDirection | null {
   const width = window.innerWidth;
   const height = window.innerHeight;
   if (x < 0 || y < 0 || x >= width || y >= height) return null;
-  if (y < 16) {
-    if (x < 16) return "NorthWest";
-    if (x >= width - 16) return "NorthEast";
+  if (y < corner) {
+    if (x < corner) return "NorthWest";
+    if (x >= width - corner) return "NorthEast";
   }
-  if (y >= height - 16) {
-    if (x < 16) return "SouthWest";
-    if (x >= width - 16) return "SouthEast";
+  if (y >= height - corner) {
+    if (x < corner) return "SouthWest";
+    if (x >= width - corner) return "SouthEast";
   }
-  if (y < 10) return "North";
-  if (y >= height - 10) return "South";
-  if (x < 10) return "West";
-  if (x >= width - 10) return "East";
+  if (y < edge) return "North";
+  if (y >= height - edge) return "South";
+  if (x < edge) return "West";
+  if (x >= width - edge) return "East";
   return null;
 }
 
@@ -132,9 +133,14 @@ const CURSORS: Record<ResizeDirection, string> = {
   SouthWest: "nesw-resize",
 };
 
-/** A wider inner rim for undecorated workspace windows; the OS owns the drag. */
+/** Extend the inner hit area; the OS still performs the entire resize gesture. */
 export function WindowResizeHandles() {
   const [resizeWindow, setResizeWindow] = useState<TauriWindow | null>(null);
+  const [nativeScale, setNativeScale] = useState(1);
+  // Tauri/GTK uses 5 * scale GDK units. Convert to CSS pixels, including webview zoom.
+  const nativeInset = IS_LINUX ? 5 * nativeScale * nativeScale / window.devicePixelRatio : 0;
+  const edge = IS_LINUX ? Math.max(16, nativeInset + 8) : 10;
+  const corner = IS_LINUX ? Math.max(24, edge) : 16;
 
   useEffect(() => {
     if (!(IS_LINUX || IS_WIN) || !isTauri()) return;
@@ -145,21 +151,27 @@ export function WindowResizeHandles() {
     const refresh = async () => {
       const current = ++revision;
       try {
-        const [resizable, maximized, fullscreen] = await Promise.all([
+        const [resizable, maximized, fullscreen, scale] = await Promise.all([
           win.isResizable(),
           win.isMaximized(),
           win.isFullscreen(),
+          IS_LINUX ? win.scaleFactor() : 1,
         ]);
         if (mounted && current === revision) {
+          setNativeScale(scale);
           setResizeWindow(resizable && !maximized && !fullscreen ? win : null);
         }
       } catch {
         if (mounted && current === revision) setResizeWindow(null);
       }
     };
+    const queuedRefresh = deferredWindowRefresh(() => { void refresh(); });
     void refresh();
     void win
-      .onResized(refresh)
+      .onResized(() => {
+        revision++;
+        queuedRefresh.schedule();
+      })
       .then((stop) => {
         if (mounted) unlisten = stop;
         else stop();
@@ -167,6 +179,7 @@ export function WindowResizeHandles() {
       .catch(() => {});
     return () => {
       mounted = false;
+      queuedRefresh.dispose();
       unlisten?.();
     };
   }, []);
@@ -192,7 +205,18 @@ export function WindowResizeHandles() {
       hover = null;
     };
     const allowedDirection = (event: MouseEvent | PointerEvent) => {
-      const direction = resizeDirection(event.clientX, event.clientY);
+      // Zoom can change the DOM scale without changing the native window size.
+      const nativeInset = IS_LINUX ? 5 * nativeScale * nativeScale / window.devicePixelRatio : 0;
+      const edge = IS_LINUX ? Math.max(16, nativeInset + 8) : 10;
+      const corner = IS_LINUX ? Math.max(24, edge) : 16;
+      // The GTK handler has already seen presses in its own rim. Only handle
+      // the extra inner band, so one press cannot start two native resizes.
+      if (nativeInset && (
+        event.clientX < nativeInset || event.clientY < nativeInset ||
+        event.clientX >= window.innerWidth - nativeInset ||
+        event.clientY >= window.innerHeight - nativeInset
+      )) return null;
+      const direction = resizeDirection(event.clientX, event.clientY, edge, corner);
       const target = eventElement(event.target);
       if (
         !direction ||
@@ -206,6 +230,10 @@ export function WindowResizeHandles() {
     const move = (event: PointerEvent) => {
       if (event.buttons !== 0) return;
       const hit = allowedDirection(event);
+      // Avoid invalidating the whole document's style on every pointer sample
+      // while hovering the same native resize edge.
+      if (hit && hover?.element === hit.target && hover.applied === CURSORS[hit.direction]
+        && hover.element.style.getPropertyValue("cursor") === hover.applied) return;
       restoreCursor();
       if (
         !hit ||
@@ -248,11 +276,14 @@ export function WindowResizeHandles() {
       window.removeEventListener("pointerout", leave, true);
       window.removeEventListener("blur", restoreCursor);
     };
-  }, [resizeWindow]);
+  }, [resizeWindow, nativeScale]);
 
   if (!resizeWindow) return null;
   return (
-    <div data-window-resize-handles aria-hidden="true">
+    <div data-window-resize-handles aria-hidden="true" style={{
+      "--window-resize-edge": `${edge}px`,
+      "--window-resize-corner": `${corner}px`,
+    } as CSSProperties}>
       {DIRECTIONS.map((direction) => (
         <div
           key={direction}

@@ -9,7 +9,7 @@
 .mobile-content h1 {
   margin: 0 0 10px;
   font-size: 22px;
-  font-weight: 550;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: -0.6px;
 }
 .mobile-muted {
@@ -30,46 +30,9 @@
   font-size: calc(var(--mobile-font-md) + var(--mobile-popup-font-step, 0px));
   color: var(--color-m-ink-tertiary);
 }
-.mobile-app input:not([type="radio"]):not([type="checkbox"]):not([type="range"]),
-.mobile-app select,
+html[data-mobile-skin] :is([data-ui="input"], [data-ui="select"]) { width: 100%; }
 .mobile-select-trigger {
-  min-height: var(--m-hit);
   width: 100%;
-  padding: 10px 14px;
-  color: var(--color-m-ink);
-  background: var(--color-m-inset);
-  border: 1px solid transparent;
-  border-radius: var(--radius-m-xl);
-  font-size: calc(var(--mobile-font-xl) + var(--mobile-popup-font-step, 0px));
-}
-.mobile-app input::placeholder,
-.mobile-app textarea::placeholder {
-  color: var(--color-m-ink-tertiary);
-}
-.mobile-button {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  min-height: var(--m-hit);
-  padding: 10px 20px;
-  color: var(--color-m-ink);
-  background: transparent;
-  border: 1px solid var(--color-m-hairline);
-  border-radius: 999px;
-  font-size: calc(var(--mobile-font-lg) + var(--mobile-popup-font-step, 0px));
-  font-weight: 600;
-}
-.mobile-button:active:not(:disabled) {
-  background-color: var(--color-m-raised);
-}
-.mobile-primary {
-  border-color: transparent;
-  background: var(--mobile-accent);
-  color: var(--mobile-accent-foreground);
-}
-.mobile-primary:active:not(:disabled) {
-  background-color: var(--mobile-accent);
 }
 .mobile-select-trigger {
   display: inline-flex;
@@ -122,7 +85,7 @@
   border: 0;
   border-radius: 999px;
   font-size: calc(var(--mobile-font-md) + var(--mobile-popup-font-step, 0px));
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   transition: color var(--mobile-motion-feedback) ease;
 }
 .mobile-pairing-methods button span {
@@ -196,7 +159,7 @@
   line-height: 1.5;
   text-align: center;
 }
-.mobile-qr-overlay .mobile-button {
+.mobile-qr-overlay [data-ui="button"] {
   min-height: 38px;
   color: #fff;
   background: rgb(255 255 255 / 0.16);
@@ -270,3 +233,17 @@
   flex-direction: column;
   gap: 5px;
 }
+
+html[data-mobile-skin] .mobile-settings-row .mobile-select-trigger {
+  min-height: var(--m-control-small);
+  max-width: 60%;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--m-control-pill);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+
+.mobile-sheet-row > [data-ui="radio"] { margin-inline-start: auto; }
+.mobile-sheet-row[aria-disabled="true"] { opacity: .5; }

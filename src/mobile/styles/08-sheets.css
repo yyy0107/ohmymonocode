@@ -104,7 +104,7 @@
 .mobile-sheet-title {
   margin: 0 14px 10px;
   font-size: var(--mobile-font-xl);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .mobile-sheet-backdrop[data-fold-state="closing"] {
   pointer-events: none;
@@ -180,7 +180,7 @@
   display: flex;
   gap: 8px;
 }
-.mobile-project-picker-navigation .mobile-button {
+.mobile-project-picker-navigation [data-ui="button"] {
   flex: 1;
   min-width: 0;
   padding-inline: 10px;
@@ -190,7 +190,7 @@
   min-width: 0;
   flex: 1;
 }
-.mobile-project-picker-path .mobile-button {
+.mobile-project-picker-path [data-ui="button"] {
   padding-inline: 14px;
 }
 .mobile-project-picker-folders {
@@ -350,7 +350,7 @@
 }
 .mobile-sheet-group h3 {
   font-size: calc(var(--mobile-font-xs) + var(--mobile-popup-font-step, 0px));
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--color-m-ink-tertiary);
@@ -425,7 +425,7 @@
   overflow: hidden;
 }
 .mobile-sheet-row-text strong {
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 .mobile-sheet-row-text small {
   color: var(--color-m-ink-secondary);
@@ -470,7 +470,7 @@
 }
 .mobile-status-host strong {
   font-size: calc(var(--mobile-font-lg) + var(--mobile-popup-font-step, 0px));
-  font-weight: 550;
+  font-weight: var(--font-weight-semibold);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -498,7 +498,7 @@
 }
 .mobile-status-field-label strong {
   font-size: calc(var(--mobile-font-md) + var(--mobile-popup-font-step, 0px));
-  font-weight: 550;
+  font-weight: var(--font-weight-semibold);
 }
 .mobile-status-field-value {
   overflow: hidden;
@@ -584,7 +584,7 @@
   flex: 1;
   overflow-wrap: anywhere;
 }
-.mobile-error .mobile-icon-button {
+.mobile-error [data-ui="icon-button"] {
   color: inherit;
   height: 35px;
 }
@@ -641,7 +641,7 @@
 }
 .mobile-modal-title h2 {
   font-size: calc(var(--mobile-font-xl) + var(--mobile-popup-font-step, 0px));
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   margin: 0;
 }
 .mobile-modal .mobile-form {

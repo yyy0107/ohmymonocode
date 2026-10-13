@@ -102,7 +102,7 @@ export function DesktopBotMemory({ botId, rpc, drafts }: { botId: string; rpc: B
   };
   return <section className="desktop-bots-memory" aria-label={t("Memory files")}>
     <div className="desktop-bots-memory-toolbar">
-      <label>{t("File")}<select data-file-label aria-label={t("Memory file")} value={path} onChange={(event) => drafts.update(botId, (value) => ({ ...value, path: event.target.value }))}>
+      <label>{t("File")}<select data-ui="select" data-file-label aria-label={t("Memory file")} value={path} onChange={(event) => drafts.update(botId, (value) => ({ ...value, path: event.target.value }))}>
         {[...new Set([path, ...Object.keys(state.drafts)])].filter((item) => !files?.files.some((file) => file.path === item)).map((item) => <option key={item} value={item}>{item}</option>)}
         {kinds.map(([kind, label]) => {
           const items = files?.files.filter((file) => file.kind === kind) ?? [];
@@ -114,7 +114,7 @@ export function DesktopBotMemory({ botId, rpc, drafts }: { botId: string; rpc: B
     </div>
     <AnimatedCollapse expanded={newTopic}>
       <form className="desktop-bots-memory-new" onSubmit={(event) => { event.preventDefault(); void openTopic(); }}>
-        <label>{t("Topic name")}<input value={topic} onChange={(event) => setTopic(event.target.value)} placeholder={t("Topic name")} /></label>
+        <label>{t("Topic name")}<input data-ui="input" value={topic} onChange={(event) => setTopic(event.target.value)} placeholder={t("Topic name")} /></label>
         <button type="submit" disabled={loading || !topic.trim()}>{t("Open draft")}</button>
       </form>
     </AnimatedCollapse>
@@ -127,7 +127,7 @@ export function DesktopBotMemory({ botId, rpc, drafts }: { botId: string; rpc: B
         <span>{t("Full file: {lines} lines · {bytes} bytes", { lines: draft.base.budget.lines, bytes: draft.base.budget.bytes })}</span>
       </div>}
       <label className="desktop-bots-memory-editor-label"><span><span data-file-label>{path}</span>{dirty ? ` • ${t("Unsaved changes")}` : ""}</span>
-        <textarea aria-label={t("File contents")} value={draft.text} disabled={draft.busy} spellCheck={false}
+        <textarea data-ui="textarea" aria-label={t("File contents")} value={draft.text} disabled={draft.busy} spellCheck={false}
           onChange={(event) => drafts.draft(botId, path, (value) => ({ ...value!, text: event.target.value, error: undefined }))} />
       </label>
       {draft.error && <p className="desktop-bots-memory-error" role="alert">{t(draft.error)}</p>}
@@ -135,7 +135,7 @@ export function DesktopBotMemory({ botId, rpc, drafts }: { botId: string; rpc: B
         <div className="desktop-bots-memory-conflict" role="alert">
           <p>{t("This file changed elsewhere. Your draft is preserved.")}</p>
           {draft.latest ? <>
-            <label>{t("Latest saved version")}<textarea readOnly aria-label={t("Latest saved version")} value={draft.latest.text} /></label>
+            <label>{t("Latest saved version")}<textarea data-ui="textarea" readOnly aria-label={t("Latest saved version")} value={draft.latest.text} /></label>
             <div className="desktop-bots-memory-actions">
               <button type="button" onClick={() => drafts.draft(botId, path, (value) => ({ base: value!.latest!, text: value!.latest!.text }))}>{t("Use latest version")}</button>
               <button type="button" onClick={() => drafts.draft(botId, path, (value) => ({ base: value!.latest!, text: value!.text }))}>{t("Keep draft over latest")}</button>

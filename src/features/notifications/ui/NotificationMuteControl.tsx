@@ -10,7 +10,7 @@ import {
 import { NotificationMuteDatePicker } from "./NotificationMuteDatePicker";
 import { ExplorerMenu } from "../../connections/files/ui/ExplorerMenu";
 import { Popover } from "../../../shared/ui/Popover";
-import { SecondaryButton } from "../../../shared/ui/SecondaryButton";
+import { Button } from "../../../shared/ui/forms/Button";
 import { BellOff, ChevronDown } from "../../../shared/ui/icons";
 import {
   isProjectMuted,
@@ -70,7 +70,7 @@ export function NotificationMuteControl({ projectIds, onChanged }: Props) {
           {uiT("Resume notifications")}
         </button>
       ) : null}
-      <SecondaryButton
+      <Button variant="secondary"
         ref={trigger}
         type="button"
         aria-label={
@@ -87,7 +87,7 @@ export function NotificationMuteControl({ projectIds, onChanged }: Props) {
         <BellOff className="size-3.5" aria-hidden="true" />
         {muted.length ? uiT("Muted") : uiT("Mute")}
         <ChevronDown className="size-3 text-content/40" aria-hidden="true" />
-      </SecondaryButton>
+      </Button>
       {error ? (
         <p role="alert" className="w-full text-xs text-red-400">
           {error}

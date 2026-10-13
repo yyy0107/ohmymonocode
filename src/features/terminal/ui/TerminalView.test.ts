@@ -435,7 +435,7 @@ it.each([
 
 it("updates an open terminal's font without replacing its PTY", async () => {
   const { host, root } = setup();
-  const initial = '"anthropic-mono", "Symbols Nerd Font Mono", monospace';
+  const initial = '"JetBrains Mono", "Symbols Nerd Font Mono", monospace';
   const selected = '"Selected Mono", "Symbols Nerd Font Mono", monospace';
   document.documentElement.style.setProperty("--font-terminal", initial);
   try {

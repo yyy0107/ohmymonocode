@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { Card, CardContent } from "../components/ui/card.js";
-import { cn } from "../components/lib/utils.js";
+import { Card, CardContent } from "../../../../shared/ui/primitives/Card.js";
+import { cn } from "../../../../shared/lib/cn";
 
 // Ported from ZCode `packages/ui/src/settings/SettingsPageParts.tsx`; the
 // code-preview theme helpers are not used by Monocode.

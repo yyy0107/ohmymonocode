@@ -1,7 +1,7 @@
 import { workflowFold } from "./workflow-motion.js";
 import { motion as motionElement } from "motion/react";
 import { useId } from "react";
-import { cn } from "../lib/utils.js";
+import { cn } from "../../../../../shared/lib/cn";
 import type {
   TimelineBand,
   TimelineInk,

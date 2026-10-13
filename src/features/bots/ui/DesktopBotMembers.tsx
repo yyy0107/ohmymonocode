@@ -13,7 +13,7 @@ export function DesktopBotMembers({ bots, ids, onChange, ordered = false, disabl
   return <fieldset className="desktop-bot-members" disabled={disabled}>
     <legend>{t("Members")}</legend>
     <div className="desktop-bot-member-options">{[...new Set([...choices.map(bot => bot.id), ...ids])].map(id => <label key={id}>
-      <input type="checkbox" checked={ids.includes(id)} onChange={event => onChange(event.target.checked ? [...ids, id] : ids.filter(value => value !== id))} />{name(id)}
+      <input data-ui="checkbox" type="checkbox" checked={ids.includes(id)} onChange={event => onChange(event.target.checked ? [...ids, id] : ids.filter(value => value !== id))} />{name(id)}
     </label>)}</div>
     {ordered && <><strong>{t("Speaking order")}</strong><ol>{ids.map((id, index) => <li key={id}><span>{name(id)}</span>
       <button type="button" disabled={disabled || index === 0} aria-label={`${t("Move up")}: ${name(id)}`} onClick={() => move(index, -1)}>{t("Move up")}</button>

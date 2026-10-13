@@ -902,7 +902,7 @@ function NoteEditor({
               }}
             />
           </div>
-          <input
+          <input data-ui="input"
             ref={titleFieldRef}
             value={title}
             onChange={(event) => {
@@ -920,7 +920,7 @@ function NoteEditor({
             }}
             onKeyDown={onTitleKeyDown}
             aria-label={uiT("Note title")}
-            className="desktop-field w-full border-0 bg-transparent p-0 text-[20px] font-semibold leading-tight text-content outline-none placeholder:text-content/35"
+            className="w-full border-0 bg-transparent p-0 text-[20px] font-semibold leading-tight text-content outline-none placeholder:text-content/35"
             placeholder={uiT("Untitled")}
           />
           {time ? (
@@ -1152,7 +1152,7 @@ function NoteTagsEditor({
         </span>
       ))}
       {tags.length < MAX_NOTE_TAGS ? (
-        <input
+        <input data-ui="input"
           value={value}
           onChange={(event) => {
             const next = event.target.value;
@@ -1176,7 +1176,7 @@ function NoteTagsEditor({
           placeholder={uiT("Add tag…")}
           spellCheck={false}
           autoComplete="off"
-          className="desktop-field h-6 min-w-20 flex-1 border-0 bg-transparent px-1 text-[11px] text-content outline-none placeholder:text-content/35"
+          className="h-6 min-w-20 flex-1 border-0 bg-transparent px-1 text-[11px] text-content outline-none placeholder:text-content/35"
         />
       ) : null}
     </div>

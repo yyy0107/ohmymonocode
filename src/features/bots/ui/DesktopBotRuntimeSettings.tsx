@@ -76,12 +76,12 @@ function RuntimeSettings({ bot, rpc, onSaved, delegationSupported = false }: Pro
     <AnimatedCollapse expanded={open}><div>
     <p>{t("Changes apply to the next turn. Manage permissions in Bot settings.")}</p>
     <fieldset disabled={busy}>
-      <label>{t("Avatar")}<input value={draft.avatar} maxLength={32} aria-invalid={!validAvatar || undefined} onChange={event => update({ avatar: event.target.value })} placeholder={t("Emoji or initials")} /></label>
+      <label>{t("Avatar")}<input data-ui="input" value={draft.avatar} maxLength={32} aria-invalid={!validAvatar || undefined} onChange={event => update({ avatar: event.target.value })} placeholder={t("Emoji or initials")} /></label>
       {!validAvatar && <small role="alert">{t("Avatar must be at most 8 characters without control characters")}</small>}
-      <label>{t("Working directory")}<input value={draft.workingDirectory} onChange={event => update({ workingDirectory: event.target.value })} placeholder={t("Use a separate directory for each thread")} /></label>
-      <label>{t("Concurrent runs")}<input type="number" min={1} max={10} step={1} value={draft.slots} aria-invalid={!validSlots || undefined} onChange={event => update({ slots: event.target.value })} /></label>
+      <label>{t("Working directory")}<input data-ui="input" value={draft.workingDirectory} onChange={event => update({ workingDirectory: event.target.value })} placeholder={t("Use a separate directory for each thread")} /></label>
+      <label>{t("Concurrent runs")}<input data-ui="input" type="number" min={1} max={10} step={1} value={draft.slots} aria-invalid={!validSlots || undefined} onChange={event => update({ slots: event.target.value })} /></label>
       {!validSlots && <small role="alert">{t("Choose between 1 and 10 concurrent runs.")}</small>}
-      <label className="desktop-bot-check"><input type="checkbox" checked={draft.computer} onChange={event => update({ computer: event.target.checked })} />{t("Reserve the Host computer during this Bot's runs")}</label>
+      <label className="desktop-bot-check"><input data-ui="checkbox" type="checkbox" checked={draft.computer} onChange={event => update({ computer: event.target.checked })} />{t("Reserve the Host computer during this Bot's runs")}</label>
       {delegationSupported && <section className="desktop-bot-callable-list" aria-label={t("Callable bots")}>
         <h3>{t("Callable bots")}</h3>
         <p>{t("Only selected Bots on this Host can be called. Bots cannot call themselves or delegate again.")}</p>
@@ -89,7 +89,7 @@ function RuntimeSettings({ bot, rpc, onSaved, delegationSupported = false }: Pro
         {botsError && <p role="alert">{t(botsError)} <button type="button" onClick={() => setBotsAttempt(value => value + 1)}>{t("Retry")}</button></p>}
         {[...new Set([...callableBots.map(item => item.id), ...draft.callableBotIds])].filter(id => id !== bot.id).map(id => {
           const target = callableBots.find(item => item.id === id);
-          return <label className="desktop-bot-check" key={id}><input type="checkbox" checked={draft.callableBotIds.includes(id)} onChange={event => update({ callableBotIds: event.target.checked ? [...draft.callableBotIds, id] : draft.callableBotIds.filter(item => item !== id) })} /><span>{target?.name ?? t("Unavailable Bot")}</span></label>;
+          return <label className="desktop-bot-check" key={id}><input data-ui="checkbox" type="checkbox" checked={draft.callableBotIds.includes(id)} onChange={event => update({ callableBotIds: event.target.checked ? [...draft.callableBotIds, id] : draft.callableBotIds.filter(item => item !== id) })} /><span>{target?.name ?? t("Unavailable Bot")}</span></label>;
         })}
         {!botsLoading && !botsError && !callableBots.length && !draft.callableBotIds.length && <small>{t("No other bots on this Host")}</small>}
         {!draft.callableBotIds.length && <small>{t("No bots are allowed to be called")}</small>}
@@ -97,8 +97,8 @@ function RuntimeSettings({ bot, rpc, onSaved, delegationSupported = false }: Pro
       <button type="button" aria-expanded={toolsOpen} onClick={() => setToolsOpen(value => !value)}>{t("Host tools")}</button>
       <AnimatedCollapse expanded={toolsOpen}><div className="desktop-bot-tool-options">
         <p>{t("These choices restrict Host control actions. Provider tools and user MCP servers keep their own permissions.")}</p>
-        <label className="desktop-bot-check"><input type="checkbox" checked={!draft.custom} onChange={event => update({ custom: !event.target.checked })} />{t("All permitted Host actions")}</label>
-        <AnimatedCollapse expanded={draft.custom}><div className="desktop-bot-action-list">{[...new Set([...BOT_ACTIONS, ...draft.actions])].map(action => <label className="desktop-bot-check" key={action}><input type="checkbox" checked={draft.actions.includes(action)} onChange={event => update({ actions: event.target.checked ? [...draft.actions, action] : draft.actions.filter(item => item !== action) })} /><span>{action}</span></label>)}</div></AnimatedCollapse>
+        <label className="desktop-bot-check"><input data-ui="checkbox" type="checkbox" checked={!draft.custom} onChange={event => update({ custom: !event.target.checked })} />{t("All permitted Host actions")}</label>
+        <AnimatedCollapse expanded={draft.custom}><div className="desktop-bot-action-list">{[...new Set([...BOT_ACTIONS, ...draft.actions])].map(action => <label className="desktop-bot-check" key={action}><input data-ui="checkbox" type="checkbox" checked={draft.actions.includes(action)} onChange={event => update({ actions: event.target.checked ? [...draft.actions, action] : draft.actions.filter(item => item !== action) })} /><span>{action}</span></label>)}</div></AnimatedCollapse>
       </div></AnimatedCollapse>
     </fieldset>
     {error && <p role="alert">{t(error)}</p>}

@@ -299,7 +299,7 @@ function Picker({
   return (
     <label>
       {!hideLabel && label}
-      <select
+      <select data-ui="select"
         aria-label={hideLabel ? label : undefined}
         value={value}
         disabled={disabled}
@@ -697,7 +697,7 @@ export function BotSettings({
               <div className="assistant-check-grid">
                 {group.keys.map((key) => (
                   <label className="assistant-check" key={key}>
-                    <input
+                    <input data-ui="checkbox"
                       type="checkbox"
                       checked={policy.permissions[key]}
                       onChange={(e) => setPermissions([key], e.target.checked)}
@@ -714,7 +714,7 @@ export function BotSettings({
             {t("Project access")}
           </div>
           <label className="assistant-check">
-            <input
+            <input data-ui="checkbox"
               type="checkbox"
               checked={policy.allowedProjects === "all"}
               onChange={(e) =>
@@ -737,7 +737,7 @@ export function BotSettings({
                     : policy.allowedProjects;
                 return (
                   <label className="assistant-chip" key={project.id}>
-                    <input
+                    <input data-ui="checkbox"
                       type="checkbox"
                       checked={current.includes(project.id)}
                       onChange={(e) =>
@@ -778,7 +778,7 @@ export function BotSettings({
         <div className="assistant-settings-group">
           {(["user", "event", "schedule"] as const).map((key) => (
             <label className="assistant-check" key={key}>
-              <input
+              <input data-ui="checkbox"
                 type="checkbox"
                 checked={triggers[key]}
                 onChange={(e) =>
@@ -815,7 +815,7 @@ export function BotSettings({
                 ))}
               </div>
               <div className="assistant-interval">
-                <input
+                <input data-ui="input"
                   type="number"
                   min={1}
                   step={1}
@@ -865,7 +865,7 @@ export function BotSettings({
             ) : (
               <label>
                 {t("Time zone")}
-                <input
+                <input data-ui="input"
                   value={schedule.timezone}
                   aria-invalid={!!errors.timezone || undefined}
                   onChange={(e) =>
@@ -879,7 +879,7 @@ export function BotSettings({
             )}
             <label>
               {t("Scheduled check prompt")}
-              <textarea
+              <textarea data-ui="textarea"
                 value={schedule.prompt}
                 onChange={(e) =>
                   patch({
@@ -927,7 +927,7 @@ export function BotSettings({
                 {t("Conversation events")}
               </div>
               <label className="assistant-check">
-                <input
+                <input data-ui="checkbox"
                   type="checkbox"
                   checked={watch.enabled}
                   onChange={(e) => patchWatch(i, { enabled: e.target.checked })}
@@ -937,7 +937,7 @@ export function BotSettings({
               <div className="assistant-chips">
                 {EVENT_KINDS.map((kind) => (
                   <label className="assistant-chip" key={kind}>
-                    <input
+                    <input data-ui="checkbox"
                       type="checkbox"
                       checked={watch.eventKinds.includes(kind)}
                       onChange={(e) =>
@@ -957,7 +957,7 @@ export function BotSettings({
                   {t("Watch projects")}
                 </span>
                 <label className="assistant-check">
-                  <input
+                  <input data-ui="checkbox"
                     type="checkbox"
                     checked={!pickingProjects.has(watch.id)}
                     onChange={(e) => {
@@ -976,7 +976,7 @@ export function BotSettings({
                   <div className="assistant-chips">
                     {projects.map((project) => (
                       <label className="assistant-chip" key={project.id}>
-                        <input
+                        <input data-ui="checkbox"
                           type="checkbox"
                           checked={watch.projectIds.includes(project.id)}
                           onChange={(e) =>
@@ -1000,7 +1000,7 @@ export function BotSettings({
               </div>
               <label>
                 {t("Follow-up prompt")}
-                <textarea
+                <textarea data-ui="textarea"
                   value={watch.prompt}
                   onChange={(e) => patchWatch(i, { prompt: e.target.value })}
                 />
@@ -1018,7 +1018,7 @@ export function BotSettings({
             <div className="assistant-settings-row">
               <label>
                 {t("Maximum automatic follow-ups")}
-                <input
+                <input data-ui="input"
                   type="number"
                   min={1}
                   max={100}
@@ -1032,7 +1032,7 @@ export function BotSettings({
               </label>
               <label>
                 {t("Follow-up window (minutes)")}
-                <input
+                <input data-ui="input"
                   type="number"
                   min={1}
                   max={1440}
@@ -1082,7 +1082,7 @@ export function BotSettings({
           {section !== "automation" && <><Section title={t("Assistant")}>
             <label>
               {t("Assistant name")}
-              <input
+              <input data-ui="input"
                 value={draft.name ?? ""}
                 aria-invalid={!!errors.name || undefined}
                 onChange={(e) => patch({ name: e.target.value })}
@@ -1093,7 +1093,7 @@ export function BotSettings({
               <>
                 <label>
                   {t("What should it call you?")}
-                  <input
+                  <input data-ui="input"
                     value={persona.userName ?? ""}
                     maxLength={100}
                     onChange={(e) =>
@@ -1130,7 +1130,7 @@ export function BotSettings({
                 </div>
                 <label>
                   {t("Personality and tone")}
-                  <textarea
+                  <textarea data-ui="textarea"
                     value={persona.style}
                     maxLength={4000}
                     aria-invalid={!!errors.persona || undefined}
@@ -1306,7 +1306,7 @@ export function BotSettings({
                 {t("Cancel")}
               </button>
             )}
-            <button
+            <button data-ui="button" data-variant="primary"
               type="submit"
               className="assistant-primary"
               disabled={!canSave}
@@ -1469,7 +1469,7 @@ export function WatchedSessions({
             <div className="assistant-watch-project-picker">
               <div className="assistant-watch-project-toolbar">
                 {projects.length > 10 && (
-                  <input
+                  <input data-ui="input"
                     type="search"
                     aria-label={t("Search projects")}
                     placeholder={t("Search projects")}
@@ -1503,7 +1503,7 @@ export function WatchedSessions({
               >
                 {pickerProjects.map((project) => (
                   <label key={project.id} className="assistant-watch-project">
-                    <input
+                    <input data-ui="checkbox"
                       type="checkbox"
                       checked={selectedProjects.includes(project.id)}
                       onChange={(event) =>
@@ -1573,7 +1573,7 @@ export function WatchedSessions({
         </>
       )}
       {(options.length > 10 || query) && (
-        <input
+        <input data-ui="input"
           type="search"
           aria-label={t("Search conversations…")}
           placeholder={t("Search conversations…")}

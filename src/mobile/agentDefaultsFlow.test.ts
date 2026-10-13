@@ -200,7 +200,7 @@ function dialog() {
   )!;
 }
 async function click(label: string, scope: Element = node) {
-  const button = [...scope.querySelectorAll<HTMLButtonElement>("button")].find(
+  const button = [...scope.querySelectorAll<HTMLButtonElement | HTMLInputElement>('button, input[type="radio"]')].find(
     (button) =>
       !button.closest('[inert], [aria-hidden="true"], [data-page-active="false"]') &&
       (button.getAttribute("aria-label") === label ||
@@ -293,8 +293,8 @@ describe("mobile Agent defaults settings and new conversations", () => {
     expect(dialog().textContent).toContain("High");
     await dismiss();
     await click("Default permissions");
-    expect(dialog().querySelector('[aria-checked="true"]')?.textContent).toBe("Supervised");
-    expect(dialog().querySelectorAll('[role="radio"]')).toHaveLength(4);
+    expect(dialog().querySelector('input[type="radio"]:checked')?.getAttribute("aria-label")).toBe("Supervised");
+    expect(dialog().querySelectorAll('input[type="radio"]')).toHaveLength(4);
     await click("Full access", dialog());
     expect(loadMobileAgentDefaults(host.connection).runtimeMode).toBe("full-access");
     await click("Codex account");
@@ -523,7 +523,7 @@ describe("mobile Agent defaults settings and new conversations", () => {
     await settings();
     await click("Codex account");
     expect(dialog().textContent).not.toContain("Wrong Host");
-    expect(dialog().querySelector('[aria-checked="true"]')?.textContent).toBe(
+    expect(dialog().querySelector('input[type="radio"]:checked')?.getAttribute("aria-label")).toBe(
       "Default account",
     );
     expect(loadMobileAgentDefaults("http://second")).toEqual({});
@@ -584,7 +584,7 @@ describe("mobile Agent defaults settings and new conversations", () => {
     await click("重试");
     expect(status.getAttribute("aria-busy")).toBe("true");
     expect(status.textContent).toContain("正在检查智能体…");
-    expect(status.querySelector<HTMLButtonElement>(".mobile-button")?.disabled).toBe(true);
+    expect(status.querySelector<HTMLButtonElement>('[data-ui="button"]')?.disabled).toBe(true);
     await act(async () => resolve(catalog));
     expect(current(".mobile-defaults-status")).toBeNull();
     expect(loadMobileAgentDefaults(host.connection).harness).toBe("codex");

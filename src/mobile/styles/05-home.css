@@ -30,7 +30,7 @@
 }
 .mobile-row-text strong {
   font-size: var(--mobile-font-md);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -85,7 +85,7 @@
   margin: 0 0 8px;
   font-size: 20px;
   letter-spacing: -0.3px;
-  font-weight: 650;
+  font-weight: var(--font-weight-semibold);
 }
 .mobile-empty p {
   margin: 0;
@@ -94,11 +94,11 @@
   line-height: 1.5;
   font-size: var(--mobile-font-lg);
 }
-.mobile-empty p .mobile-button {
+.mobile-empty p [data-ui="button"] {
   display: flex;
   margin: 22px auto 0;
 }
-.mobile-empty > .mobile-button {
+.mobile-empty > [data-ui="button"] {
   margin-top: 22px;
 }
 .mobile-home {
@@ -126,7 +126,7 @@
 .mobile-home :where(h2) {
   margin: 0;
   font-size: var(--mobile-font-lg);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .mobile-home section + section {
   margin-top: 22px;
@@ -178,7 +178,7 @@
 }
 .mobile-home-project strong {
   font-size: var(--mobile-font-lg);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .mobile-home-project small {
   font-size: var(--mobile-font-sm);
@@ -278,7 +278,7 @@
 .mobile-home-section-head h2 {
   color: var(--color-m-ink-tertiary);
   font-size: var(--mobile-font-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -294,7 +294,7 @@
   background: transparent;
   color: var(--color-m-ink-secondary);
   font-size: var(--mobile-font-md);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   letter-spacing: normal;
   text-transform: none;
 }
@@ -326,7 +326,7 @@
   background: transparent;
   color: var(--color-m-ink-secondary);
   font-size: var(--mobile-font-md);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   white-space: nowrap;
 }
 .mobile-device-chip::before {
@@ -384,7 +384,7 @@
 .mobile-host-unavailable strong {
   color: var(--color-m-ink);
   font-size: var(--mobile-font-xl);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .mobile-host-unavailable button {
   min-height: 44px;
@@ -395,7 +395,7 @@
   background: transparent;
   color: var(--color-m-ink);
   font-size: var(--mobile-font-lg);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .mobile-host-unavailable button:active {
   --mobile-press-color: var(--color-selection);
@@ -430,7 +430,7 @@
   color: var(--color-m-ink-tertiary);
   font: inherit;
   font-size: var(--mobile-font-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -503,7 +503,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--mobile-font-lg);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   line-height: 22px;
 }
 .mobile-home-session > time,
@@ -599,7 +599,7 @@
   background: var(--color-m-accent);
   color: var(--color-m-accent-ink);
   font-size: var(--mobile-font-lg);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   box-shadow: var(--m-shadow-float);
 }
 .mobile-home:not([data-project="true"]) .mobile-home-new:active {
@@ -657,7 +657,7 @@
   justify-content: center;
   background: var(--mobile-accent);
   color: var(--mobile-accent-foreground);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .mobile-home[data-project="true"] .mobile-home-new:active {
   --mobile-press-color: rgb(0 0 0 / 0.15);

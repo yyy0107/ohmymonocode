@@ -8,7 +8,7 @@ import {
   isArtifactPresetKind,
 } from "./artifactPresentation.js";
 import { ArtifactPresetBody } from "./ArtifactPresetBody.js";
-import { cn } from "../../components/lib/utils.js";
+import { cn } from "../../../../../shared/lib/cn";
 import {
   ArtifactSheetGlyph,
   type WorkflowCompletionArtifact,

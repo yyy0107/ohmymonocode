@@ -1,7 +1,5 @@
 import { useTranslation } from "../../../shared/i18n/useTranslation";
-import { motion } from "motion/react";
-import { immediateTransition, motionGeometry, panelTransition } from "../../../shared/motion/tokens";
-import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
+import { Switch } from "../../../shared/ui/forms/Switch";
 import { withStatusToast } from "../../../shared/ui/StatusToast";
 import {
   useState,
@@ -66,7 +64,6 @@ export function DeleteWorktreeDialog({
   onDeleted: () => void;
 }) {
   const { t: uiT } = useTranslation();
-  const reduced = useMotionPreference();
   const [busy, setBusy] = useState(false);
   const [deleteSessions, setDeleteSessions] = useState(false);
   const [error, setError] = useState<string>();
@@ -184,22 +181,12 @@ export function DeleteWorktreeDialog({
             >
               {uiT("Also delete associated sessions")}
             </span>
-            <button
-              type="button"
-              role="switch"
+            <Switch
               aria-labelledby="delete-worktree-sessions-label"
-              aria-checked={deleteSessions}
+              checked={deleteSessions}
               disabled={busy}
-              onClick={() => setDeleteSessions(!deleteSessions)}
-              className={`relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-40 ${deleteSessions ? "bg-red-500" : "bg-content/20"}`}
-            >
-              <motion.span
-                initial={false}
-                animate={{ x: deleteSessions ? motionGeometry.toggleTravel : 0 }}
-                transition={reduced ? immediateTransition : panelTransition}
-                className="absolute top-0.5 left-0.5 size-4 rounded-full bg-white"
-              />
-            </button>
+              onCheckedChange={setDeleteSessions}
+            />
           </div>
         )}
         {error && (

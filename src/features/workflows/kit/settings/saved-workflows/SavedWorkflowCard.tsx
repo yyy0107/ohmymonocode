@@ -10,15 +10,15 @@ import {
   type MonocodeSavedWorkflowEntry,
   type MonocodeSavedWorkflowRun,
 } from "../../_shims/shared.js";
-import { Button } from "../../components/ui/button.js";
+import { Button } from "../../../../../shared/ui/forms/Button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../../components/ui/dropdown-menu.js";
-import { cn } from "../../components/lib/utils.js";
+} from "../../../../../shared/ui/primitives/DropdownMenu.js";
+import { cn } from "../../../../../shared/lib/cn";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 import {
   AutomationMoreHorizontalIcon,
@@ -179,7 +179,7 @@ export const SavedWorkflowCard = memo(function SavedWorkflowCard({
       >
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="sm"
           data-icon="inline-start"
           data-testid={testId(TID_WORKFLOW_CARD_RUN, entry.name)}

@@ -1,3 +1,4 @@
+import { HarnessIcon } from "../features/sessions/ui/HarnessIcon";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { QuestionForm } from "../features/sessions/ui/QuestionForm";
@@ -35,7 +36,7 @@ import { useSurfaceVisibility } from "../shared/ui/SurfaceVisibility";
 import { useStableCallback } from "./useStableCallback";
 import { lazyMobileSheet } from "./mobileLazy";
 import { MobileConversation } from "./MobileConversation";
-import { TypingDots } from "./ui/Bubble";
+import { AssistantStatus } from "../shared/ui/messaging/AssistantStatus";
 
 const MobileAgentSheet = lazyMobileSheet(async () => ({ default: (await import("./MobileAgentSheet")).MobileAgentSheet }));
 const MobileToolSheet = lazyMobileSheet(async () => ({ default: (await import("./MobileToolSheet")).MobileToolSheet }));
@@ -396,7 +397,7 @@ export const MobileTranscript = memo(function MobileTranscript({
         worktreeCreation={worktreeCreation}
         latestTurnAccessory={awaitingReply ? (
           <motion.div initial={reduced ? false : { opacity: 0, y: motionDistance.msg }} animate={{ opacity: 1, y: 0 }} transition={reduced ? immediateTransition : msgTransition} className="mobile-typing-bubble">
-            <TypingDots label={t("Waiting for a reply")} />
+            <AssistantStatus icon={<HarnessIcon harness={session.harness} />} role="status"><span className="transcript-live-status">{t("Waiting for a reply")}</span></AssistantStatus>
           </motion.div>
         ) : undefined}
       />

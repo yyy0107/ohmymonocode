@@ -9,7 +9,7 @@ import {
   artifactKindMessageId,
   truncateArtifactChipTitle,
 } from "../../app-shell/workflow-artifacts/artifactPresentation.js";
-import { cn } from "../lib/utils.js";
+import { cn } from "../../../../../shared/lib/cn";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 
 /**

@@ -4,7 +4,7 @@ import {
   TID_WORKFLOW_MOVE_DIALOG_SUBMIT,
   TID_WORKFLOW_MOVE_DIALOG_TARGET,
 } from "../../_shims/shared.js";
-import { Button } from "../../components/ui/button.js";
+import { Button } from "../../../../../shared/ui/forms/Button";
 import {
   Dialog,
   DialogContent,
@@ -12,14 +12,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../../components/ui/dialog.js";
+} from "../../../../../shared/ui/primitives/Dialog.js";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../components/ui/select.js";
+} from "../../../../../shared/ui/forms/Select.js";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 import {
   findAutomationWorkspaceOptionByKey,
@@ -120,7 +120,7 @@ export function SavedWorkflowMoveDialog({
             )}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" size="lg" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="secondary" size="lg" onClick={() => onOpenChange(false)}>
               {intl.formatMessage({ id: "workflows.hub.launch.cancel" })}
             </Button>
             <Button

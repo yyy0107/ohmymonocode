@@ -1,40 +1,62 @@
 /* Measured desktop geometry. Mobile removes data-skin before applying its theme. */
 html[data-skin] {
-  --text-desktop-h1: 24px;
+  --text-desktop-h1: var(--text-heading-xl);
   --text-desktop-h2: 22px;
   --text-desktop-h3: 15px;
-  --text-desktop-body: 14px;
-  --text-desktop-ui: 14px;
+  --text-desktop-body: var(--text-body-md);
+  --text-desktop-ui: var(--text-body-sm);
   --text-desktop-label: 13px;
-  --text-desktop-caption: 12px;
+  --text-desktop-caption: var(--text-body-xs);
+  /* Shared control scale: compact toolbars, ordinary actions, prominent actions. */
+  --desktop-control-xs: 24px;
+  --desktop-control-sm: 28px;
+  --desktop-control-md: 32px;
+  --desktop-control-lg: 36px;
+  --desktop-control-xl: 40px;
+  --desktop-control-pad-sm: 8px;
+  --desktop-control-pad-md: 10px;
+  --desktop-control-pad-lg: 12px;
+  --desktop-control-pad-xl: 14px;
+  --desktop-control-gap: 8px;
+  --desktop-menu-gutter: 4px;
+  --desktop-disabled-opacity: .5;
   --desktop-icon-xs: 20px;
-  --desktop-icon-sm: 24px;
-  --desktop-icon-md: 32px;
-  --desktop-icon-lg: 40px;
+  --desktop-icon-sm: 28px;
+  --desktop-icon-md: var(--desktop-control-md);
+  --desktop-icon-lg: var(--desktop-control-xl);
   --desktop-radius-field: 8px;
-  --desktop-radius-card: 12px;
-  --desktop-radius-dialog: 12px;
+  --desktop-radius-card: 10px;
+  --desktop-radius-dialog: 16px;
   --desktop-radius-tile: 10px;
-  --desktop-radius-bubble: 8px;
-  --desktop-radius-composer: 14px;
-  --desktop-border: 1px;
-  --desktop-switch-width: 32px;
+  --desktop-radius-bubble: 12px;
+  --desktop-radius-composer: 16px;
+  --desktop-border: 0.5px;
+  --desktop-switch-width: 36px;
   --desktop-switch-height: 20px;
   --desktop-switch-thumb: 16px;
-  --desktop-switch-travel: 12px;
+  --desktop-switch-travel: 16px;
   --desktop-checkbox-size: 16px;
-  --desktop-checkbox-radius: 5px;
+  --desktop-checkbox-radius: 4px;
   --desktop-settings-nav: 192px;
-  --desktop-sidebar-width: 288px;
+  --desktop-sidebar-width: 256px;
+  --desktop-sidebar-inset: 8px;
   --desktop-tile-gap: 12px;
   --desktop-feedback: 60ms;
   --desktop-feedback-normal: 120ms;
   --desktop-popup-duration: 200ms;
   --desktop-popup-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --desktop-primary: #f0efec;
-  --desktop-on-primary: #151515;
+  /* Forms geometry and semantic colors; custom accents remain configurable. */
+  --desktop-button-height: 36px;
+  --desktop-button-small-height: 32px;
+  --desktop-button-padding: 16px;
+  --desktop-button-small-padding: 12px;
+  --desktop-field-height: 32px;
+  --desktop-field-large-height: 40px;
+  --desktop-focus-shadow: 0 0 0 2px var(--desktop-focus-gap), 0 0 0 3.5px var(--desktop-focus-info);
+  --desktop-primary: var(--color-ink);
+  --desktop-on-primary: var(--color-app);
   --desktop-control-track: #ffffff26;
-  --desktop-control-checked: #f0efec;
+  --desktop-control-checked: #4682d5;
   --desktop-control-knob: #151515;
   --desktop-control-disabled: #89878126;
   --desktop-popup-x: 0px;
@@ -50,25 +72,69 @@ html[data-skin] {
   --desktop-menu-panel-radius: 12px;
   --cds-fill-ghost-hover: rgb(255 255 255 / 7.5%);
   --cds-fill-ghost-selected: rgb(255 255 255 / 15%);
-  --shadow-panel: inset 0 0 0 1px rgb(255 255 255 / 10%), 0 0 0 1px rgb(11 11 11 / 10%), 0 8px 24px #00000052, 0 2px 6px #0003;
-  --radius-composer: 14px;
-  --radius-sheet: 12px;
+  --shadow-panel: 0 0 0 0.5px var(--color-composer-ring), 0 8px 24px rgb(0 0 0 / 24%);
+  --radius-composer: var(--desktop-radius-composer);
+  --radius-sheet: var(--desktop-radius-dialog);
   --radius-row: 8px;
   --row-h: 32px;
   --row-h-compact: 24px;
   --glass-filter: none;
-  --shadow-sheet: 0 0 0 1px var(--color-hairline), 0 4px 18px #00000033;
+  --shadow-sheet: 0 0 0 0.5px var(--color-composer-ring), 0 2px 8px rgb(0 0 0 / 20%);
+  --desktop-control-surface: var(--color-card);
+  --desktop-control-ink: var(--color-ink);
+  --desktop-control-placeholder: var(--color-ink-tertiary);
+  --desktop-control-border: var(--color-composer-ring);
+  --desktop-focus-gap: var(--color-card);
+  --desktop-focus-info: rgb(70 130 213 / 60%);
+  --desktop-danger: var(--color-danger);
+  --desktop-on-danger: var(--color-danger-ink);
+  --desktop-focus-danger: color-mix(in srgb, var(--desktop-danger) 50%, transparent);
+  --desktop-shadow-composer: 0 2px 8px rgb(0 0 0 / 16%);
+  --desktop-shadow-card: 0 1px 2px rgb(0 0 0 / 5%);
 }
 
 html[data-skin].theme-light {
   --cds-fill-ghost-hover: rgb(11 11 11 / 5%);
   --cds-fill-ghost-selected: rgb(11 11 11 / 10%);
-  --shadow-panel: inset 0 0 0 0 rgb(11 11 11 / 10%), 0 0 0 1px rgb(11 11 11 / 10%), 0 8px 24px #0000001f, 0 2px 6px #00000014;
-  --desktop-primary: #0b0b0b;
-  --desktop-on-primary: #fcfcfb;
-  --desktop-control-track: #0b0b0b1a;
-  --desktop-control-checked: #0b0b0b;
+  --shadow-panel: 0 0 0 0.5px var(--color-composer-ring), 0 8px 24px rgb(0 0 0 / 8%);
   --desktop-control-knob: #ffffff;
   --desktop-control-disabled: #8987811a;
-  --shadow-sheet: 0 0 0 1px var(--color-hairline), 0 1px 2px #0000000f, 0 2px 8px #00000014;
+  --shadow-sheet: 0 0 0 0.5px var(--color-composer-ring), 0 2px 8px rgb(0 0 0 / 5%);
+  --desktop-shadow-composer: 0 2px 8px rgb(0 0 0 / 8%);
+  --desktop-primary: #141413;
+  --desktop-on-primary: #ffffff;
+  --desktop-danger: #b53333;
+  --desktop-on-danger: #ffffff;
+  --desktop-control-surface: #ffffff;
+  --desktop-control-ink: #141413;
+  --desktop-control-placeholder: #73726c;
+  --desktop-control-border: rgb(31 30 29 / 30%);
+  --desktop-control-track: #faf9f5;
+  --desktop-focus-gap: #ffffff;
+  --desktop-focus-info: rgb(50 102 173 / 50%);
+}
+
+
+html[data-skin].has-user-accent {
+  --desktop-primary: var(--color-accent);
+  --desktop-on-primary: var(--color-accent-ink);
+  --desktop-control-checked: var(--color-accent);
+  --desktop-focus-info: color-mix(in srgb, var(--color-focus) 50%, transparent);
+}
+
+html[data-skin] {
+  --app-header-height: 52px;
+  --app-header-fullscreen-height: 64px;
+  --app-skeleton-size: 32px;
+  --app-skeleton-fullscreen-size: 44px;
+}
+html[data-skin][data-desktop-mode] {
+  --desktop-pane-outer: 12px;
+  --desktop-pane-half-gap: 6px;
+  --desktop-conversation-width: 720px;
+  --desktop-conversation-inset: 24px;
+}
+html[data-skin][data-desktop-mode="chat"] {
+  --desktop-conversation-width: 792px;
+  --desktop-conversation-inset: 24px;
 }

@@ -1,3 +1,4 @@
+import { Button } from "../shared/ui/forms/Button";
 import { MobileSpinner } from "./MobileSpinner";
 import { useEffect, useRef, useState } from "react";
 import { CameraOff, ScanQrCode } from "../shared/ui/icons";
@@ -127,9 +128,9 @@ export function MobileQrScanner({ active, onDetected }: {
             )}
           </span>
           {state === "denied" && (
-            <button type="button" className="mobile-button" onClick={() => setAttempt((value) => value + 1)}>
+            <Button variant="secondary" type="button" onClick={() => setAttempt((value) => value + 1)}>
               {t("Try again")}
-            </button>
+            </Button>
           )}
         </span>
       )}

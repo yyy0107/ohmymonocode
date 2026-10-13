@@ -27,7 +27,7 @@ export function BotAttachmentCard({ file, onOpen, read }: { file: RemoteAttachme
       <span className="desktop-bot-file-icon"><FileTypeIcon name={file.name} isDir={false} size={24} /></span>
       <span><strong data-file-label>{file.name}</strong><small>{formatFileSize(file.size)}</small></span>
     </button>
-    <button type="button" className="assistant-icon-button" aria-label={t("Download {name}", { name: file.name })} disabled={busy || !visible} onClick={() => void download()}>{busy ? <Loader2 size={17} /> : <Download size={17} />}</button>
+    <button data-ui="icon-button" type="button" className="assistant-icon-button" aria-label={t("Download {name}", { name: file.name })} disabled={busy || !visible} onClick={() => void download()}>{busy ? <Loader2 size={17} /> : <Download size={17} />}</button>
     {error && <small role="alert">{t(error)}</small>}
   </div>;
 }

@@ -1,3 +1,4 @@
+import { MessageInput } from "../../../shared/ui/messaging/MessageInput";
 import { animate, motion, useMotionValue } from "motion/react";
 import { panelTransition, immediateTransition, springs, motionGeometry } from "../../../shared/motion/tokens";
 import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
@@ -228,6 +229,8 @@ type Props = {
   focusToken?: number;
   shell?: boolean;
   compact?: boolean;
+  /** Put model controls beside Send in the desktop messaging composer. */
+  messagingLayout?: boolean;
   placeholder?: string;
   inputAriaLabel?: string;
   disabled?: boolean;
@@ -370,6 +373,7 @@ export function Composer({
   hotkeys = false,
   shell = false,
   compact = false,
+  messagingLayout = false,
   placeholder,
   inputAriaLabel,
   disabled = false,
@@ -2305,6 +2309,7 @@ export function Composer({
     <div
       data-composer
       data-composer-layout={compact ? "compact" : "desktop"}
+      data-composer-messaging={(!compact && messagingLayout) || undefined}
       data-native-readonly={readOnlyReason ? "true" : undefined}
       className={`relative shrink-0 ${shell || compact ? "" : "p-1.5 pt-0"}`}
       onMouseDown={disabled ? undefined : onFocus}
@@ -2447,12 +2452,12 @@ export function Composer({
         <div
           className={`composer-surface ${hideTopBar ? "" : "composer-surface-with-workspace"}`}
         >
-          <div
+          <MessageInput
             ref={boxRef}
             data-composer-box
             data-composer-editing={resendEdited ? "" : undefined}
             data-composer-file-drag={fileDrag || undefined}
-            className={`composer-input-shell relative z-10 border bg-content/3 backdrop-blur-sm ${
+            className={`z-10 border bg-content/3 backdrop-blur-sm ${
               resendEdited
                 ? "edit-last-turn-composer rounded-lg"
                 : "rounded-lg border-content/10 has-focus:border-content/20"
@@ -2819,7 +2824,7 @@ export function Composer({
                   ) : null}
                 </ComposerPopover>
               </div>
-              {compact ? footerControls : null}
+              {compact || messagingLayout ? footerControls : null}
               <motion.div
                 data-send-kick={sendKick || undefined}
                 style={{ scale: sendScale }}
@@ -2836,11 +2841,11 @@ export function Composer({
                 />
               </motion.div>
             </div>
-          </div>
+          </MessageInput>
           {!compact ? (
             <div className="composer-meta">
               {workspaceBar}
-              {footerControls}
+              {!messagingLayout ? footerControls : null}
               {contextControls}
             </div>
           ) : null}

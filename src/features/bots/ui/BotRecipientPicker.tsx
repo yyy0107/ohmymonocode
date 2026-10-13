@@ -42,7 +42,7 @@ export function BotRecipientPicker({ open, bots, roomsSupported, onChoose, onCre
       <label htmlFor={id}>{t("To:")}</label>
       <div className="desktop-bot-recipients">
         {selected.map(bot => <span key={bot.id} className="desktop-bot-recipient-chip"><BotAvatar bot={bot} size={24} />{bot.name}<button type="button" disabled={busy} aria-label={t("Remove {name}", { name: bot.name })} onClick={() => setMembers(current => current.filter(id => id !== bot.id))}><X size={12} /></button></span>)}
-        <input ref={input} id={id} role="combobox" value={query} disabled={busy} autoComplete="off" aria-label={t("Search or create a Bot")} placeholder={t("Search or create a Bot")}
+        <input data-ui="input" ref={input} id={id} role="combobox" value={query} disabled={busy} autoComplete="off" aria-label={t("Search or create a Bot")} placeholder={t("Search or create a Bot")}
           aria-expanded={expanded} aria-controls={`${id}-list`} aria-autocomplete="list" aria-activedescendant={expanded ? `${id}-option-${index}` : undefined}
           onFocus={() => setDropdown(true)} onChange={event => { setQuery(event.target.value); setHighlight(0); setDropdown(true); }}
           onKeyDown={event => {
@@ -52,7 +52,7 @@ export function BotRecipientPicker({ open, bots, roomsSupported, onChoose, onCre
             else if (event.key === "Tab" && !event.shiftKey && roomsSupported && highlighted && selected.length < 10) { event.preventDefault(); add(highlighted); }
           }} />
       </div>
-      <button type="button" className="assistant-icon-button" disabled={busy} aria-label={t("Cancel")} onClick={onClose}><X size={18} /></button>
+      <button data-ui="icon-button" type="button" className="assistant-icon-button" disabled={busy} aria-label={t("Cancel")} onClick={onClose}><X size={18} /></button>
     </header>
     <AnimatedCollapse expanded={expanded} className="desktop-bot-recipient-dropdown">
       <div className="desktop-bot-recipient-menu">
@@ -68,7 +68,7 @@ export function BotRecipientPicker({ open, bots, roomsSupported, onChoose, onCre
     {roomsSupported && <AnimatedCollapse expanded={selected.length > 0} className="desktop-bot-recipient-compose">
       <form onSubmit={event => { event.preventDefault(); void send(); }}>
         <label className="desktop-bot-recipient-hint">{t(selected.length < 2 ? "Add another Bot to start a room" : "Send a message to start a room")}</label>
-        <div><textarea rows={1} value={draft} disabled={busy} aria-label={t("Room message")} placeholder={t("Message your Bots…")} onFocus={() => setDropdown(false)} onChange={event => setDraft(event.target.value)} onKeyDown={event => {
+        <div><textarea data-ui="textarea" rows={1} value={draft} disabled={busy} aria-label={t("Room message")} placeholder={t("Message your Bots…")} onFocus={() => setDropdown(false)} onChange={event => setDraft(event.target.value)} onKeyDown={event => {
           if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); }
         }} /><button type="submit" className="assistant-send" aria-label={t("Send")} disabled={busy || selected.length < 2 || !draft.trim()}><ArrowUp size={18} /></button></div>
       </form>

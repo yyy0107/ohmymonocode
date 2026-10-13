@@ -8,8 +8,8 @@ import {
   testId,
   type MonocodeSavedWorkflowEntry,
 } from "../../_shims/shared.js";
-import { Button } from "../../components/ui/button.js";
-import { toast } from "../../components/ui/toast.js";
+import { Button } from "../../../../../shared/ui/forms/Button";
+import { toast } from "../../../../../shared/ui/primitives/Toast.js";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog.js";
 import { useWorkspaceServicesResolution } from "../../hooks/useWorkspaceServices.js";

@@ -1,3 +1,4 @@
+import { Button } from "../shared/ui/forms/Button";
 import { MobileSpinner } from "./MobileSpinner";
 import { useEffect, useLayoutEffect, useState, type RefObject } from "react";
 import {
@@ -99,7 +100,7 @@ export function MobileWorkspaceControls({
   const failure = (text: string, retry: () => void) => (
     <div className="mobile-workspace-status">
       <p className="mobile-form-error" role="alert">{t(text)}</p>
-      <button type="button" className="mobile-button" onClick={retry}>{t("Retry")}</button>
+      <Button variant="secondary" type="button" onClick={retry}>{t("Retry")}</Button>
     </div>
   );
   const filter = query.trim().toLowerCase();
@@ -195,7 +196,7 @@ export function MobileWorkspaceControls({
           </div>
         ) : page === "base" ? (
           <div className="mobile-model-options mobile-workspace-branches">
-            <input
+            <input data-ui="input"
               type="search"
               aria-label={t("Search branches…")}
               placeholder={t("Search branches…")}

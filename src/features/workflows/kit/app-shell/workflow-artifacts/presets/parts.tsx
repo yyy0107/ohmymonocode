@@ -7,7 +7,7 @@
  */
 
 import type { ReactNode } from "react";
-import { cn } from "../../../components/lib/utils.js";
+import { cn } from "../../../../../../shared/lib/cn";
 
 /** 调用方必须提供的三句译文（其余文案全部来自 spec 里作者自己写的 label / title）。 */
 export type PresetLabels = {

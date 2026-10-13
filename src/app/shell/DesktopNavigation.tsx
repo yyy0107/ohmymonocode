@@ -1,3 +1,4 @@
+import { NavigationItem } from "../../shared/ui/messaging/NavigationItem";
 import { useTranslation } from "../../shared/i18n/useTranslation";
 import { AnimatedCollapse } from "../../shared/ui/AnimatedCollapse";
 import {
@@ -141,64 +142,28 @@ export function DesktopNavigation({
         <span>{t("Search")}</span>
         <kbd>{shortcut}</kbd>
       </button>
-      <button type="button" className="desktop-navigation-row" onClick={onNew}>
-        <span className="desktop-navigation-icon">
-          <Plus />
-        </span>
-        <span>{t(mode === "chat" ? "New chat" : "New task")}</span>
-      </button>
-      <button
-        type="button"
-        className="desktop-navigation-row"
-        aria-current={projectsActive ? "page" : undefined}
-        onClick={onProjects}
-      >
-        <span className="desktop-navigation-icon">
-          <Folder />
-        </span>
-        <span>{t("Projects")}</span>
-      </button>
-      <button
-        type="button"
-        className="desktop-navigation-row"
-        aria-current={botsActive ? "page" : undefined}
-        onClick={onBots}
-      >
-        <span className="desktop-navigation-icon">
-          <Bot />
-        </span>
-        <span>{t("Bots")}</span>
-      </button>
-      <button
-        type="button"
-        className="desktop-navigation-row"
-        aria-expanded={expanded}
-        aria-controls="desktop-more-navigation"
-        onClick={() => setExpanded((value) => !value)}
-      >
-        <span className="desktop-navigation-icon">
-          <ChevronRight style={{ rotate: expanded ? "90deg" : "0deg" }} />
-        </span>
-        <span>{t("More")}</span>
-      </button>
+      <NavigationItem icon={<Plus />} onClick={onNew}>
+        {t(mode === "chat" ? "New chat" : "New task")}
+      </NavigationItem>
+      <NavigationItem icon={<Folder />} aria-current={projectsActive ? "page" : undefined} onClick={onProjects}>
+        {t("Projects")}
+      </NavigationItem>
+      <NavigationItem icon={<Bot />} aria-current={botsActive ? "page" : undefined} onClick={onBots}>
+        {t("Bots")}
+      </NavigationItem>
+      <NavigationItem icon={<ChevronRight style={{ rotate: expanded ? "90deg" : "0deg" }} />}
+        aria-expanded={expanded} aria-controls="desktop-more-navigation" onClick={() => setExpanded(value => !value)}>
+        {t("More")}
+      </NavigationItem>
       <AnimatedCollapse expanded={expanded} keepMounted>
         <div id="desktop-more-navigation" className="desktop-more-navigation">
           {entries
             .filter((entry) => entry.onClick)
             .map(({ label, icon: Icon, onClick, active, dot }) => (
-              <button
-                key={label}
-                type="button"
-                className="desktop-navigation-row"
-                aria-current={active ? "page" : undefined}
-                onClick={onClick}
-              >
-                <span className="desktop-navigation-icon">
-                  <Icon />
-                </span>
-                <span>{t(label)}</span>
-                {dot ? <span className="desktop-navigation-dot" /> : null}
-              </button>
+              <NavigationItem key={label} icon={<Icon />} aria-current={active ? "page" : undefined} onClick={onClick}
+                trailing={dot ? <span data-ui="navigation-dot" aria-hidden="true" /> : undefined}>
+                {t(label)}
+              </NavigationItem>
             ))}
         </div>
       </AnimatedCollapse>

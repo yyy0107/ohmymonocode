@@ -90,3 +90,31 @@ it("does not scroll the page when a compact menu opens", async () => {
   const option = document.body.querySelector('[role="option"]');
   expect(option?.className).toContain("h-7");
 });
+
+it("keeps loaded selection, icon, and Tab commit behavior in a non-searchable menu", async () => {
+  const onOpen = vi.fn();
+  const onChange = vi.fn();
+  const render = (loaded: boolean) => act(async () => root.render(createElement(SearchableSelect, {
+    label: "Font", value: "b", searchable: false, commitOnTab: true,
+    checkPosition: "end", onOpen, onChange,
+    options: loaded ? [
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Beta", icon: createElement("span", null, "B") },
+      { value: "c", label: "Gamma" },
+    ] : [],
+  })));
+  await render(false);
+  const trigger = container.querySelector("button")!;
+  await act(async () => trigger.click());
+  expect(onOpen).toHaveBeenCalledOnce();
+  await render(true);
+  const list = document.body.querySelector<HTMLElement>('[role="listbox"]')!;
+  const selected = list.querySelector('[aria-selected="true"]')!;
+  expect(list.getAttribute("aria-activedescendant")).toBe(selected.id);
+  expect(trigger.textContent).toContain("Beta");
+  await act(async () => list.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })));
+  await act(async () => list.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true })));
+  expect(onChange).toHaveBeenLastCalledWith("c");
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  expect(document.activeElement).toBe(trigger);
+});

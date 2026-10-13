@@ -61,7 +61,8 @@ export function WindowMenuButton({
       <button
         ref={anchor}
         type="button"
-        className="ui-icon-button desktop-window-menu"
+        data-ui="icon-button"
+        className="desktop-window-menu"
         aria-label={t("Main menu")}
         title={t("Main menu")}
         aria-haspopup="menu"

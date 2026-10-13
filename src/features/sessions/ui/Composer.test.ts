@@ -280,7 +280,7 @@ describe("Composer question focus", () => {
     await act(async () => root.render(createElement(Composer, props)));
     const field = container.querySelector("textarea")!;
     const permission = container.querySelector<HTMLButtonElement>("[data-access-picker-trigger]")!;
-    expect(Boolean(permission.closest(".composer-input-shell"))).toBe(compact);
+    expect(Boolean(permission.closest('[data-ui="message-input"]'))).toBe(compact);
     expect(Boolean(permission.closest(".composer-meta"))).toBe(!compact);
     expect(container.querySelectorAll("[data-access-picker-trigger]")).toHaveLength(1);
     await act(async () => permission.click());

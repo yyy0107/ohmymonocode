@@ -25,7 +25,7 @@ import {
   type PresetLabels,
 } from "./parts.js";
 import type { BoardSpec } from "./spec.js";
-import { cn } from "../../../components/lib/utils.js";
+import { cn } from "../../../../../../shared/lib/cn";
 
 function columnLabel(column: BoardColumnModel, labels: PresetLabels): string {
   return column.other ? labels.otherColumn : column.id;

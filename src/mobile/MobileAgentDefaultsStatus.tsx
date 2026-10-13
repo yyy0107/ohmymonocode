@@ -1,3 +1,4 @@
+import { Button } from "../shared/ui/forms/Button";
 import { motion } from "motion/react";
 import { motionGeometry, panelTransition } from "../shared/motion/tokens";
 import { useId, useState } from "react";
@@ -141,14 +142,14 @@ export function MobileAgentDefaultsStatus({
           {t("Error details")}
           <MotionChevronDown size={16} aria-hidden="true" animate={{ rotate: detailsOpen ? motionGeometry.flipAngle : 0 }} transition={panelTransition} />
         </button>
-        <button
+        <Button variant="secondary"
           type="button"
-          className="mobile-button"
+
           disabled={disabled || loading}
           onClick={onRetry}
         >
           {t(loading ? "Retrying…" : "Retry")}
-        </button>
+        </Button>
       </div>
       <div id={detailsId}>
         <AnimatedCollapse expanded={detailsOpen}>

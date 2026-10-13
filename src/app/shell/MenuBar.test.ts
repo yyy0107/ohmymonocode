@@ -3,6 +3,7 @@ import { completeMotionAnimation } from "../../../tests/helpers/motionDriver";
 import { act, createElement, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { WINDOW_RESIZE_IDLE_MS } from "./windowResizeWork";
 import { MenuBar } from "./MenuBar";
 import { WindowMenuButton } from "./WindowMenuButton";
 import { SurfaceVisibilityContext } from "../../shared/ui/SurfaceVisibility";
@@ -86,6 +87,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   act(() => root.unmount());
   setUiLanguage("en");
   container.remove();
@@ -106,6 +108,8 @@ describe("MenuBar", () => {
       cancelable: true,
       button: 0,
       detail: 1,
+      clientX: 100,
+      clientY: 24,
     });
     try {
       act(() => {
@@ -133,6 +137,8 @@ describe("MenuBar", () => {
         cancelable: true,
         button: 0,
         detail: 1,
+      clientX: 100,
+      clientY: 24,
       });
       act(() => target.dispatchEvent(event));
       expect(event.defaultPrevented).toBe(false);
@@ -197,6 +203,7 @@ describe("MenuBar", () => {
   });
 
   it("keeps native window actions and the maximized state in the menu row", async () => {
+    vi.useFakeTimers();
     await act(async () => render());
     const minimize = container.querySelector<HTMLButtonElement>(
       'button[aria-label="Minimize window"]',
@@ -217,6 +224,7 @@ describe("MenuBar", () => {
     expect(windowMock.close).toHaveBeenCalledOnce();
     windowMock.isMaximized.mockResolvedValue(true);
     await act(async () => windowMock.onResized.mock.calls[0][0]());
+    await act(async () => vi.advanceTimersByTimeAsync(WINDOW_RESIZE_IDLE_MS));
     expect(maximize.getAttribute("aria-label")).toBe("Restore window");
     act(() => maximize.click());
     expect(windowMock.toggleMaximize).toHaveBeenCalledTimes(2);

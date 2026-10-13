@@ -21,7 +21,7 @@ import {
   type PresetLabels,
 } from "./parts.js";
 import type { MetricsSpec } from "./spec.js";
-import { cn } from "../../../components/lib/utils.js";
+import { cn } from "../../../../../../shared/lib/cn";
 
 /** 还没有值的瓦片。用破折号而不是 0——「没测到」和「测出来是 0」不是一回事。 */
 const EMPTY_VALUE = "—";

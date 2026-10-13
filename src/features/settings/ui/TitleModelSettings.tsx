@@ -1,3 +1,4 @@
+import { Input } from "../../../shared/ui/forms/Input";
 import { DisclosureChevron } from "../../../shared/ui/DisclosureChevron";
 import { useEffect, useId, useState } from "react";
 import {
@@ -13,7 +14,7 @@ import {
 import type { GeneratedSessionTitle } from "../../sessions/model/sessionTitle";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { withStatusToast } from "../../../shared/ui/StatusToast";
-import { SecondaryButton } from "../../../shared/ui/SecondaryButton";
+import { Button } from "../../../shared/ui/forms/Button";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import { SearchableSelect } from "../../../shared/ui/SearchableSelect";
 
@@ -191,7 +192,7 @@ function TitleModelForm({ machineId }: { machineId: string }) {
   return (
     <fieldset disabled={loading || busy || !loaded} className="space-y-3">
       <label className="flex items-center gap-2 text-[13px] text-content">
-        <input
+        <input data-ui="checkbox"
           type="checkbox"
           checked={settings.enabled}
           onChange={(event) => change({ enabled: event.target.checked })}
@@ -200,7 +201,7 @@ function TitleModelForm({ machineId }: { machineId: string }) {
       </label>
       <label className="block space-y-1 text-[12px] text-content/65">
         <span>{t("Chat Completions endpoint")}</span>
-        <input
+        <Input
           className={fieldClass}
           type="url"
           value={settings.endpoint}
@@ -216,7 +217,7 @@ function TitleModelForm({ machineId }: { machineId: string }) {
       </label>
       <label className="block space-y-1 text-[12px] text-content/65">
         <span>{t("Title model ID")}</span>
-        <input
+        <Input
           className={fieldClass}
           value={settings.model}
           onChange={(event) => change({ model: event.target.value })}
@@ -225,7 +226,7 @@ function TitleModelForm({ machineId }: { machineId: string }) {
       </label>
       <label className="block space-y-1 text-[12px] text-content/65">
         <span>{t("API key")}</span>
-        <input
+        <Input
           className={fieldClass}
           type="password"
           autoComplete="new-password"
@@ -249,7 +250,7 @@ function TitleModelForm({ machineId }: { machineId: string }) {
         </span>
       </label>
       <label className="flex items-center gap-2 text-[13px] text-content">
-        <input
+        <input data-ui="checkbox"
           type="checkbox"
           disabled={!settings.hasApiKey}
           checked={clearKey}
@@ -262,18 +263,18 @@ function TitleModelForm({ machineId }: { machineId: string }) {
         {t("Remove saved API key")}
       </label>
       <div className="flex flex-wrap items-center gap-2">
-        <SecondaryButton
+        <Button variant="secondary"
           disabled={!dirty || busy || loading || !loaded}
           onClick={() => void save()}
         >
           {t("Save")}
-        </SecondaryButton>
-        <SecondaryButton
+        </Button>
+        <Button variant="secondary"
           disabled={dirty || busy || loading || !loaded || !settings.enabled}
           onClick={() => void test()}
         >
           {testing ? t("Testing connection…") : t("Test connection")}
-        </SecondaryButton>
+        </Button>
       </div>
       {dirty && (
         <p className="text-[12px] leading-relaxed text-content/45">

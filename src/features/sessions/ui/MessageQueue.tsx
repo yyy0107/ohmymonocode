@@ -195,7 +195,7 @@ export function MessageQueue({
               {message.blocked && <span className="shrink-0 text-xs text-red-400" title={uiT(message.blocked)}>{uiT("Blocked")}</span>}
               {editing ? (
                 <>
-                  <textarea
+                  <textarea data-ui="textarea"
                     autoFocus
                     aria-label={uiT("Edit queued message")}
                     value={editDraft}

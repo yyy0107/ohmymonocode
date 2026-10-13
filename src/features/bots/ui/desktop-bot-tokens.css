@@ -14,7 +14,7 @@
   --bots-light-ink: var(--color-bubble-user-ink, var(--color-brand));
   --bots-agent-fill: var(--color-surface-hover);
   --bots-hover: var(--color-surface-hover);
-  --bots-selected: color-mix(in srgb, var(--color-content) 14%, transparent);
+  --bots-selected: var(--cds-fill-ghost-selected);
   font-size: 14px; /* S064; existing font-scale pipeline remains active */
   line-height: 1.428571;
   font-weight: var(--ui-font-weight, 400);
@@ -22,15 +22,15 @@
 /* css-tokens.csv :root,.sand-1wuigm2, index-BrN-auUU.css UTF16@356614.
    Explicit light theme only: root defaults do not establish the dark cascade. */
 html.theme-light .desktop-bots-workspace.assistant-chat {
-  --color-background-base: #fcfcfc;
-  --color-content: #141414;
-  --color-foreground-subtle: #14141499;
-  --color-stroke: #14141426;
-  --color-surface: #f7f7f7;
-  --color-surface-hover: #77777717;
-  --bots-dark-fill: #070707;
-  --bots-light-ink: #fcfcfc;
-  --bots-agent-fill: #eeeeee;
-  --bots-hover: #77777717;
-  --bots-selected: #7777772b;
+  --color-background-base: var(--color-app);
+  --color-content: var(--color-ink);
+  --color-foreground-subtle: var(--color-ink-secondary);
+  --color-stroke: var(--color-hairline);
+  --color-surface: var(--color-inset);
+  --color-surface-hover: var(--cds-fill-ghost-hover);
+  --bots-dark-fill: var(--color-bubble-user);
+  --bots-light-ink: var(--color-bubble-user-ink);
+  --bots-agent-fill: var(--color-card);
+  --bots-hover: var(--cds-fill-ghost-hover);
+  --bots-selected: var(--cds-fill-ghost-selected);
 }

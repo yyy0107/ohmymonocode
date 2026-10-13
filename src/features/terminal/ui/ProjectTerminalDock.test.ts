@@ -66,20 +66,12 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-it("uses the slide panel only when the terminal is docked on the right", async () => {
+it("exposes the terminal dock side to its own layout", async () => {
   await render(true);
-  expect(
-    container.querySelector(".project-terminal-card")!.classList.contains(
-      "omb-slide-panel",
-    ),
-  ).toBe(false);
+  expect(container.querySelector(".project-terminal-card")?.getAttribute("data-dock-side")).toBe(props.dock.side);
   props.dock = { ...props.dock, side: "right" };
   await render(true);
-  expect(
-    container.querySelector(".project-terminal-card")!.classList.contains(
-      "omb-slide-panel",
-    ),
-  ).toBe(true);
+  expect(container.querySelector(".project-terminal-card")?.getAttribute("data-dock-side")).toBe("right");
 });
 
 it("keeps running content mounted, suppresses focus and hides the move menu during collapse", async () => {

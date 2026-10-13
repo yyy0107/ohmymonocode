@@ -29,6 +29,49 @@ are not prerequisites for local work.
   it does not need to be restated in each feature request.
 
 
+## UI architecture
+
+- Separate business logic, shared control behavior, and platform presentation.
+  `src/shared/ui/` must not depend on features, business stores, Host, or Tauri.
+- Import form controls directly from `src/shared/ui/forms/` and class utilities
+  from `src/shared/lib/cn.ts`. Do not recreate workflow-local controls, forwarding
+  exports, legacy button wrappers, or compatibility aliases. Compound controls
+  and Radix surfaces live in `src/shared/ui/primitives/`; Select and InputGroup
+  belong to `shared/ui/forms/`. The workflow-local `components/ui/` is removed.
+- Use shared `SearchableSelect` for option lists; pass icons, loading callbacks,
+  and menu presentation through props rather than duplicating keyboard/focus logic.
+  Shared `PrivateEmail` receives `masked`; consumers read the preference. Shared
+  surfaces import `GlassBackdrop` from shared UI, never from the app shell.
+- Messaging presentation primitives live in `src/shared/ui/messaging/`: navigation
+  items, assistant status, app headers/surfaces and loading skeletons accept slots
+  and native props. Features own destinations, provider copy, loading and actions.
+  Never apply app-card geometry to unrelated question/approval cards.
+- OMB styles, components, tokens, and layout conventions have been removed. Do
+  not reintroduce `shared/ui/omb`, `omb-*.css`, `--omb-*`, OMB layout classes, or
+  a replacement global layer that overrides unrelated feature layouts.
+- Desktop colors belong to `src/styles/desktop-theme.css`, dimensions and
+  semantic control tokens to `desktop-tokens.css`, controls to `styles/controls/`,
+  and surface layout to the corresponding `desktop-*.css` module. Mobile owns
+  its presentation under `src/mobile/`; do not import desktop CSS into mobile.
+- Style shared controls through explicit `data-ui` identities, with `variant`
+  and `size` describing the control. Do not infer identity from `input.border`,
+  generic ARIA roles, or unrelated utility classes. Business callbacks stay in
+  their feature, and shared controls own keyboard, focus, state, and accessibility.
+- Typography is shared in `src/shared/styles/fonts.css` and `typography.css`.
+  Use Anthropic Sans with the bundled sans fallback, bundled JetBrains Mono for
+  code, and the existing serif reading family. Reuse semantic text/heading
+  scales and normal/medium/semibold/bold weights; preserve user font settings
+  and Chinese/terminal-icon fallback fonts. Do not duplicate platform font stacks.
+- Mobile consumes the same shared form controls; appearance belongs to
+  `src/mobile/styles/controls/` and `src/mobile/theme/controls.css`. Keep native
+  keyboard, safe-area and gesture behavior in mobile controllers. MobileSelect
+  owns the sheet presentation and uses shared Radio semantics. Do not recreate
+  MobileSwitch, private icon buttons, bubble helpers, or catch-all form CSS.
+  Conversation, composer and drawer styles belong to their existing surface
+  modules; do not add a second override sheet for the same geometry.
+- Remove obsolete call sites and styles when replacing a component; do not keep
+  old implementations or forwarding layers for compatibility.
+
 ## 动画
 
 - 编写 Motion 相关代码前，先阅读项目内的官方

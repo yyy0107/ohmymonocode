@@ -256,17 +256,17 @@ function AddServerModal({
           <span className="text-content/40">
             {uiT("(optional for an mcpServers block)")}
           </span>
-          <input
+          <input data-ui="input"
             value={name}
             pattern={provider === "opencode" ? undefined : "[A-Za-z0-9_-]*"}
             onChange={(event) => setName(event.target.value)}
-            className="desktop-field mt-1 block w-full rounded-md border border-stroke bg-content/5 px-2 py-1.5 text-sm text-content outline-none placeholder:text-content/35 focus:border-accent/50 focus:ring-2 focus:ring-accent/15"
+            className="mt-1 block w-full rounded-md border border-stroke bg-content/5 px-2 py-1.5 text-sm text-content outline-none placeholder:text-content/35 focus:border-accent/50 focus:ring-2 focus:ring-accent/15"
             placeholder="my-server"
           />
         </label>
         <label className="block text-xs text-content/65">
           {uiT("JSON configuration")}
-          <textarea
+          <textarea data-ui="textarea"
             required
             value={config}
             onChange={(event) => setConfig(event.target.value)}
@@ -662,7 +662,7 @@ function McpConnections({
                       {!server.configPath ? (
                         <label className="text-xs text-content/55">
                           {uiT("Scope")}{" "}
-                          <select
+                          <select data-ui="select"
                             aria-label={uiT("Scope to remove {value0} from", {
                               value0: String(server.name),
                             })}

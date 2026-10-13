@@ -792,14 +792,14 @@ function AddProviderAccount({
       </p>
       <label className="mt-3 block text-[10px] font-medium text-content/55">
         {uiT("Account name")}
-        <input
+        <input data-ui="input"
           autoFocus
           type="text"
           maxLength={48}
           value={label}
           disabled={running}
           placeholder={uiT("Work or Personal")}
-          className="desktop-field mt-1.5 h-8 w-full rounded-lg border border-content/10 bg-content/[0.04] px-2.5 text-[11px] text-content outline-none placeholder:text-content/25 focus:border-accent/45 disabled:opacity-55"
+          className="mt-1.5 h-8 w-full rounded-lg border border-content/10 bg-content/[0.04] px-2.5 text-[11px] text-content outline-none placeholder:text-content/25 focus:border-accent/45 disabled:opacity-55"
           onChange={(event) => setLabel(event.target.value)}
         />
       </label>

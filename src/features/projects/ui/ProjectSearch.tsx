@@ -225,21 +225,21 @@ export function ProjectSearch({
             <Regex className="size-3.5" />
           </Toggle>
         </div>
-        <input
+        <input data-ui="input"
           value={include}
           onChange={(event) => setInclude(event.target.value)}
           placeholder={uiT("files to include")}
           aria-label={uiT("files to include")}
           spellCheck={false}
-          className="desktop-field w-full rounded-md border border-content/10 bg-content/5 px-2 py-1.5 text-[11px] text-content outline-none placeholder:text-content/35"
+          className="w-full rounded-md border border-content/10 bg-content/5 px-2 py-1.5 text-[11px] text-content outline-none placeholder:text-content/35"
         />
-        <input
+        <input data-ui="input"
           value={exclude}
           onChange={(event) => setExclude(event.target.value)}
           placeholder={uiT("files to exclude")}
           aria-label={uiT("files to exclude")}
           spellCheck={false}
-          className="desktop-field w-full rounded-md border border-content/10 bg-content/5 px-2 py-1.5 text-[11px] text-content outline-none placeholder:text-content/35"
+          className="w-full rounded-md border border-content/10 bg-content/5 px-2 py-1.5 text-[11px] text-content outline-none placeholder:text-content/35"
         />
       </div>
 

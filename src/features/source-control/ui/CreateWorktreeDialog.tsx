@@ -137,7 +137,7 @@ export function CreateWorktreeDialog({
               layer={LAYER.dialogPopover}
             />
           ) : (
-            <input
+            <input data-ui="input"
               data-code-label
               ref={input}
               aria-label={uiT("New branch name")}

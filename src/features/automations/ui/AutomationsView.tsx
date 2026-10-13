@@ -1,8 +1,6 @@
 import { MenuHover } from "../../../shared/ui/MenuHover";
 import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
-import { motion } from "motion/react";
-import { panelTransition, immediateTransition, motionGeometry } from "../../../shared/motion/tokens";
-import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
+import { Switch } from "../../../shared/ui/forms/Switch";
 import { AppPageHeader } from "../../workspace/ui/AppPageHeader";
 import { translate as translateUi } from "../../../shared/i18n/language";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
@@ -582,11 +580,11 @@ function AutomationCard({
         </span>
       </button>
       <span className="absolute right-2.5 top-2 flex">
-        <ToggleSwitch
-          label={`${automation.enabled ? "Pause" : "Enable"} ${automation.name}`}
-          on={automation.enabled}
-          onChange={onToggle}
-          compact
+        <Switch
+          aria-label={`${automation.enabled ? "Pause" : "Enable"} ${automation.name}`}
+          checked={automation.enabled}
+          onCheckedChange={onToggle}
+          size="sm"
         />
       </span>
     </div>
@@ -1010,15 +1008,15 @@ function AutomationEditor({
               </div>
             </div>
             <div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-[12px] text-content/50">
-              <ToggleSwitch
-                label={
+              <Switch
+                aria-label={
                   draft.enabled
                     ? uiT("Pause automation")
                     : uiT("Enable automation")
                 }
-                on={draft.enabled}
-                onChange={(enabled) => update("enabled", enabled)}
-                compact
+                checked={draft.enabled}
+                onCheckedChange={(enabled) => update("enabled", enabled)}
+                size="sm"
               />
               <span className="shrink-0">
                 {draft.enabled ? uiT("Active") : uiT("Inactive")}
@@ -1587,38 +1585,6 @@ function PageTab({
       className="surface-tab relative flex h-7.5 items-center px-2 text-[12px] leading-none"
     >
       {label}
-    </button>
-  );
-}
-
-function ToggleSwitch({
-  label,
-  on,
-  onChange,
-  compact = false,
-}: {
-  label: string;
-  on: boolean;
-  onChange: (on: boolean) => void;
-  compact?: boolean;
-}) {
-  const reduced = useMotionPreference();
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-label={label}
-      aria-checked={on}
-      onClick={() => onChange(!on)}
-      className={`relative shrink-0 rounded-full transition-colors duration-150 ease-out active:scale-[0.96] ${
-        compact ? "h-4 w-7" : "h-5 w-9"
-      } ${on ? "bg-accent" : "bg-content/20"}`}
-    >
-      <motion.span initial={false}
-        animate={{ x: on ? (compact ? motionGeometry.toggleCompactTravel : motionGeometry.toggleTravel) : 0 }}
-        transition={reduced ? immediateTransition : panelTransition}
-        className={`absolute top-0.5 left-0.5 rounded-full bg-white ${compact ? "size-3" : "size-4"}`}
-      />
     </button>
   );
 }

@@ -144,12 +144,12 @@ describe("NotificationMuteControl", () => {
     expect(
       [...document.querySelectorAll("button")]
         .find((button) => button.textContent === "Mute until then")
-        ?.classList.contains("primary-action"),
+        ?.getAttribute("data-ui") === "button",
     ).toBe(true);
     expect(
       [...document.querySelectorAll("button")]
         .find((button) => button.textContent === "Mute until then")
-        ?.classList.contains("ui-button-primary"),
+        ?.getAttribute("data-variant") === "primary",
     ).toBe(true);
     act(() =>
       document

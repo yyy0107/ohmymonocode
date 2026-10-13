@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { Ban, ChevronRight, CircleCheck, Loader2, TriangleAlert } from "../../../../../shared/ui/icons";
 import { TID_WORKFLOW_RUN_ROW, testId, type MonocodeSavedWorkflowRun } from "../../_shims/shared.js";
-import { Button } from "../../components/ui/button.js";
-import { cn } from "../../components/lib/utils.js";
+import { Button } from "../../../../../shared/ui/forms/Button";
+import { cn } from "../../../../../shared/lib/cn";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 import { formatDateTime } from "../automationFormat.js";
 import { SavedWorkflowArtifactChips } from "./SavedWorkflowArtifactChips.js";

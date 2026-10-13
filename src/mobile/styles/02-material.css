@@ -5,8 +5,6 @@
    app. No rims, bevels or refraction: surfaces read as flat skin colour. */
 .mobile-header[data-floating="true"] > :not([data-capsule="false"]),
 .mobile-composer,
-.mobile-composer-card > .mobile-composer-context,
-.mobile-composer-card > .mobile-composer-input,
 .mobile-jump,
 .mobile-queue-pill,
 .mobile-progress-capsule,

@@ -858,7 +858,7 @@ async function click(selector: string) {
 }
 
 async function clickDesktopNavigation(label: string) {
-  const button = [...container.querySelectorAll<HTMLButtonElement>(".desktop-navigation-row")]
+  const button = [...container.querySelectorAll<HTMLButtonElement>('[data-ui="navigation-item"]')]
     .find(item => item.textContent === label);
   expect(button, label).not.toBeUndefined();
   await act(async () => button!.click());
@@ -997,7 +997,7 @@ describe("desktop mode navigation", () => {
   const chatCwd = "/home/me/Documents/ohmymonocode/2026-10-13/chat-120000-abcdef";
   const switchMode = (mode: "Chat" | "Code") => click(`.desktop-mode-toggle button[aria-label="${mode}"]`);
   const openProjects = async () => {
-    const button = [...container.querySelectorAll<HTMLButtonElement>(".desktop-navigation-row")]
+    const button = [...container.querySelectorAll<HTMLButtonElement>('[data-ui="navigation-item"]')]
       .find(item => item.textContent === "Projects");
     expect(button).not.toBeUndefined();
     await act(async () => button!.click());
@@ -1462,7 +1462,7 @@ describe("App workspace app views", () => {
       const dragBar = chrome.querySelector<HTMLElement>(
         "[data-window-drag-bar]",
       )!;
-      expect(dragBar.getAttribute("data-tauri-drag-region")).toBe("deep");
+      expect(dragBar.getAttribute("data-window-drag-region")).toBe("deep");
       expect(dragBar.closest("[data-workspace-tab]")).toBeNull();
       expect(
         chrome.querySelector('[aria-label="Window controls"]'),

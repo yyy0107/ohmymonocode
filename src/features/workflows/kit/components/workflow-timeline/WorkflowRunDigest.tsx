@@ -7,8 +7,8 @@ import { usePauseOffscreenAnimation } from "../../../../../shared/hooks/usePause
 import { MessageCircleQuestion as MessageCircleQuestionIcon, RotateCcw as RotateCcwIcon, SlidersHorizontal as SlidersHorizontalIcon, Square as SquareIcon } from "../../../../../shared/ui/icons";
 import { TID_CHAT_WORKFLOW_RUN_DIGEST, testId } from "../../_shims/shared.js";
 import type { WorkflowRunState } from "../../_shims/protocol.js";
-import { cn } from "../lib/utils.js";
-import { Button } from "../ui/button.js";
+import { cn } from "../../../../../shared/lib/cn";
+import { Button } from "../../../../../shared/ui/forms/Button";
 import { ControlHintTooltip } from "../../ControlHintTooltip.js";
 import type { WorkflowCausalityGraphData } from "../workflow-graph/types.js";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
@@ -169,9 +169,9 @@ export function WorkflowRunDigest({
       <Button
         data-testid="workflow-digest-resume"
         onClick={onResume}
-        size="default"
+        size="md"
         type="button"
-        variant="outline"
+        variant="secondary"
       >
         <RotateCcwIcon className="size-3.5" />
         {format({ id: "chat.toolCall.workflow.run.resume" })}

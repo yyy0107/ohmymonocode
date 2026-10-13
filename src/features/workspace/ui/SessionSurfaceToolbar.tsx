@@ -20,7 +20,7 @@ import {
 import { useShortcutLabel } from "../../../app/commands/useCommandShortcut";
 import type { EditorPane, FilePaneTab } from "../model/layout";
 import { SurfaceTabs } from "./SurfaceTabs";
-import { startWindowDrag } from "../../../app/shell/startWindowDrag";
+import { windowDragRegion } from "../../../app/shell/startWindowDrag";
 import { WindowNavigationSpace } from "../../../app/shell/WindowChrome";
 import { projectName } from "../../../shared/lib/paths";
 import { SessionRenamePopover } from "./SessionTitleMenu";
@@ -127,8 +127,7 @@ export function SessionSurfaceToolbar({
     <div
       data-session-surface-tabs={session.id}
       data-session-empty={session.blocks.length === 0 || undefined}
-      data-tauri-drag-region="deep"
-      onMouseDownCapture={startWindowDrag}
+      {...windowDragRegion()}
       className="min-w-0 shrink-0"
     >
       <SurfaceTabs

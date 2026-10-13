@@ -1,8 +1,8 @@
 import { Search, X } from "../../../../shared/ui/icons";
 import type { ComponentProps } from "react";
-import { cn } from "../components/lib/utils.js";
-import { Button } from "../components/ui/button.js";
-import { Input } from "../components/ui/input.js";
+import { cn } from "../../../../shared/lib/cn";
+import { Button } from "../../../../shared/ui/forms/Button";
+import { Input } from "../../../../shared/ui/forms/Input";
 
 export function SettingsSearchInput({
   className,

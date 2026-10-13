@@ -1,6 +1,6 @@
 // Monocode shim for ZCode's ScopedErrorBoundary: contain a crashed subtree.
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { cn } from "./components/lib/utils.js";
+import { cn } from "../../../shared/lib/cn";
 import { workflowIntl } from "./i18n/IntlProvider.js";
 import { logger } from "./logger.js";
 

@@ -1,3 +1,4 @@
+import { Button } from "../shared/ui/forms/Button";
 import { useEffect, useState } from "react";
 import { useHostConnections } from "../features/connections/model/hostConnections";
 import type { HostConnectionDefinition } from "../features/connections/model/hostState";
@@ -30,7 +31,7 @@ export function MobileSharedConnections({ client, onPair }: {
           <span>{entry.name}</span>
           <span className="mobile-muted">{t("Not paired on this device")}</span>
         </div>
-        <button type="button" className="mobile-button" onClick={() => onPair(entry)}>{t("Pair this device")}</button>
+        <Button variant="secondary" type="button" onClick={() => onPair(entry)}>{t("Pair this device")}</Button>
       </li>)}
     </ul>
     {directory.pending && <p className="mobile-muted" role="status">{t("Not yet synced")}</p>}

@@ -31,7 +31,7 @@ export function DeleteSessionDialog({
           {uiT("” will be permanently deleted.")}
         </p>
         <label className="flex items-start gap-2">
-          <input
+          <input data-ui="checkbox"
             type="checkbox"
             checked={deleteWorktree}
             onChange={(e) => setDeleteWorktree(e.target.checked)}

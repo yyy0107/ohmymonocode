@@ -1,7 +1,8 @@
+import { AppSkeleton } from "../../../shared/ui/messaging/AppSkeleton";
 import { Suspense, useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, useIsPresent } from "motion/react";
-import { GlassBackdrop } from "../../../app/shell/GlassBackdrop";
+import { GlassBackdrop } from "../../../shared/ui/GlassBackdrop";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { X } from "../../../shared/ui/icons";
 import { LAYER } from "../../../shared/lib/layers";
@@ -107,7 +108,7 @@ export function AppViewDialog({
           animate={{ scale: 1 }}
           exit={reduced ? { opacity: 0 } : { scale: 0.98 }}
           transition={transition}
-          className="app-view-dialog omb-slide-panel absolute inset-0 m-auto isolate flex h-[min(800px,calc(100%-32px))] w-[min(1024px,calc(100vw-32px))] flex-col overflow-hidden rounded-xl border border-content/7 shadow-xl"
+          className="app-view-dialog absolute inset-0 m-auto isolate flex h-[min(800px,calc(100%-32px))] w-[min(1024px,calc(100vw-32px))] flex-col overflow-hidden rounded-xl border border-content/7 shadow-xl"
         >
           <GlassBackdrop />
           <div className="modal-panel relative z-[1] flex min-h-0 flex-1 flex-col">
@@ -127,12 +128,7 @@ export function AppViewDialog({
               <div className="flex min-h-0 flex-1 flex-col [&>*>*:first-child]:pr-10">
                 <Suspense
                   fallback={
-                    <div
-                      role="status"
-                      className="flex min-h-0 flex-1 items-center justify-center text-[14px] text-content/45"
-                    >
-                      {t("Loading…")}
-                    </div>
+                    <AppSkeleton size="fullscreen" label={t("Loading…")} className="mt-12" />
                   }
                 >
                   {children}

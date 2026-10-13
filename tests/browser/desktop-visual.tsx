@@ -1,5 +1,6 @@
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../../src/features/workflows/kit/components/ui/select";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../../src/features/workflows/kit/components/ui/dropdown-menu";
+import { Radio } from "../../src/shared/ui/forms/Radio";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../../src/shared/ui/forms/Select";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../../src/shared/ui/primitives/DropdownMenu";
 // Offline real-component fixture. No live account, Host, provider or native RPC.
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentProps } from "react";
 import { MotionConfig } from "motion/react";
@@ -22,10 +23,12 @@ import type { SessionSummary } from "../../src/features/sessions/data/sessionSto
 import { SurfaceVisibilityContext } from "../../src/shared/ui/SurfaceVisibility";
 import { createRoot } from "react-dom/client";
 import { SettingsView } from "../../src/features/settings/ui/SettingsView";
-import { Button, IconButton } from "../../src/shared/ui/omb/Button";
-import { Switch } from "../../src/features/workflows/kit/components/ui/switch";
-import { Checkbox } from "../../src/features/workflows/kit/components/ui/checkbox";
-import { Input } from "../../src/features/workflows/kit/components/ui/input";
+import { Button } from "../../src/shared/ui/forms/Button";
+import { IconButton } from "../../src/shared/ui/forms/IconButton";
+import { Switch } from "../../src/shared/ui/forms/Switch";
+import { Checkbox } from "../../src/shared/ui/forms/Checkbox";
+import { Input } from "../../src/shared/ui/forms/Input";
+import { Textarea } from "../../src/shared/ui/forms/Textarea";
 import { Popover } from "../../src/shared/ui/Popover";
 import { Modal } from "../../src/shared/ui/Modal";
 import { SearchableSelect } from "../../src/shared/ui/SearchableSelect";
@@ -77,23 +80,40 @@ function Gallery() {
   <main style={{ flex: 1, minWidth: 0, overflow: "auto", padding: 32 }}>
    <h1 data-settings-title>桌面组件 / Desktop controls</h1>
    <section data-checkbox-fixture style={{ display: "flex", alignItems: "center", gap: 20, marginTop: 24 }}>
-    <label className="flex items-center gap-2"><input data-checkbox-native type="checkbox" checked={checked} onChange={event => setChecked(event.target.checked)} />Native checkbox</label>
+    <label className="flex items-center gap-2"><input data-ui="checkbox" data-checkbox-native type="checkbox" checked={checked} onChange={event => setChecked(event.target.checked)} />Native checkbox</label>
     <form onSubmit={event => event.preventDefault()} className="flex items-center gap-2"><Checkbox name="gallery-checkbox" aria-label="Shared checkbox" checked={checked} onCheckedChange={value => setChecked(value === true)} /><span>Shared checkbox</span></form>
-    <label className="flex items-center gap-2"><input data-checkbox-mixed type="checkbox" ref={node => { if (node) node.indeterminate = true; }} />Mixed</label>
-    <label className="flex items-center gap-2"><input data-checkbox-disabled type="checkbox" checked disabled />Disabled</label>
-    <label className="flex items-center gap-2"><span className="relative flex size-4 items-center justify-center"><input data-checkbox-custom type="checkbox" defaultChecked className="peer appearance-none" /><Check data-desktop-checkbox-mark aria-hidden="true" className="pointer-events-none absolute hidden peer-checked:block" /></span>Custom mark</label>
+    <label className="flex items-center gap-2"><input data-ui="checkbox" data-checkbox-mixed type="checkbox" ref={node => { if (node) node.indeterminate = true; }} />Mixed</label>
+    <label className="flex items-center gap-2"><input data-ui="checkbox" data-checkbox-disabled type="checkbox" checked disabled />Disabled</label>
+    <label className="flex items-center gap-2"><span className="relative flex size-4 items-center justify-center"><input data-ui="checkbox" data-checkbox-custom type="checkbox" defaultChecked className="peer appearance-none" /><Check data-desktop-checkbox-mark aria-hidden="true" className="pointer-events-none absolute hidden peer-checked:block" /></span>Custom mark</label>
    </section>
    <p className="desktop-pane-description">Static source specifications · 长文本与字号检查</p>
    <section className="settings-card" style={{ marginTop: 24, borderStyle: "solid", borderColor: "var(--color-stroke)" }}>
-    <div className="settings-row flex flex-wrap items-center"><span className="settings-row-label">Capsule</span>{(["xs", "sm", "md", "lg", "xl"] as const).map(size => <Button key={size} size={size}>{size}</Button>)}<Button disabled>Disabled</Button></div>
+    <div className="settings-row flex flex-wrap items-center"><span className="settings-row-label">Capsule</span>{(["xs", "sm", "md", "lg", "xl"] as const).map(size => <Button variant="secondary" key={size} size={size}>{size}</Button>)}<Button variant="secondary" disabled>Disabled</Button></div>
+    <div data-button-palette className="settings-row flex flex-wrap items-center gap-2">
+     <Button variant="secondary">Secondary</Button>
+     <Button variant="primary">Primary</Button>
+     <Button variant="ghost">Ghost</Button>
+     <Button variant="danger">Danger</Button>
+     <Button variant="danger" disabled>Disabled danger</Button>
+    </div>
     <div className="settings-row flex items-center"><span className="settings-row-label">Icons</span>{(["xs", "sm", "md", "lg"] as const).map(size => <IconButton key={size} size={size} label={`Icon ${size}`}><Plus /></IconButton>)}</div>
-    <div className="settings-row flex items-center"><label>开关 Switch</label><Switch aria-label="Switch" checked={checked} onCheckedChange={setChecked} /><Switch aria-label="Disabled switch" disabled /></div>
+    <div className="settings-row flex items-center"><label>开关 Switch</label><Switch aria-label="Switch" checked={checked} onCheckedChange={setChecked} /><Switch aria-label="Disabled switch" disabled /><Switch size="sm" aria-label="Small switch" /><Switch aria-label="Disabled checked switch" checked disabled /></div>
     <div className="settings-row flex flex-wrap items-center"><Input aria-label="Long text" defaultValue="长文本 / long text sample" /><Input aria-label="Invalid field" aria-invalid defaultValue="Invalid" /></div>
-    <div className="settings-row flex items-center"><SearchableSelect label="Language" value={choice} options={[{value:"one",label:"简体中文"},{value:"two",label:"English — a long option label"}]} onChange={setChoice} /></div>
-    <div className="settings-row flex items-center"><Button ref={anchor} onClick={() => setMenu(v => !v)}>Menu</Button><Button onClick={() => setModal(true)}>Dialog</Button><Button onClick={() => setExpanded(v => !v)}>Disclosure</Button></div>
+    <div className="settings-row flex flex-wrap items-center gap-4">
+     <label><Radio name="controls-radio" defaultChecked /> Radio</label>
+     <label><Radio name="controls-radio" data-size="lg" /> Large radio</label>
+     <label><Radio disabled /> Disabled radio</label>
+     <Checkbox data-size="lg" aria-label="Large checkbox" />
+     <IconButton size="sm" variant="secondary" label="Secondary icon"><Plus /></IconButton>
+     <IconButton variant="secondary" label="Default secondary icon"><Plus /></IconButton>
+     <IconButton size="sm" label="Disabled icon" disabled><Plus /></IconButton>
+    </div>
+    <div className="settings-row flex flex-wrap items-center gap-4"><Input size="lg" aria-label="Large input" placeholder="Large input" /><Input disabled aria-label="Disabled input" placeholder="Disabled input" /><Textarea aria-label="Text area" placeholder="Text area" /><Textarea aria-label="Disabled text area" placeholder="Disabled text area" disabled /></div>
+    <div className="settings-row flex items-center"><SearchableSelect label="Compact language" variant="pill" value={choice} options={[{value:"one",label:"简体中文"},{value:"two",label:"English"}]} onChange={setChoice} /><SearchableSelect label="Language" value={choice} options={[{value:"one",label:"简体中文"},{value:"two",label:"English — a long option label"}]} onChange={setChoice} /></div>
+    <div className="settings-row flex items-center"><Button variant="secondary" ref={anchor} onClick={() => setMenu(v => !v)}>Menu</Button><Button variant="secondary" onClick={() => setModal(true)}>Dialog</Button><Button variant="secondary" onClick={() => setExpanded(v => !v)}>Disclosure</Button></div>
     <div className="settings-row flex items-center">
     <Select value={choice} onValueChange={setChoice}><SelectTrigger aria-label="Workflow select"><SelectValue /></SelectTrigger><SelectContent position="popper"><SelectItem value="one">First workflow</SelectItem><SelectItem value="two">Second workflow</SelectItem></SelectContent></Select>
-    <DropdownMenu><DropdownMenuTrigger asChild><Button>Workflow menu</Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem>Run workflow</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+    <DropdownMenu><DropdownMenuTrigger asChild><Button variant="secondary">Workflow menu</Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem>Run workflow</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
    </div>
    <AnimatedCollapse expanded={expanded} keepMounted><div style={{ padding: 16 }}>Retained content 保持挂载 <input aria-label="Retained input" defaultValue="Preserved" /></div></AnimatedCollapse>
    </section>

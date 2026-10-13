@@ -41,7 +41,7 @@ export function LinkSessionWorkItemDialog({
           <span className="font-medium text-content/80">
             {uiT("Issue or pull request URL")}
           </span>
-          <input
+          <input data-ui="input"
             autoFocus
             type="url"
             value={url}

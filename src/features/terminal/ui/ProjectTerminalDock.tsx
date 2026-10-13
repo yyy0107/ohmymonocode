@@ -20,7 +20,7 @@ import {
 } from "react";
 import { ExplorerMenu } from "../../connections/files/ui/ExplorerMenu";
 import { SurfaceTabs } from "../../workspace/ui/SurfaceTabs";
-import { IconButton } from "../../../app/shell/WindowChrome";
+import { IconButton } from "../../../shared/ui/forms/IconButton";
 import {
   clampDockSize,
   defaultDockSize,
@@ -332,7 +332,8 @@ export function ProjectTerminalDock({
       />
       <div
         data-focused={focused}
-        className={`project-terminal-card pane-card ${dock.side === "right" ? "omb-slide-panel" : ""} ${moving ? "opacity-40" : ""}`}
+        data-dock-side={dock.side}
+        className={`project-terminal-card pane-card ${moving ? "opacity-40" : ""}`}
       >
         <SurfaceTabs
           files={dock.pane.files}
@@ -347,11 +348,11 @@ export function ProjectTerminalDock({
           onPaneDragStart={onMoveToPane ? onDockDragStart : undefined}
           trailing={
             <div className="relative z-21 flex shrink-0 items-center self-center gap-0.5 pr-1.5">
-              <IconButton label={newTerminalLabel} onClick={onAddTerminal}>
+              <IconButton size="sm" label={newTerminalLabel} onClick={onAddTerminal}>
                 <Plus className="size-3.5" />
               </IconButton>
               <div ref={sideButton}>
-                <IconButton
+                <IconButton size="sm"
                   label={uiT("Move Terminal")}
                   onClick={() => {
                     const rect = sideButton.current?.getBoundingClientRect();
@@ -362,7 +363,7 @@ export function ProjectTerminalDock({
                   <SideIcon className="size-3.5" />
                 </IconButton>
               </div>
-              <IconButton label={hideTerminalLabel} onClick={onHide}>
+              <IconButton size="sm" label={hideTerminalLabel} onClick={onHide}>
                 <HideIcon className="size-3.5" />
               </IconButton>
             </div>

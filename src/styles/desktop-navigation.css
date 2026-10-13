@@ -3,7 +3,7 @@ html[data-skin][data-desktop-mode] .desktop-navigation {
   padding: 8px 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5px;
+  gap: 4px;
   flex-shrink: 0;
 }
 html[data-skin][data-desktop-mode] .desktop-navigation button {
@@ -13,32 +13,32 @@ html[data-skin][data-desktop-mode] .desktop-navigation button {
   cursor: pointer;
   text-align: left;
 }
-html[data-skin][data-desktop-mode] .desktop-navigation-row {
+html[data-skin][data-desktop-mode] [data-ui="navigation-item"] {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
-  height: 32px;
-  min-height: 32px;
+  height: 36px;
+  min-height: 36px;
   flex-shrink: 0;
-  padding: 0 2px;
+  padding: 0 4px;
   border-radius: 8px;
   font-size: 14px;
-  line-height: 21px;
+  line-height: 20px;
 }
-html[data-skin][data-desktop-mode] .desktop-navigation-row:hover,
-html[data-skin][data-desktop-mode] .desktop-navigation-row[aria-current] {
+html[data-skin][data-desktop-mode] [data-ui="navigation-item"]:hover,
+html[data-skin][data-desktop-mode] [data-ui="navigation-item"][aria-current] {
   background: var(--color-raised);
   color: var(--color-ink);
 }
-html[data-skin][data-desktop-mode] .desktop-navigation-icon {
+html[data-skin][data-desktop-mode] [data-ui="navigation-icon"] {
   width: 28px;
   height: 28px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
 }
-html[data-skin][data-desktop-mode] .desktop-navigation-icon svg {
+html[data-skin][data-desktop-mode] [data-ui="navigation-icon"] svg {
   width: 20px;
   height: 20px;
   transition: rotate 0.24s cubic-bezier(0.22, 1, 0.36, 1);
@@ -71,7 +71,7 @@ html[data-skin][data-desktop-mode] .desktop-more-navigation {
   gap: 0.5px;
   padding-left: 12px;
 }
-html[data-skin][data-desktop-mode] .desktop-navigation-dot {
+html[data-skin][data-desktop-mode] [data-ui="navigation-dot"] {
   margin-left: auto;
   width: 6px;
   height: 6px;
@@ -131,18 +131,18 @@ html[data-skin][data-desktop-mode] .desktop-titlebar-mode-slot {
   width: 70px;
   flex: 0 0 70px;
 }
-html[data-skin][data-desktop-mode] .desktop-titlebar-navigation .ui-icon-button {
+html[data-skin][data-desktop-mode] .desktop-titlebar-navigation [data-ui="icon-button"] {
   width: 32px;
   height: 32px;
   min-height: 32px;
   border-radius: 8px;
   color: var(--color-ink);
 }
-html[data-skin][data-desktop-mode] .desktop-titlebar-navigation .ui-icon-button[aria-disabled="true"] {
+html[data-skin][data-desktop-mode] .desktop-titlebar-navigation [data-ui="icon-button"][aria-disabled="true"] {
   color: var(--color-ink-tertiary);
   opacity: 1;
 }
-html[data-skin][data-desktop-mode] .desktop-titlebar-navigation .ui-icon-button svg {
+html[data-skin][data-desktop-mode] .desktop-titlebar-navigation [data-ui="icon-button"] svg {
   width: 18px;
   height: 18px;
 }
@@ -159,20 +159,22 @@ html[data-skin][data-desktop-mode].is-mac [data-window-drag-bar] > div:has(> .de
   padding-left: 78px;
 }
 html[data-skin][data-desktop-mode] .desktop-tools-layout {
+  position: relative;
   display: grid;
   flex: 1;
   width: 100%;
   height: 100%;
   min-height: 0;
   min-width: 0;
-  transition: grid-template-columns var(--collapse-duration)
-    cubic-bezier(0.22, 1, 0.36, 1);
+  transition: grid-template-columns var(--collapse-duration) cubic-bezier(0.22, 1, 0.36, 1),
+    grid-template-rows var(--collapse-duration) cubic-bezier(0.22, 1, 0.36, 1);
 }
 html[data-skin][data-desktop-mode] .desktop-tools-layout[data-resizing],
 html.is-resizing .desktop-tools-layout {
   transition: none;
 }
 html[data-skin][data-desktop-mode] .desktop-tools-workspace {
+  grid-area: workspace;
   min-width: 0;
   min-height: 0;
   display: flex;
@@ -180,24 +182,43 @@ html[data-skin][data-desktop-mode] .desktop-tools-workspace {
   overflow: hidden;
 }
 html[data-skin][data-desktop-mode] .desktop-tools-divider {
+  grid-area: divider;
   position: relative;
   min-width: 0;
+  min-height: 0;
+}
+/* The preceding card owns the gutter. Keep the zero-sized divider's hit
+   target in that space instead of adding a second gap between panels. */
+html[data-skin][data-desktop-mode] .desktop-tools-divider > [data-resize-edge="left"] {
+  left: calc(-1 * var(--desktop-pane-outer));
+  width: var(--desktop-pane-outer);
+}
+html[data-skin][data-desktop-mode] .desktop-tools-divider > [data-resize-edge="top"] {
+  top: calc(-1 * var(--desktop-pane-outer));
+  height: var(--desktop-pane-outer);
+}
+html[data-skin][data-desktop-mode] .desktop-tools-divider > .resize-handle::after {
+  inset: 0;
+  margin: auto;
+  transform: none;
 }
 html[data-skin][data-desktop-mode] .desktop-tools-panel {
+  grid-area: tools;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   border-radius: 10px;
-  margin: 8px 8px 8px 0;
+  margin: 0 var(--desktop-pane-outer) var(--desktop-pane-outer) 0;
   overflow: hidden;
   background: var(--color-card);
-  box-shadow: 0 0 0 1px var(--color-hairline);
+  border: 1px solid var(--color-hairline);
 }
 html[data-skin][data-desktop-mode] .desktop-tools-panel[hidden] {
   display: none;
 }
 html[data-skin][data-desktop-mode] .desktop-tools-heading {
+  position: relative;
   display: flex;
   align-items: center;
   height: 32px;
@@ -228,12 +249,55 @@ html[data-skin][data-desktop-mode] .desktop-tools-heading > button svg {
   width: 16px;
   height: 16px;
 }
+html[data-skin][data-desktop-mode] .desktop-tools-heading > .desktop-tools-move {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: calc(50% - 22px);
+  width: 44px;
+  height: 12px;
+  margin: 0;
+  padding: 0;
+  border-radius: 5px;
+  background: transparent;
+  opacity: 0;
+  cursor: grab;
+  touch-action: none;
+  transition: opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+html[data-skin][data-desktop-mode] .desktop-tools-move > span {
+  width: 32px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-ink-tertiary);
+}
+html[data-skin][data-desktop-mode] .desktop-tools-heading:hover > .desktop-tools-move,
+html[data-skin][data-desktop-mode] .desktop-tools-heading > .desktop-tools-move:focus-visible,
+html[data-skin][data-desktop-mode] .desktop-tools-layout[data-moving] .desktop-tools-move {
+  opacity: 1;
+}
+html[data-skin][data-desktop-mode] .desktop-tools-move:active {
+  cursor: grabbing;
+}
+/* Drag feedback must not blur/repaint the editor and terminal behind it. */
+html[data-skin][data-desktop-mode] .desktop-tools-drop-hint .pane-drop-hint-panel {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+html[data-skin][data-desktop-mode] .drag-ghost > .desktop-tools-heading {
+  will-change: transform;
+  contain: layout paint;
+  border: 1px solid var(--color-hairline);
+  border-radius: 8px;
+}
 html[data-skin][data-desktop-mode] .desktop-projects-page {
-  padding: 12px 40px 40px;
+  padding: 24px 40px 40px;
   width: 100%;
   min-height: 0;
   overflow: auto;
   color: var(--color-ink);
+  background: var(--color-app);
 }
 html[data-skin][data-desktop-mode] .desktop-collection-header {
   display: flex;
@@ -248,7 +312,7 @@ html[data-skin][data-desktop-mode] .desktop-collection-header h1 {
   font-family: var(--font-serif);
   font-size: 24px;
   line-height: 32px;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 html[data-skin][data-desktop-mode] .desktop-collection-create {
   display: flex;
@@ -257,10 +321,10 @@ html[data-skin][data-desktop-mode] .desktop-collection-create {
   padding: 5px 12px;
   line-height: 20px;
   min-height: 32px;
-  border: 1px solid var(--color-ink);
+  border: var(--desktop-border) solid var(--color-accent-border);
   border-radius: 8px;
-  background: var(--color-ink);
-  color: var(--color-app);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
   font-size: 14px;
   cursor: pointer;
 }
@@ -347,24 +411,28 @@ html[data-skin][data-desktop-mode] .desktop-project-grid {
 html[data-skin][data-desktop-mode] .desktop-project-card {
   position: relative;
   min-width: 0;
-  height: 137px;
-  border-radius: 12px;
+  height: auto;
+  border-radius: var(--desktop-radius-card);
   background: var(--color-card);
-  box-shadow: 0 0 0 1px var(--color-hairline);
+  box-shadow: none;
+  min-height: 148px;
+  border: var(--desktop-border) solid var(--color-composer-ring);
 }
 html[data-skin][data-desktop-mode] .desktop-project-card:hover {
-  background: var(--color-raised-hover);
+  background: var(--color-card);
+  box-shadow: var(--desktop-shadow-card);
+  border-color: var(--color-focus);
 }
 html[data-skin][data-desktop-mode] .desktop-project-open {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
-  padding: 16px;
+  padding: 24px;
   width: 100%;
   height: 100%;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--desktop-radius-card);
   background: transparent;
   color: inherit;
   text-align: left;
@@ -390,7 +458,7 @@ html[data-skin][data-desktop-mode] .desktop-project-name {
   max-width: 100%;
   font-size: 16px;
   line-height: 20px;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -487,17 +555,19 @@ html[data-skin][data-desktop-mode] .desktop-collection-empty {
 }
 @media (prefers-reduced-motion: reduce) {
   html[data-skin][data-desktop-mode] .desktop-tools-layout,
-  html[data-skin][data-desktop-mode] .desktop-navigation-icon svg {
+  html[data-skin][data-desktop-mode] .desktop-tools-move,
+  html[data-skin][data-desktop-mode] [data-ui="navigation-icon"] svg {
     transition: none;
   }
 }
 html[data-reduced-motion="on"] .desktop-tools-layout,
-html[data-reduced-motion="on"] .desktop-navigation-icon svg {
+html[data-reduced-motion="on"] .desktop-tools-move,
+html[data-reduced-motion="on"] [data-ui="navigation-icon"] svg {
   transition: none !important;
 }
 
 html[data-skin] [data-desktop-sidebar] {
-  padding-inline: 8px 8.8px;
+  padding-inline: 8px;
 }
 html[data-skin] [data-desktop-sidebar-mode] {
   margin-right: 1.5px;
@@ -533,3 +603,7 @@ html[data-skin][data-desktop-mode] [data-menu-bar] > div:first-child {
 html[data-skin][data-desktop-mode] [data-menu-bar] > div:first-child > button {
   flex-shrink: 0;
 }
+html[data-skin] .sidebar-rail [data-activity-bar="rail"] { width: var(--sidebar-rail-width); padding: 0 8px 12px; background: var(--color-panel); box-shadow: inset -0.5px 0 var(--color-composer-ring); }
+html[data-skin] .sidebar-rail [data-activity-bar="rail"] > div { gap: 8px; }
+html[data-skin] .sidebar-rail [data-activity-bar="rail"] button[aria-pressed] { width: 36px; height: 36px; border-radius: 8px; }
+html[data-skin] .sidebar-rail [data-activity-bar="rail"] button[aria-pressed] > svg { width: 20px; height: 20px; }

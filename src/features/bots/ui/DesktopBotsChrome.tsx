@@ -41,7 +41,7 @@ export function DesktopBotsNavigation({ hostName, assistant, messages, onSelect 
       </header>
       <label className="desktop-bots-search">
         <Search size={15} aria-hidden="true" />
-        <input value={query} onChange={(event) => setQuery(event.target.value)}
+        <input data-ui="input" value={query} onChange={(event) => setQuery(event.target.value)}
           placeholder={t("Search bots")} aria-label={t("Search bots")} />
       </label>
       <div className="desktop-bots-contacts">
@@ -136,10 +136,10 @@ function DesktopBotsHeader({ name, botIdentity, threadPicker, threadTitle, harne
     {lifecycle && lifecycle !== "idle" && <span className="assistant-status desktop-bots-run-status" data-lifecycle={lifecycle}>{status}</span>}
     <div className="assistant-header-actions">
       {controls && <>
-        <button type="button" className="assistant-icon-button" disabled={busy} title={t(controls.continuable ? "Continue" : "Pause")} aria-label={t(controls.continuable ? "Continue" : "Pause")} onClick={controls.onToggle}>{controls.continuable ? <Play size={15} /> : <Pause size={15} />}</button>
-        <button type="button" className="assistant-icon-button assistant-danger" disabled={busy || !controls.enabled} title={t("Disable assistant")} aria-label={t("Disable assistant")} onClick={controls.onDisable}><Square size={14} /></button>
+        <button data-ui="icon-button" type="button" className="assistant-icon-button" disabled={busy} title={t(controls.continuable ? "Continue" : "Pause")} aria-label={t(controls.continuable ? "Continue" : "Pause")} onClick={controls.onToggle}>{controls.continuable ? <Play size={15} /> : <Pause size={15} />}</button>
+        <button data-ui="icon-button" type="button" className="assistant-icon-button assistant-danger" disabled={busy || !controls.enabled} title={t("Disable assistant")} aria-label={t("Disable assistant")} onClick={controls.onDisable}><Square size={14} /></button>
       </>}
-      {onSettings && <button type="button" className="assistant-icon-button" title={t("Bot details")} aria-label={t("Bot details")} aria-expanded={settingsOpen} onClick={onSettings}><Settings size={17} /></button>}
+      {onSettings && <button data-ui="icon-button" type="button" className="assistant-icon-button" title={t("Bot details")} aria-label={t("Bot details")} aria-expanded={settingsOpen} onClick={onSettings}><Settings size={17} /></button>}
     </div>
   </header>;
 }
@@ -183,7 +183,7 @@ function DesktopBotsSettingsPanel({ open, initialSetup, onClose, children }: Bot
       {opened.current && <>
         <header className="desktop-bots-inspector-header">
           {initialSetup && <strong>{t("Set up assistant")}</strong>}
-          {!initialSetup && <button type="button" className="assistant-icon-button" onClick={onClose}
+          {!initialSetup && <button data-ui="icon-button" type="button" className="assistant-icon-button" onClick={onClose}
             aria-label={t("Hide bot details")} title={t("Hide bot details")}><span aria-hidden="true">»</span></button>}
         </header>
         <div className="assistant-settings-content">{children}</div>

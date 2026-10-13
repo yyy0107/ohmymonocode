@@ -1,6 +1,4 @@
-import { motion } from "motion/react";
-import { panelTransition, immediateTransition, motionGeometry } from "../../../shared/motion/tokens";
-import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
+import { Switch } from "../../../shared/ui/forms/Switch";
 import { isTauri } from "@tauri-apps/api/core";
 import {
   useEffect,
@@ -84,34 +82,6 @@ function Card({
         {children}
       </div>
     </section>
-  );
-}
-
-function Switch({
-  label,
-  on,
-  onChange,
-}: {
-  label: string;
-  on: boolean;
-  onChange: (on: boolean) => void;
-}) {
-  const reduced = useMotionPreference();
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-label={label}
-      aria-checked={on}
-      onClick={() => onChange(!on)}
-      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-        on ? "bg-accent" : "bg-content/20"
-      }`}
-    >
-      <motion.span initial={false} animate={{ x: on ? `var(--desktop-switch-travel, ${motionGeometry.switchTravel}px)` : 0 }} transition={reduced ? immediateTransition : panelTransition}
-        className="absolute left-0.5 top-0.5 size-4 rounded-full bg-white"
-      />
-    </button>
   );
 }
 
@@ -231,9 +201,9 @@ export function NativeSessionsPanel({
             </p>
           </div>
           <Switch
-            label={t("Keep imports synced")}
-            on={state.autoSync}
-            onChange={setNativeAutoSync}
+            aria-label={t("Keep imports synced")}
+            checked={state.autoSync}
+            onCheckedChange={setNativeAutoSync}
           />
         </div>
         <div className="flex items-center gap-6 px-4 py-3.5">

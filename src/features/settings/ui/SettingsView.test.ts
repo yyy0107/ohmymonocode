@@ -279,9 +279,9 @@ describe("settings pages", () => {
       ),
     );
     const dialog = document.querySelector('[role="dialog"]')!;
-    expect(dialog.classList.contains("omb-slide-panel")).toBe(true);
+    expect(dialog.classList.contains("app-view-dialog")).toBe(true);
     const header = dialog.querySelector(
-      '[data-app-settings] > [data-tauri-drag-region="deep"]',
+      '[data-app-settings] > [data-window-drag-region="deep"]',
     )!;
     const press = (target: Element) => {
       const event = new MouseEvent("mousedown", {
@@ -289,6 +289,8 @@ describe("settings pages", () => {
         cancelable: true,
         button: 0,
         detail: 1,
+        clientX: 100,
+        clientY: 100,
       });
       act(() => target.dispatchEvent(event));
       return event;

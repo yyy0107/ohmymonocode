@@ -122,29 +122,21 @@
   margin-right: 3px;
   vertical-align: -2px;
 }
-
-/* User bubbles: message-app proportions. A sent message hugs the right edge,
-   stays within 80% of the row, and keeps one tail corner. */
-.mobile-desktop-transcript .user-message-row {
-  padding: 4px 12px 14px 20%;
-}
-/* Full width lets long prompts use the row, matching the desktop setting. */
-.mobile-desktop-transcript[data-layout="full"] .user-message-row {
-  padding-left: 12px;
-}
-.mobile-desktop-transcript .user-message-bubble {
-  max-width: 100%;
+.mobile-app .mobile-desktop-transcript .user-message-bubble {
   min-height: 38px;
-  padding: 8px 14px;
-  border-radius: var(--radius-m-bubble) var(--radius-m-bubble) 6px var(--radius-m-bubble);
-  background: var(--color-m-bubble-user);
-  color: var(--color-m-bubble-user-ink);
+  max-width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 24px;
+  box-shadow: none;
+  color: var(--m-message-ink);
+  background: var(--m-message-fill);
 }
-html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-draft="true"]) {
-  background: color-mix(in srgb, var(--user-accent-color) 22%, var(--color-m-app));
-  color: var(--color-m-ink);
+html.has-user-accent .mobile-app .mobile-desktop-transcript .user-message-bubble:not([data-draft="true"]) {
+  color: var(--m-message-ink);
+  background: var(--m-message-fill);
 }
-.mobile-desktop-transcript .user-message-bubble[data-draft="true"] {
+.mobile-app .mobile-desktop-transcript .user-message-bubble[data-draft="true"] {
   background: transparent;
   box-shadow: inset 0 0 0 1px var(--color-m-hairline);
   color: var(--color-m-ink);
@@ -183,15 +175,22 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
 }
 /* The actions row is sized against the bubble; with overflow-wrap: anywhere a
    short message squeezed the clock into one character per line. */
-.mobile-desktop-transcript .user-message-actions {
+.mobile-app .mobile-desktop-transcript .user-message-actions {
   width: max-content;
   white-space: nowrap;
   overflow-wrap: normal;
+  position: static;
+  gap: 8px;
+  padding: 5px 0 0;
+  max-width: 100%;
+  opacity: 1;
+  color: var(--color-m-ink-tertiary);
 }
-.mobile-desktop-transcript .user-message-bubble pre,
-.mobile-desktop-transcript .user-message-with-link {
+.mobile-app .mobile-desktop-transcript .user-message-bubble pre,
+.mobile-app .mobile-desktop-transcript .user-message-with-link {
+  font-family: var(--font-sans);
   font-size: 15px;
-  line-height: 22px;
+  line-height: 1.4;
 }
 
 /* Tool and thinking rows are tap targets that open details. */
@@ -205,12 +204,12 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
 .mobile-desktop-transcript [data-tool-open-row]:active {
   --mobile-press-color: var(--color-selection);
 }
-.mobile-desktop-transcript .agent-reasoning {
-  font-size: var(--mobile-font-md);
-  line-height: 1.6;
+.mobile-app .mobile-desktop-transcript .agent-reasoning {
   color: var(--color-m-ink-secondary);
   border-left: 2px solid var(--color-stroke);
   padding-left: 10px;
+  font-size: 15px;
+  line-height: 1.4;
 }
 .mobile-desktop-transcript .agent-markdown a {
   text-decoration: underline;
@@ -241,7 +240,7 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
 }
 .mobile-detail-title strong {
   font-size: calc(var(--mobile-font-lg) + var(--mobile-popup-font-step, 0px));
-  font-weight: 550;
+  font-weight: var(--font-weight-semibold);
   overflow-wrap: anywhere;
 }
 .mobile-detail-title strong.mobile-detail-mono {
@@ -355,7 +354,7 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
 .mobile-detail-section h3 {
   margin: 0;
   font-size: calc(var(--mobile-font-sm) + var(--mobile-popup-font-step, 0px));
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   color: var(--color-m-ink-tertiary);
 }
 .mobile-detail-copy {
@@ -644,7 +643,7 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
   border-radius: 999px;
   color: var(--mobile-accent);
   font-size: var(--mobile-font-lg);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 .mobile-shared-question [data-question-secondary]:active {
   --mobile-press-color: var(--color-selection);
@@ -657,7 +656,7 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
 .mobile-shared-question [data-question-prompt] {
   padding-inline: 6px;
   font-size: var(--mobile-font-lg);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   line-height: 1.4;
 }
 .mobile-shared-question [data-question-prompt] + [data-question-hint] {
@@ -722,7 +721,7 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
   margin-top: 10px;
   padding-inline: 6px 0;
 }
-/* Matches .mobile-button.mobile-primary. */
+/* Matches [data-ui="button"][data-variant="primary"]. */
 .mobile-shared-question [data-question-submit] {
   height: auto;
   min-height: 44px;
@@ -731,7 +730,7 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
   background: var(--mobile-accent);
   color: var(--mobile-accent-foreground);
   font-size: var(--mobile-font-lg);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .mobile-shared-question [data-question-submit]:active {
   --mobile-press-color: rgb(0 0 0 / 0.15);
@@ -743,7 +742,7 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
 }
 .mobile-app-updates h2 {
   font-size: var(--mobile-font-lg);
-  font-weight: 550;
+  font-weight: var(--font-weight-semibold);
   margin: 0 0 18px;
 }
 .mobile-app-updates dl {
@@ -777,7 +776,7 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
   gap: 10px;
   margin-top: 18px;
 }
-.mobile-update-actions .mobile-button {
+.mobile-update-actions [data-ui="button"] {
   flex: 1;
   white-space: nowrap;
 }
@@ -838,32 +837,85 @@ html.has-user-accent .mobile-desktop-transcript .user-message-bubble:not([data-d
 .transcript-turn-live:has(.mobile-typing-bubble) .transcript-live-footer {
   display: none;
 }
-.mobile-typing-bubble {
-  width: fit-content;
-  margin: 4px 16px 8px;
-  padding: 2px 0;
-}
-/* Pending approvals (shared ApprovalControls): Allow and Deny side by side at
-   touch size. The shared row has no hook of its own, so match its two
-   buttons by their fill classes. */
-.mobile-desktop-transcript div:has(> button.bg-content:first-child + button.bg-content\/10:last-child) {
+.mobile-typing-bubble { width: 100%; }
+/* Pending approvals use their shared semantic markers at touch size. */
+.mobile-desktop-transcript [data-approval-controls] {
   gap: 8px;
   margin-top: 8px;
 }
-.mobile-desktop-transcript div:has(> button.bg-content:first-child + button.bg-content\/10:last-child) > button {
+.mobile-desktop-transcript [data-approval-controls] > button {
   flex: 1;
   min-height: 40px;
   padding: 0 16px;
   border-radius: 999px;
   font-size: var(--mobile-font-lg);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
-.mobile-desktop-transcript div:has(> button.bg-content:first-child + button.bg-content\/10:last-child) > button:first-child {
+.mobile-desktop-transcript [data-approval="allow"] {
   background: var(--color-m-accent);
   color: var(--color-m-accent-ink);
 }
-.mobile-desktop-transcript div:has(> button.bg-content:first-child + button.bg-content\/10:last-child) > button:last-child {
+.mobile-desktop-transcript [data-approval="deny"] {
   border: 1px solid var(--color-m-hairline);
   background: transparent;
   color: var(--color-m-ink);
 }
+.mobile-app .mobile-desktop-transcript [data-assistant-message] {
+  padding-inline: 16px;
+  padding-block: 8px;
+}
+
+.mobile-app .mobile-desktop-transcript [data-assistant-message] .agent-markdown {
+  font-family: var(--m-message-serif);
+  font-size: 17px;
+  font-weight: var(--font-weight-normal);
+  line-height: 1.5;
+  color: var(--color-m-ink);
+}
+
+.mobile-app .mobile-desktop-transcript [data-assistant-message] .agent-markdown p {
+  margin-block: 0.75em;
+}
+
+.mobile-app .mobile-desktop-transcript [data-assistant-message] .agent-markdown > div:first-child > :first-child {
+  margin-top: 0;
+}
+
+.mobile-app .mobile-desktop-transcript .user-message-row,
+.mobile-app .mobile-desktop-transcript[data-layout="full"] .user-message-row {
+  padding: 8px 16px 16px;
+}
+
+.mobile-app .mobile-desktop-transcript .user-message-hover-zone {
+  max-width: min(312px, 85%);
+}
+
+.mobile-app .mobile-desktop-transcript [data-transcript-turn-footer] {
+  min-height: 44px;
+  padding: 4px 16px 12px;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--color-m-ink-tertiary);
+}
+
+.mobile-app .mobile-desktop-transcript [data-transcript-turn-footer] button {
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--color-m-ink-secondary);
+}
+
+.mobile-app .mobile-desktop-transcript [data-transcript-turn-footer] button svg {
+  width: 20px;
+  height: 20px;
+}
+
+
+/* Provider identity and status text come from shared transcript behavior. */
+html[data-mobile-skin] [data-ui="assistant-status"] {
+  min-height: 44px;
+  padding: 0 16px;
+  gap: 12px;
+  color: var(--color-m-ink);
+}
+html[data-mobile-skin] [data-ui="assistant-status-icon"] { width: 24px; height: 24px; }
+html[data-mobile-skin] [data-ui="assistant-status"] .transcript-live-status { font-family: var(--font-serif); font-style: italic; font-size: 15px; line-height: 1.5; }

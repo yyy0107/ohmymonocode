@@ -26,7 +26,7 @@ import {
 import type { CommandDispatch } from "../commands/useCommandDispatcher";
 import { TabVisitNav, WINDOW_DRAG_BAR_HEIGHT, WINDOW_NAVIGATION_END } from "./WindowChrome";
 import { WindowControls } from "./WindowControls";
-import { startWindowDrag } from "./startWindowDrag";
+import { startWindowDrag, windowDragRegion } from "./startWindowDrag";
 
 type Props = {
   navigationItems?: ReactNode;
@@ -203,7 +203,7 @@ export function MenuBar({
     <div
       ref={bar}
       data-menu-bar
-      data-tauri-drag-region="deep"
+      {...windowDragRegion()}
       onMouseDownCapture={(event) => {
         if (!startWindowDrag(event)) return;
         closeMenu();

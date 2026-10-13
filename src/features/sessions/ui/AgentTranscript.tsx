@@ -1,3 +1,5 @@
+import { AssistantStatus } from "../../../shared/ui/messaging/AssistantStatus";
+import { Button } from "../../../shared/ui/forms/Button";
 import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { DetailsChevron } from "../../../shared/ui/DetailsChevron";
 import { DisclosureChevron } from "../../../shared/ui/DisclosureChevron";
@@ -115,7 +117,7 @@ import { TranscriptTurnCache } from "../model/transcriptTurnCache";
 import { userTurnStartTimes } from "../model/turnTiming";
 import { liveStatus } from "../model/liveStatus";
 import { Shimmer } from "../../../shared/ui/Shimmer";
-import { TypingDots } from "../../../shared/ui/omb/TypingDots";
+import { TypingDots } from "../../../shared/ui/TypingDots";
 import { RollingClock, rollingClockMotion } from "../../../shared/ui/RollingClock";
 import {
   hasPendingApproval,
@@ -1745,20 +1747,22 @@ function LiveTurnFooter({
       : uiT(status.label.key, status.label.params);
   const verb = status.phase === "tool" ? `${label}…` : label;
   return (
-    <div
-      className="transcript-live-footer flex min-w-0 items-center gap-2 px-4 pt-2 pb-1 font-sans text-sm @md:px-6"
+    <AssistantStatus
+      icon={
+        <ProjectMascot
+          project={mascot.project}
+          name={mascot.name}
+          color={mascot.color}
+          active={!paused}
+          className="size-4 shrink-0"
+        />
+      }
+      className="transcript-live-footer"
       title={executionDetails(executionState)}
       data-live-footer
       data-live-phase={status.phase}
       data-live-clock={status.showClock ? status.clock : undefined}
     >
-      <ProjectMascot
-        project={mascot.project}
-        name={mascot.name}
-        color={mascot.color}
-        active={!paused}
-        className="size-4 shrink-0"
-      />
       <span className="flex min-w-0 items-center gap-1">
         {status.showClock && status.elapsed ? (
           <>
@@ -1788,7 +1792,7 @@ function LiveTurnFooter({
           )}`}
         </span>
       ) : null}
-    </div>
+    </AssistantStatus>
   );
 }
 
@@ -1854,9 +1858,11 @@ function TurnDuration({
   return (
     <div
       aria-label={label}
+      data-transcript-turn-footer
+      data-ui="response-actions"
       className="flex w-full min-w-0 max-w-full items-center gap-2.5 overflow-hidden px-4 @md:px-6 pt-1 pb-3 font-sans text-sm text-content/40"
     >
-      <span className="flex shrink-0 items-center gap-1">
+      <span data-ui="response-action-group" className="flex shrink-0 items-center gap-1">
         {output ? (
           <>
             <CopyTurnButton text={output} />
@@ -2048,6 +2054,7 @@ function SaveNoteButton({
   return (
     <>
       <button
+        data-ui="response-action"
         type="button"
         disabled={pending}
         title={saved ? uiT("Saved to Notes") : uiT("Save as note")}
@@ -2572,16 +2579,16 @@ function UserMessageBlock({
                   <Trash2 className="size-3.5" />
                   {uiT("Remove")}
                 </button>
-                <button
+                <Button variant="primary"
                   type="button"
                   title={uiT("Send draft")}
                   aria-label={uiT("Send draft")}
                   onClick={() => onSendDraft?.(block)}
-                  className="ui-button ui-button-primary primary-action flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-transform duration-150 active:scale-[0.97]"
+                  className="flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-transform duration-150 active:scale-[0.97]"
                 >
                   {uiT("Send")}
                   <ArrowUp className="size-3.5" strokeWidth={2.25} />
-                </button>
+                </Button>
               </span>
             </div>
           ) : null}
@@ -2696,7 +2703,7 @@ function WorkFoldLine({
 }) {
   const { t: uiT } = useTranslation();
   const iconTone = expandable && !sheet
-    ? `transition-opacity ${open ? "opacity-0" : "group-hover:opacity-0 group-focus-within:opacity-0"}`
+    ? "group-hover/activity-disclosure:opacity-0 group-focus-visible/activity-disclosure:opacity-0"
     : "";
   const icon = (
     <span className="relative flex size-3.5 shrink-0 items-center justify-center">
@@ -2709,7 +2716,7 @@ function WorkFoldLine({
         <ActivityPhaseIcon kind={kind} className={iconTone} />
       )}
       {expandable && !sheet ? (
-        <DisclosureChevron expanded={open} className="absolute size-3.5" />
+        <DisclosureChevron expanded={open} className="absolute size-3.5 opacity-0 group-hover/activity-disclosure:opacity-100 group-focus-visible/activity-disclosure:opacity-100" />
       ) : null}
     </span>
   );
@@ -2721,7 +2728,7 @@ function WorkFoldLine({
       {title}
     </span>
   );
-  const row = `flex w-full min-w-0 items-center gap-1.5 px-4 @md:px-6 py-1 text-left${
+  const row = `desktop-work-fold-line flex w-full min-w-0 items-center gap-1.5 px-4 @md:px-6 py-1 text-left${
     open ? " zen-fold-drop" : ""
   }`;
 
@@ -2737,7 +2744,7 @@ function WorkFoldLine({
       aria-label={expandable ? (open && !sheet ? uiT("Hide the work") : uiT("Show the work")) : undefined}
       aria-live={live ? "polite" : undefined}
       onClick={expandable ? onToggle : undefined}
-      className={`group ${row}${expandable ? "" : " cursor-default"}`}
+      className={`group group/activity-disclosure ${row}${expandable ? "" : " cursor-default"}`}
       data-activity-sheet={sheet ? true : undefined}
     >
       {icon}
@@ -3035,7 +3042,7 @@ function ActivityPhaseGroup({
               : uiT("Show the steps for {value0}", { value0: String(title) })
         }
         onClick={() => (sheet ? openActivity!(phase.steps) : setOverride(!open))}
-        className="group flex w-full min-w-0 items-center gap-1.5 py-1 text-left"
+        className="group group/activity-disclosure flex w-full min-w-0 items-center gap-1.5 py-1 text-left"
         data-activity-sheet={sheet || undefined}
       >
         {/*
@@ -3046,7 +3053,7 @@ function ActivityPhaseGroup({
         <span className="relative flex size-3.5 shrink-0 items-center justify-center">
           {monoCodePhase ? (
             <MonoCodeMark
-              className={`size-3.5 ${sheet ? "" : open ? "opacity-0" : "group-hover:opacity-0 group-focus-within:opacity-0"}`}
+              className={`size-3.5 ${sheet ? "" : "group-hover/activity-disclosure:opacity-0 group-focus-visible/activity-disclosure:opacity-0"}`}
             />
           ) : (
             <ActivityPhaseIcon
@@ -3054,14 +3061,12 @@ function ActivityPhaseGroup({
               className={
                 sheet
                   ? ""
-                  : open
-                    ? "opacity-0"
-                    : "group-hover:opacity-0 group-focus-within:opacity-0"
+                  : "group-hover/activity-disclosure:opacity-0 group-focus-visible/activity-disclosure:opacity-0"
               }
             />
           )}
           {!sheet && (
-            <DisclosureChevron expanded={open} className="absolute size-3.5" />
+            <DisclosureChevron expanded={open} className="absolute size-3.5 opacity-0 group-hover/activity-disclosure:opacity-100 group-focus-visible/activity-disclosure:opacity-100" />
           )}
         </span>
         {label}
@@ -4470,6 +4475,7 @@ function animateToBottom(el: HTMLElement | null, done: () => void, _timing: Glid
   const finish = (snap: boolean) => {
     if (ended) return;
     ended = true;
+    cancelAnimationFrame(observeFrame);
     playback?.stop();
     sync(); position.destroy(); observer.disconnect(); mutations.disconnect();
     jumpingScrollers.delete(el);
@@ -4490,8 +4496,14 @@ function animateToBottom(el: HTMLElement | null, done: () => void, _timing: Glid
     playback = animate(position, target, { ...springs.sheet, onComplete: () => { if (target === bottom()) finish(true); else { playback = undefined; track(); } } });
   };
   const observer = new ResizeObserver(track);
-  observer.observe(el);
-  for (const child of el.children) observer.observe(child);
+  // A glide can start inside the transcript's resize notification. Register
+  // its observers on the next frame: observing an ancestor during delivery
+  // makes WebKit report an undelivered ResizeObserver notification.
+  const observeFrame = requestAnimationFrame(() => {
+    observer.observe(el);
+    for (const child of el.children) observer.observe(child);
+    track();
+  });
   const mutations = new MutationObserver(track);
   mutations.observe(el, { subtree: true, childList: true, characterData: true });
   jumpingScrollers.set(el, finish);

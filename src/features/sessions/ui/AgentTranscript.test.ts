@@ -150,7 +150,7 @@ describe("AgentTranscript collapsed work", () => {
     expect(markup).toContain('data-monocode-tool-call="sessions.send"');
     expect(markup).toContain("private-marker");
     expect(markup).toContain('data-approval="allow"');
-    expect(markup).toContain("ui-button-primary");
+    expect(markup).toContain('data-variant="primary"');
     expect(markup).toContain("Allow</button>");
 
     const compound = renderToStaticMarkup(
@@ -303,7 +303,7 @@ describe("AgentTranscript collapsed work", () => {
     expect(markup).toContain('data-draft="true"');
     expect(markup).toContain("border-dashed");
     expect(markup).toContain('aria-label="Send draft"');
-    expect(markup).toContain("ui-button-primary");
+    expect(markup).toContain('data-variant="primary"');
     expect(markup).toContain('aria-label="Remove draft"');
     expect(markup).toContain(">Draft</span>");
   });

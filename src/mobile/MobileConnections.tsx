@@ -1,3 +1,5 @@
+import { Button } from "../shared/ui/forms/Button";
+import { IconButton } from "../shared/ui/forms/IconButton";
 import { lightImpact } from "./haptics";
 import { MobileSettingsGlyph } from "./MobileSettingsIcon";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -243,15 +245,15 @@ export function MobileConnections({
   const header = (title: string) => (
     <div className="mobile-connection-editor-header">
       <h2>{t(title)}</h2>
-      <button
+      <IconButton
         type="button"
-        className="mobile-icon-button"
-        aria-label={t("Close")}
+
+        label={t("Close")}
         disabled={disabled}
         onClick={close}
       >
         <X size={24} />
-      </button>
+      </IconButton>
     </div>
   );
 
@@ -345,7 +347,7 @@ export function MobileConnections({
           {header("Edit connection")}
           <label className="mobile-connection-name-field">
             <span>{t("Display name")}</span>
-            <input
+            <input data-ui="input"
               value={draft.displayName}
               maxLength={100}
               required
@@ -394,15 +396,15 @@ export function MobileConnections({
               {error}
             </p>
           )}
-          <button
-            className="mobile-button mobile-primary mobile-connection-editor-action"
+          <Button variant="primary"
+            className="mobile-connection-editor-action"
             type="submit"
             disabled={disabled || !changed || !draft.displayName.trim()}
           >
             {t("Save")}
-          </button>
-          <button
-            className="mobile-button mobile-connection-editor-action mobile-connection-delete"
+          </Button>
+          <Button variant="danger"
+            className="mobile-connection-editor-action mobile-connection-delete"
             type="button"
             disabled={disabled}
             onClick={() => {
@@ -411,7 +413,7 @@ export function MobileConnections({
             }}
           >
             {t("Delete connection")}
-          </button>
+          </Button>
         </form>
       </MobileSheet>
       <MobileSheet
@@ -433,8 +435,8 @@ export function MobileConnections({
               {error}
             </p>
           )}
-          <button
-            className="mobile-button mobile-connection-editor-action mobile-connection-delete"
+          <Button variant="danger"
+            className="mobile-connection-editor-action mobile-connection-delete"
             disabled={disabled}
             onClick={() => {
               void onDelete(details!.endpoint)
@@ -445,14 +447,14 @@ export function MobileConnections({
             }}
           >
             {t("Delete connection")}
-          </button>
-          <button
-            className="mobile-button mobile-connection-editor-action"
+          </Button>
+          <Button variant="secondary"
+            className="mobile-connection-editor-action"
             disabled={disabled}
             onClick={close}
           >
             {t("Cancel")}
-          </button>
+          </Button>
         </div>
       </MobileSheet>
     </>

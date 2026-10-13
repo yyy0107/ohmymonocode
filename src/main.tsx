@@ -35,6 +35,7 @@ import { initUiLanguage } from "./shared/i18n/languageSync";
 import { initializeSharedHost } from "./features/connections/model/sharedHost";
 import { useTranslation } from "./shared/i18n/useTranslation";
 import { WindowResizeHandles } from "./app/shell/WindowResizeHandles";
+import { WindowResizeObserver } from "./app/shell/WindowResizeObserver";
 import { WindowDragBar } from "./app/shell/WindowChrome";
 
 performance.mark("monocode:bootstrap");
@@ -77,6 +78,7 @@ function BootGate({ children }: { children: React.ReactNode }) {
       {children}
       <div style={{ position: "fixed", bottom: 8, right: 8, zIndex: 10000, maxWidth: "70vw" }}><SharedStateStatus /></div>
       <WindowResizeHandles />
+      <WindowResizeObserver />
     </MotionConfig>
   );
 }

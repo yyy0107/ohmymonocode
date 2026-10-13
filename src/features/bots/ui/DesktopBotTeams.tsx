@@ -57,9 +57,9 @@ function TeamEditor({ team, bots, rpc, onSaved }: { team?: BotTeam; bots: BotVie
   return <form className="desktop-bot-group-editor" aria-label={t(base ? "Team settings" : "New team")} onSubmit={event => { event.preventDefault(); void mutate("save"); }}>
     <h3>{t(base ? "Team settings" : "New team")}</h3>
     <fieldset disabled={busy || !!team?.archivedAt}>
-      <label>{t("Team name")}<input aria-label={t("Team name")} value={name} maxLength={100} onChange={event => setName(event.target.value)} /></label>
+      <label>{t("Team name")}<input data-ui="input" aria-label={t("Team name")} value={name} maxLength={100} onChange={event => setName(event.target.value)} /></label>
       <DesktopBotMembers bots={bots} ids={members} onChange={ids => { setMembers(ids); if (!ids.includes(chief)) setChief(""); }} />
-      <label>{t("Chief of Staff")}<select aria-label={t("Chief of Staff")} value={chief} onChange={event => setChief(event.target.value)}><option value="">{t("No Chief")}</option>{members.map(id => <option key={id} value={id}>{bots.find(bot => bot.id === id)?.name ?? t("Unavailable Bot")}</option>)}</select></label>
+      <label>{t("Chief of Staff")}<select data-ui="select" aria-label={t("Chief of Staff")} value={chief} onChange={event => setChief(event.target.value)}><option value="">{t("No Chief")}</option>{members.map(id => <option key={id} value={id}>{bots.find(bot => bot.id === id)?.name ?? t("Unavailable Bot")}</option>)}</select></label>
       <small>{t("Each team has at most one Chief. Its calls still follow each Bot's permissions.")}</small>
     </fieldset>
     {error && <p role="alert">{t(error)}</p>}

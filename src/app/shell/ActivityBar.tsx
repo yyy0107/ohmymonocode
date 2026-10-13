@@ -1,3 +1,4 @@
+import { windowDragRegion } from "./startWindowDrag";
 import { PresenceBoundary } from "../../shared/ui/PresenceBoundary";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -154,7 +155,7 @@ export function ActivityBar({
       }
     >
       {!row && !chromeInMenuBar ? (
-        <div className="h-10 w-full shrink-0" data-tauri-drag-region="deep" />
+        <div className="h-10 w-full shrink-0" {...windowDragRegion()} />
       ) : null}
       {showTop ? (
         <div
@@ -436,6 +437,7 @@ function ActivityAction({
 }) {
   return (
     <button
+      data-ui="activity-action"
       ref={ref}
       type="button"
       title={label}

@@ -2,6 +2,8 @@
 import { useEffect, useState, type ComponentProps } from "react";
 import { createRoot } from "react-dom/client";
 import { MotionConfig } from "motion/react";
+import { WindowResizeHandles } from "../../src/app/shell/WindowResizeHandles";
+import { WindowResizeObserver } from "../../src/app/shell/WindowResizeObserver";
 import { WorkspaceToolsDock } from "../../src/app/shell/WorkspaceToolsDock";
 import { TerminalDockLayout } from "../../src/app/shell/TerminalDockLayout";
 import { Sidebar } from "../../src/app/shell/Sidebar";
@@ -66,7 +68,7 @@ const emit = (event: string, payload: unknown) => {
   for (const [id, handler] of listeners.get(event) ?? []) callbacks.get(handler)?.({ event, id, payload });
 };
 const output = (id: string, text: string) => emit("pty-data", { id, data: btoa(text) });
-Object.assign(window, { __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener: (event: string, id: number) => listeners.get(event)?.delete(id) }, __TAURI_INTERNALS__: {
+Object.assign(window, { isTauri: query.get("native") === "1", __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener: (event: string, id: number) => listeners.get(event)?.delete(id) }, __TAURI_INTERNALS__: {
   metadata: { currentWindow: { label: "fixture" }, currentWebview: { label: "fixture" } },
   transformCallback: (handler: EventCallback) => { callbacks.set(++callbackId, handler); return callbackId; },
   unregisterCallback: (id: number) => callbacks.delete(id),
@@ -79,7 +81,10 @@ Object.assign(window, { __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener: 
       listeners.set(event, map); map.set(++listenerId, Number(args?.handler)); return listenerId;
     }
     if (command === "plugin:event|unlisten" || command === "fs_watch_set") return;
-    if (command === "plugin:window|is_maximized") return false;
+    if (command === "plugin:window|is_maximized" || command === "plugin:window|is_fullscreen") return false;
+    if (command === "plugin:window|is_resizable") return true;
+    if (command === "plugin:window|scale_factor") return 1;
+    if (["plugin:window|start_dragging", "plugin:window|start_resize_dragging", "plugin:window|toggle_maximize", "plugin:window|minimize", "plugin:window|close"].includes(command)) return;
     if (command === "pty_spawn") {
       setTimeout(() => output(String(args?.id), "\x1b[32mwy@monocode\x1b[0m ~/monocode\r\n$ git status --short\r\n M src/workspace.ts\r\nM  README.md\r\n?? docs/layout.md\r\n\r\n$ "), 80);
       return;
@@ -110,12 +115,16 @@ Object.assign(window, { __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener: 
 } });
 
 const session = { ...newSession("claude", cwd, "claude-sonnet"), id: "tools-session", title: "Refine the project workspace", blocks: [
+  ...Array.from({ length: query.get("history") === "long" ? 60 : 0 }, (_, index) => ({
+    id: `history-${index}`, role: (index % 2 === 0 ? "user" : "assistant") as "user" | "assistant",
+    text: `Workspace history ${index}. ` + "Keep the terminal and editor available while reviewing the project. ".repeat(12),
+  })),
   { id: "prompt", role: "user" as const, text: "Review the layout changes with the project tools visible." },
   { id: "reply", role: "assistant" as const, text: "The workspace keeps the conversation beside the changed files.\n\nThe file tree, review panel, and running terminal remain available while you work." },
 ] };
 const source: FilePaneTab = { id: "tools-source", path: sourcePath, cwd };
 const review: FilePaneTab = { id: "tools-review", path: sourcePath, cwd, review: true, changes: true, changeKind: "unstaged" };
-const initialPane: EditorPane = { id: "tools-editor", files: [source, review], activeFileId: review.id };
+const initialPane: EditorPane = { id: "tools-editor", files: [source, review], activeFileId: query.get("editor") === "source" ? source.id : review.id };
 const initialDock: ProjectTerminalDock = { projectPath: cwd, side: "bottom", size: 220, open: true, pane: { id: "tools-terminal-pane", files: [{ id: "tools-pty", path: "monocode", cwd, terminal: true }], activeFileId: "tools-pty" } };
 const layout: LayoutNode = { type: "split", id: "tools-split", dir: "right", children: [{ type: "leaf", id: session.id }, { type: "leaf", id: initialPane.id }], sizes: [0.54, 0.46] };
 
@@ -175,6 +184,8 @@ function DesktopToolsFixture() {
     </SidebarMain>
     </div>
     <TranscriptPoolOutlet pool={pool} />
+    <WindowResizeObserver />
+    <WindowResizeHandles />
   </div></SessionHeaderActionsContext.Provider></MotionConfig>;
 }
 

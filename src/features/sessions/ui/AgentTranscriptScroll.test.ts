@@ -403,6 +403,12 @@ describe("transcript scrolling", () => {
     startMotionClock();
     act(() => ready.mock.calls[0][0]());
     expect(showJump).toHaveBeenLastCalledWith(false);
+    // Register the glide observer after the current resize delivery, avoiding
+    // WebKit's ancestor-observation loop while still starting motion now.
+    const glideObserver = observers.at(-1)!;
+    expect(glideObserver.targets).toHaveLength(0);
+    act(() => frames.shift()!(16));
+    expect(glideObserver.targets).toContain(scroller);
     // The jump glides instead of snapping, and streamed growth during the
     // glide does not cut it short.
     act(() => motionFrame(100));

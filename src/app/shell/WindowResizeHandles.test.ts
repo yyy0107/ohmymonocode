@@ -3,6 +3,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WindowResizeHandles } from "./WindowResizeHandles";
+import { WINDOW_RESIZE_IDLE_MS } from "./windowResizeWork";
 
 const native = vi.hoisted(() => ({
   environment: { tauri: true, linux: true, windows: false },
@@ -10,6 +11,7 @@ const native = vi.hoisted(() => ({
   isResizable: vi.fn(),
   isMaximized: vi.fn(),
   isFullscreen: vi.fn(),
+  scaleFactor: vi.fn(),
   onResized: vi.fn(),
   startResizeDragging: vi.fn(),
   unlisten: vi.fn(),
@@ -77,18 +79,21 @@ function handle(direction: string) {
 async function resizeEvent() {
   expect(onResized).toBeDefined();
   await act(async () => onResized!());
+  await act(async () => vi.advanceTimersByTimeAsync(WINDOW_RESIZE_IDLE_MS));
 }
 
 async function press(direction: string, button = 0) {
+  const edge = native.environment.linux ? 12 : 5;
+  const corner = native.environment.linux ? 18 : 8;
   const coordinates: Record<string, [number, number]> = {
-    North: [window.innerWidth / 2, 5],
-    South: [window.innerWidth / 2, window.innerHeight - 5],
-    East: [window.innerWidth - 5, window.innerHeight / 2],
-    West: [5, window.innerHeight / 2],
-    NorthWest: [8, 8],
-    NorthEast: [window.innerWidth - 8, 8],
-    SouthWest: [8, window.innerHeight - 8],
-    SouthEast: [window.innerWidth - 8, window.innerHeight - 8],
+    North: [window.innerWidth / 2, edge],
+    South: [window.innerWidth / 2, window.innerHeight - edge],
+    East: [window.innerWidth - edge, window.innerHeight / 2],
+    West: [edge, window.innerHeight / 2],
+    NorthWest: [corner, corner],
+    NorthEast: [window.innerWidth - corner, corner],
+    SouthWest: [corner, window.innerHeight - corner],
+    SouthEast: [window.innerWidth - corner, window.innerHeight - corner],
   };
   const [clientX, clientY] = coordinates[direction];
   const event = new MouseEvent("mousedown", {
@@ -110,13 +115,15 @@ function unmount() {
 }
 
 beforeEach(() => {
+  vi.useFakeTimers();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   native.environment.tauri = true;
-  native.environment.linux = true;
-  native.environment.windows = false;
+  native.environment.linux = false;
+  native.environment.windows = true;
   native.isResizable.mockReset().mockResolvedValue(true);
   native.isMaximized.mockReset().mockResolvedValue(false);
   native.isFullscreen.mockReset().mockResolvedValue(false);
+  native.scaleFactor.mockReset().mockResolvedValue(1);
   native.startResizeDragging.mockReset().mockResolvedValue(undefined);
   native.unlisten.mockReset();
   native.getCurrentWindow.mockReset().mockReturnValue(native);
@@ -137,9 +144,37 @@ afterEach(() => {
   if (!unmounted) unmount();
   container.remove();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("native window resize handles", () => {
+  it("leaves Linux edges to GTK without issuing a second resize command", async () => {
+    native.environment.linux = true;
+    native.environment.windows = false;
+    await render();
+    expect(handles()).toHaveLength(8);
+    expect(native.scaleFactor).toHaveBeenCalledOnce();
+    act(() => container.dispatchEvent(new MouseEvent("mousedown", {
+      bubbles: true, button: 0, clientX: window.innerWidth - 2, clientY: 100,
+    })));
+    expect(native.startResizeDragging).not.toHaveBeenCalled();
+  });
+
+  it("coalesces a burst of native resize notifications into one state query", async () => {
+    await render();
+    expect(native.isMaximized).toHaveBeenCalledTimes(1);
+    act(() => { for (let i = 0; i < 100; i++) onResized!(); });
+    expect(native.isMaximized).toHaveBeenCalledTimes(1);
+    await act(async () => vi.advanceTimersByTimeAsync(WINDOW_RESIZE_IDLE_MS));
+    expect(native.isMaximized).toHaveBeenCalledTimes(2);
+    expect(native.isResizable).toHaveBeenCalledTimes(2);
+    expect(native.isFullscreen).toHaveBeenCalledTimes(2);
+    act(() => onResized!());
+    unmount();
+    await vi.advanceTimersByTimeAsync(WINDOW_RESIZE_IDLE_MS);
+    expect(native.isMaximized).toHaveBeenCalledTimes(2);
+  });
+
   it.each(["Linux", "Windows"])(
     "dispatches all four edges and four corners to native resizing on %s",
     async (platform) => {
@@ -209,7 +244,7 @@ describe("native window resize handles", () => {
     "leaves native borders and app controls unobstructed in %s",
     async (environment) => {
       if (environment === "browser") native.environment.tauri = false;
-      else native.environment.linux = false;
+      else { native.environment.linux = false; native.environment.windows = false; }
       await render();
       expect(handles()).toHaveLength(0);
       expect(native.getCurrentWindow).not.toHaveBeenCalled();
@@ -483,4 +518,46 @@ describe("native window resize handles", () => {
     await press("West");
     expect(native.startResizeDragging).not.toHaveBeenCalled();
   });
+});
+
+
+it.each([{ scale: 1, dpr: 1, nativeX: 2, extraX: 12 }, { scale: 2, dpr: 2, nativeX: 8, extraX: 14 }, { scale: 3, dpr: 3, nativeX: 12, extraX: 20 }])(
+  "extends the Linux rim without duplicating the native gesture at scale $scale",
+  async ({ scale, dpr, nativeX, extraX }) => {
+    native.environment.linux = true;
+    native.environment.windows = false;
+    native.scaleFactor.mockResolvedValue(scale);
+    vi.stubGlobal("devicePixelRatio", dpr);
+    await render();
+    const down = (target: Element, x: number) => act(() => target.dispatchEvent(new MouseEvent("mousedown", {
+      bubbles: true, cancelable: true, button: 0, clientX: x, clientY: 100,
+    })));
+    down(container, nativeX);
+    expect(native.startResizeDragging).not.toHaveBeenCalled();
+    down(container, extraX);
+    expect(native.startResizeDragging).toHaveBeenCalledExactlyOnceWith("West");
+    const button = document.createElement("button");
+    const clicked = vi.fn();
+    button.addEventListener("mousedown", clicked);
+    container.append(button);
+    down(button, extraX);
+    expect(clicked).toHaveBeenCalledOnce();
+    expect(native.startResizeDragging).toHaveBeenCalledTimes(1);
+  },
+);
+
+it("recalculates the native rim after webview zoom without a native resize", async () => {
+  native.environment.linux = true;
+  native.environment.windows = false;
+  native.scaleFactor.mockResolvedValue(2);
+  vi.stubGlobal("devicePixelRatio", 2);
+  await render();
+  const down = () => act(() => container.dispatchEvent(new MouseEvent("mousedown", {
+    bubbles: true, button: 0, clientX: 7, clientY: 100,
+  })));
+  down();
+  expect(native.startResizeDragging).not.toHaveBeenCalled();
+  vi.stubGlobal("devicePixelRatio", 4);
+  down();
+  expect(native.startResizeDragging).toHaveBeenCalledExactlyOnceWith("West");
 });

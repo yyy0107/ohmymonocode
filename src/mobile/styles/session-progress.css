@@ -85,7 +85,7 @@
   gap: 8px;
   padding: 8px 4px;
   font-size: var(--mobile-font-md);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .mobile-progress-section h3 > span:first-child {
   display: grid;
@@ -93,7 +93,7 @@
 .mobile-progress-section h3 small {
   margin-inline-start: auto;
   font-size: var(--mobile-font-sm);
-  font-weight: 400;
+  font-weight: var(--font-weight-normal);
   color: var(--color-m-ink-secondary);
 }
 .mobile-progress-tasks {

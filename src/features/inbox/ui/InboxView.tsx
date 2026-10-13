@@ -51,7 +51,7 @@ import { ProjectLogoIcon } from "../../projects/ui/ProjectLogoIcon";
 import { ProjectMascot } from "../../projects/ui/ProjectMascot";
 import { Popover } from "../../../shared/ui/Popover";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
-import { IconButton } from "../../../app/shell/WindowChrome";
+import { IconButton } from "../../../shared/ui/forms/IconButton";
 import { useDragResize } from "../../../shared/hooks/useDragResize";
 import { ResizeHandle } from "../../../shared/ui/ResizeHandle";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
@@ -1330,7 +1330,7 @@ export function LinkedWorkItemPanel({
           className="relative flex min-h-0 flex-1 flex-col border-l border-stroke pl-4"
         >
           <div className="absolute top-[5px] right-2 z-30">
-            <IconButton
+            <IconButton size="sm"
               label={uiT("Close {value0} panel", {
                 value0: String(kindLabel.toLowerCase()),
               })}

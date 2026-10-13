@@ -359,7 +359,7 @@ function MultiBotWorkspace(props: Props & { memorySupported: boolean; runtimeSup
     </div>
     <AnimatedCollapse expanded={!!creatingThread} className="desktop-bots-create-thread">
       <form onSubmit={(event) => { event.preventDefault(); void createThread(); }}>
-        <label>{t("Thread name")}<input aria-label={t("Thread name")} value={threadName} autoFocus
+        <label>{t("Thread name")}<input data-ui="input" aria-label={t("Thread name")} value={threadName} autoFocus
           disabled={busy} onChange={(event) => setThreadName(event.target.value)} /></label>
         <button type="submit" disabled={busy || !threadName.trim()}>{t(busy ? "Creating…" : "Create thread")}</button>
         <button type="button" disabled={busy} onClick={() => setCreatingThread(undefined)}>{t("Cancel")}</button>
@@ -426,8 +426,8 @@ function BotNavigation({ navigationWidth, onNavigationWidth, pins, onTogglePin, 
   };
   const setNavigationRef = useCallback((node: HTMLElement | null) => resize.setPaneRef(node?.parentElement ?? null), [resize.setPaneRef]);
   return <nav ref={setNavigationRef} className="desktop-bots-navigation" aria-label={t("Bots")}>
-    <header className="desktop-bots-navigation-header"><span className="desktop-bots-host-name" title={hostName}>{hostName}</span><button type="button" className="assistant-icon-button" onClick={onNewBot} aria-label={t("New bot")} title={t("New conversation")}><Plus size={20} /></button></header>
-    <label className="desktop-bots-search"><Search size={15} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("Search bots")} aria-label={t("Search bots")} /></label>
+    <header className="desktop-bots-navigation-header"><span className="desktop-bots-host-name" title={hostName}>{hostName}</span><button data-ui="icon-button" type="button" className="assistant-icon-button" onClick={onNewBot} aria-label={t("New bot")} title={t("New conversation")}><Plus size={20} /></button></header>
+    <label className="desktop-bots-search"><Search size={15} aria-hidden="true" /><input data-ui="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("Search bots")} aria-label={t("Search bots")} /></label>
     <AnimatedCollapse expanded={pinnedBots.length > 0} className="desktop-bots-pinned-collapse">
       <div className="desktop-bots-pinned" aria-label={t("Pinned bots")}>{(pinnedBots.length ? pinnedBots : retainedPinned.current).map(bot => { const unread = unreadFor(bot); return <button type="button" key={bot.id} onClick={() => onSelectBot(bot)} aria-label={unread ? t("{bot}, {count} unread messages", { bot: bot.name, count: unread }) : bot.name} title={bot.name} aria-current={(!draftOpen && selection?.botId === bot.id) || undefined}
         onContextMenu={event => { event.preventDefault(); if (visible) setMenu({ botId: bot.id, x: event.clientX, y: event.clientY, open: true }); }}

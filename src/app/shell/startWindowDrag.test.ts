@@ -3,13 +3,14 @@ import { act, createElement } from "react";
 import { createPortal } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { startWindowDrag } from "./startWindowDrag";
+import { startWindowDrag, windowDragRegion } from "./startWindowDrag";
 
 const native = vi.hoisted(() => ({
   tauri: true,
   linux: true,
   windows: false,
   startDragging: vi.fn(),
+  toggleMaximize: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ isTauri: () => native.tauri }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => native }));
@@ -33,7 +34,8 @@ function render(region = "deep") {
       createElement(
         "div",
         {
-          "data-tauri-drag-region": region,
+          ...windowDragRegion(),
+          "data-window-drag-region": region,
           onMouseDownCapture: (event) => handled.push(startWindowDrag(event)),
         },
         createElement("span", { "data-blank": "" }, "Window title"),
@@ -76,6 +78,8 @@ function press(selector = "[data-blank]", options: MouseEventInit = {}) {
     cancelable: true,
     button: 0,
     detail: 1,
+    clientX: 100,
+    clientY: 24,
     ...options,
   });
   const target = document.querySelector(selector)!;
@@ -89,6 +93,7 @@ beforeEach(() => {
   native.linux = true;
   native.windows = false;
   native.startDragging.mockReset().mockResolvedValue(undefined);
+  native.toggleMaximize.mockReset().mockResolvedValue(undefined);
   handled = [];
   container = document.createElement("div");
   portal = document.createElement("div");
@@ -130,8 +135,21 @@ it("stops the same press before a document drag listener can start it again", ()
   }
 });
 
-it.each([{ detail: 2 }, { button: 1 }, { button: 2 }])(
-  "leaves double clicks and non-primary buttons to existing behavior: %j",
+it("does not turn a Linux edge resize into a move through either drag handler", () => {
+  render();
+  const fallback = vi.fn();
+  document.addEventListener("mousedown", fallback);
+  try {
+    for (const [clientX, clientY] of [[2, 24], [100, 2], [window.innerWidth - 2, 24]]) {
+      press("[data-blank]", { clientX, clientY });
+    }
+    expect(native.startDragging).not.toHaveBeenCalled();
+    expect(fallback).not.toHaveBeenCalled();
+  } finally { document.removeEventListener("mousedown", fallback); }
+});
+
+it.each([{ detail: 0 }, { button: 1 }, { button: 2 }])(
+  "ignores non-user clicks and non-primary buttons: %j",
   (options) => {
     render();
     const event = press(undefined, options);
@@ -173,7 +191,7 @@ it("ignores portal events that bubble through React but originate outside the dr
   expect(native.startDragging).not.toHaveBeenCalled();
 });
 
-it("only handles a deep region", () => {
+it("only handles an explicitly declared app drag region", () => {
   render("true");
   expect(press().defaultPrevented).toBe(false);
   expect(native.startDragging).not.toHaveBeenCalled();
@@ -192,4 +210,22 @@ it("handles native rejection without leaving an unhandled promise", async () => 
   press();
   await act(async () => {});
   expect(native.startDragging).toHaveBeenCalledOnce();
+});
+
+
+it("declares a single gesture owner and delegates double-click maximization once", () => {
+  render();
+  const region = container.firstElementChild!;
+  expect(region.getAttribute("data-tauri-drag-region")).toBe("false");
+  const fallback = vi.fn();
+  document.addEventListener("mousedown", fallback);
+  try {
+    expect(press(undefined, { detail: 2 }).defaultPrevented).toBe(true);
+    expect(native.toggleMaximize).toHaveBeenCalledOnce();
+    expect(native.startDragging).not.toHaveBeenCalled();
+    expect(fallback).not.toHaveBeenCalled();
+    press("[data-icon]", { detail: 2 });
+    press(undefined, { detail: 2, clientX: 2 });
+    expect(native.toggleMaximize).toHaveBeenCalledOnce();
+  } finally { document.removeEventListener("mousedown", fallback); }
 });

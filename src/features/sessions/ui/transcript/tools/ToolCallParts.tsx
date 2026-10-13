@@ -1,3 +1,4 @@
+import { Button } from "../../../../../shared/ui/forms/Button";
 import { useTranslation } from "../../../../../shared/i18n/useTranslation";
 import {
   Bot,
@@ -238,22 +239,22 @@ export function ApprovalControls({
   if (!approval || approval.decided || !onApproval) return null;
   return (
     <div className="mt-1.5 flex flex-wrap justify-end gap-2" data-approval-controls>
-      <button
+      <Button variant="secondary"
         type="button"
         data-approval="deny"
-        className="ui-button ui-button-md ui-button-pill rounded-md bg-content/10 px-2.5 py-0.5 text-[11px] text-content/70 hover:bg-content/14"
+        className="rounded-md bg-content/10 px-2.5 py-0.5 text-[11px] text-content/70 hover:bg-content/14"
         onClick={() => onApproval(approval.requestId, "deny")}
       >
         {uiT("Deny")}
-      </button>
-      <button
+      </Button>
+      <Button variant="primary"
         type="button"
         data-approval="allow"
-        className="ui-button ui-button-md ui-button-primary ui-button-pill rounded-md bg-content px-2.5 py-0.5 text-[11px] text-background-base hover:bg-content/80"
+        className="rounded-md bg-content px-2.5 py-0.5 text-[11px] text-background-base hover:bg-content/80"
         onClick={() => onApproval(approval.requestId, "allow")}
       >
         {uiT("Allow")}
-      </button>
+      </Button>
     </div>
   );
 }

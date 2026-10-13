@@ -1,3 +1,4 @@
+import { IconButton } from "../shared/ui/forms/IconButton";
 import {
   useCallback,
   useContext,
@@ -92,11 +93,11 @@ export function MobileSheetHeader({ title, subtitle, className, action, onBack, 
   const { t } = useTranslation();
   return (
     <header className={`mobile-sheet-header${className ? ` ${className}` : ""}`}>
-      <button type="button" className="mobile-sheet-header-button"
+      <IconButton type="button" className="mobile-sheet-header-button"
         data-mobile-sheet-back={onBack ? true : undefined}
-        aria-label={t(onBack ? "Back" : "Close")} onClick={onBack ?? onClose}>
+        label={t(onBack ? "Back" : "Close")} onClick={onBack ?? onClose}>
         {onBack ? <ArrowLeft size={24} /> : <X size={24} />}
-      </button>
+      </IconButton>
       <div className="mobile-sheet-header-title">
         <strong>{title}</strong>
         {subtitle ? <small>{subtitle}</small> : null}

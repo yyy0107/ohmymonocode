@@ -1,16 +1,16 @@
 import { Plus, X } from "../../../../../shared/ui/icons";
 import type { MonocodeSavedWorkflowArgType } from "../../_shims/shared.js";
-import { Button } from "../../components/ui/button.js";
-import { Input } from "../../components/ui/input.js";
+import { Button } from "../../../../../shared/ui/forms/Button";
+import { Input } from "../../../../../shared/ui/forms/Input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../components/ui/select.js";
-import { Switch } from "../../components/ui/switch.js";
-import { cn } from "../../components/lib/utils.js";
+} from "../../../../../shared/ui/forms/Select.js";
+import { Switch } from "../../../../../shared/ui/forms/Switch";
+import { cn } from "../../../../../shared/lib/cn";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 import type {
   SavedWorkflowArgRow,

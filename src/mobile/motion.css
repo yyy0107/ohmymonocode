@@ -24,14 +24,14 @@
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
   pointer-events: none;
 }
-.mobile-button, .mobile-segmented > [role="tab"] > :not(.mobile-segmented-selection) {
+[data-ui="button"], .mobile-segmented > [role="tab"] > :not(.mobile-segmented-selection) {
   transition: transform var(--mobile-motion-press) var(--mobile-ease-out);
 }
-.mobile-button:active:not(:disabled),
+[data-ui="button"]:active:not(:disabled),
 .mobile-segmented > [role="tab"]:active:not(:disabled) > :not(.mobile-segmented-selection) {
   transform: scale(var(--mobile-motion-press-scale));
 }
 @media (prefers-reduced-motion: reduce) {
-  .mobile-button, .mobile-segmented > [role="tab"] > * { transition: none; }
-  .mobile-button:active:not(:disabled), .mobile-segmented > [role="tab"]:active:not(:disabled) > * { transform: none; }
+  [data-ui="button"], .mobile-segmented > [role="tab"] > * { transition: none; }
+  [data-ui="button"]:active:not(:disabled), .mobile-segmented > [role="tab"]:active:not(:disabled) > * { transform: none; }
 }

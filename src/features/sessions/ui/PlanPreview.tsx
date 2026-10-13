@@ -1,3 +1,4 @@
+import { Button } from "../../../shared/ui/forms/Button";
 import { useContext, useEffect, useRef, useState } from "react";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
@@ -244,14 +245,14 @@ export function PlanDecision({
           >
             {uiT("Plan")}
           </span>
-          <button
+          <Button variant="secondary"
             type="button"
-            className="ui-button ui-button-md ui-button-pill h-6 shrink-0 rounded-md px-1.5 text-[11px] text-content/55 hover:bg-content/6 hover:text-content"
+            className="h-6 shrink-0 rounded-md px-1.5 text-[11px] text-content/55 hover:bg-content/6 hover:text-content"
             data-question-secondary
             onClick={onSkip}
           >
             {uiT("Skip")}
-          </button>
+          </Button>
           {onCollapse ? (
             <button
               type="button"
@@ -291,12 +292,12 @@ export function PlanDecision({
                 {uiT("Yes, implement this plan")}
               </span>
             </button>
-            <input
+            <input data-ui="input"
               value={feedback}
               onChange={(event) => setFeedback(event.target.value)}
               placeholder={uiT("No, describe what to change")}
               aria-label={uiT("No, describe what to change")}
-              className="desktop-field w-full rounded-md border border-content/15 bg-transparent px-2 py-1 text-[12px] text-content outline-none placeholder:text-content/35 focus:border-content/30"
+              className="w-full rounded-md border border-content/15 bg-transparent px-2 py-1 text-[12px] text-content outline-none placeholder:text-content/35 focus:border-content/30"
             />
           </div>
         </div>
@@ -305,14 +306,14 @@ export function PlanDecision({
             className="mt-2.5 flex shrink-0 items-center justify-end gap-2"
             data-question-footer
           >
-            <button
+            <Button variant="primary"
               type="submit"
               disabled={!ready}
-              className="ui-button ui-button-md ui-button-primary ui-button-pill h-6 rounded-md bg-content px-2.5 text-[11px] font-medium text-background-base hover:bg-content/80 disabled:opacity-40"
+              className="h-6 rounded-md bg-content px-2.5 text-[11px] font-medium text-background-base hover:bg-content/80 disabled:opacity-40"
               data-question-submit
             >
               {uiT("Send")}
-            </button>
+            </Button>
           </div>
         ) : null}
       </form>

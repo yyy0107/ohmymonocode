@@ -15,7 +15,7 @@ import { lazy, Suspense } from "react";
 import type { ArtifactItem } from "./apply.js";
 import type { PresetLabels } from "./parts.js";
 import type { ChartSpec } from "./spec.js";
-import { cn } from "../../../components/lib/utils.js";
+import { cn } from "../../../../../../shared/lib/cn";
 import { ScopedErrorBoundary } from "../../../ErrorBoundary.js";
 
 const ArtifactChartView = lazy(

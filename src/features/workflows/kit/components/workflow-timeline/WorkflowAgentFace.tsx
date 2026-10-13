@@ -6,7 +6,7 @@ import {
   PROJECT_MASCOTS,
   type ProjectMascot,
 } from "../../../../projects/model/projectMascots";
-import { cn } from "../lib/utils.js";
+import { cn } from "../../../../../shared/lib/cn";
 import type { StepRunStatus } from "../workflow-graph/types.js";
 
 /**

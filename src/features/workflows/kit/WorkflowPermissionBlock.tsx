@@ -7,7 +7,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "./components/ui/collapsible.js";
+} from "../../../shared/ui/primitives/Collapsible.js";
 import { buildWorkflowTimeline } from "./components/workflow-timeline/timeline-model.js";
 import { workflowPhasesDetail } from "./components/workflow-timeline/timeline-summary.js";
 import { WorkflowCardHeader } from "./components/workflow-timeline/WorkflowCardChrome.js";

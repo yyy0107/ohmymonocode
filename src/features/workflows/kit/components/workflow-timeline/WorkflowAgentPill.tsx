@@ -2,7 +2,7 @@ import { motion as motionElement } from "motion/react";
 import { workflowEntry } from "./workflow-motion.js";
 import type { CSSProperties, ReactNode } from "react";
 import { ArrowUpRight as ArrowUpRightIcon, CircleCheck as CircleCheckIcon, CircleHelp as CircleHelpIcon, CircleX as CircleXIcon, LoaderCircle as LoaderCircleIcon, Terminal as TerminalIcon } from "../../../../../shared/ui/icons";
-import { cn } from "../lib/utils.js";
+import { cn } from "../../../../../shared/lib/cn";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 import type { LaneClass, StepRunStatus } from "../workflow-graph/types.js";
 import { WorkflowAgentFace, agentColor } from "./WorkflowAgentFace.js";

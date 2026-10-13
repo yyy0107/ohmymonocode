@@ -34,7 +34,7 @@ export function BotMemoryDialog({
       onClose={onClose}
     >
       <div className="assistant-settings assistant-memory-dialog">
-        <textarea
+        <textarea data-ui="textarea"
           aria-label={t("Edit fact")}
           value={draft}
           maxLength={1000}
@@ -59,7 +59,7 @@ export function BotMemoryDialog({
           </small>
         )}
         <footer className="assistant-settings-footer">
-          <button
+          <button data-ui="button" data-variant="secondary"
             type="button"
             className="assistant-danger"
             disabled={busy}
@@ -67,10 +67,10 @@ export function BotMemoryDialog({
           >
             {t("Forget")}
           </button>
-          <button type="button" disabled={busy} onClick={onClose}>
+          <button data-ui="button" data-variant="secondary" type="button" disabled={busy} onClick={onClose}>
             {t("Cancel")}
           </button>
-          <button
+          <button data-ui="button" data-variant="primary"
             type="button"
             className="assistant-primary"
             disabled={busy || !changed}

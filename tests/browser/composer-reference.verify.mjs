@@ -65,7 +65,7 @@ async function measure(composer) {
     return {
       composer: box(root), dock: box(root.closest('.desktop-composer-dock') ?? root), top: box(top),
       environment: box(top?.querySelector('.composer-environment-badge')), project: box(top?.querySelector('.composer-project-picker')),
-      shell: box(root.querySelector('.composer-input-shell')), field: box(root.querySelector('textarea')),
+      shell: box(root.querySelector('[data-ui="message-input"]')), field: box(root.querySelector('textarea')),
       footer, toolbar: box(root.querySelector('.composer-toolbar')),
       meta: box(root.querySelector('.composer-meta')), plus: box(root.querySelector('.composer-plus')),
       access: box(root.querySelector('[data-access-picker-trigger]')), model: box(model), lastModel: box(lastModel), context: box(context),

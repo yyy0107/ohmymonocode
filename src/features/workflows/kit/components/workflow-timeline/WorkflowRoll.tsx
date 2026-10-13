@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import { CircleCheck as CircleCheckIcon, CircleX as CircleXIcon, LoaderCircle as LoaderCircleIcon } from "../../../../../shared/ui/icons";
-import { cn } from "../lib/utils.js";
+import { cn } from "../../../../../shared/lib/cn";
 import type { StepRunStatus } from "../workflow-graph/types.js";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 import type { RollGroup } from "./roster-model.js";

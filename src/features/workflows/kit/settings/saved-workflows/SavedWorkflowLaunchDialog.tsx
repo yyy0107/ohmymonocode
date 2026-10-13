@@ -9,25 +9,25 @@ import {
   testId,
   type MonocodeSavedWorkflowEntry,
 } from "../../_shims/shared.js";
-import { Button } from "../../components/ui/button.js";
+import { Button } from "../../../../../shared/ui/forms/Button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../../components/ui/dialog.js";
-import { Input } from "../../components/ui/input.js";
+} from "../../../../../shared/ui/primitives/Dialog.js";
+import { Input } from "../../../../../shared/ui/forms/Input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../components/ui/select.js";
-import { Spinner } from "../../components/ui/spinner.js";
-import { Switch } from "../../components/ui/switch.js";
-import { cn } from "../../components/lib/utils.js";
+} from "../../../../../shared/ui/forms/Select.js";
+import { Spinner } from "../../../../../shared/ui/primitives/Spinner.js";
+import { Switch } from "../../../../../shared/ui/forms/Switch";
+import { cn } from "../../../../../shared/lib/cn";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 import { AutomationRunNowIcon } from "../AutomationDesignPrimitives.js";
 import { SettingsFormTextarea } from "../SettingsFormTextarea.js";
@@ -291,7 +291,7 @@ export function SavedWorkflowLaunchDialog({
           <DialogFooter>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="lg"
               disabled={pending}
               onClick={() => onOpenChange(false)}

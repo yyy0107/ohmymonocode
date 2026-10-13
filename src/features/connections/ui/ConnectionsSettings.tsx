@@ -500,7 +500,7 @@ export function ConnectionsSettings() {
           <label className="flex flex-col gap-1.5 text-ui-caption text-foreground-subtle">
             {uiT("Name ")}
             <span className="sr-only">{uiT("(optional)")}</span>
-            <input
+            <input data-ui="input"
               disabled={busy}
               className={input}
               value={name}
@@ -528,7 +528,7 @@ export function ConnectionsSettings() {
                 className="mt-3 flex max-w-40 flex-col gap-1.5"
               >
                 {uiT("SSH port")}
-                <input
+                <input data-ui="input"
                   disabled={busy}
                   type="number"
                   min={1}
@@ -597,7 +597,7 @@ export function ConnectionsSettings() {
                 {job.prompt.message}
               </p>
               {!job.prompt.confirm && (
-                <input
+                <input data-ui="input"
                   key={job.prompt.id}
                   autoFocus
                   type="password"
@@ -681,7 +681,7 @@ export function ConnectionsSettings() {
         >
           <label className="flex flex-col gap-1.5">
             {uiT("Host URL")}
-            <input
+            <input data-ui="input"
               required
               disabled={busy}
               className={input}
@@ -691,7 +691,7 @@ export function ConnectionsSettings() {
           </label>
           <label className="flex flex-col gap-1.5">
             {uiT("Device token")}
-            <input
+            <input data-ui="input"
               required
               disabled={busy}
               type="password"

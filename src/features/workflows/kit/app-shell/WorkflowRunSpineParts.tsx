@@ -6,7 +6,7 @@
 
 import { useId, type CSSProperties } from "react";
 import { Repeat2 as Repeat2Icon } from "../../../../shared/ui/icons";
-import { cn } from "../components/lib/utils.js";
+import { cn } from "../../../../shared/lib/cn";
 import { STATUS_DOT } from "../components/workflow-graph/run-status-presentation.js";
 import type { StepRunStatus } from "../components/workflow-graph/types.js";
 import type {

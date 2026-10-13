@@ -1,3 +1,5 @@
+import { IconButton } from "../shared/ui/forms/IconButton";
+import { Button } from "../shared/ui/forms/Button";
 import { motion } from "motion/react";
 import { motionGeometry, panelTransition } from "../shared/motion/tokens";
 import { useContext, useId, useMemo, useState, type ReactNode } from "react";
@@ -240,28 +242,28 @@ export function MobileToolSheet({
           </p>
         ) : null}
         {path && onOpenFile ? (
-          <button
+          <Button variant="secondary"
             type="button"
-            className="mobile-button mobile-detail-action"
+            className="mobile-detail-action"
             onClick={() => onOpenFile(path)}
           >
             <FileIcon size={16} />
             {t("View file")}
-          </button>
+          </Button>
         ) : null}
       </div>
   );
   const header = { title: name, subtitle: t(STATE_LABEL[state]), action: reviewDiff ? (
-    <button
+    <IconButton
       type="button"
       className="mobile-sheet-header-button mobile-git-wrap"
-      aria-label={t("Wrap lines")}
+      label={t("Wrap lines")}
       title={t("Wrap lines")}
       aria-pressed={wrap}
       onClick={() => setWrap((value) => !value)}
     >
       <WrapText size={22} />
-    </button>
+    </IconButton>
   ) : undefined };
   if (embedded) return (
     <>

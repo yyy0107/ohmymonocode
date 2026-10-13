@@ -1,5 +1,6 @@
+import { Radio } from "../shared/ui/forms/Radio";
 import { useRef, type ReactNode } from "react";
-import { Check, ChevronDown } from "../shared/ui/icons";
+import { ChevronDown } from "../shared/ui/icons";
 import { MobileSheet, SHEET_WIDTH } from "./MobileSheet";
 
 export function MobileSelect<T extends string>({
@@ -35,6 +36,7 @@ export function MobileSelect<T extends string>({
         id={id}
         type="button"
         disabled={disabled}
+        data-ui="select"
         className="mobile-select-trigger"
         aria-label={label}
         aria-haspopup="dialog"
@@ -64,22 +66,18 @@ export function MobileSelect<T extends string>({
       >
         <div role="radiogroup" aria-label={label}>
           {options.map((option) => (
-            <button
-              type="button"
-              className="mobile-sheet-row"
-              role="radio"
-              key={option.value}
-              aria-checked={value === option.value}
-              disabled={disabled || option.disabled}
-              onClick={() => {
-                onOpenChange(false);
-                onChange(option.value);
-              }}
-            >
+            <label className="mobile-sheet-row" key={option.value} aria-disabled={disabled || option.disabled || undefined}>
               {option.icon}
               <span>{option.label}</span>
-              {value === option.value && <Check size={20} />}
-            </button>
+              <Radio name={id} aria-label={option.label}
+                checked={value === option.value}
+                disabled={disabled || option.disabled}
+                onClick={() => { if (value === option.value) onOpenChange(false); }}
+                onChange={() => {
+                  onChange(option.value);
+                  onOpenChange(false);
+                }} />
+            </label>
           ))}
         </div>
       </MobileSheet>

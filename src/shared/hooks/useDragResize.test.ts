@@ -11,9 +11,10 @@ let onCommit: ReturnType<typeof vi.fn>;
 let pendingFrame: FrameRequestCallback | undefined;
 let renders: number;
 
-function Probe({ value }: { value?: number } = {}) {
+function Probe({ value, direction }: { value?: number; direction?: "left" | "right" | "top" | "bottom" } = {}) {
   renders += 1;
   resize = useDragResize({
+    direction,
     min: 260,
     max: () => 560,
     defaultWidth: 260,
@@ -85,6 +86,20 @@ afterEach(() => {
 });
 
 describe("pane drag resizing", () => {
+  it.each(["top", "bottom"] as const)("resizes a %s-facing handle with vertical pointer movement", (direction) => {
+    act(() => root.render(createElement(Probe, { direction })));
+    startDrag();
+    expect(document.body.style.cursor).toBe("row-resize");
+    act(() => window.dispatchEvent(new PointerEvent("pointerup", {
+      pointerId: 1,
+      clientX: 900,
+      clientY: direction === "top" ? -80 : 80,
+    })));
+    expect(resize.width).toBe(340);
+    expect(onCommit).toHaveBeenCalledExactlyOnceWith(340);
+    expect(document.body.style.cursor).toBe("");
+  });
+
   it("applies incoming shared widths without echoing a preference write", () => {
     act(() => root.render(createElement(Probe, { value: 430 })));
     expect(resize.width).toBe(430);

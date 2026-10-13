@@ -186,9 +186,9 @@ export const SIDEBAR_BLUR_MIN = 1;
 export const SIDEBAR_BLUR_MAX = 64;
 export const SIDEBAR_BLUR_DEFAULT = 24;
 
-export const SIDEBAR_WIDTH_MIN = 260;
+export const SIDEBAR_WIDTH_MIN = 256;
 export const SIDEBAR_WIDTH_MAX = 560;
-export const SIDEBAR_WIDTH_DEFAULT = 288;
+export const SIDEBAR_WIDTH_DEFAULT = 256;
 
 export const BODY_GLASS_DEFAULT = !IS_LINUX;
 /** Skinned sidebars use the phone's 56px rows unless this is on. */

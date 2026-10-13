@@ -6,7 +6,6 @@ import { defaultTransition } from "../../src/shared/motion/tokens";
 import { SidebarTransition, SidebarRail } from "../../src/app/shell/SidebarTransition";
 import { SurfaceTabs } from "../../src/features/workspace/ui/SurfaceTabs";
 import { newFileTab } from "../../src/features/workspace/model/layout";
-import { SegmentedControl } from "../../src/shared/ui/omb/SegmentedControl";
 import { AgentTranscript } from "../../src/features/sessions/ui/AgentTranscript";
 import { Composer } from "../../src/features/sessions/ui/Composer";
 import { AnimatedCollapse } from "../../src/shared/ui/AnimatedCollapse";
@@ -26,7 +25,6 @@ Object.assign(window, { __TAURI_INTERNALS__: {
 const noop = () => {};
 function Fixture() {
  const [sidebar, setSidebar] = useState(true);
- const [tab, setTab] = useState("chat");
  const [files, setFiles] = useState(() => [newFileTab("/fixture/Conversation.md", "/fixture"),newFileTab("/fixture/tokens.ts", "/fixture")]);
  const [activeFile, setActiveFile] = useState(files[0].id);
  const [fold, setFold] = useState(true);
@@ -38,7 +36,7 @@ function Fixture() {
   <SidebarRail open={!sidebar}><button onClick={()=>setSidebar(true)}>Open sidebar</button></SidebarRail>
   <SidebarTransition open={sidebar} width={280} dragging={false} setPaneRef={noop} finishDrag={noop}><aside style={{width:280,padding:20,height:"100%",background:"var(--color-card)"}}><h2>MonoCode</h2><p>Motion migration</p><button onClick={()=>setSidebar(false)}>Close sidebar</button><p>Project / monocode</p><p>Animation migration</p></aside></SidebarTransition>
   <main style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",padding:24,gap:16}}>
-   <div style={{display:"flex",gap:16,alignItems:"center"}}><SegmentedControl value={tab} label="Workspace tabs" options={[{value:"chat",label:"Conversation"},{value:"settings",label:"Settings"}]} onChange={setTab}/><button onClick={()=>setFold(v=>!v)}>Toggle tool card</button><button onClick={()=>setModal(true)}>Open modal</button></div>
+   <div style={{display:"flex",gap:16,alignItems:"center"}}><button onClick={()=>setFold(v=>!v)}>Toggle tool card</button><button onClick={()=>setModal(true)}>Open modal</button></div>
    <SurfaceTabs files={files} activeFileId={activeFile} dirtyFileIds={new Set()} fileErrorCounts={new Map()} onSelectFile={setActiveFile} onCloseFile={id=>setFiles(current=>current.filter(file=>file.id!==id))} onCloseOtherFiles={id=>setFiles(current=>current.filter(file=>file.id===id))} onReorder={ids=>setFiles(current=>ids.map(id=>current.find(file=>file.id===id)!))}/>
    <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0,border:"1px solid var(--color-stroke)",borderRadius:12,padding:16}}>
     <AgentTranscript blocks={blocks} busy={blocks.at(-1)?.streaming} visible={transcriptVisible} />

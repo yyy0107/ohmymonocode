@@ -1,7 +1,7 @@
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useEffect, useRef, useState } from "react";
 import { PanelLeft, RotateCcw } from "../../../shared/ui/icons";
-import { IconButton } from "../../../app/shell/WindowChrome";
+import { IconButton } from "../../../shared/ui/forms/IconButton";
 import { useDragResize } from "../../../shared/hooks/useDragResize";
 import { ResizeHandle } from "../../../shared/ui/ResizeHandle";
 import { inboxItemRef, type InboxItem } from "../model/githubTasks";
@@ -82,7 +82,7 @@ export function InboxDiscussionPanel({
           {uiT("Ask · ")}
           {inboxItemRef(item)}
         </span>
-        <IconButton
+        <IconButton size="sm"
           label={uiT("Restart conversation")}
           disabled={loading}
           onClick={() => {
@@ -98,7 +98,7 @@ export function InboxDiscussionPanel({
         >
           <RotateCcw className="size-3.5" />
         </IconButton>
-        <IconButton label={uiT("Close panel")} onClick={onClose}>
+        <IconButton size="sm" label={uiT("Close panel")} onClick={onClose}>
           <PanelLeft className="size-3.5" />
         </IconButton>
       </header>

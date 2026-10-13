@@ -24,7 +24,7 @@ type Props = {
 
 // The sidebar and its replacement rail must move with the same timing.
 export const SIDEBAR_TRANSITION_MS = duration.panel * 1000;
-export const SIDEBAR_RAIL_WIDTH = 48;
+export const SIDEBAR_RAIL_WIDTH = 52;
 export const SIDEBAR_TRANSITION_EASING = `cubic-bezier(${ease.join(", ")})`;
 export const SIDEBAR_MOTION_STYLE = {
   "--collapse-duration": `${SIDEBAR_TRANSITION_MS}ms`,

@@ -4,7 +4,7 @@
 .assistant-chat.desktop-bots-workspace .desktop-bot-delegation-message { align-self: stretch; max-width: 100%; margin: 8px 0; }
 .assistant-chat.desktop-bots-workspace .desktop-bot-delegation-card { border: 1px solid var(--color-stroke); border-radius: 10px; background: var(--color-surface); padding: 10px; margin-bottom: 8px; min-width: 0; font-size: var(--text-ui-sm); }
 .assistant-chat.desktop-bots-workspace .desktop-bot-delegation-card .desktop-bot-delegation-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; border: 0; padding: 0; width: 100%; background: transparent; text-align: start; }
-.assistant-chat.desktop-bots-workspace .desktop-bot-delegation-heading strong { flex: 1; min-width: 70px; overflow-wrap: anywhere; font-weight: 550; }
+.assistant-chat.desktop-bots-workspace .desktop-bot-delegation-heading strong { flex: 1; min-width: 70px; overflow-wrap: anywhere; font-weight: var(--font-weight-semibold); }
 .assistant-chat.desktop-bots-workspace .desktop-bot-delegation-heading > span { color: var(--color-foreground-subtle); }
 .assistant-chat.desktop-bots-workspace .desktop-bot-delegation-heading > svg { flex-shrink: 0; }
 .assistant-chat.desktop-bots-workspace .desktop-bot-delegation-heading[aria-expanded="true"] > svg:last-child { transform: rotate(90deg); }

@@ -1,3 +1,4 @@
+import { IconButton } from "../../shared/ui/forms/IconButton";
 import type { ReactNode } from "react";
 import { useTranslation } from "../../shared/i18n/useTranslation";
 import { useShortcutLabel } from "../commands/useCommandShortcut";
@@ -9,91 +10,13 @@ import {
   PanelLeft,
 } from "../../shared/ui/icons";
 import { IS_MAC } from "../../platform/tauri/platform";
-import { startWindowDrag } from "./startWindowDrag";
+import { windowDragRegion } from "./startWindowDrag";
 import { WindowControls } from "./WindowControls";
 
 /**
  * Window chrome shared by every shell layout now that the workspace tab strip
  * is gone: the drag bar, product icon, navigation controls and reserved space.
  */
-
-export function IconButton({
-  label,
-  active,
-  accent,
-  disabled,
-  expanded,
-  controls,
-  onClick,
-  onOpenContextMenu,
-  children,
-}: {
-  label: string;
-  active?: boolean;
-  accent?: boolean;
-  disabled?: boolean;
-  expanded?: boolean;
-  controls?: string;
-  onClick?: () => void;
-  onOpenContextMenu?: (x: number, y: number) => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      aria-pressed={active || accent}
-      aria-disabled={disabled}
-      aria-expanded={expanded}
-      aria-controls={controls}
-      data-tauri-drag-region="false"
-      onClick={() => {
-        if (disabled) return;
-        onClick?.();
-      }}
-      onContextMenu={
-        onOpenContextMenu
-          ? (event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              if (disabled) return;
-              event.currentTarget.focus();
-              onOpenContextMenu(event.clientX, event.clientY);
-            }
-          : undefined
-      }
-      onKeyDown={
-        onOpenContextMenu
-          ? (event) => {
-              if (
-                event.key !== "ContextMenu" &&
-                !(event.shiftKey && event.key === "F10")
-              )
-                return;
-              event.preventDefault();
-              event.stopPropagation();
-              if (disabled) return;
-              event.currentTarget.focus();
-              const rect = event.currentTarget.getBoundingClientRect();
-              onOpenContextMenu(rect.left, rect.bottom);
-            }
-          : undefined
-      }
-      className={`ui-icon-button grid size-7 place-items-center rounded-lg transition-colors ${
-        disabled
-          ? "text-foreground-subtlest opacity-60"
-          : accent
-            ? "text-accent hover:bg-surface-hover"
-            : active
-              ? "text-content hover:bg-surface-hover"
-              : "text-foreground-subtle hover:bg-surface-hover hover:text-content"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
 
 export function TabVisitNav({
   canGoBack = false,
@@ -131,33 +54,34 @@ export function TabVisitNav({
         />
       </div> : null}
       {onTogglePanel ? (
-        <IconButton
+        <IconButton size="sm" data-tauri-drag-region="false"
           label={panelLabel}
           active={panelActive}
+          aria-pressed={panelActive}
           onClick={onTogglePanel}
         >
           <PanelLeft className="size-4" />
         </IconButton>
       ) : null}
-      <IconButton label={backLabel} disabled={!canGoBack} onClick={onGoBack}>
+      <IconButton size="sm" data-tauri-drag-region="false" label={backLabel} aria-disabled={!canGoBack} onClick={onGoBack}>
         <ArrowLeft className="size-4" />
       </IconButton>
-      <IconButton
+      <IconButton size="sm" data-tauri-drag-region="false"
         label={forwardLabel}
-        disabled={!canGoForward}
+        aria-disabled={!canGoForward}
         onClick={onGoForward}
       >
         <ArrowRight className="size-4" />
       </IconButton>
       {onToggleNavigation ? (
-        <IconButton
+        <IconButton size="sm" data-tauri-drag-region="false"
           label={t(
             navigationExpanded
               ? "Collapse navigation menu"
               : "Expand navigation menu",
           )}
-          expanded={navigationExpanded}
-          controls="sidebar-navigation-menu"
+          aria-expanded={navigationExpanded}
+          aria-controls="sidebar-navigation-menu"
           onClick={onToggleNavigation}
         >
           {navigationExpanded ? (
@@ -200,8 +124,7 @@ export function WindowDragBar({
   return (
     <header
       data-window-drag-bar
-      data-tauri-drag-region="deep"
-      onMouseDownCapture={startWindowDrag}
+      {...windowDragRegion()}
       className="shell-chrome relative grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] select-none items-center"
       style={{ height: WINDOW_DRAG_BAR_HEIGHT }}
     >

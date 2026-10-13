@@ -18,7 +18,7 @@ import {
   type Ref,
 } from "react";
 import { createPortal } from "react-dom";
-import { GlassBackdrop } from "../../app/shell/GlassBackdrop";
+import { GlassBackdrop } from "./GlassBackdrop";
 import { LAYER } from "../lib/layers";
 import {
   placePopover,

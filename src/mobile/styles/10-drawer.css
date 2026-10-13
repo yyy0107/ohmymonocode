@@ -173,15 +173,20 @@
 }
 /* Every drawer row shares one icon column: a 22px icon at the row inset,
    then labels, session titles and headings start on the same text edge. */
-.mobile-drawer {
-  --mobile-drawer-inset: 12px;
-  --mobile-drawer-icon: 22px;
-  --mobile-drawer-gap: 14px;
+.mobile-app .mobile-drawer {
+  --mobile-drawer-inset: 16px;
+  --mobile-drawer-icon: 24px;
+  --mobile-drawer-gap: 10px;
+  width: min(340px, 85vw);
+  padding-inline: calc(8px + var(--mobile-safe-left)) 8px;
+  border: 0;
+  border-radius: 0;
+  background: var(--m-navigation-panel);
+  box-shadow: 8px 0 32px rgb(0 0 0 / 0.08);
 }
-.mobile-drawer-top {
+.mobile-app .mobile-drawer-top {
   display: flex;
   flex-direction: column;
-  gap: 2px;
   flex-shrink: 0;
   max-height: 60%;
   overflow-y: auto;
@@ -189,8 +194,10 @@
   touch-action: pan-y;
   overscroll-behavior: contain;
   scrollbar-width: none;
-  padding-bottom: 8px;
   border-bottom: 1px solid var(--color-m-hairline);
+  gap: 0;
+  padding-bottom: 12px;
+  border: 0;
 }
 .mobile-drawer-top > * {
   flex-shrink: 0;
@@ -201,20 +208,21 @@
   gap: 2px;
   padding-top: 2px;
 }
-.mobile-drawer-item {
+.mobile-app .mobile-drawer-item {
   display: flex;
   align-items: center;
   gap: var(--mobile-drawer-gap);
   width: 100%;
-  min-height: var(--m-hit);
   padding: 8px var(--mobile-drawer-inset);
   border: 0;
-  border-radius: var(--radius-m-xl);
   background: transparent;
   color: var(--color-m-ink);
-  font-size: var(--mobile-font-lg);
-  font-weight: 500;
   text-align: left;
+  min-height: 44px;
+  border-radius: 12px;
+  font-size: 17px;
+  font-weight: var(--font-weight-normal);
+  line-height: 24px;
 }
 .mobile-drawer-item > svg {
   flex: 0 0 var(--mobile-drawer-icon);
@@ -240,7 +248,7 @@
   background: var(--mobile-accent);
   color: var(--mobile-accent-foreground);
   font-size: var(--mobile-font-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
@@ -248,9 +256,9 @@
 .mobile-drawer-item:not(.mobile-drawer-more-toggle):active {
   --mobile-press-color: var(--color-selection);
 }
-.mobile-drawer-new {
-  color: var(--mobile-accent);
-  font-weight: 600;
+.mobile-app .mobile-drawer-new {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-m-ink);
 }
 .mobile-drawer-new:disabled {
   opacity: 0.4;
@@ -272,46 +280,53 @@
 .mobile-drawer-group {
   margin-top: 12px;
 }
-.mobile-drawer-heading {
+.mobile-app .mobile-drawer-heading {
   margin: 0 var(--mobile-drawer-inset) 4px;
-  font-size: var(--mobile-font-xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--color-m-ink-tertiary);
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  margin-bottom: 0;
+  font-size: 15px;
+  font-weight: var(--font-weight-normal);
+  letter-spacing: normal;
+  text-transform: none;
 }
-.mobile-drawer .mobile-session-row {
-  min-height: 52px;
-  padding: 6px calc(var(--mobile-drawer-inset) - 6px);
-  border-radius: var(--radius-m-xl);
+.mobile-app .mobile-drawer .mobile-session-row {
   user-select: none;
   -webkit-touch-callout: none;
+  min-height: 44px;
+  padding: 6px var(--mobile-drawer-inset);
+  border-radius: 12px;
 }
-.mobile-drawer .mobile-session-row .mobile-row-text {
+.mobile-app .mobile-drawer .mobile-session-row .mobile-row-text {
   align-items: center;
+  gap: 10px;
 }
-.mobile-drawer .mobile-session-row .mobile-row-text strong {
-  font-size: var(--mobile-font-lg);
-  font-weight: 600;
+.mobile-app .mobile-drawer .mobile-session-row .mobile-row-text strong {
+  font-size: 17px;
+  font-weight: var(--font-weight-normal);
+  line-height: 24px;
 }
 /* Provider marks are drawn smaller than outline icons but keep their slot,
    so session titles line up with the menu labels above. */
 /* The agent mark sits in a round avatar before the title. */
-.mobile-drawer-session-icon {
-  flex: 0 0 32px;
-  width: 32px;
-  height: 32px;
-  padding: 8px;
-  border-radius: 50%;
-  background: var(--color-m-raised);
+.mobile-app .mobile-drawer-session-icon {
   align-self: center;
   margin-inline-end: calc(var(--mobile-drawer-gap) - 14px);
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  padding: 3px;
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
 }
-.mobile-drawer-session-project {
-  max-width: 96px;
+.mobile-app .mobile-drawer-session-project {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  max-width: 64px;
 }
 .mobile-drawer-group-status {
   margin: 4px var(--mobile-drawer-inset) 8px;
@@ -341,7 +356,7 @@ button.mobile-drawer-group-status {
   align-items: center;
   gap: 4px;
   color: var(--color-m-ink);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 .mobile-session-attention > svg {
   flex-shrink: 0;
@@ -352,14 +367,21 @@ button.mobile-drawer-group-status {
   font-size: var(--mobile-font-md);
   color: var(--color-m-ink-tertiary);
 }
-.mobile-drawer-settings {
+.mobile-app .mobile-drawer-settings {
   flex-shrink: 0;
   margin-top: 4px;
-  min-height: 50px;
+  align-self: flex-start;
+  width: auto;
+  min-width: 140px;
+  min-height: 48px;
+  margin: 12px 8px 0;
+  border-radius: 24px;
+  background: var(--m-navigation-control);
+  box-shadow: var(--m-navigation-shadow);
 }
 .mobile-drawer-device {
   margin-bottom: 6px;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .mobile-drawer-item > .mobile-drawer-device-chevron,
 .mobile-drawer-item > .mobile-drawer-more-chevron {
@@ -389,3 +411,7 @@ button.mobile-drawer-group-status {
 /* Settings: grouped cards with rows that lead to sub-pages. */
 /* Settings follow the iOS grouped list: borderless inset cards, monochrome
    icons, separators that start at the label, and quiet captions. */
+
+.mobile-app .mobile-drawer .mobile-session-row[aria-current="page"] {
+  background: color-mix(in srgb, var(--color-m-ink) 7%, transparent);
+}

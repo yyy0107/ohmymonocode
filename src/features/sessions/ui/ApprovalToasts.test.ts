@@ -155,7 +155,7 @@ it("hides muted project approval popups while another project's controls remain 
     (item) => item.textContent === "Deny",
   )!;
   expect(allow.getAttribute("data-approval")).toBe("allow");
-  expect(allow.classList.contains("ui-button-primary")).toBe(true);
+  expect(allow.getAttribute("data-variant") === "primary").toBe(true);
   expect(deny.getAttribute("data-approval")).toBe("deny");
   act(() => allow.click());
   expect(onApproval).toHaveBeenCalledWith("work", 1, "allow");

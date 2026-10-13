@@ -1,3 +1,4 @@
+import { Button } from "../shared/ui/forms/Button";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import {
   Archive,
@@ -252,7 +253,7 @@ export function MobileSessionActions({
           >
             <label>
               {t("Session title")}
-              <input
+              <input data-ui="input"
                 value={title}
                 maxLength={200}
                 disabled={blocked}
@@ -260,21 +261,21 @@ export function MobileSessionActions({
               />
             </label>
             <div className="mobile-menu-form-buttons">
-              <button
+              <Button variant="secondary"
                 type="button"
-                className="mobile-button"
+
                 disabled={blocked}
                 onClick={back}
               >
                 {t("Cancel")}
-              </button>
-              <button
+              </Button>
+              <Button variant="primary"
                 type="submit"
-                className="mobile-button mobile-primary"
+
                 disabled={blocked || !title.trim()}
               >
                 {t("Save")}
-              </button>
+              </Button>
             </div>
           </form>
         ) : page === "delete" && onDelete ? (
@@ -283,22 +284,22 @@ export function MobileSessionActions({
               {t("Delete this conversation? This can’t be undone.")}
             </p>
             <div className="mobile-menu-form-buttons">
-              <button
+              <Button variant="secondary"
                 type="button"
-                className="mobile-button"
+
                 disabled={blocked}
                 onClick={back}
               >
                 {t("Cancel")}
-              </button>
-              <button
+              </Button>
+              <Button variant="danger"
                 type="button"
-                className="mobile-button mobile-menu-danger"
+                className="mobile-menu-danger"
                 disabled={blocked || running}
                 onClick={() => void run(onDelete)}
               >
                 {t("Delete")}
-              </button>
+              </Button>
             </div>
           </>
         ) : null}

@@ -10,7 +10,7 @@ import { useContext, useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useLockOverscroll } from "../hooks/useLockOverscroll";
 import { LAYER } from "../lib/layers";
-import { GlassBackdrop } from "../../app/shell/GlassBackdrop";
+import { GlassBackdrop } from "./GlassBackdrop";
 
 export type ModalSize = "sm" | "md";
 
@@ -141,7 +141,8 @@ export function ModalPanel({
               type="button"
               aria-label={uiT("Close")}
               onClick={onClose}
-              className="desktop-icon-button desktop-modal-close grid size-7 shrink-0 place-items-center rounded-lg text-foreground-subtle transition-colors hover:bg-surface-hover hover:text-content focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-hover"
+              data-ui="icon-button"
+              className="desktop-modal-close grid size-7 shrink-0 place-items-center rounded-lg text-foreground-subtle transition-colors hover:bg-surface-hover hover:text-content focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-hover"
             >
               <X className="size-3.5" />
             </button>

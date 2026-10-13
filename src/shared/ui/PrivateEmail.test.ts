@@ -2,7 +2,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { saveMaskEmails } from "../../features/settings/model/displayPrefs";
+import { saveMaskEmails, useMaskEmails } from "../../features/settings/model/displayPrefs";
 import { PrivateEmail } from "./PrivateEmail";
 
 let container: HTMLDivElement;
@@ -22,6 +22,10 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
+function PreferenceEmail() {
+  return createElement(PrivateEmail, { email: "user@example.com", masked: useMaskEmails() });
+}
+
 function revealButton() {
   return container.querySelector<HTMLButtonElement>(
     '[aria-label="Reveal email"]',
@@ -30,7 +34,7 @@ function revealButton() {
 
 it("masks a revealed email again when masking is turned off and back on", async () => {
   await act(async () =>
-    root.render(createElement(PrivateEmail, { email: "user@example.com" })),
+    root.render(createElement(PreferenceEmail)),
   );
   await act(async () => revealButton()!.click());
   expect(container.querySelector('[aria-label="Hide email"]')).not.toBeNull();
@@ -49,7 +53,7 @@ it("masks a revealed email again when masking is turned off and back on", async 
 it("masks an email when another window turns masking on", async () => {
   saveMaskEmails(false);
   await act(async () =>
-    root.render(createElement(PrivateEmail, { email: "user@example.com" })),
+    root.render(createElement(PreferenceEmail)),
   );
   expect(revealButton()).toBeNull();
 

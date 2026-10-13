@@ -1,6 +1,6 @@
 import type { KeyboardEvent, MouseEvent } from "react";
 import { ARTIFACT_CHIP_MAX_VISIBLE } from "../../app-shell/workflow-artifacts/artifactPresentation.js";
-import { cn } from "../lib/utils.js";
+import { cn } from "../../../../../shared/lib/cn";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 import { PILL_STAGGER_MS } from "./WorkflowTimeline.js";
 import {

@@ -1,3 +1,4 @@
+import { IconButton } from "../shared/ui/forms/IconButton";
 import { MobileSpinner } from "./MobileSpinner";
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Capacitor } from "@capacitor/core";
@@ -280,7 +281,7 @@ function useMobileComposerController(props: Props) {
     };
   }, [hasQueue]);
   useMobileTextareaAutosize(area, props.value, {
-    minHeight: 32,
+    minHeight: 24,
     widthSource: dock,
     measureWidth: () => {
       const container = form.current;
@@ -358,16 +359,19 @@ function useMobileComposerController(props: Props) {
       <button
         type="button"
         className="mobile-send"
-        disabled={!props.canStop}
+        data-stop="true"
+        data-state={props.working ? "stopping" : "streaming"}
+        disabled={!props.canStop || props.working}
         aria-label={t("Stop")}
         onClick={props.onStop}
       >
-        <Square size={14} fill="currentColor" />
+        {props.working ? <MobileSpinner size={24} className="mobile-spin" /> : <Square size={16} fill="currentColor" />}
       </button>
     ) : (
       <button
         type="submit"
         className="mobile-send"
+        data-state={props.working ? "sending" : "ready"}
         disabled={!props.canSend}
         aria-label={t("Send message")}
       >
@@ -490,8 +494,8 @@ function MobileComposerView({ vm }: { vm: MobileComposerViewModel }) {
       <motion.div ref={dock} className="mobile-composer-dock" layout="position" layoutRoot transition={panelTransition}>
         {inlineOpen && <div className="mobile-sheet mobile-command-suggestions">
           <div className="mobile-skill-heading"><strong>{t("Skills and commands")}</strong>
-            <button type="button" className="mobile-icon-button" aria-label={t("Close suggestions")}
-              onPointerDown={event => event.preventDefault()} onClick={dismissSkills}><X size={18} /></button>
+            <IconButton type="button" label={t("Close suggestions")}
+              onPointerDown={event => event.preventDefault()} onClick={dismissSkills}><X size={18} /></IconButton>
           </div>
           <MobileSkillList skills={options} loading={skillsState.loading} failed={!!skillsState.failed} error={skillsState.error}
             active={skillActive} id={skillListId} onPick={pickSkill} onActive={setSkillActive} onRetry={() => void skillsState.reload(true)} />
@@ -583,13 +587,14 @@ function MobileComposerView({ vm }: { vm: MobileComposerViewModel }) {
             )}
             {props.progressSlot && <div ref={props.progressSlot} className="mobile-composer-progress" />}
           </motion.div>
-          <motion.div layout transition={panelTransition} className="mobile-composer-input">
+          <motion.div layout transition={panelTransition} data-ui="message-input" className="mobile-composer-input">
             <MobileComposerAttachments
               attachments={props.attachments}
               onRemove={props.disabled ? undefined : props.onRemoveAttachment}
             />
             <div className="mobile-composer-line">
             <textarea
+              data-ui="message-input-field"
               ref={area}
               aria-label={t("Message")}
               placeholder={t(

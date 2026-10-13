@@ -242,13 +242,13 @@ export function TabGroupMenu({
             <div role="separator" className="my-1 h-px bg-content/10" />
           </>
         ) : null}
-        <input
+        <input data-ui="input"
           ref={input}
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={commitName}
           aria-label={uiT("Group name")}
-          className="desktop-field mb-2 w-full rounded-lg border border-content/10 bg-content/5 px-2.5 py-1.5 text-[13px] text-content outline-none ring-accent/40 focus:ring-1"
+          className="mb-2 w-full rounded-lg border border-content/10 bg-content/5 px-2.5 py-1.5 text-[13px] text-content outline-none ring-accent/40 focus:ring-1"
         />
 
         {logoProject ? (

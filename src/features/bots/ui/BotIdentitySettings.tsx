@@ -56,7 +56,7 @@ export function BotIdentitySettings({ bot, busy, onSave, children, avatarSupport
             {avatarTabs.map(tab => <button key={tab.id} id={`${editorId}-${tab.id}-tab`} type="button" role="tab" aria-selected={avatarTab === tab.id} aria-controls={`${editorId}-${tab.id}-panel`} tabIndex={avatarTab === tab.id ? 0 : -1} onClick={() => setAvatarTab(tab.id)}>{t(tab.label)}</button>)}
           </div>
           <div id={`${editorId}-bot-panel`} role="tabpanel" aria-labelledby={`${editorId}-bot-tab`} hidden={avatarTab !== "bot"} className="desktop-bot-avatar-tab-panel">
-          <label>{t("Avatar")}<input ref={field} value={avatarDraft} disabled={busy} onChange={event => setAvatarDraft(event.target.value)} aria-invalid={[...avatarDraft].length > 8 || undefined}
+          <label>{t("Avatar")}<input data-ui="input" ref={field} value={avatarDraft} disabled={busy} onChange={event => setAvatarDraft(event.target.value)} aria-invalid={[...avatarDraft].length > 8 || undefined}
             onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.stopPropagation(); applyAvatar(); } }} /></label>
           <small>{t("Up to 8 characters or emoji. Leave empty for a generated avatar.")}</small>
           <div className="desktop-bot-avatar-actions">
@@ -66,7 +66,7 @@ export function BotIdentitySettings({ bot, busy, onSave, children, avatarSupport
           </div>
           </div>
           <div id={`${editorId}-generate-panel`} role="tabpanel" aria-labelledby={`${editorId}-generate-tab`} hidden={avatarTab !== "generate"} className="desktop-bot-avatar-tab-panel">
-            <textarea ref={promptField} value={avatarPrompt} onChange={event => setAvatarPrompt(event.target.value)} placeholder={t("Describe your avatar…")} aria-label={t("Describe your avatar…")} disabled={busy} />
+            <textarea data-ui="textarea" ref={promptField} value={avatarPrompt} onChange={event => setAvatarPrompt(event.target.value)} placeholder={t("Describe your avatar…")} aria-label={t("Describe your avatar…")} disabled={busy} />
             <button type="button" className="desktop-bot-avatar-generate" disabled aria-describedby={`${editorId}-generation-unavailable`}>{t("Generate")}</button>
             <small id={`${editorId}-generation-unavailable`}>{t("Avatar image generation is not available yet.")}</small>
           </div>
@@ -76,7 +76,7 @@ export function BotIdentitySettings({ bot, busy, onSave, children, avatarSupport
         </div>
       </AnimatedCollapse>
     </div> : <BotAvatar bot={{ id: bot.id, avatar }} size={96} />}
-    <label>{t("Name")}<input value={name} maxLength={100} required disabled={busy} onChange={event => setName(event.target.value)} /></label>
+    <label>{t("Name")}<input data-ui="input" value={name} maxLength={100} required disabled={busy} onChange={event => setName(event.target.value)} /></label>
     <button type="submit" disabled={busy || !changed || !name.trim() || [...avatar].length > 8}>{t("Save")}</button>
     {children}
   </form>;

@@ -54,7 +54,7 @@
 .mobile-sheet-title,
 .mobile-sheet-header-title strong {
   font-size: var(--mobile-font-xl);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   line-height: 1.3;
 }
 .mobile-sheet-header-title strong {
@@ -136,7 +136,7 @@
 }
 .mobile-sheet[data-detents] .mobile-detail-section h3 {
   font-size: calc(var(--mobile-font-lg) + var(--mobile-popup-font-step, 0px));
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 .mobile-sheet[data-detents] .mobile-detail-pre {
   max-height: none;
@@ -260,8 +260,8 @@
    positioned attachment remove button or the floating header's anchors. */
 :is(.mobile-composer-model, .mobile-composer-workspace, .mobile-composer-project, .mobile-composer-plan,
   .mobile-status-copy, .mobile-detail-copy, .mobile-progress-capsule),
-.mobile-header-actions > .mobile-icon-button,
-.mobile-error .mobile-icon-button,
+.mobile-header-actions > [data-ui="icon-button"],
+.mobile-error [data-ui="icon-button"],
 .mobile-composer-attachments button:not(.attachment-chip-remove),
 .mobile-desktop-transcript .user-message-actions button,
 .mobile-shared-question [data-question-collapse],
@@ -270,8 +270,8 @@
 }
 :is(.mobile-composer-model, .mobile-composer-workspace, .mobile-composer-project, .mobile-composer-plan,
   .mobile-status-copy, .mobile-detail-copy, .mobile-progress-capsule)::after,
-.mobile-header-actions > .mobile-icon-button::after,
-.mobile-error .mobile-icon-button::after,
+.mobile-header-actions > [data-ui="icon-button"]::after,
+.mobile-error [data-ui="icon-button"]::after,
 .mobile-composer-attachments button::after,
 .mobile-desktop-transcript .user-message-actions button::after,
 :is(.mobile-app, .mobile-sheet, .mobile-modal, [data-popover-side]) .markdown-code-copy::after,
@@ -302,7 +302,7 @@
 button.mobile-drawer-group-status,
 .mobile-pending button,
 .mobile-pairing-methods button,
-.mobile-qr-overlay .mobile-button,
+.mobile-qr-overlay [data-ui="button"],
 .mobile-shared-question [data-question-secondary] {
   min-width: 44px;
   min-height: 44px;

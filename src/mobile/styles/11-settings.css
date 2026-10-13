@@ -20,7 +20,7 @@
 .mobile-settings-group h2 {
   margin: 0 var(--mobile-settings-inset) 8px;
   font-size: var(--mobile-font-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 0.06em;
   line-height: 1.5;
   text-transform: uppercase;
@@ -110,7 +110,7 @@
   justify-content: space-between;
   gap: 12px;
 }
-.mobile-connection-editor-header h2 { margin: 0; font-size: 22px; font-weight: 600; }
+.mobile-connection-editor-header h2 { margin: 0; font-size: 22px; font-weight: var(--font-weight-semibold); }
 .mobile-connection-name-field { position: relative; margin-top: 6px; }
 .mobile-connection-name-field > span {
   position: absolute;
@@ -148,7 +148,6 @@
 .mobile-connection-info dt { flex-shrink: 0; }
 .mobile-connection-info dd { margin: 0; text-align: end; overflow-wrap: anywhere; min-width: 0; color: var(--color-m-ink-secondary); }
 .mobile-connection-editor-action { width: 100%; min-height: 48px; border-radius: 999px; justify-content: center; }
-.mobile-button.mobile-connection-delete { border: 1px solid var(--color-m-danger); color: var(--color-m-danger); background: transparent; }
 
 .mobile-connection-row .mobile-host-status {
   font: inherit;
@@ -208,7 +207,7 @@
 .mobile-defaults-status p { margin: 0 0 10px; }
 .mobile-defaults-status-heading { display: flex; align-items: center; gap: 8px; }
 .mobile-defaults-status-heading > svg { flex-shrink: 0; }
-.mobile-defaults-status strong { font-weight: 500; }
+.mobile-defaults-status strong { font-weight: var(--font-weight-medium); }
 .mobile-defaults-status [data-attention="true"] { color: var(--color-m-warning); }
 .mobile-defaults-status-issues { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
 .mobile-defaults-status-issues li { display: flex; flex-wrap: wrap; column-gap: 8px; }
@@ -218,7 +217,7 @@
 
 .mobile-defaults-status-details:focus-visible { outline: 2px solid var(--mobile-accent); outline-offset: 3px; }
 .mobile-defaults-status-raw { display: grid; gap: 12px; margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--mobile-separator); }
-.mobile-defaults-status-raw dt { font-weight: 500; }
+.mobile-defaults-status-raw dt { font-weight: var(--font-weight-medium); }
 .mobile-defaults-status-raw dd { margin: 2px 0 0; white-space: pre-wrap; color: var(--color-m-ink-secondary); }
 
 .mobile-settings-row {
@@ -232,7 +231,7 @@
   background: transparent;
   color: var(--color-m-ink);
   font-size: var(--mobile-font-lg);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   line-height: 1.45;
   text-align: left;
 }
@@ -271,7 +270,7 @@ button.mobile-settings-row:active {
 }
 .mobile-settings-hero .mobile-current-host-name {
   font-size: var(--mobile-font-xl);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .mobile-settings-hero small {
   font-size: var(--mobile-font-md);
@@ -287,7 +286,7 @@ button.mobile-settings-row:active {
 .mobile-settings-label small,
 .mobile-settings-row small {
   font-size: var(--mobile-font-md);
-  font-weight: 400;
+  font-weight: var(--font-weight-normal);
   line-height: 1.5;
   color: var(--color-m-ink-secondary);
   overflow-wrap: anywhere;
@@ -349,60 +348,6 @@ button.mobile-settings-row:active {
     padding: 4px 0;
   }
 }
-.mobile-app input.mobile-switch {
-  appearance: none;
-  -webkit-appearance: none;
-  position: relative;
-  width: 51px;
-  min-width: 51px;
-  height: 31px;
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: var(--color-m-control);
-  box-shadow: inset 0 0 0 1px var(--color-m-hairline);
-  transition: background-color var(--mobile-motion-feedback) ease;
-}
-/* The thumb travels on a spring and stretches toward its travel while
-   pressed; both retarget from the current shape on rapid taps. */
-.mobile-app input.mobile-switch::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 27px;
-  height: 27px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow:
-    0 3px 8px #00000026,
-    0 1px 1px #00000029;
-  transform-origin: left center;
-  translate: calc(var(--mobile-switch-x, 0) * 1px);
-  scale: 1;
-}
-.mobile-app input.mobile-switch:checked {
-  background: var(--color-m-accent);
-  box-shadow: none;
-}
-.mobile-app input.mobile-switch:active:not(:disabled)::after {
-  /* Keep the 27px layout box stable while the painted thumb stretches. */
-  scale: calc(33 / 27) 1;
-  transition:
-    translate var(--mobile-motion-press) var(--mobile-ease-out),
-    scale var(--mobile-motion-press) var(--mobile-ease-out);
-}
-/* A checked thumb stretches leftward, keeping its trailing edge in place. */
-.mobile-app input.mobile-switch:checked:active:not(:disabled)::after {
-  translate: 14px;
-}
-@media (prefers-reduced-motion: reduce) {
-  .mobile-app input.mobile-switch,
-  .mobile-app input.mobile-switch::after {
-    transition: none !important;
-  }
-}
 .mobile-settings-note {
   flex-wrap: wrap;
   margin: 0;
@@ -416,7 +361,7 @@ button.mobile-settings-row:active {
 }
 .mobile-current-host strong,
 .mobile-settings-label strong {
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 /* A row's current value reads as a subtitle under its name. */
 .mobile-settings-label > small.mobile-settings-value {
@@ -516,7 +461,7 @@ button.mobile-settings-row:active {
   align-items: center;
   justify-content: space-around;
   font-size: 34px;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   color: rgb(255 255 255 / 0.9);
   text-shadow: 0 1px 2px #0003;
   background:
@@ -537,7 +482,7 @@ button.mobile-settings-row:active {
   padding: 0 24px;
   border-radius: 999px;
   font-size: var(--mobile-font-lg);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   white-space: nowrap;
   color: var(--color-m-ink);
   transform: translate(-50%, -50%);

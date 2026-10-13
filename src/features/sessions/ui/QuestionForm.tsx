@@ -1,3 +1,4 @@
+import { Button } from "../../../shared/ui/forms/Button";
 import { translate as translateUi } from "../../../shared/i18n/language";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
@@ -302,14 +303,14 @@ export function QuestionForm({
               </button>
             </div>
           ) : null}
-          <button
+          <Button variant="secondary"
             type="button"
-            className="ui-button ui-button-md ui-button-pill h-6 shrink-0 rounded-md px-1.5 text-[11px] text-content/55 hover:bg-content/6 hover:text-content"
+            className="h-6 shrink-0 rounded-md px-1.5 text-[11px] text-content/55 hover:bg-content/6 hover:text-content"
             data-question-secondary
             onClick={skipCurrent}
           >
             {uiT("Skip")}
-          </button>
+          </Button>
           {onCollapse ? (
             <button
               type="button"
@@ -382,23 +383,23 @@ export function QuestionForm({
             </span>
           ) : null}
           {index > 0 ? (
-            <button
+            <Button variant="secondary"
               type="button"
-              className="ui-button ui-button-md ui-button-pill h-6 shrink-0 rounded-md px-1.5 text-[11px] text-content/55 hover:bg-content/6 hover:text-content"
+              className="h-6 shrink-0 rounded-md px-1.5 text-[11px] text-content/55 hover:bg-content/6 hover:text-content"
               data-question-secondary
               onClick={goBack}
             >
               {uiT("Back")}
-            </button>
+            </Button>
           ) : null}
-          <button
+          <Button variant="primary"
             type="submit"
             disabled={!ready}
-            className="ui-button ui-button-md ui-button-primary ui-button-pill h-6 rounded-md bg-content px-2.5 text-[11px] font-medium text-background-base hover:bg-content/80 disabled:opacity-40"
+            className="h-6 rounded-md bg-content px-2.5 text-[11px] font-medium text-background-base hover:bg-content/80 disabled:opacity-40"
             data-question-submit
           >
             {uiT("Continue")}
-          </button>
+          </Button>
         </div>
       </form>
     </div>
@@ -442,7 +443,7 @@ function QuestionFields({
       ) : null}
       {options.length === 0 && question.allowCustom ? (
         question.input?.kind === "multiline" ? (
-          <textarea
+          <textarea data-ui="textarea"
             value={custom}
             onChange={(event) => onCustom(event.target.value)}
             placeholder={question.input.placeholder ?? uiT("Type your answer")}
@@ -452,13 +453,13 @@ function QuestionFields({
             className="mt-1.5 w-full resize-y rounded-md border border-content/15 bg-transparent px-2 py-1 text-[12px] text-content outline-none placeholder:text-content/35 focus:border-content/30"
           />
         ) : (
-        <input
+        <input data-ui="input"
           value={custom}
           onChange={(event) => onCustom(event.target.value)}
           placeholder={question.input?.placeholder ?? uiT("Type your answer")}
           maxLength={question.input?.maxLength}
           aria-label={question.prompt}
-          className="desktop-field mt-1.5 w-full rounded-md border border-content/15 bg-transparent px-2 py-1 text-[12px] text-content outline-none placeholder:text-content/35 focus:border-content/30"
+          className="mt-1.5 w-full rounded-md border border-content/15 bg-transparent px-2 py-1 text-[12px] text-content outline-none placeholder:text-content/35 focus:border-content/30"
         />
         )
       ) : (
@@ -517,11 +518,11 @@ function QuestionFields({
                   </span>
                 </button>
                 {isCustom && (active || customSelected) ? (
-                  <input
+                  <input data-ui="input"
                     value={custom}
                     onChange={(event) => onCustom(event.target.value)}
                     placeholder={uiT("Type your answer")}
-                    className="desktop-field mt-1 w-full rounded-md border border-content/15 bg-transparent px-2 py-1 text-[12px] text-content outline-none placeholder:text-content/35 focus:border-content/30"
+                    className="mt-1 w-full rounded-md border border-content/15 bg-transparent px-2 py-1 text-[12px] text-content outline-none placeholder:text-content/35 focus:border-content/30"
                     onClick={(event) => event.stopPropagation()}
                     onFocus={() => {
                       if (!customSelected) onSelect(customId);

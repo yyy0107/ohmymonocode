@@ -85,8 +85,9 @@ import {
 } from "../../features/connections/model/remoteProjects";
 import type { SessionSummary } from "../../features/sessions/data/sessionStore";
 import { SessionFiltersMenu } from "../../features/sessions/ui/SessionFiltersMenu";
-import { IconButton, WindowNavigationSpace } from "./WindowChrome";
-import { startWindowDrag } from "./startWindowDrag";
+import { IconButton } from "../../shared/ui/forms/IconButton";
+import { WindowNavigationSpace } from "./WindowChrome";
+import { windowDragRegion } from "./startWindowDrag";
 import { SidebarTransition } from "./SidebarTransition";
 import { SidebarTabs } from "./SidebarTabs";
 import { ResizeHandle } from "../../shared/ui/ResizeHandle";
@@ -1061,10 +1062,9 @@ function SidebarComponent(props: SidebarProps) {
         {props.desktopMode && !props.chromeInMenuBar ? (
           <header
             data-desktop-sidebar-header
-            data-tauri-drag-region="deep"
-            onMouseDownCapture={startWindowDrag}
+            {...windowDragRegion()}
           >
-            {props.headerNavigation ?? <>{props.onToggleSidebar ? <IconButton label={toggleLabel} onClick={props.onToggleSidebar}>
+            {props.headerNavigation ?? <>{props.onToggleSidebar ? <IconButton size="sm" label={toggleLabel} onClick={props.onToggleSidebar}>
               <PanelLeft className="size-5" />
             </IconButton> : null}
             <div data-desktop-sidebar-mode>{props.modeToggle}</div>
@@ -1075,12 +1075,12 @@ function SidebarComponent(props: SidebarProps) {
         {!props.desktopMode && !props.chromeInMenuBar ? (
           <div
             className="flex h-10 shrink-0 select-none items-center pr-2"
-            data-tauri-drag-region="deep"
+            {...windowDragRegion()}
           >
             <WindowNavigationSpace />
             <div className="min-w-0 flex-1" />
             {props.onToggleSidebar ? (
-              <IconButton label={toggleLabel} onClick={props.onToggleSidebar}>
+              <IconButton size="sm" label={toggleLabel} onClick={props.onToggleSidebar}>
                 <PanelLeft className="size-3.5" />
               </IconButton>
             ) : null}
@@ -1143,7 +1143,7 @@ function SidebarComponent(props: SidebarProps) {
             </span>
           )}
           {props.onGoToFile ? (
-            <IconButton label={quickOpenLabel} onClick={props.onGoToFile}>
+            <IconButton size="sm" label={quickOpenLabel} onClick={props.onGoToFile}>
               <Search className="size-3.5" />
             </IconButton>
           ) : null}

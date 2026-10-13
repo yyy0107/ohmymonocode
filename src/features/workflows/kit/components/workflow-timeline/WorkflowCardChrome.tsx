@@ -4,8 +4,8 @@ import { workflowEntry } from "./workflow-motion.js";
 import type { ReactNode } from "react";
 import { List as ListIcon, Maximize2 as Maximize2Icon, Workflow } from "../../../../../shared/ui/icons";
 import type { WorkflowRunState } from "../../_shims/protocol.js";
-import { Button } from "../ui/button.js";
-import { cn } from "../lib/utils.js";
+import { Button } from "../../../../../shared/ui/forms/Button";
+import { cn } from "../../../../../shared/lib/cn";
 import { ControlHintTooltip } from "../../ControlHintTooltip.js";
 import {
   RUN_STATUS_DOT,

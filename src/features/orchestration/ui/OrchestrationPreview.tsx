@@ -704,7 +704,7 @@ export function OrchestrationPreview({
                       <>
                         <label className="block">
                           <span className={fieldLabel}>{uiT("Task")}</span>
-                          <input
+                          <input data-ui="input"
                             aria-label={uiT("Title for task {value0}", {
                               value0: String(index + 1),
                             })}

@@ -11,7 +11,7 @@ type Options = {
   min: number;
   /** Grid tracks can consume a custom property instead of an element width. */
   cssProperty?: "width" | `--${string}`;
-  direction?: "left" | "right";
+  direction?: "left" | "right" | "top" | "bottom";
   max: () => number;
   defaultWidth: number;
   initial: number;
@@ -88,13 +88,16 @@ export function useDragResize({
     event.stopPropagation();
     const handle = event.currentTarget;
     const pointerId = event.pointerId;
-    const startX = event.clientX;
+    const vertical = direction === "top" || direction === "bottom";
+    const point = (ev: { clientX: number; clientY: number }) => vertical ? ev.clientY : ev.clientX;
+    const sign = direction === "left" || direction === "top" ? -1 : 1;
+    const startPoint = point(event);
     const startW = widthRef.current;
     handle.setPointerCapture(pointerId);
     setDragging(true);
     const restoreSelection = suppressTextSelection();
     const previousCursor = document.body.style.cursor;
-    document.body.style.cursor = "col-resize";
+    document.body.style.cursor = vertical ? "row-resize" : "col-resize";
     document.documentElement.classList.add("is-resizing");
     let pending = startW;
     let frame: number | null = null;
@@ -102,7 +105,7 @@ export function useDragResize({
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return;
       pending = clamp(
-        startW + (ev.clientX - startX) * (direction === "left" ? -1 : 1),
+        startW + (point(ev) - startPoint) * sign,
       );
       if (frame != null) return;
       frame = requestAnimationFrame(() => {
@@ -137,7 +140,7 @@ export function useDragResize({
       if (ev.pointerId !== pointerId) return;
       if (ev.type === "pointerup") {
         pending = clamp(
-          startW + (ev.clientX - startX) * (direction === "left" ? -1 : 1),
+          startW + (point(ev) - startPoint) * sign,
         );
       }
       stop();

@@ -13,7 +13,7 @@ import {
 } from "../model/linkedWorkItemActivity";
 import { formatRelativeTime } from "../model/githubTasks";
 import { announceLinkedActivity } from "../../settings/model/sounds";
-import { GlassBackdrop } from "../../../app/shell/GlassBackdrop";
+import { GlassBackdrop } from "../../../shared/ui/GlassBackdrop";
 import {
   Archive,
   Check,

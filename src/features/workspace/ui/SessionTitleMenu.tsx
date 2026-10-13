@@ -42,13 +42,13 @@ export function SessionRenamePopover({
           anchor.focus();
         }}
       >
-        <input
+        <input data-ui="input"
           autoFocus
           aria-label={t("Rename")}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onFocus={(event) => event.currentTarget.select()}
-          className="desktop-field h-8 w-full rounded-md border border-content/15 bg-transparent px-2 text-[13px] text-content outline-none focus:border-accent"
+          className="h-8 w-full rounded-md border border-content/15 bg-transparent px-2 text-[13px] text-content outline-none focus:border-accent"
         />
       </form>
     </Popover>

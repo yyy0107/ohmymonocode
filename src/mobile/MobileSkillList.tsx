@@ -1,3 +1,4 @@
+import { Button } from "../shared/ui/forms/Button";
 import { MobileSpinner } from "./MobileSpinner";
 import { useEffect, useRef } from "react";
 import type { Skill } from "../features/skills/model/skillTypes";
@@ -45,9 +46,9 @@ export function MobileSkillList({
             {t("Could not load skills and commands.")}
             {error ? ` ${error}` : ""}
           </p>
-          <button type="button" className="mobile-button" onClick={onRetry}>
+          <Button variant="secondary" type="button" onClick={onRetry}>
             {t("Retry")}
-          </button>
+          </Button>
         </div>
       )}
       <div

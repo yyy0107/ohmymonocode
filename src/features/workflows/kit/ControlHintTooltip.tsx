@@ -1,7 +1,7 @@
 // Monocode shim for ZCode's ControlHintTooltip: a Radix tooltip with title and description.
 import type { ReactNode, Ref } from "react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./components/ui/tooltip.js";
-import { cn } from "./components/lib/utils.js";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../../shared/ui/primitives/Tooltip.js";
+import { cn } from "../../../shared/lib/cn";
 
 export interface ControlHintTooltipProps {
   children: ReactNode;

@@ -106,7 +106,7 @@ export function UpdateAvailableDialog({
           </section>
         ) : null}
         <label className="mt-8 flex cursor-pointer items-center gap-2.5 text-[14px]">
-          <input
+          <input data-ui="checkbox"
             type="checkbox"
             checked={autoInstall}
             onChange={(event) => {

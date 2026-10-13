@@ -1,3 +1,4 @@
+import { IconButton } from "../shared/ui/forms/IconButton";
 import { useEffect, useState } from "react";
 import type { HostProviderAccounts, HostProviderUsage } from "../features/connections/model/protocol";
 import { accountStatus } from "../features/providers/model/accountUsageStatus";
@@ -111,10 +112,10 @@ export function MobileProviderAccounts({ client, hostId, enabled }: {
     <div className="mobile-provider-accounts">
       <div className="mobile-account-toolbar">
         <p>{t("Accounts on {host}", { host: client.connection?.name ?? "Host" })}</p>
-        <button type="button" className="mobile-icon-button" aria-label={t("Refresh usage limits")}
+        <IconButton type="button" label={t("Refresh usage limits")}
           disabled={!connected || shown.loading || !visible} onClick={() => setRefresh(value => value + 1)}>
           <RefreshCw size={19} className={shown.loading ? "animate-spin" : undefined} />
-        </button>
+        </IconButton>
       </div>
       {!connected ? <p className="mobile-settings-footer">{t("Connect to a Host to view account usage.")}</p> : null}
       {shown.error ? <p className="mobile-form-error" role="alert">{t(shown.error)}</p> : null}

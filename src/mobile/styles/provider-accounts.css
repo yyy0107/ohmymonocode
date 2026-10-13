@@ -27,7 +27,7 @@
   font-size: var(--mobile-font-md);
   color: var(--color-m-ink-secondary);
 }
-.mobile-account-toolbar .mobile-icon-button {
+.mobile-account-toolbar [data-ui="icon-button"] {
   background: var(--mobile-card);
   border-radius: 50%;
 }
@@ -47,7 +47,7 @@
   color: var(--mobile-accent);
 }
 .mobile-account-notice strong {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .mobile-account-notice p {
   margin-top: 4px;
@@ -55,7 +55,7 @@
 }
 .mobile-settings-group h2.mobile-account-provider {
   margin: 0 4px 10px;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-m-ink-secondary);
 }
 .mobile-account-list {
@@ -76,7 +76,7 @@
 .mobile-account-heading strong {
   min-width: 0;
   overflow-wrap: anywhere;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   margin-right: auto;
 }
 .mobile-account-plan,

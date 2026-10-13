@@ -88,12 +88,12 @@ describe("reduced motion override", () => {
 });
 
 describe("appearance profiles", () => {
-  it("uses regular desktop defaults without changing the phone default", () => {
+  it("uses regular defaults on desktop and mobile", () => {
     expect(defaultAppearanceProfile()).toMatchObject({ uiWeight: 400, contentWeight: 400, codeWeight: 400 });
     expect(loadProfile("shared")).toMatchObject({ uiWeight: 400, contentWeight: 400, codeWeight: 400 });
     root().dataset.mobileSkin = "midnight";
-    expect(defaultAppearanceProfile()).toMatchObject({ uiWeight: 500, contentWeight: 500, codeWeight: 500 });
-    expect(loadProfile("shared")).toMatchObject({ uiWeight: 500, contentWeight: 500, codeWeight: 500 });
+    expect(defaultAppearanceProfile()).toMatchObject({ uiWeight: 400, contentWeight: 400, codeWeight: 400 });
+    expect(loadProfile("shared")).toMatchObject({ uiWeight: 400, contentWeight: 400, codeWeight: 400 });
   });
 
   it("keeps explicit saved desktop weights and font families", () => {

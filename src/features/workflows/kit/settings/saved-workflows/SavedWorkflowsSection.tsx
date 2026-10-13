@@ -6,9 +6,9 @@ import {
   TID_WORKFLOWS_REFRESH,
   resolveWorkspaceKey,
 } from "../../_shims/shared.js";
-import { Button } from "../../components/ui/button.js";
-import { Spinner } from "../../components/ui/spinner.js";
-import { cn } from "../../components/lib/utils.js";
+import { Button } from "../../../../../shared/ui/forms/Button";
+import { Spinner } from "../../../../../shared/ui/primitives/Spinner.js";
+import { cn } from "../../../../../shared/lib/cn";
 import { ControlHintTooltip } from "../../ControlHintTooltip.js";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 import { useTabStore } from "../../store/TabStoreProvider.js";
@@ -266,7 +266,7 @@ export function SavedWorkflowsSection({
         <ControlHintTooltip title={intl.formatMessage({ id: "workflows.hub.refresh" })}>
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="icon"
             aria-label={intl.formatMessage({ id: "workflows.hub.refresh" })}
             data-testid={TID_WORKFLOWS_REFRESH}

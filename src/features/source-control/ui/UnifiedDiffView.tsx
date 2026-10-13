@@ -1,3 +1,4 @@
+import { IconButton } from "../../../shared/ui/forms/IconButton";
 import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
@@ -413,7 +414,8 @@ const FileSection = memo(function FileSection({
         </button>
         {file.canDiscard && onDiscardFile ? (
           <IconButton
-            title={uiT("Discard file")}
+            size="xs"
+            label={uiT("Discard file")}
             disabled={busy}
             onClick={() => onDiscardFile(file.id)}
           >
@@ -1064,31 +1066,6 @@ function DiffCounts({
         <span className="text-red-400">-{formatInteger(deletions)}</span>
       ) : null}
     </span>
-  );
-}
-
-function IconButton({
-  title,
-  disabled,
-  onClick,
-  children,
-}: {
-  title: string;
-  disabled?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      disabled={disabled}
-      onClick={onClick}
-      className="grid size-6 place-items-center rounded-md text-content/45 hover:bg-content/6 hover:text-content disabled:opacity-40"
-    >
-      {children}
-    </button>
   );
 }
 

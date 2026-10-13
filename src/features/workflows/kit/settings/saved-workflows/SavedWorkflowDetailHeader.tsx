@@ -6,14 +6,14 @@ import {
   testId,
   type MonocodeSavedWorkflowEntry,
 } from "../../_shims/shared.js";
-import { Button } from "../../components/ui/button.js";
+import { Button } from "../../../../../shared/ui/forms/Button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../../components/ui/dropdown-menu.js";
+} from "../../../../../shared/ui/primitives/DropdownMenu.js";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 import {
   AutomationMoreHorizontalIcon,
@@ -71,7 +71,7 @@ export function SavedWorkflowDetailHeader({
           <DropdownMenuTrigger asChild>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="icon-lg"
               aria-label={intl.formatMessage({ id: "workflows.hub.card.menu" })}
               data-testid={TID_WORKFLOW_DETAIL_MENU}

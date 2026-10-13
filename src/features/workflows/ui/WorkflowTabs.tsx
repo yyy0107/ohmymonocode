@@ -6,7 +6,7 @@ import type { FilePaneTab, WorkflowAgentTabSource, WorkflowRunTabSource } from "
 import { AgentTranscript } from "../../sessions/ui/AgentTranscript";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { WorkflowRunSidePane } from "../kit/app-shell/WorkflowRunSidePane";
-import { TooltipProvider } from "../kit/components/ui/tooltip";
+import { TooltipProvider } from "../../../shared/ui/primitives/Tooltip";
 import type { WorkflowRunSidePaneTab } from "../kit/lib/workspaceSidePane";
 import { watchHostSession, type HostSessionLease } from "../model/workflowSessionWatch";
 import { useWorkflowApp } from "./workflowAppContext";

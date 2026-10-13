@@ -417,7 +417,7 @@ function createLiveTerminal(
     if (raf || isPaneResizing()) return;
     raf = requestAnimationFrame(() => {
       raf = 0;
-      applySize();
+      if (!isPaneResizing()) applySize();
     });
   };
   const stopSettled = onPaneResizeSettled(schedule);

@@ -43,13 +43,13 @@ import {
   type PresetLabels,
 } from "./parts.js";
 import type { ChartSpec } from "./spec.js";
-import { cn } from "../../../components/lib/utils.js";
+import { cn } from "../../../../../../shared/lib/cn";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
-} from "../../../components/ui/chart.js";
+} from "../../../../../../shared/ui/primitives/Chart.js";
 
 /** 点多到这个数以上就不画点了：一条挤满圆点的线比没有点更难读。 */
 const MAX_VISIBLE_DOTS = 60;

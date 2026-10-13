@@ -3,7 +3,7 @@ import { workflowEntry } from "./workflow-motion.js";
 import { RotatingIcon } from "../../../../../shared/ui/RotatingIcon";
 import { motionGeometry } from "../../../../../shared/motion/tokens";
 import { ArrowUpRight as ArrowUpRightIcon, ChevronDown as ChevronDownIcon, CircleX as CircleXIcon } from "../../../../../shared/ui/icons";
-import { cn } from "../lib/utils.js";
+import { cn } from "../../../../../shared/lib/cn";
 import { laneDisplayName } from "../workflow-graph/lane-name.js";
 import { useWorkflowIntl } from "../../i18n/IntlProvider.js";
 import type { RosterCounts, RosterMore } from "./roster-model.js";

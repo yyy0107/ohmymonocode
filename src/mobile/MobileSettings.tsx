@@ -1,4 +1,5 @@
-import { MobileSwitch } from "./MobileSwitch";
+import { Button } from "../shared/ui/forms/Button";
+import { Switch } from "../shared/ui/forms/Switch";
 import { MobileHapticSettings } from "./MobileHapticSettings";
 import { MobileSettingsIcon as SettingsIcon, MobileSettingsGlyph } from "./MobileSettingsIcon";
 import { useCallback, useRef, type CSSProperties, type ReactNode, type RefObject } from "react";
@@ -464,13 +465,13 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
             <SettingsIcon name="sounds" />
             <label className="mobile-settings-label">
               <span>{t("Sounds")}</span>
-              <MobileSwitch
-                type="checkbox"
-                role="switch"
-                className="mobile-switch"
+              <Switch
+
+
+
                 checked={soundsEnabled}
-                onChange={(event) =>
-                  onSoundsEnabledChange(event.currentTarget.checked)
+                onCheckedChange={(checked) =>
+                  onSoundsEnabledChange(checked)
                 }
               />
             </label>
@@ -480,15 +481,15 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
             <SettingsIcon name="notifications" />
             <label className="mobile-settings-label">
               <span>{t("System notifications")}</span>
-              <MobileSwitch
-                type="checkbox"
-                role="switch"
-                className="mobile-switch"
+              <Switch
+
+
+
                 checked={activity.enabled}
                 disabled={activity.permission === "unsupported"}
-                onChange={(event) =>
+                onCheckedChange={(checked) =>
                   void activity.setNotificationsEnabled(
-                    event.currentTarget.checked,
+                    checked,
                   )
                 }
               />
@@ -511,12 +512,12 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
                 {t("Notifications are blocked in system settings.")}
               </span>
               {activity.canOpenSettings ? (
-                <button
-                  className="mobile-button"
+                <Button variant="secondary"
+
                   onClick={() => void activity.openSettings()}
                 >
                   {t("Open settings")}
-                </button>
+                </Button>
               ) : null}
             </div>
           ) : null}
@@ -598,16 +599,16 @@ function MobileSettingsView({ vm }: { vm: MobileSettingsViewModel }) {
                   "When you send, the new prompt sits at the top of the transcript and the reply grows into the space below. Turn this off to keep the classic layout, with the latest message resting on the composer.",
                 )}
               </small>
-              <MobileSwitch
+              <Switch
                 id="mobile-transcript-anchor"
-                type="checkbox"
-                role="switch"
-                className="mobile-switch"
+
+
+
                 aria-label={t("Anchor prompts to top")}
                 aria-describedby="mobile-transcript-anchor-description"
                 checked={transcriptAnchor}
-                onChange={(event) =>
-                  onTranscriptAnchorChange(event.currentTarget.checked)
+                onCheckedChange={(checked) =>
+                  onTranscriptAnchorChange(checked)
                 }
               />
             </label>

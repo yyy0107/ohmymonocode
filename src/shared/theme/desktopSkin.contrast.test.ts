@@ -4,7 +4,7 @@ import { DESKTOP_SKIN_INFO } from "./desktopSkin";
 
 // WCAG 2.x contrast over the parsed desktop skin blocks, so palette edits are
 // gated. The phone palette is checked separately in src/mobile/theme.
-const css = readFileSync("src/styles/omb-skin.css", "utf8");
+const css = readFileSync("src/styles/desktop-theme.css", "utf8");
 function tokens(skin: string) {
   const block = new RegExp(`\\[data-skin="${skin}"\\] \\{([^}]*)\\}`).exec(css)![1];
   return Object.fromEntries(

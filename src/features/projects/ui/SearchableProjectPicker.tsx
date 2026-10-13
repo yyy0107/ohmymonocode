@@ -300,15 +300,16 @@ export function SearchableProjectPicker({
           side="bottom"
           align="start"
           gap={4}
-          width={286}
-          maxHeight={380}
+          width={256}
+          maxHeight={300}
           role="dialog"
+          data-menu-density="compact"
           aria-label={uiT("Project picker")}
           onDismiss={projectMenuActive ? undefined : closePicker}
           onKeyDown={onPickerKeyDown}
-          className="flex flex-col overflow-hidden"
+          className="project-picker-menu flex flex-col overflow-hidden"
         >
-          <label className="flex h-11 shrink-0 items-center gap-2.5 border-b border-stroke px-3 text-content/45 focus-within:text-content/70">
+          <label className="flex min-h-8 shrink-0 items-center gap-2 border-b border-stroke px-3 py-1 text-content/45 focus-within:text-content/70">
             <Search className="size-4 shrink-0" />
             <span className="sr-only">{uiT("Search projects")}</span>
             <input
@@ -324,7 +325,7 @@ export function SearchableProjectPicker({
           </label>
           <div
             ref={listRef}
-            className="min-h-0 flex-1 overflow-y-auto overscroll-none p-1.5"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-none p-1"
           >
             {filteredProjects.length > 0 ? (
               filteredProjects.map((item, index) => {
@@ -333,6 +334,7 @@ export function SearchableProjectPicker({
                     <button
                       key="all-projects"
                       type="button"
+                      data-menu-row="single"
                       onMouseEnter={() => setActive(index)}
                       onClick={() => pickProject("")}
                       className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] font-medium ${active === index ? "bg-selection text-content" : "text-content/75 hover:bg-content/3 hover:text-content"}`}
@@ -364,6 +366,7 @@ export function SearchableProjectPicker({
                   <button
                     key={item.path}
                     type="button"
+                    data-menu-row="single"
                     title={item.path}
                     onMouseEnter={() => setActive(index)}
                     onClick={() => pickProject(item.path)}
@@ -415,15 +418,16 @@ export function SearchableProjectPicker({
                 );
               })
             ) : (
-              <p className="px-2.5 py-5 text-center text-[12px] text-content/45">
+              <p className="px-2 py-3 text-center text-[12px] text-content/45">
                 {uiT("No projects found")}
               </p>
             )}
           </div>
           {onOpenProject ? (
-            <div className="shrink-0 border-t border-stroke p-1.5">
+            <div className="shrink-0 border-t border-stroke p-1">
               <button
                 type="button"
+                data-menu-row="single"
                 onClick={() => {
                   closePicker();
                   onOpenProject();
