@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { copyText } from "../../../platform/tauri/clipboard";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
-import { ExplorerMenu } from "../../files/ui/ExplorerMenu";
+import { ExplorerMenu } from "../../connections/files/ui/ExplorerMenu";
 import { pasteTerminalClipboard } from "../model/terminalClipboard";
 import {
   getPtyStatus,
@@ -428,7 +428,23 @@ function createLiveTerminal(
   });
   const bufferSub = term.buffer.onBufferChange(syncAltScreenMode);
   const observer = new ResizeObserver(schedule);
+  const syncFont = () => {
+    const family = terminalFont();
+    if (term.options.fontFamily === family) return;
+    term.options.fontFamily = family;
+    needsMeasurement = true;
+    schedule();
+  };
+  // xterm snapshots the CSS font stack. Update it when appearance settings
+  // change without recreating the terminal or its PTY.
+  const fontObserver = new MutationObserver(syncFont);
+  fontObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["style", "data-skin"],
+  });
   const onFontsLoaded = () => {
+    // The initial monospace probe may have run before the webfont was ready.
+    syncFont();
     needsMeasurement = true;
     schedule();
   };
@@ -441,6 +457,7 @@ function createLiveTerminal(
     cancelAnimationFrame(frame);
     if (raf) cancelAnimationFrame(raf);
     observer.disconnect();
+    fontObserver.disconnect();
     stopSettled();
     document.fonts?.removeEventListener("loadingdone", onFontsLoaded);
     stopCompositionGuard();

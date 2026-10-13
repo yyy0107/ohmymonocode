@@ -146,6 +146,7 @@ export function SwitchBranchDialog({
 
         <div className="relative">
           <textarea
+            data-code-label
             ref={messageRef}
             rows={1}
             value={message}

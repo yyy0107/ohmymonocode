@@ -35,13 +35,14 @@ import {
   ColorSwatchRow,
 } from "../../../shared/ui/ColorPickerPopover";
 import { Popover } from "../../../shared/ui/Popover";
+import { MenuHover } from "../../../shared/ui/MenuHover";
 import { ProjectLogoIcon } from "../../projects/ui/ProjectLogoIcon";
 import { ProjectMascot } from "../../projects/ui/ProjectMascot";
 import { MOD } from "../../../platform/tauri/platform";
 import {
   ExplorerMenu,
   type ExplorerMenuItem,
-} from "../../files/ui/ExplorerMenu";
+} from "../../connections/files/ui/ExplorerMenu";
 
 export type TabGroupMenuAction =
   "new-tab" | "new-window" | "close-group" | "ungroup" | "delete-group";
@@ -482,6 +483,8 @@ function MenuRow({
     <button
       type="button"
       role="menuitem"
+      data-menu-row={item.description ? "description" : "single"}
+      data-variant={item.danger ? "destructive" : undefined}
       disabled={item.disabled}
       aria-haspopup={item.submenu ? "menu" : undefined}
       aria-expanded={item.submenu ? expanded : undefined}
@@ -504,19 +507,22 @@ function MenuRow({
             : "text-content hover:bg-content/3"
       }`}
     >
+      <MenuHover />
       <Icon className="size-3.5 shrink-0 text-content/55" />
       <span
+        data-menu-title
         className={`min-w-0 flex-1 leading-label ${item.description ? "py-2" : "truncate"}`}
       >
         {item.label}
         {item.description ? (
-          <span className="mt-1 block text-[11px] leading-snug text-content/60">
+          <span data-menu-description className="mt-1 block text-[11px] leading-snug text-content/60">
             {item.description}
           </span>
         ) : null}
       </span>
       {item.submenu ? (
         <ChevronRight
+          data-menu-arrow
           className="size-3.5 shrink-0 text-content/50"
         />
       ) : null}

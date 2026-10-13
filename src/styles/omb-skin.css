@@ -1,4 +1,4 @@
-/* Desktop semantic palettes: Grok static light + existing Midnight dark adaptation.
+/* Desktop semantic palettes from the measured light/dark reference.
    Mapping onto MonoCode:
    - `--color-app` is the thread (window / background).
    - `--color-panel` is the sidebar and window chrome.
@@ -47,7 +47,7 @@
 
 /* Skin-independent metrics shared by `src/shared/ui/omb`. */
 :root {
-  --radius-composer: 22px;
+  --radius-composer: 14px;
   --radius-sheet: 16px;
   --radius-row: 10px;
   --row-h: 52px;
@@ -80,77 +80,80 @@ html.theme-light {
 }
 
 [data-skin="midnight"] {
-  --color-app: #070707;
-  --color-panel: #111111;
-  --color-raised: #2f2f2f;
-  --color-raised-hover: #3d3d3d;
-  --color-composer: #2f2f2f;
-  --color-composer-ring: transparent;
-  --color-card: #262626;
-  --color-menu: #262626;
-  --color-inset: #191919;
-  --color-control: #2f2f2f;
-  --color-hairline: #333333;
-  --color-ink: #fcfcfc;
-  --color-ink-secondary: #fcfcfc99;
-  --color-ink-tertiary: #fcfcfc90;
-  --color-accent: #1084fe;
-  --color-accent-border: #459ffe;
-  --color-accent-text: #7fc0ff;
-  --color-focus: #459ffe;
+  --color-app: #151515;
+  --color-panel: color(srgb .0658824 .0658824 .0658824);
+  --color-raised: #ffffff13;
+  --color-raised-hover: #ffffff1f;
+  --color-composer: #20201f;
+  --color-composer-ring: #ffffff1f;
+  --color-card: #1a1a19;
+  --color-menu: #20201f;
+  --color-inset: #1a1a19;
+  --color-control: #ffffff13;
+  --color-hairline: #ffffff1f;
+  --color-ink: #f0efec;
+  --color-ink-secondary: #c3c2b7;
+  --color-ink-tertiary: #898781;
+  --color-accent: #2a78d6;
+  --color-accent-border: #2a78d6;
+  --color-accent-text: #79b7ff;
+  --color-focus: #2a78d6;
   --color-accent-ink: #ffffff;
-  --color-bubble-user: #5a5a5a;
-  --color-bubble-user-ink: #fcfcfc;
-  --color-success: #38d591;
+  --color-bubble-user: #272727;
+  --color-bubble-user-ink: #f0efec;
+  --color-success: #32d74b;
   --color-danger: #ff5667;
-  --color-danger-ink: #ffffff;
-  --color-success-ink: #072114;
-  --color-warning: #ff9800;
-  --color-scrollbar: #3d3d3d;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
+  --color-danger-ink: #151515;
+  --color-success-ink: #151515;
+  --color-warning: #ffb65c;
+  --color-scrollbar: #ffffff33;
+  --color-backdrop: #00000080;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
 }
 
 [data-skin="daylight"] {
-  --color-app: #fcfcfc;
-  --color-panel: #f7f7f7;
-  --color-raised: #7777772b;
-  --color-raised-hover: #7777772b;
-  --color-composer: #fcfcfc;
-  --color-composer-ring: #14141426;
-  --color-card: #eeeeee;
-  --color-menu: #fcfcfc;
-  --color-inset: #f7f7f7;
-  --color-control: #77777717;
-  --color-hairline: #14141426;
-  --color-ink: #141414;
-  --color-ink-secondary: #1414149c; /* contrast adaptation: >=4.5 on selected fill */
-  --color-ink-tertiary: #1414149c;
-  --color-accent: #0b62c4;
-  --color-accent-border: #1084fe;
-  --color-accent-text: #0c64c1;
-  --color-focus: #0c64c1;
+  --color-app: #fcfcfb;
+  --color-panel: color(srgb .982353 .982353 .976471);
+  --color-raised: #0b0b0b0d;
+  --color-raised-hover: #0b0b0b1a;
+  --color-composer: #ffffff;
+  --color-composer-ring: #0b0b0b1f;
+  --color-card: #ffffff;
+  --color-menu: #ffffff;
+  --color-inset: #f9f9f7;
+  --color-control: #0b0b0b0d;
+  --color-hairline: #0b0b0b1f;
+  --color-ink: #0b0b0b;
+  --color-ink-secondary: #52514e;
+  --color-ink-tertiary: #898781;
+  --color-accent: #2a78d6;
+  --color-accent-border: #2a78d6;
+  --color-accent-text: #2368ba;
+  --color-focus: #2a78d6;
   --color-accent-ink: #ffffff;
-  --color-bubble-user: #070707;
-  --color-bubble-user-ink: #fcfcfc;
-  --color-success: #1f7a4d;
+  --color-bubble-user: #f0f0ef;
+  --color-bubble-user-ink: #0b0b0b;
+  --color-success: #1e7f35;
   --color-danger: #c02b3a;
   --color-danger-ink: #ffffff;
   --color-success-ink: #ffffff;
   --color-warning: #8a5a00;
-  --color-scrollbar: #c4c4c4;
+  --color-scrollbar: #0b0b0b33;
+  --color-backdrop: #00000066;
   --radius-lg: 8px;
-  --radius-xl: 14px;
+  --radius-xl: 12px;
 }
 
-/* Repaint the existing surface ladder from the skin. Do not reassign
-   `--color-panel` / `--color-card` / `--color-accent` here: the skin block
-   already set those to concrete colours, and this rule is the same
-   specificity. */
-html[data-skin] {
+/* Repaint the existing surface ladder from the desktop skin. Repeating the
+   attribute gives this bridge priority over the later legacy html.theme-light
+   defaults in index.css; inline user appearance values still take precedence.
+   Keep --color-panel / --color-card / --color-accent concrete in the skin block
+   so the legacy aliases cannot form circular references. */
+html[data-skin][data-skin] {
   /* Hover fills sit lighter than the raised-hover step, which stays for
      borders and emphasis. */
-  --color-hover-fill: color-mix(in srgb, var(--color-raised-hover) 55%, transparent);
+  --color-hover-fill: var(--color-control);
   --color-background-base: var(--color-app);
   --color-background: var(--color-app);
   --window-color: var(--color-app);
@@ -190,15 +193,7 @@ html[data-skin] .shell-chrome {
   background: var(--color-panel);
 }
 
-html[data-skin].has-native-glass:not(.theme-light) .sidebar-glass {
-  background: color-mix(
-    in srgb,
-    var(--color-panel) calc(var(--sidebar-opacity) * var(--window-opacity) * 100%),
-    transparent
-  );
-}
-
-/* OpenMausBot control colors. Unlayered so a skin wins over Tailwind color
+/* Shared desktop control colors. Unlayered so a skin wins over Tailwind color
    utilities on the same node; sizes live in omb-metrics.css. Classic and the
    phone shell never set data-skin, so their controls stay as written. */
 html[data-skin] .ui-button,
@@ -206,7 +201,7 @@ html[data-skin] .ui-icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 120ms ease, color 120ms ease;
+  transition: background-color 60ms var(--ease-omb), color 60ms var(--ease-omb);
 }
 html[data-skin] .ui-button {
   border: 1px solid var(--color-hairline, var(--color-stroke));
@@ -291,34 +286,6 @@ html[data-skin] [data-sidebar-search] {
 
 html[data-skin] [data-sidebar-search] > div:first-child {
   background: var(--color-inset);
-}
-
-/* Composer colors; sizes live in omb-metrics.css. */
-html[data-skin] [data-composer-layout="desktop"] .composer-surface-with-workspace {
-  background: var(--color-panel);
-  box-shadow: none;
-}
-
-html[data-skin] [data-composer-layout="desktop"] .composer-input-shell {
-  background: var(--color-composer);
-  border-color: var(--color-composer-ring);
-}
-
-html[data-skin] [data-composer-layout="desktop"] .composer-footer .composer-plus {
-  border: 0;
-  background: transparent;
-  color: var(--color-ink);
-}
-
-html[data-skin] [data-composer-layout="desktop"] .composer-send:disabled {
-  background: var(--color-control);
-  color: var(--color-ink-tertiary);
-  opacity: 1;
-}
-
-html[data-skin] [data-composer-layout="desktop"] .composer-footer .composer-plus:is(:hover, [aria-expanded="true"]) {
-  background: var(--color-hover-fill);
-  color: var(--color-ink);
 }
 
 html[data-skin]:not(.has-user-accent) .primary-action:not(:disabled):hover {
@@ -476,40 +443,46 @@ html[data-skin] .approval-toast [data-approval="allow"] {
   order: 2;
 }
 
-/* Right-hand sheet. Settings, search and assistant share the app dialog and
-   dock to the right edge. A right-side terminal only picks up the chrome;
-   its size stays on the dock grid. Classic never sets data-skin. */
+/* App dialogs share the reference's centered panel geometry. */
 html[data-skin] .omb-slide-panel {
-  background: var(--color-panel);
+  background: var(--color-card);
   color: var(--color-ink);
-  border-left: 1px solid var(--color-hairline);
+  border-color: var(--color-hairline);
 }
 
 html[data-skin] .app-view-dialog.omb-slide-panel {
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: auto;
-  width: min(960px, calc(100% - 48px));
-  height: 100%;
-  margin: 0;
-  /* Classic centers with inset + auto margins, never a translate, so a
-     skin has no transform to undo and the sheet cannot be left offset. */
-  translate: none;
-  transform: none;
+  inset: 0;
+  width: min(1024px, calc(100% - 32px));
+  height: min(800px, calc(100% - 32px));
+  margin: auto;
   border: 0;
-  border-left: 1px solid var(--color-hairline);
-  background: var(--color-panel);
+  border-radius: 12px;
+  background: var(--color-card);
   color: var(--color-ink);
-  box-shadow: -24px 0 48px color-mix(in srgb, black 32%, transparent);
+  box-shadow: 0 0 0 1px var(--color-hairline), 0 4px 18px #0000001f;
+}
+
+html[data-skin] [data-app-view-dialog] > .modal-backdrop,
+html[data-skin] [data-window-chrome-backdrop] {
+  background: var(--color-backdrop);
+  backdrop-filter: none;
 }
 
 html[data-skin] .app-view-dialog.omb-slide-panel > .popover-backdrop {
   display: none;
 }
 
-html[data-skin] .app-view-dialog.omb-slide-panel .modal-panel {
-  animation: none;
+html[data-skin] .app-view-dialog-close {
+  width: 32px;
+  height: 32px;
+  top: 12px;
+  right: 12px;
+  border-radius: 8px;
+}
+
+html[data-skin] .app-view-dialog-close svg {
+  width: 20px;
+  height: 20px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -521,7 +494,7 @@ html[data-skin] .app-view-dialog.omb-slide-panel .modal-panel {
   }
 }
 
-/* Sidebar tree. Section labels read as OpenMausBot group captions; dense
+/* Sidebar tree. Section labels read as desktop group captions; dense
    session rows put the agent icon in a round avatar before the title. */
 html[data-skin] [data-sidebar-section-header] [data-sidebar-section-toggle] > span:first-child {
   font-size: 11px;
@@ -588,7 +561,7 @@ html[data-skin] [data-project-header] [data-project-machine] {
   }
 }
 
-/* Live turn: OpenMausBot typing dots lead the working line. Classic keeps
+/* Live turn: typing dots lead the working line. Classic keeps
    the shimmer alone. */
 html:not([data-skin]) .transcript-typing {
   display: none;
@@ -605,9 +578,7 @@ html[data-skin] [data-composer-layout="desktop"] .composer-stop:hover {
   background: color-mix(in srgb, var(--color-ink) 85%, var(--color-app));
 }
 
-/* Overlay surfaces: popovers, composer menus, dialogs and quick open share
-   one glass panel — 14–16px corners, the skin's sheet shadow, and a frosted
-   menu fill that still follows Panel opacity. Open/close and focus stay with
+/* Overlay surfaces share opaque reference surfaces and a small panel shadow. Open/close and focus stay with
    the owning component. */
 html[data-skin] :is(.popover-frame, .composer-popover, .modal-frame, .quick-open-panel) {
   border-color: color-mix(in srgb, var(--color-hairline) 70%, transparent);
@@ -621,23 +592,12 @@ html[data-skin] :is(.modal-frame, .quick-open-panel) {
 
 html[data-skin] :is(.popover-frame, .modal-frame) > .popover-backdrop,
 html[data-skin] :is(.composer-popover, .quick-open-panel) {
-  background: color-mix(
-    in srgb,
-    var(--color-menu) calc(var(--panel-opacity, 1) * 88%),
-    transparent
-  );
-  -webkit-backdrop-filter: var(--glass-filter);
-  backdrop-filter: var(--glass-filter);
+  background: var(--color-menu);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  html[data-skin] :is(.popover-frame, .modal-frame) > .popover-backdrop,
-  html[data-skin] :is(.composer-popover, .quick-open-panel) {
-    background: var(--color-menu);
-  }
-}
-
-/* Popovers open on the OpenMausBot pop-in timing. */
+/* Popup lifetimes and reduced motion remain with the shared primitives. */
 
 @media (prefers-reduced-motion: reduce) {
   html[data-skin] .popover-open {

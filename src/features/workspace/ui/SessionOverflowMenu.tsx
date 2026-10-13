@@ -15,8 +15,9 @@ import {
   Pencil,
 } from "../../../shared/ui/icons";
 import { Popover } from "../../../shared/ui/Popover";
+import { MenuHover } from "../../../shared/ui/MenuHover";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
-import { ExplorerMenu } from "../../files/ui/ExplorerMenu";
+import { ExplorerMenu } from "../../connections/files/ui/ExplorerMenu";
 import type { Session } from "../../sessions/model/session";
 import { useSessionHeaderActions } from "./SessionHeaderActions";
 import { delegateDesktopSession } from "../../bots/model/delegateDesktopSession";
@@ -69,6 +70,7 @@ export function SessionOverflowMenu({
         ref={button}
         type="button"
         data-session-overflow-menu={session.id}
+        data-menu-trigger="session"
         data-tauri-drag-region="false"
         aria-label={t("More actions")}
         title={t("More actions")}
@@ -78,6 +80,7 @@ export function SessionOverflowMenu({
         onClick={() => setMode((current) => (current ? null : "menu"))}
         className="mr-1 grid size-7.5 shrink-0 self-center place-items-center rounded-md text-content/60 hover:bg-content/3 hover:text-content"
       >
+        <MenuHover />
         <MoreHorizontal className="size-4" />
       </button>
       <PresenceBoundary propagate>{visible && mode === "menu" && button.current ? (

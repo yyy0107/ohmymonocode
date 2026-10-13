@@ -41,7 +41,7 @@ vi.mock("../../../integrations/harness", () => ({
   generatePrContent: vi.fn(async () => null),
 }));
 
-vi.mock("../../files/model/fileWatch", () => ({
+vi.mock("../../connections/files/model/fileWatch", () => ({
   invalidateWatchedFiles,
   nudgeWatchedFiles: vi.fn(),
 }));

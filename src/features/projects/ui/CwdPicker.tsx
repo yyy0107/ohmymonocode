@@ -21,6 +21,7 @@ import { isChatFolder } from "../model/chatFolderPath";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
 import { LAYER } from "../../../shared/lib/layers";
 import { Popover } from "../../../shared/ui/Popover";
+import { MenuHover } from "../../../shared/ui/MenuHover";
 import { ProjectLogoIcon } from "./ProjectLogoIcon";
 import { MOD } from "../../../platform/tauri/platform";
 
@@ -39,6 +40,8 @@ type Props = {
   buttonClassName?: string;
   /** Chevron on the trailing edge; flips when the menu is open. */
   chevron?: boolean;
+  /** A compact presentation label; menus and accessible names keep the full path. */
+  shortLabel?: string;
   children?: ReactNode;
   onCwdChange: (path: string) => void;
   /** Leaves the project; the next message starts a projectless chat. */
@@ -73,6 +76,7 @@ export function CwdPicker({
   className,
   buttonClassName,
   chevron = false,
+  shortLabel,
   children,
   onCwdChange,
   onClear,
@@ -261,13 +265,15 @@ export function CwdPicker({
       >
         {children ?? (
           <>
-            {clearable ? null : (
+            {clearable && !shortLabel ? null : (
               <ProjectLogoIcon
                 path={projectLogoPath}
                 fallbackStrokeWidth={1.5}
+                className={shortLabel ? "cwd-picker-project-icon size-3.5 shrink-0" : undefined}
               />
             )}
-            <span className="truncate font-mono text-[12px]">{label}</span>
+            <span className={`${shortLabel ? "cwd-picker-full-label " : ""}truncate font-mono text-[12px]`}>{label}</span>
+            {shortLabel ? <span className="cwd-picker-short-label hidden truncate">{shortLabel}</span> : null}
           </>
         )}
         {chevron ? (
@@ -328,6 +334,7 @@ export function CwdPicker({
                     ref={active === index ? activeRef : undefined}
                     type="button"
                     role="menuitem"
+                    data-highlighted={active === index || undefined}
                     title={item.path}
                     onMouseDown={(e) => e.stopPropagation()}
                     onMouseEnter={() => {
@@ -341,7 +348,8 @@ export function CwdPicker({
                         : "text-content/80 hover:bg-content/3"
                     }`}
                   >
-                    <span className="min-w-0 truncate text-[13px]">
+                    <MenuHover />
+                    <span data-menu-title className="min-w-0 truncate text-[13px]">
                       {renderProjectLabel?.(item.path) ?? basename(item.path)}
                     </span>
                     <span className="max-w-28 shrink-0 truncate font-mono text-[11px] text-content/45">
@@ -356,6 +364,7 @@ export function CwdPicker({
                 ref={moreRef}
                 type="button"
                 role="menuitem"
+                data-highlighted={active === moreIndex || moreOpen || undefined}
                 aria-haspopup="menu"
                 aria-expanded={moreOpen}
                 onMouseDown={(e) => e.stopPropagation()}
@@ -374,7 +383,8 @@ export function CwdPicker({
                     : "text-content/80 hover:bg-content/3"
                 }`}
               >
-                <span className="text-[13px]">{uiT("More Projects")}</span>
+                <MenuHover />
+                <span data-menu-title className="text-[13px]">{uiT("More Projects")}</span>
                 <ChevronRight
                   className="size-3.5 shrink-0"
                 />
@@ -386,6 +396,7 @@ export function CwdPicker({
               <button
                 type="button"
                 role="menuitem"
+                data-highlighted={active === newTerminalIndex || undefined}
                 onMouseDown={(e) => e.stopPropagation()}
                 onMouseEnter={() => {
                   setMoreOpen(false);
@@ -398,7 +409,8 @@ export function CwdPicker({
                     : "text-content/80 hover:bg-content/3"
                 }`}
               >
-                <span className="text-[13px]">{uiT("New terminal")}</span>
+                <MenuHover />
+                <span data-menu-title className="text-[13px]">{uiT("New terminal")}</span>
                 <span className="shrink-0 font-mono text-[11px] text-content/45">
                   {MOD}`
                 </span>
@@ -432,7 +444,8 @@ export function CwdPicker({
               onClick={() => pick({ kind: "recent", path: item.path })}
               className="flex w-full items-center justify-between gap-3 px-2.5 py-2 text-left text-content/80 hover:bg-content/3 hover:text-content"
             >
-              <span className="min-w-0 truncate text-[13px]">
+              <MenuHover />
+              <span data-menu-title className="min-w-0 truncate text-[13px]">
                 {renderProjectLabel?.(item.path) ?? basename(item.path)}
               </span>
               <span className="max-w-28 shrink-0 truncate font-mono text-[11px] text-content/45">

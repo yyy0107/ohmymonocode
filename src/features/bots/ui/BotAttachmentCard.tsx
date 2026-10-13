@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { RemoteAttachment } from "../../connections/model/protocol";
-import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
-import { formatFileSize } from "../../files/model/filePreview";
+import { FileTypeIcon } from "../../connections/files/ui/FileTypeIcon";
+import { formatFileSize } from "../../connections/files/model/filePreview";
 import { Download, Loader2 } from "../../../shared/ui/icons";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
@@ -25,7 +25,7 @@ export function BotAttachmentCard({ file, onOpen, read }: { file: RemoteAttachme
   return <div className="desktop-bot-file-card">
     <button type="button" className="desktop-bot-file-open" onClick={onOpen ?? (() => void download())} disabled={busy || !visible} aria-label={t("Open {value0}", { value0: file.name })}>
       <span className="desktop-bot-file-icon"><FileTypeIcon name={file.name} isDir={false} size={24} /></span>
-      <span><strong>{file.name}</strong><small>{formatFileSize(file.size)}</small></span>
+      <span><strong data-file-label>{file.name}</strong><small>{formatFileSize(file.size)}</small></span>
     </button>
     <button type="button" className="assistant-icon-button" aria-label={t("Download {name}", { name: file.name })} disabled={busy || !visible} onClick={() => void download()}>{busy ? <Loader2 size={17} /> : <Download size={17} />}</button>
     {error && <small role="alert">{t(error)}</small>}

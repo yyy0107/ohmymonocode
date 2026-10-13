@@ -2,6 +2,7 @@ import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { Check } from "../../../shared/ui/icons";
 import { type ReactNode } from "react";
 import { Popover } from "../../../shared/ui/Popover";
+import { MenuHover } from "../../../shared/ui/MenuHover";
 import {
   DEFAULT_SESSION_SIDEBAR_FILTERS,
   hasActiveSessionFilters,
@@ -134,6 +135,7 @@ export function SessionFiltersMenu({
             onClick={() => onChange(DEFAULT_SESSION_SIDEBAR_FILTERS)}
             className="flex h-7 w-full items-center rounded-lg px-2 text-left text-[13px] leading-none text-content/70 hover:bg-content/3 hover:text-content"
           >
+            <MenuHover />
             {uiT("Clear filters")}
           </button>
         </>
@@ -170,8 +172,9 @@ function FilterItem({
       onClick={onClick}
       className="flex h-7 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] leading-none text-content hover:bg-content/3"
     >
+      <MenuHover />
       {icon}
-      <span className="min-w-0 flex-1 truncate leading-label">{label}</span>
+      <span data-menu-title className="min-w-0 flex-1 truncate leading-label">{label}</span>
       {checked ? (
         <Check className="size-3.5 shrink-0" strokeWidth={2.25} />
       ) : null}

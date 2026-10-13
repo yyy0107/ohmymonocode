@@ -12,7 +12,7 @@ import { BOT_SELECTION_EVENT, readBotSelection, selectBotThread } from "../model
 import { useBotUnread } from "../model/useBotUnread";
 import { readBotPins, writeBotPins } from "../model/botPins";
 import { BotRecipientPicker } from "./BotRecipientPicker";
-import { ExplorerMenu } from "../../files/ui/ExplorerMenu";
+import { ExplorerMenu } from "../../connections/files/ui/ExplorerMenu";
 import { BotAvatar } from "./BotAvatar";
 import { BotThreadSwitcher } from "./DesktopBotsChrome";
 import { BotMemoryDrafts } from "../model/botMemoryDrafts";

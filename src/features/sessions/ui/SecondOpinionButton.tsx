@@ -1,4 +1,5 @@
 import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
+import { MenuHover } from "../../../shared/ui/MenuHover";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
   Check,
@@ -450,6 +451,7 @@ export function SecondOpinionButton({
                     data-provider-index={index}
                     type="button"
                     role="menuitem"
+                    data-highlighted={highlighted || undefined}
                     aria-haspopup={
                       modelsFor(harness).length > 0 ? "menu" : undefined
                     }
@@ -473,8 +475,9 @@ export function SecondOpinionButton({
                           : "text-content hover:bg-content/3"
                     }`}
                   >
+                    <MenuHover />
                     <HarnessIcon harness={harness} className="size-3.5" />
-                    <span className="min-w-0 flex-1 truncate">
+                    <span data-menu-title className="min-w-0 flex-1 truncate">
                       {HARNESS_TITLE[harness]}
                     </span>
                     {modelsFor(harness).length > 0 ? (
@@ -520,6 +523,7 @@ export function SecondOpinionButton({
                     data-model-index={index}
                     type="button"
                     role="menuitem"
+                    data-highlighted={highlighted || undefined}
                     aria-haspopup={
                       modelEffortSetting(model)?.options.length
                         ? "menu"
@@ -545,7 +549,8 @@ export function SecondOpinionButton({
                         : "text-content hover:bg-content/3"
                     }`}
                   >
-                    <span className="min-w-0 flex-1 truncate">
+                    <MenuHover />
+                    <span data-menu-title className="min-w-0 flex-1 truncate">
                       {model.name}
                     </span>
                     {model.id === preferred ? (
@@ -589,6 +594,7 @@ export function SecondOpinionButton({
                     key={option.value}
                     type="button"
                     role="menuitemradio"
+                    data-highlighted={highlighted || undefined}
                     aria-checked={selected}
                     onMouseDown={(event) => event.preventDefault()}
                     onMouseEnter={() => setEffortActive(index)}
@@ -597,7 +603,8 @@ export function SecondOpinionButton({
                       highlighted ? "bg-selection" : "hover:bg-content/3"
                     }`}
                   >
-                    <span className="min-w-0 flex-1 truncate">
+                    <MenuHover />
+                    <span data-menu-title className="min-w-0 flex-1 truncate">
                       {option.label}
                     </span>
                     {selected ? (

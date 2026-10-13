@@ -43,9 +43,9 @@ import { TabWidthMotion } from "../../../app/shell/ClosingTab";
 import {
   ExplorerMenu,
   type ExplorerMenuItem,
-} from "../../files/ui/ExplorerMenu";
-import { FileActionError } from "../../files/ui/FileActionError";
-import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
+} from "../../connections/files/ui/ExplorerMenu";
+import { FileActionError } from "../../connections/files/ui/FileActionError";
+import { FileTypeIcon } from "../../connections/files/ui/FileTypeIcon";
 import { HarnessIcon } from "../../sessions/ui/HarnessIcon";
 
 type Props = {
@@ -307,7 +307,7 @@ export function SurfaceTabs({
   }, [activeFileId, sortable.draggingId]);
 
   return (
-    <div className="flex h-10 min-w-0 shrink-0 border-b border-stroke/50">
+    <div data-surface-tab-strip className="flex h-10 min-w-0 shrink-0 border-b border-stroke/50">
       <div
         ref={lockOverscroll}
         role="tablist"
@@ -423,6 +423,8 @@ export function SurfaceTabs({
                   <FileTypeIcon name={iconName} isDir={false} size={14} />
                 )}
                 <span
+                  data-file-label={(isFilesystemTab(file) && !changes) || undefined}
+                  data-code-label={!!commit || undefined}
                   className={`min-w-0 flex-1 truncate ${file.preview ? "italic" : ""} ${
                     errors
                       ? active
@@ -488,6 +490,7 @@ export function SurfaceTabs({
       {trailing}
       <PresenceBoundary propagate>{menu && menuFile ? (
         <ExplorerMenu
+          density="compact"
           x={menu.x}
           y={menu.y}
           items={surfaceTabMenuItems(menuFile, files.length > 1)}

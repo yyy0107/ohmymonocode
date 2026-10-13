@@ -382,6 +382,39 @@ describe("remote host API", () => {
     }
   });
 
+  it("polls 64 idle sessions without transcript cache churn and still delivers later updates", async () => {
+    const s = await setup();
+    await s.engine.ready;
+    const created = s.engine.command({ type: "create", commandId: "many-polls", projectId: s.project.id,
+      harness: "codex", model: "codex:test", runtimeMode: "supervised" });
+    const template = s.store.session(created.sessionId);
+    const ids = Array.from({ length: 64 }, (_, index) => `idle-${index}`);
+    for (const id of ids) {
+      s.store.save({ ...template, session: { ...template.session, id } }, { type: "seed" });
+      // The public privacy guard learns ownership once, independently of polling.
+      expect(s.store.isAssistantSession(id)).toBe(false);
+    }
+    const prepare = vi.spyOn(s.store.db, "prepare");
+    try {
+      for (let pass = 0; pass < 2; pass++) for (const sessionId of ids) {
+        expect((await s.call("sessions.sync", { sessionId, revision: template.revision })).value.result)
+          .toMatchObject({ kind: "unchanged" });
+        expect((await s.call("sessions.get", { sessionId, revision: template.revision })).value.result).toBeNull();
+      }
+      expect(prepare.mock.calls.filter(([sql]) => /SELECT snapshot FROM sessions/i.test(sql))).toHaveLength(0);
+    } finally {
+      prepare.mockRestore();
+    }
+    s.store.updateSession(ids[0], { title: "Changed after polling" });
+    expect((await s.call("sessions.sync", { sessionId: ids[0], revision: template.revision })).value.result)
+      .toMatchObject({ kind: "delta", value: { session: { title: "Changed after polling" } } });
+    expect((await s.call("sessions.get", { sessionId: ids[0], revision: template.revision })).value.result)
+      .toMatchObject({ session: { title: "Changed after polling" } });
+    s.store.db.prepare("INSERT INTO retired_sessions VALUES (?)").run(ids[1]);
+    for (const method of ["sessions.sync", "sessions.get"])
+      expect((await s.call(method, { sessionId: ids[1], revision: template.revision })).value.error).toContain("Session not found");
+  });
+
   it("preserves missing and retired session handling in the assistant privacy guard", async () => {
     const s = await setup();
     const created = s.engine.command({ type: "create", commandId: "privacy-retired", projectId: s.project.id,
@@ -1570,4 +1603,22 @@ it("keeps Room send receipts and cancellation scoped while its member waits for 
   expect(s.send).toHaveBeenCalledTimes(1);
   expect((await s.call("botThreads.runs", { botId: bot.bot.id, threadId: bot.thread.id })).value.result.runs[0].status).toBe("running");
   expect((await s.call("botRooms.messages", { roomId: other.id })).value.result.messages).toEqual([]);
+});
+
+it("allows both file write APIs during a shared turn and protects exclusive changes", async () => {
+  const s = await setup(); await s.engine.ready;
+  writeFileSync(join(s.directory, "concurrent.txt"), "before");
+  const session = s.engine.command({ type: "create", commandId: "concurrent", projectId: s.project.id, harness: "codex", model: "codex:test", runtimeMode: "supervised" });
+  s.engine.command({ type: "send", commandId: "concurrent-send", sessionId: session.sessionId, text: "Work" });
+  await vi.waitFor(() => expect(s.send).toHaveBeenCalledTimes(1));
+  expect((await s.call("files.write", { projectId: s.project.id, path: "concurrent.txt", expected: "before", content: "manual" })).status).toBe(200);
+  expect((await s.call("workspace.run", { command: "write_text_file", args: { path: join(s.directory, "concurrent.txt"), content: "second write" } })).status).toBe(200);
+  expect(readFileSync(join(s.directory, "concurrent.txt"), "utf8")).toBe("second write");
+  expect((await s.call("git.switch", { projectId: s.project.id, branch: "other" })).status).toBe(400);
+  s.finish();
+  await vi.waitFor(() => expect(s.store.session(session.sessionId).status).toBe("idle"));
+  s.store.db.prepare("INSERT INTO checkout_resources VALUES ('native:terminal', ?, 'writing', ?)").run(s.directory, process.pid);
+  const blocked = await s.call("git.switch", { projectId: s.project.id, branch: "other" });
+  expect(blocked.status).toBe(400);
+  expect(blocked.value.error).toContain("native:terminal");
 });

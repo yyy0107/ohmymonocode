@@ -29,14 +29,14 @@ type SkinInfo = {
 };
 
 export const DESKTOP_SKIN_INFO: Record<DesktopSkinId, SkinInfo> = {
-  midnight: { label: "Midnight", scheme: "dark", app: "#070707" },
+  midnight: { label: "Midnight", scheme: "dark", app: "#151515" },
   atelier: { label: "Atelier", scheme: "light", app: "#f5f1eb" },
   foundry: { label: "Foundry", scheme: "dark", app: "#100e0b" },
   lagoon: { label: "Lagoon", scheme: "light", app: "#dfeceb" },
   graphite: { label: "Graphite", scheme: "dark", app: "#111214" },
   linen: { label: "Linen", scheme: "light", app: "#eceff3" },
   dusk: { label: "Dusk", scheme: "dark", app: "#121014" },
-  daylight: { label: "Daylight", scheme: "light", app: "#fcfcfc" },
+  daylight: { label: "Daylight", scheme: "light", app: "#fcfcfb" },
   meadow: { label: "Meadow", scheme: "light", app: "#ffffff" },
 };
 
@@ -103,7 +103,7 @@ export function applyDesktopSkin(
   }
   const scheme = DESKTOP_SKIN_INFO[skin].scheme;
   root.dataset.skin = skin;
-  root.dataset.desktopVisual = "grok-static-v1";
+  root.dataset.desktopVisual = "claude-measured-v1";
   root.classList.toggle("theme-light", scheme === "light");
   root.style.colorScheme = scheme;
   return scheme;

@@ -692,7 +692,7 @@ export async function hostGitIndex(root: string): Promise<GitDiffIndex> {
 
 async function gitBlob(root: string, spec: string) {
   try {
-    const text = await git(root, ["show", spec], MAX_FILE + 1024);
+    const text = await git(root, ["show", spec], Infinity);
     return { text, binary: text.includes("\0"), tooLarge: false };
   } catch (error) {
     return {
@@ -719,15 +719,11 @@ export async function hostFileDiff(
   );
   const current = staged
     ? await gitBlob(root, `:${relativePath}`)
-    : await readHostFile(root, relativePath).then(
-        (text) => ({ text, binary: false, tooLarge: false }),
+    : await existingPath(root, relativePath).then((actual) => readFile(actual, "utf8")).then(
+        (text) => ({ text, binary: text.includes("\0"), tooLarge: false }),
         (error) => {
           if (file.status === "deleted")
             return { text: "", binary: false, tooLarge: false };
-          if (String(error).includes("too large"))
-            return { text: "", binary: false, tooLarge: true };
-          if (String(error).includes("Binary file"))
-            return { text: "", binary: true, tooLarge: false };
           throw error;
         },
       );

@@ -38,8 +38,114 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
+  delete document.documentElement.dataset.skin;
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+it("opens the desktop list at the current branch and keeps creation in the scrolling area", async () => {
+  document.documentElement.dataset.skin = "daylight";
+  vi.mocked(gitBranches).mockResolvedValueOnce({
+    current: "codex/current",
+    detached: false,
+    branches: [
+      ...Array.from({ length: 30 }, (_, index) => ({
+        name: `feature/${index}`,
+        current: false,
+        remote: null,
+      })),
+      { name: "codex/current", current: true, remote: null },
+      { name: "release", current: false, remote: "origin" },
+    ],
+  });
+  await act(async () =>
+    root.render(createElement(BranchPicker, { cwd: "/desktop-long-list" })),
+  );
+  await act(async () =>
+    container.querySelector<HTMLButtonElement>("button")!.click(),
+  );
+  const picker = document.querySelector<HTMLElement>("[data-branch-picker]")!;
+  const search = picker.querySelector<HTMLInputElement>("input")!;
+  const selected = picker.querySelector<HTMLElement>(
+    '[role="option"][aria-selected="true"]',
+  )!;
+  expect(selected.textContent).toBe("codex/current");
+  expect(selected.dataset.highlighted).toBe("true");
+  expect(search.placeholder).toBe("Search branches…");
+  const scroller = picker.querySelector(".branch-menu-scroll")!;
+  const create = [...picker.querySelectorAll("button")].find(
+    (button) => button.textContent === "New branch",
+  )!;
+  expect(scroller.contains(create)).toBe(true);
+  expect(scroller.contains(search)).toBe(false);
+  expect(picker.parentElement!.style.width).toBe("320px");
+  expect(picker.parentElement!.style.maxHeight).toBe("360px");
+  const calls = vi.mocked(gitCheckout).mock.calls.length;
+  await act(async () =>
+    search.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    ),
+  );
+  expect(vi.mocked(gitCheckout).mock.calls.length).toBe(calls);
+  expect(container.querySelector("button")!.getAttribute("aria-expanded")).toBe(
+    "false",
+  );
+});
+
+it("filters desktop branches and restores the current keyboard row when the query clears", async () => {
+  document.documentElement.dataset.skin = "daylight";
+  vi.mocked(gitBranches).mockResolvedValueOnce({
+    current: "main",
+    detached: false,
+    branches: [
+      { name: "feature/one", current: false, remote: null },
+      { name: "main", current: true, remote: null },
+      { name: "release", current: false, remote: "origin" },
+    ],
+  });
+  await act(async () =>
+    root.render(createElement(BranchPicker, { cwd: "/desktop-filter" })),
+  );
+  await act(async () =>
+    container.querySelector<HTMLButtonElement>("button")!.click(),
+  );
+  const picker = document.querySelector<HTMLElement>("[data-branch-picker]")!;
+  const search = picker.querySelector<HTMLInputElement>("input")!;
+  const set = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  )!.set!;
+  const query = (value: string) =>
+    act(() => {
+      set.call(search, value);
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  query("origin");
+  expect(
+    picker.querySelector('[data-highlighted="true"]')!.textContent,
+  ).toContain("release");
+  query("");
+  expect(picker.querySelector('[data-highlighted="true"]')!.textContent).toBe(
+    "main",
+  );
+  await act(async () =>
+    search.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    ),
+  );
+  expect(
+    picker.querySelector('[data-highlighted="true"]')!.textContent,
+  ).toContain("release");
+  await act(async () =>
+    search.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    ),
+  );
+  expect(gitCheckout).toHaveBeenCalledWith(
+    "/desktop-filter",
+    "release",
+    "origin",
+  );
 });
 
 it("autofocuses the branch search input only once the popover frame is visible", async () => {
@@ -197,9 +303,8 @@ it("checks out the highlighted matching branch when Enter is pressed", async () 
   });
 
   const picker = document.querySelector<HTMLElement>("[data-branch-picker]")!;
-  const highlighted = picker.querySelector<HTMLButtonElement>(
-    '[role="option"]',
-  )!;
+  const highlighted =
+    picker.querySelector<HTMLButtonElement>('[role="option"]')!;
   expect(highlighted.textContent).toContain("feature/picker");
   expect(
     [...picker.querySelectorAll<HTMLButtonElement>("button")].some(
@@ -225,23 +330,39 @@ it("checks out the highlighted matching branch when Enter is pressed", async () 
 });
 
 it("starts a fresh branch-name draft when the create dialog reopens before its exit completes", async () => {
-  await act(async () => root.render(createElement(BranchPicker, { cwd: "/draft-reopen", branch: "main" })));
+  await act(async () =>
+    root.render(
+      createElement(BranchPicker, { cwd: "/draft-reopen", branch: "main" }),
+    ),
+  );
   const trigger = container.querySelector<HTMLButtonElement>("button")!;
-  const live = <T extends Element>(selector: string) => [...document.querySelectorAll<T>(selector)].find(node => !node.closest("[inert]"))!;
+  const live = <T extends Element>(selector: string) =>
+    [...document.querySelectorAll<T>(selector)].find(
+      (node) => !node.closest("[inert]"),
+    )!;
   const openCreate = async () => {
     await act(async () => trigger.click());
     const picker = live<HTMLElement>("[data-branch-picker]");
-    const create = [...picker.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "New branch")!;
+    const create = [
+      ...picker.querySelectorAll<HTMLButtonElement>("button"),
+    ].find((button) => button.textContent === "New branch")!;
     await act(async () => create.click());
   };
   await openCreate();
   await act(async () => completeMotionAnimation(document.body));
   const original = live<HTMLInputElement>('input[aria-label="Branch name"]');
   await act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(original, "unsaved/draft");
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )!.set!.call(original, "unsaved/draft");
     original.dispatchEvent(new Event("input", { bubbles: true }));
   });
-  const cancel = [...live<HTMLElement>('[role="dialog"]').querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Cancel")!;
+  const cancel = [
+    ...live<HTMLElement>('[role="dialog"]').querySelectorAll<HTMLButtonElement>(
+      "button",
+    ),
+  ].find((button) => button.textContent === "Cancel")!;
   await act(async () => cancel.click());
   expect(original.isConnected).toBe(true);
   expect(original.closest<HTMLElement>('[role="dialog"]')?.inert).toBe(true);
@@ -254,6 +375,7 @@ it("starts a fresh branch-name draft when the create dialog reopens before its e
 
 vi.mock("motion/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("motion/react")>();
-  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  const { motionTestDriver } =
+    await import("../../../../tests/helpers/motionDriver");
   return { ...actual, ...motionTestDriver(actual, true) };
 });

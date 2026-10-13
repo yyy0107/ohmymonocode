@@ -9,7 +9,7 @@ vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: (path: string) => path,
 }));
 
-vi.mock("../../files/model/fileIndex", () => ({
+vi.mock("../../connections/files/model/fileIndex", () => ({
   peekProjectFiles: () => [],
   loadProjectFiles: async () => [],
   recentOpenedFiles: () => [],

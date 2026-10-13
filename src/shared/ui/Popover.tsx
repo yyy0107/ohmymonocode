@@ -438,7 +438,9 @@ function WebPopover({
   // Keep the backdrop-filter on a stable frame. WebKit can briefly paint a
   // stale backdrop when the same composited element is transformed and then
   // invalidated by a child hover. Only this unblurred content layer moves.
-  const frameInset = bare ? 0 : 2;
+  const frameInset = bare ? 0 : frame.current
+    ? frame.current.offsetHeight - frame.current.clientHeight
+    : 2;
   const contentMaxHeight = constrainHeight
     ? position
       ? Math.max(0, position.maxHeight - frameInset)

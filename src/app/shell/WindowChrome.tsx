@@ -104,6 +104,7 @@ export function TabVisitNav({
   panelActive = false,
   onToggleNavigation,
   navigationExpanded = true,
+  showProductIcon = true,
 }: {
   canGoBack?: boolean;
   canGoForward?: boolean;
@@ -113,21 +114,22 @@ export function TabVisitNav({
   panelActive?: boolean;
   onToggleNavigation?: () => void;
   navigationExpanded?: boolean;
+  showProductIcon?: boolean;
 }) {
   const { t } = useTranslation();
   const backLabel = useShortcutLabel("Back", "Tab: Back");
   const forwardLabel = useShortcutLabel("Forward", "Tab: Forward");
   const panelLabel = useShortcutLabel("Toggle Sidebar", "App: Toggle Sidebar");
   return (
-    <div className="flex shrink-0 items-center">
-      <div className="flex w-10 shrink-0 items-center pl-1">
+    <div data-window-visit-nav className="flex shrink-0 items-center">
+      {showProductIcon ? <div data-window-product-icon className="flex w-10 shrink-0 items-center pl-1">
         <img
           src="/monocode.png"
           alt="MonoCode"
           draggable={false}
           className="size-6 invert dark:invert-0"
         />
-      </div>
+      </div> : null}
       {onTogglePanel ? (
         <IconButton
           label={panelLabel}
@@ -176,13 +178,14 @@ const WINDOW_NAVIGATION_WIDTH = 40 + 112;
 const WINDOW_NAVIGATION_GAP = 12;
 export const WINDOW_NAVIGATION_END =
   WINDOW_NAVIGATION_LEFT + WINDOW_NAVIGATION_WIDTH + WINDOW_NAVIGATION_GAP;
-export const WINDOW_DRAG_BAR_HEIGHT = 40;
+export const WINDOW_DRAG_BAR_HEIGHT = 48;
 
 /** Keep native window dragging independent of the active page or pane layout. */
 export function WindowDragBar({
   navigationItems,
   windowLeading,
   windowActions,
+  windowNavigation,
   ...props
 }: Parameters<typeof TabVisitNav>[0] & {
   /** Collapsed sidebar destinations, displayed after the navigation toggle. */
@@ -191,6 +194,8 @@ export function WindowDragBar({
   windowLeading?: ReactNode;
   /** Window-wide actions shown just before the window controls. */
   windowActions?: ReactNode;
+  /** A custom navigation cluster, or null when supplied by the parent shell. */
+  windowNavigation?: ReactNode;
 }) {
   return (
     <header
@@ -200,9 +205,12 @@ export function WindowDragBar({
       className="shell-chrome relative grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] select-none items-center"
       style={{ height: WINDOW_DRAG_BAR_HEIGHT }}
     >
-      <WindowNavigation {...props} />
+      {windowNavigation === undefined ? <WindowNavigation {...props} /> : null}
       <div className="flex items-center self-stretch">
-        <div className="shrink-0" style={{ width: WINDOW_NAVIGATION_END }} />
+        {windowNavigation === undefined ? <div
+          className="shrink-0"
+          style={{ width: WINDOW_NAVIGATION_END }}
+        /> : windowNavigation}
         {navigationItems}
       </div>
       <div
@@ -233,7 +241,7 @@ export function WindowNavigation(props: Parameters<typeof TabVisitNav>[0]) {
       aria-label={uiT("Window navigation")}
       data-window-navigation
       data-tauri-drag-region="false"
-      className="absolute z-20 flex h-10 items-center"
+      className="absolute z-20 flex h-full items-center"
       style={{
         left: WINDOW_NAVIGATION_LEFT,
         top: 0,

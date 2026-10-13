@@ -39,7 +39,7 @@ const { projectFiles, remoteFiles, loadProjectFiles, rankProjectFiles } =
     };
   });
 
-vi.mock("../../files/model/fileIndex", () => ({
+vi.mock("../../connections/files/model/fileIndex", () => ({
   loadProjectFiles,
   peekProjectFiles: vi.fn((cwd: string) =>
     cwd.startsWith("remote://") ? null : projectFiles,

@@ -1027,6 +1027,13 @@ describe("plan keys", () => {
 });
 
 describe("applyHarnessEvent context", () => {
+  it("ignores repeated readings while retaining partial updates and compaction", () => {
+    const session = applyHarnessEvent(newSession("pi", "/repo"), { type: "context", used: 1000, window: 128000 });
+    expect(applyHarnessEvent(session, { type: "context", window: 128000 })).toBe(session);
+    expect(applyHarnessEvent(session, { type: "context", used: 1000 })).toBe(session);
+    expect(applyHarnessEvent(session, { type: "context", used: 100 })).toMatchObject({ context: { used: 100, window: 128000 } });
+  });
+
   it("tracks the newest level instead of summing turns", () => {
     let session = newSession("claude", "/repo");
     session = applyHarnessEvent(session, {
@@ -1056,6 +1063,15 @@ describe("applyHarnessEvent context", () => {
 });
 
 describe("applyHarnessEvent turn metrics", () => {
+  it("ignores repeated metrics but preserves corrections and an explicit cleared sample", () => {
+    const session = applyHarnessEvent(appendUser(newSession("omp", "/repo"), "Work"), { type: "turn.metrics", outputTokens: 25 });
+    expect(applyHarnessEvent(session, { type: "turn.metrics", outputTokens: 25 })).toBe(session);
+    expect(applyHarnessEvent(session, { type: "turn.metrics", outputTokens: 20 }).blocks[0].turnMetrics?.outputTokens).toBe(20);
+    const cleared = applyHarnessEvent(session, { type: "turn.metrics", generationSample: null });
+    expect(cleared.blocks[0].turnMetrics?.generationSample).toBeNull();
+    expect(applyHarnessEvent(cleared, { type: "turn.metrics", generationSample: null })).toBe(cleared);
+  });
+
   it("attaches provider metrics to the latest user turn", () => {
     let session = appendUser(newSession("claude", "/repo"), "Explain this");
     session = applyHarnessEvent(session, {

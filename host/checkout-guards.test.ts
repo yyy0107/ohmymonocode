@@ -1,3 +1,4 @@
+import { HostResourceGuard } from "./bots/resources";
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -257,6 +258,7 @@ it.each(conformance.cases)("shares the desktop rule: $name", async ({ rows, requ
   const claim = async () => {
     if (request.kind === "resource") claimCheckoutResource(f.store, "request", path)();
     else if (request.kind === "writing") claimCheckoutWrite(f.store, "request", path)();
+    else if (request.kind === "executing") { const guard = new HostResourceGuard(f.store); if (!guard.acquire("test", { paths: [path] }).acquired) throw new Error("busy"); guard.close(); }
     else if (request.kind === "integrating") await withCheckoutIntegration(f.store, [path], async () => {});
     else await withCheckoutRemoval(f.store, path, async () => {});
   };

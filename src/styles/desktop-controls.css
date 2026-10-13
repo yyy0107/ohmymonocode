@@ -1,7 +1,50 @@
-/* Shared controls. Existing public props map to these desktop-only variants. */
+/* Shared desktop primitives retain their public props and semantic colors. */
+html[data-skin] :is(input[type="checkbox"]:not([role="switch"], [aria-hidden="true"], .sr-only), [data-slot="checkbox"]) {
+  appearance: none;
+  width: var(--desktop-checkbox-size);
+  height: var(--desktop-checkbox-size);
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid var(--color-stroke);
+  border-radius: var(--desktop-checkbox-radius);
+  background-color: transparent;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-origin: border-box;
+  background-size: 100% 100%;
+  color: #fff;
+  vertical-align: middle;
+  outline: none;
+  box-shadow: none;
+  transition: none;
+}
+html[data-skin] :is(input[type="checkbox"]:not([role="switch"], [aria-hidden="true"], .sr-only):is(:checked, :indeterminate), [data-slot="checkbox"]:is([data-state="checked"], [data-state="indeterminate"])) {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent);
+}
+html[data-skin] input[type="checkbox"]:not([role="switch"], [aria-hidden="true"], .sr-only, .appearance-none):checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m20 6-11 11-5-5' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+html[data-skin] input[type="checkbox"]:not([role="switch"], [aria-hidden="true"], .sr-only, .appearance-none):indeterminate {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 12h14' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+html[data-skin] :is(input[type="checkbox"]:not([role="switch"], [aria-hidden="true"], .sr-only), [data-slot="checkbox"]):focus-visible {
+  outline: 1px solid var(--color-accent);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 1px var(--color-app);
+}
+html[data-skin] :is(input[type="checkbox"]:not([role="switch"], [aria-hidden="true"], .sr-only), [data-slot="checkbox"]):disabled { opacity: .5; }
+html[data-skin] :is([data-slot="checkbox-checked-icon"], [data-slot="checkbox-indeterminate-icon"], [data-desktop-checkbox-mark]) {
+  color: #fff;
+  width: var(--desktop-checkbox-size);
+  height: var(--desktop-checkbox-size);
+  flex-shrink: 0;
+  stroke-width: 3;
+}
+
 html[data-skin] :is(.ui-button, .desktop-button) {
-  --button-height: 30px;
-  --button-padding: 13px;
+  --button-height: 32px;
+  --button-padding: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -9,20 +52,19 @@ html[data-skin] :is(.ui-button, .desktop-button) {
   height: auto;
   min-height: var(--button-height);
   padding: 0 var(--button-padding);
-  border-radius: calc(var(--button-height) / 2);
+  border-radius: 8px;
   font-size: var(--text-desktop-ui);
-  line-height: 1.384615;
-  font-weight: 500;
-  transition: background-color var(--desktop-feedback) ease-out, color var(--desktop-feedback) ease-out, border-color var(--desktop-feedback) ease-out;
+  line-height: 20px;
+  font-weight: 400;
+  transition: background-color var(--desktop-feedback) var(--desktop-popup-ease), color var(--desktop-feedback) var(--desktop-popup-ease), border-color var(--desktop-feedback) var(--desktop-popup-ease);
 }
-html[data-skin] :is(.ui-button-sm, .desktop-button[data-size="sm"]) { --button-height: 26px; --button-padding: 10px; font-size: var(--text-desktop-label); line-height: 1.333333; }
-html[data-skin] .desktop-button[data-size="xs"] { --button-height: 22px; --button-padding: 8px; font-size: var(--text-desktop-label); line-height: 1.333333; }
-html[data-skin] .desktop-button[data-size="lg"] { --button-height: 34px; --button-padding: 15px; }
-html[data-skin] .desktop-button[data-size="xl"] { --button-height: 38px; --button-padding: 18px; font-size: var(--text-desktop-body); line-height: 1.571429; }
+html[data-skin] :is(.ui-button-sm, .desktop-button[data-size="sm"]) { --button-height: 28px; --button-padding: 8px; border-radius: 7px; font-size: 13px; line-height: 19px; }
+html[data-skin] .desktop-button[data-size="xs"] { --button-height: 24px; --button-padding: 8px; border-radius: 6px; font-size: 13px; line-height: 19px; }
+html[data-skin] .desktop-button[data-size="lg"] { --button-height: 36px; --button-padding: 12px; border-radius: 9px; }
+html[data-skin] .desktop-button[data-size="xl"] { --button-height: 40px; --button-padding: 14px; border-radius: 10px; }
+html[data-skin] .desktop-button.rounded-full { border-radius: 999px; }
 html[data-skin] :is(.desktop-button, .ui-button):enabled:active { scale: none; }
-html[data-skin] .desktop-button[data-treatment="content"] { min-height: 0; padding: 6px 10px; gap: 4px; border-radius: 8px; }
-html[data-skin] .desktop-button[data-treatment="content"][data-size="sm"] { padding: 4px 6px; border-radius: 6px; }
-html[data-skin] .desktop-button[data-treatment="content"][data-size="lg"] { padding: 8px 12px; border-radius: 10px; }
+html[data-skin] .desktop-button[data-treatment="content"] { padding-inline: 8px; }
 
 html[data-skin] :is(.ui-icon-button, .desktop-icon-button, .desktop-button[data-size^="icon"]) {
   --icon-size: var(--desktop-icon-md);
@@ -33,32 +75,53 @@ html[data-skin] :is(.ui-icon-button, .desktop-icon-button, .desktop-button[data-
   height: var(--icon-size);
   min-height: var(--icon-size);
   padding: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   flex-shrink: 0;
-  transition: background-color var(--desktop-feedback-normal) ease, color var(--desktop-feedback-normal) ease;
+  transition: background-color var(--desktop-feedback) var(--desktop-popup-ease), color var(--desktop-feedback) var(--desktop-popup-ease);
 }
-html[data-skin] :is(.desktop-icon-button[data-size="xs"], .desktop-button[data-size="icon-xs"]) { --icon-size: var(--desktop-icon-xs); }
-html[data-skin] :is(.desktop-icon-button[data-size="sm"], .desktop-button[data-size="icon-sm"]) { --icon-size: var(--desktop-icon-sm); }
-html[data-skin] :is(.desktop-icon-button[data-size="lg"], .desktop-button[data-size="icon-lg"]) { --icon-size: var(--desktop-icon-lg); }
+html[data-skin] :is(.desktop-icon-button[data-size="xs"], .desktop-button[data-size="icon-xs"]) { --icon-size: var(--desktop-icon-xs); border-radius: 5px; }
+html[data-skin] :is(.desktop-icon-button[data-size="sm"], .desktop-button[data-size="icon-sm"]) { --icon-size: var(--desktop-icon-sm); border-radius: 6px; }
+html[data-skin] :is(.desktop-icon-button[data-size="lg"], .desktop-button[data-size="icon-lg"]) { --icon-size: var(--desktop-icon-lg); border-radius: 10px; }
 html[data-skin] .desktop-icon-button[data-shape="round"] { border-radius: 999px; }
-html[data-skin] :is(.ui-icon-button, .desktop-icon-button) svg { width: 16px; height: 16px; }
-html[data-skin] :is(.ui-button, .desktop-button, .desktop-icon-button, .ui-icon-button):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+html[data-skin] :is(.ui-icon-button, .desktop-icon-button) svg { width: 20px; height: 20px; }
+html[data-skin] .desktop-icon-button[data-size="sm"] svg { width: 16px; height: 16px; }
+html[data-skin] .desktop-icon-button[data-size="xs"] svg { width: 12px; height: 12px; }
+html[data-skin] .desktop-icon-button[data-size="lg"] svg { width: 24px; height: 24px; }
+html[data-skin] :is(.ui-button, .desktop-button, .desktop-icon-button, .ui-icon-button):focus-visible {
+  outline: 1px solid var(--color-focus);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 1px var(--color-app), 0 0 6px 1px #2a78d64d;
+}
 
 html[data-skin] :is(.desktop-field, [data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]) {
-  min-height: 30px;
+  min-height: 32px;
   height: auto;
   border-radius: var(--desktop-radius-field);
   border-width: var(--desktop-border);
   padding: 5px 10px;
   font-size: var(--text-desktop-ui);
-  line-height: 1.384615;
-  transition: border-color var(--desktop-feedback) ease, background-color var(--desktop-feedback) ease;
+  line-height: 20px;
+  transition: border-color var(--desktop-feedback) var(--desktop-popup-ease), background-color var(--desktop-feedback) var(--desktop-popup-ease);
 }
-html[data-skin] [data-slot="input"][data-size="xs"] { min-height: 22px; padding-block: 1px; }
-html[data-skin] [data-slot="input"][data-size="sm"] { min-height: 26px; padding-block: 3px; }
-html[data-skin] [data-slot="input"][data-size="lg"] { min-height: 34px; padding-block: 7px; }
+html[data-skin] [data-slot="input"][data-size="xs"] { min-height: 24px; padding-block: 1px; font-size: 13px; }
+html[data-skin] [data-slot="input"][data-size="sm"] { min-height: 28px; padding-block: 3px; font-size: 13px; }
+html[data-skin] [data-slot="input"][data-size="lg"] { min-height: 40px; padding-block: 9px; }
+html[data-skin] [data-slot="textarea"] { min-height: 4rem; }
+html[data-skin] .desktop-field-leading-icon,
+html[data-skin] [data-slot="input"].desktop-field-leading-icon { padding-inline-start: 36px; }
+html[data-skin] [data-slot="input"].desktop-field-trailing-icon { padding-inline-end: 36px; }
+html[data-skin] [data-desktop-select-trigger]:not([data-desktop-select-trigger="panel"]):not([data-desktop-select-trigger="row"]):not([data-desktop-select-trigger="pill"]) {
+  min-height: 32px;
+  height: auto;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border-width: 1px;
+  font-size: var(--text-desktop-ui);
+  line-height: 20px;
+}
+html[data-skin] [data-desktop-select-trigger]:active { scale: none; }
+html[data-skin] .desktop-select-arrow { transform: none; rotate: none; transition: none; }
 
-/* M05: stable leading inset avoids additive Tailwind transform + translate. */
 html[data-skin] :is(button[role="switch"], [data-slot="switch"]),
 html[data-skin] input[role="switch"] + span {
   position: relative;
@@ -87,52 +150,305 @@ html[data-skin] :is(button[role="switch"], [data-slot="switch"]):dir(rtl) { --de
 html[data-skin] :is(button[role="switch"], [data-slot="switch"]):disabled,
 html[data-skin] input[role="switch"]:disabled + span { background: var(--desktop-control-disabled); }
 
-html[data-skin] :is(.popover-frame, .composer-popover, [data-slot="select-content"]) { border-radius: var(--desktop-radius-card); border-width: var(--desktop-border); }
-html[data-skin] :is([data-desktop-select-option], [data-slot="select-item"]) { min-height: 40px; padding-inline: 10px; gap: 16px; border-radius: 8px; font-size: var(--text-desktop-ui); }
-html[data-skin] .modal-frame { border-radius: var(--desktop-radius-dialog); border-width: var(--desktop-border); }
-html[data-skin] [data-modal-context="settings"] :is(.modal-panel, .modal-backdrop) { animation: none; }
-html[data-skin] .desktop-modal-close { --icon-size: 32px; border-radius: 999px; }
+/* Density belongs to the menu, including portal menus, rather than the app mode. */
+html[data-skin] :is([data-menu-density="compact"], .popover-frame:has([data-menu-density="compact"])) {
+  --desktop-menu-row: 24px;
+  --desktop-menu-font: 13px;
+  --desktop-menu-leading: 19px;
+  --desktop-menu-pad-y: 2.5px;
+  --desktop-menu-pad-x: 8px;
+  --desktop-menu-radius: 6px;
+  --desktop-menu-icon: 16px;
+  --desktop-menu-gap: 6px;
+  --desktop-menu-panel-radius: 10px;
+}
+html[data-skin] :is(.popover-frame, .composer-popover, [data-slot="select-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"]) {
+  border-radius: var(--desktop-menu-panel-radius);
+  border-width: var(--desktop-border);
+}
+html[data-skin] :is(.popover-frame, .composer-popover) {
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+}
+html[data-skin] .popover-frame > [data-popover-side]:has([role^="menuitem"]),
+html[data-skin] .popover-frame > [data-popover-side]:has([data-menu-row]),
+html[data-skin] .composer-popover-gutter { padding: 4px; }
+html[data-skin] :is(.popover-frame, .composer-popover) :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]),
+html[data-skin] .panel-menu [role^="menuitem"],
+html[data-skin] .composer-popover-gutter > button,
+html[data-skin] :is([data-menu-row], [data-desktop-select-option], [data-slot="select-item"], [data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"], [data-slot="dropdown-menu-sub-trigger"]) {
+  gap: var(--desktop-menu-gap);
+  height: auto;
+  min-height: var(--desktop-menu-row);
+  padding: var(--desktop-menu-pad-y) var(--desktop-menu-pad-x);
+  border-radius: var(--desktop-menu-radius);
+  font-size: var(--desktop-menu-font);
+  line-height: var(--desktop-menu-leading);
+}
+html[data-skin] :is(.popover-frame, .composer-popover) :is([role^="menuitem"], [role="option"]) svg,
+html[data-skin] .composer-popover-gutter > button svg {
+  width: var(--desktop-menu-icon);
+  height: var(--desktop-menu-icon);
+}
+html[data-skin] :is(.popover-frame, .composer-popover, [role="menu"].panel-menu, [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"]) :is([role="separator"], [data-slot="dropdown-menu-separator"]) {
+  height: 1px;
+  min-height: 1px;
+  margin-block: 4px;
+  border: 0;
+  background: var(--color-hairline);
+}
+html[data-skin] :is(.popover-frame, .composer-popover) [role="option"] { border-radius: var(--desktop-menu-radius); }
+
+/* Keep reference menu geometry on desktop; other surfaces keep their own frame. */
+.composer-popover-gutter,
+[data-slot^="dropdown-menu-"] > [data-menu-gutter],
+[role="menu"].panel-menu > [data-menu-gutter] { display: contents; }
+.menu-hover-layer { display: none; }
+
+html[data-skin] :is(.popover-frame:has([role="menu"], [role="listbox"], [data-menu-density], [data-settings-font-menu], [data-menu-row]), .composer-popover, [role="menu"].panel-menu, [data-slot="select-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"]) {
+  min-width: 128px;
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 0;
+  border: 0;
+  background: var(--color-menu);
+  box-shadow: var(--shadow-panel) !important;
+}
+html[data-skin] :is(.composer-popover.composer-menu-panel, .popover-frame:has([data-model-picker])) {
+  max-width: min(416px, calc(100vw - 16px));
+}
+html[data-skin] .popover-frame:has([role="menu"], [role="listbox"], [data-menu-density], [data-settings-font-menu], [data-menu-row]) > .popover-backdrop { display: none; }
+html[data-skin] :is(.composer-popover, [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"]) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  gap: 0;
+}
+html[data-skin] :is(.composer-popover-gutter, [data-slot^="dropdown-menu-"] > [data-menu-gutter], [role="menu"].panel-menu > [data-menu-gutter]) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: inherit;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px;
+  gap: 0;
+}
+html[data-skin] :is([data-slot="select-content"], [data-slot="select-group"], [data-slot="dropdown-menu-group"], [data-slot="dropdown-menu-radio-group"]) { gap: 0; }
+html[data-skin] :is([data-slot="select-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"]) { padding-inline-end: 38px; }
+html[data-skin] [data-slot="select-group"] { padding: 0; }
+html[data-skin] [data-slot="select-content"] [data-menu-gutter] { padding: 4px; gap: 0; }
+html[data-skin] :is([data-slot="dropdown-menu-label"], [data-slot="select-label"], [data-menu-account-title]) {
+  min-height: 25px;
+  padding: 4px 10px;
+  font-size: 13px;
+  line-height: 17px;
+}
+html[data-skin] [data-menu-explanation] { min-height: 42px; padding: 4px 10px; font-size: 13px; line-height: 17px; }
+html[data-skin] :is(.popover-frame, .composer-popover) [data-menu-row="description"] { min-height: 50px; padding: 6px 10px 7px; }
+html[data-skin] [data-menu-row="description"] > [data-menu-title] { padding-block: 0; }
+html[data-skin] [data-menu-title] { font-size: inherit; line-height: inherit; }
+html[data-skin] [data-menu-description] { margin: 0; font-size: 13px; line-height: 17px; }
+html[data-skin] :is([data-menu-density="compact"], .composer-popover) [data-menu-option] {
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
+  background: transparent;
+}
+html[data-skin] :is([data-menu-icon], [data-menu-accessory]) { width: var(--desktop-menu-icon); height: var(--desktop-menu-icon); }
+html[data-skin] [data-menu-row] svg,
+html[data-skin] .panel-menu [role^="menuitem"] svg { width: var(--desktop-menu-icon); height: var(--desktop-menu-icon); }
+html[data-skin] [role="menu"].panel-menu { border-radius: var(--desktop-menu-panel-radius); }
+html[data-skin] [data-desktop-select-option] > span:has(> svg) { width: var(--desktop-menu-icon); height: var(--desktop-menu-icon); }
+html[data-skin][data-desktop-mode] .desktop-project-menu [role="menuitem"] svg { width: 20px; height: 20px; }
+html[data-skin] :is([data-slot="select-item"], [data-slot^="dropdown-menu-"]) svg { width: var(--desktop-menu-icon); height: var(--desktop-menu-icon); }
+html[data-skin] :is(.popover-frame, .composer-popover, [data-slot^="dropdown-menu-"]) svg[data-menu-arrow] { width: 16px; height: 16px; }
+html[data-skin] [data-slot="dropdown-menu-separator"] { margin-inline: 0; flex-shrink: 0; }
+html[data-skin] [data-slot="select-separator"] { height: 1px; margin-block: 4px; background: var(--color-hairline); flex-shrink: 0; }
+
+html[data-skin] :is(.popover-frame, .composer-popover, [data-slot="select-content"], [data-slot^="dropdown-menu-"]) :has(> [data-menu-hover]),
+html[data-skin] button:has(> [data-menu-hover]) {
+  position: relative;
+  isolation: isolate;
+  background: transparent !important;
+}
+html[data-skin] [data-menu-hover] {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: transparent;
+  transition: background-color var(--desktop-feedback) var(--desktop-popup-ease);
+}
+html[data-skin] :is(:hover, :focus-visible, [data-highlighted]:not([data-highlighted="false"]), .bg-selection, [data-state="open"]):not(:disabled, [aria-disabled="true"], [data-disabled]) > [data-menu-hover] { background: var(--cds-fill-ghost-hover); }
+html[data-skin] button:is([aria-expanded="true"], [data-active="true"]):not(:disabled, [aria-disabled="true"]) > [data-menu-hover] { background: var(--cds-fill-ghost-selected); }
+html[data-skin] button[data-menu-trigger="sidebar"] { width: 24px; height: 24px; border-radius: 6px; position: absolute; }
+html[data-skin] button[data-menu-trigger="sidebar"] svg { width: 16px; height: 16px; }
+html[data-skin] button[data-menu-trigger="session"] { width: 24px; height: 24px; border-radius: 6px; }
+html[data-skin] button[data-menu-trigger="session"] svg { width: 16px; height: 16px; }
+html[data-skin]:not(.theme-light) button[data-menu-trigger="session"][aria-expanded="true"] { width: 28px; height: 28px; }
+html[data-skin] button[data-menu-trigger="settings"] { width: 32px; height: 32px; border-radius: 8px; }
+html[data-skin] button[data-menu-trigger="settings"] svg { width: 20px; height: 20px; }
+html[data-skin][data-desktop-mode] button[data-menu-trigger="project"] { position: absolute; width: 32px; height: 32px; border-radius: 8px; }
+html[data-skin][data-desktop-mode] button[data-menu-trigger="project"] svg { width: 20px; height: 20px; }
+html[data-skin] [data-variant="destructive"]:not(:disabled, [aria-disabled="true"], [data-disabled]) { color: rgb(208 59 59); }
+html[data-skin] [data-variant="destructive"]:is(:hover, [data-highlighted]):not(:disabled, [aria-disabled="true"], [data-disabled]) { color: white; }
+html[data-skin] [data-variant="destructive"]:is(:hover, [data-highlighted]):not(:disabled, [aria-disabled="true"], [data-disabled]) > [data-menu-hover] { background: rgb(208 59 59); }
+
+html[data-skin] .popover-frame:has([data-settings-font-menu]) { width: 224px !important; }
+html[data-skin] [data-settings-font-gutter] { padding: 4px; }
+html[data-skin] [data-settings-font-listbox] { padding: 0; max-height: 128px; overflow-y: auto; overscroll-behavior: contain; }
+html[data-skin] [data-settings-font-option] {
+  height: auto;
+  min-height: 32px;
+  padding: 4px 12px;
+  gap: 8px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 20px;
+}
+html[data-skin] [data-settings-font-check] { width: 20px; height: 20px; }
 
 @media (prefers-reduced-motion: reduce) {
-  html[data-skin] :is(.ui-button, .desktop-button, .desktop-icon-button, .ui-icon-button, .desktop-field, [data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"], button[role="switch"], [data-slot="switch"]) { transition: none; }
+  html[data-skin] [data-menu-hover] { transition: none; }
 }
+html[data-skin][data-reduced-motion="on"] [data-menu-hover] { transition: none; }
 
-/* M08: the source select arrow does not rotate. */
-html[data-skin] .desktop-select-arrow { transform: none; rotate: none; transition: none; }
-
-html[data-skin] .desktop-field-leading-icon { padding-inline-start: 32px; }
-html[data-skin] .settings-card { border-color: var(--color-hairline); }
+/* Branch menus share the Code density, with a pinned search field below the list. */
+html[data-skin] .popover-frame:has(.branch-menu) {
+  border-radius: 10px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+}
+html[data-skin] .branch-menu { padding: 0; }
+html[data-skin] .branch-menu-viewport {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+html[data-skin] .branch-menu-viewport::before,
+html[data-skin] .branch-menu-viewport::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset-inline: 0 6px;
+  height: 8px;
+  pointer-events: none;
+  opacity: 0;
+}
+html[data-skin] .branch-menu-viewport::before { top: 0; background: linear-gradient(var(--color-menu), transparent); }
+html[data-skin] .branch-menu-viewport::after { bottom: 0; height: 24px; background: linear-gradient(transparent, var(--color-menu)); }
+html[data-skin] .branch-menu-viewport[data-scroll-above="true"]::before,
+html[data-skin] .branch-menu-viewport[data-scroll-below="true"]::after { opacity: 1; }
+html[data-skin] .branch-menu-scroll-up,
+html[data-skin] .branch-menu-scroll-down {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  color: color-mix(in srgb, var(--color-content) 10%, transparent);
+  pointer-events: none;
+  visibility: hidden;
+}
+html[data-skin] .branch-menu-scroll-up { top: 0; }
+html[data-skin] .branch-menu-scroll-down { bottom: 0; }
+html[data-skin] .branch-menu-scroll-thumb {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  width: 6px;
+  max-height: 100%;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-content) 30%, var(--color-menu));
+  touch-action: none;
+}
+html[data-skin] .branch-menu-viewport[data-scroll-above="true"] .branch-menu-scroll-up,
+html[data-skin] .branch-menu-viewport[data-scroll-below="true"] .branch-menu-scroll-down { visibility: visible; }
+html[data-skin] .branch-menu-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: none;
+  scrollbar-gutter: stable;
+}
+html[data-skin] .branch-menu-scroll::-webkit-scrollbar { width: 6px; }
+html[data-skin] .branch-menu-scroll::-webkit-scrollbar-thumb {
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-content) 30%, transparent);
+}
+html[data-skin] .branch-menu-list { padding: 4px; }
+html[data-skin] .branch-menu-scroll .branch-menu-list { flex: none; overflow: visible; }
+html[data-skin] .branch-menu .branch-menu-option {
+  height: 24px;
+  min-height: 24px;
+  gap: 8px;
+  padding: 2.5px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 19px;
+  font-weight: 400;
+  scroll-margin-block: 24px;
+  color: var(--color-content);
+  background: transparent;
+}
+html[data-skin] .branch-menu .branch-menu-option:is([aria-selected="true"], [data-highlighted="true"], :hover) {
+  background: color-mix(in srgb, var(--color-content) 5%, var(--color-menu));
+}
+html[data-skin] .branch-menu-name { font-weight: 400; }
+html[data-skin] .branch-menu-icon { display: none; }
+html[data-skin] .branch-menu .branch-menu-option .branch-menu-check {
+  order: 2;
+  width: 14px;
+  height: 14px;
+  color: var(--color-accent);
+}
+html[data-skin] .branch-menu-create { padding: 4px; border-color: var(--color-hairline); }
+html[data-skin] .branch-menu-create > button {
+  height: 24px;
+  padding: 2.5px 8px;
+  gap: 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 19px;
+}
+html[data-skin] .branch-menu-search {
+  order: 2;
+  height: 26px;
+  gap: 6px;
+  margin: 3px;
+  padding: 0 8px;
+  border: 1px solid var(--color-stroke);
+  border-radius: 6px;
+  color: var(--color-content);
+  background: color-mix(in srgb, var(--color-content) 4%, var(--color-menu));
+}
+html[data-skin] .branch-menu-search:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+html[data-skin] .branch-menu-search > svg { width: 12px; height: 12px; }
+html[data-skin] .branch-menu-search > input { padding: 0; font-size: 13px; line-height: 19px; }
+html[data-skin] .desktop-modal-close { --icon-size: 32px; border-radius: 8px; }
+html[data-skin] :is(.modal-frame, [data-slot="dialog-content"]) { border-radius: var(--desktop-radius-dialog); border-width: var(--desktop-border); }
+html[data-skin] :is([data-slot="card"], .settings-card) { border-radius: var(--desktop-radius-card); border-color: var(--color-hairline); }
 html[data-skin] .settings-row { border-color: var(--color-hairline); }
+html[data-skin] [data-slot="tabs-trigger"] { font-size: var(--text-desktop-ui); line-height: 20px; transition: color var(--desktop-feedback) var(--desktop-popup-ease), background-color var(--desktop-feedback) var(--desktop-popup-ease); }
+html[data-skin] [data-slot="tooltip-content"] { border-radius: 6px; font-size: 13px; line-height: 20px; }
+html[data-skin] .status-toast { border-radius: var(--desktop-radius-card); font-size: var(--text-desktop-body); line-height: 20px; }
 
-html[data-skin] .desktop-icon-button:enabled:active { scale: none; }
-html[data-skin] [data-desktop-select-trigger]:not([data-desktop-select-trigger="panel"]):not([data-desktop-select-trigger="row"]):not([data-desktop-select-trigger="pill"]) { min-height: 30px; height: auto; padding: 5px 10px; border-radius: 8px; border-width: .5px; font-size: var(--text-desktop-ui); line-height: 1.384615; }
-html[data-skin] [data-desktop-select-trigger]:active { scale: none; }
-html[data-skin] [data-slot="card"] { border-radius: var(--desktop-radius-card); border-width: var(--desktop-border); }
-html[data-skin] [data-slot="dialog-content"] { border-radius: var(--desktop-radius-dialog); border-width: var(--desktop-border); }
-html[data-skin] [data-slot="dialog-content"][data-modal-context="settings"],
-html[data-skin] [data-slot="dialog-overlay"][data-modal-context="settings"] { animation: none; }
-html[data-skin] [data-slot="select-content"][data-side="bottom"] { --desktop-popup-y: -2px; }
-html[data-skin] [data-slot="select-content"][data-side="top"] { --desktop-popup-y: 2px; }
-html[data-skin] [data-slot="select-content"][data-side="right"] { --desktop-popup-x: -2px; }
-html[data-skin] [data-slot="select-content"][data-side="left"] { --desktop-popup-x: 2px; }
+html[data-skin] :is([data-slot="select-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"])[data-side="bottom"] { --desktop-popup-y: -2px; }
+html[data-skin] :is([data-slot="select-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"])[data-side="top"] { --desktop-popup-y: 2px; }
+html[data-skin] :is([data-slot="select-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"])[data-side="right"] { --desktop-popup-x: -2px; }
+html[data-skin] :is([data-slot="select-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"])[data-side="left"] { --desktop-popup-x: 2px; }
 
-html[data-skin] [data-slot="input"].desktop-field-leading-icon { padding-inline-start: 36px; }
-html[data-skin] [data-slot="input"].desktop-field-trailing-icon { padding-inline-end: 36px; }
-html[data-skin] [data-slot="textarea"] { min-height: 4rem; }
-/* These primitives are project adaptations of the same menu/card families. */
-html[data-skin] :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"]) { border-radius: var(--desktop-radius-card); border-width: var(--desktop-border); }
-html[data-skin] :is([data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"], [data-slot="dropdown-menu-sub-trigger"]) { min-height: 32px; border-radius: var(--desktop-radius-field); font-size: var(--text-desktop-ui); line-height: 1.384615; }
-html[data-skin] [data-slot="tabs-trigger"] { font-size: var(--text-desktop-ui); line-height: 1.384615; transition: color var(--desktop-feedback) ease, background-color var(--desktop-feedback) ease; }
-html[data-skin] [data-slot="tooltip-content"] { border-radius: 8px; font-size: var(--text-desktop-label); line-height: 1.333333; }
 @media (prefers-reduced-motion: reduce) {
-  html[data-skin] [data-slot="tabs-trigger"] { transition: none; }
-}
-
-html[data-skin] .status-toast { border-radius: var(--desktop-radius-card); font-size: var(--text-desktop-body); line-height: 1.428571; }
-html[data-skin] :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"])[data-side="bottom"] { --desktop-popup-y: -2px; }
-html[data-skin] :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"])[data-side="top"] { --desktop-popup-y: 2px; }
-html[data-skin] :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"])[data-side="left"] { --desktop-popup-x: 2px; }
-html[data-skin] :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"])[data-side="right"] { --desktop-popup-x: -2px; }
-@media (prefers-reduced-motion: reduce) {
-  /* Preserve animationend for Radix Presence if the preference changes mid-exit. */
+  html[data-skin] :is(.ui-button, .desktop-button, .desktop-icon-button, .ui-icon-button, .desktop-field, [data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"], button[role="switch"], [data-slot="switch"], [data-slot="tabs-trigger"]) { transition: none; }
 }

@@ -94,6 +94,7 @@ export function WorkflowAgentTabView({ file, visible, onOpenFile }: {
           harness={session.harness}
           model={session.model}
           modelSettings={session.modelSettings}
+          executionState={session.executionState}
           managed
           onApproval={(requestId, decision) => void lease?.approve(requestId, decision).catch(() => undefined)}
           {...(onOpenFile ? { onOpenFile } : {})}

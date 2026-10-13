@@ -56,10 +56,9 @@ export function reviewDiffKey(scope: ReviewScope, path: string) {
   return JSON.stringify([scope.cwd, scope.source, scope.sessionId ?? "", path]);
 }
 
-const MAX_COMPARISON_CHARS = 2_000_000;
-const MAX_COMPARISON_LINES = 50_000;
 const MAX_RICH_CHARS = 180_000;
 const MAX_RICH_LINES = 1_200;
+export const REVIEW_VIRTUAL_HEIGHT = 560;
 
 function exceedsLines(text: string, limit: number) {
   let lines = text ? 1 : 0;
@@ -70,21 +69,30 @@ function exceedsLines(text: string, limit: number) {
 }
 
 export function prepareReviewDiff(diff: ReviewDiff): ReviewLoadedDiff {
-  // The native backend allows up to 8 MB per side. Avoid constructing a full
-  // CodeMirror line diff for inputs that are too expensive for this review UI.
-  const tooLarge =
-    diff.tooLarge ||
-    diff.original.length + diff.current.length > MAX_COMPARISON_CHARS ||
-    exceedsLines(diff.original, MAX_COMPARISON_LINES) ||
-    exceedsLines(diff.current, MAX_COMPARISON_LINES);
   return {
     ...diff,
-    tooLarge,
     unified:
-      diff.binary || tooLarge
+      diff.binary || diff.tooLarge
         ? null
         : buildUnifiedFile(diff.original, diff.current),
   };
+}
+
+/** Size changes the rendering strategy, never whether fetched text is shown. */
+export function virtualizeReviewDiff(diff: ReviewLoadedDiff): boolean {
+  if (!diff.unified) return false;
+  let lines = 0;
+  let chars = 0;
+  for (const block of diff.unified.blocks) {
+    if (block.kind !== "hunk") continue;
+    lines += block.lines.length;
+    if (lines > MAX_RICH_LINES) return true;
+    for (const line of block.lines) {
+      chars += line.text.length + 1;
+      if (chars > MAX_RICH_CHARS) return true;
+    }
+  }
+  return false;
 }
 
 /** Lazy cache shared across source switches. A refresh invalidates pending results too. */
@@ -175,8 +183,8 @@ export class ReviewDiffCache {
   }
 }
 
-// Pierre's default unified row and hunk separator heights.
-const DIFF_LINE_HEIGHT = 20;
+// ReviewDiffViewer's measured code row and Pierre's hunk separator heights.
+const DIFF_LINE_HEIGHT = 17;
 const DIFF_HUNK_HEIGHT = 32;
 const DIFF_NOTICE_HEIGHT = 48;
 const DIFF_DEFAULT_CONTEXT = 6;
@@ -190,6 +198,7 @@ export function estimateReviewBodyHeight(
   if (state?.state === "loaded") {
     const { unified, binary, tooLarge } = state.diff;
     if (binary || tooLarge || !unified) return DIFF_NOTICE_HEIGHT;
+    if (virtualizeReviewDiff(state.diff)) return REVIEW_VIRTUAL_HEIGHT;
     let lines = 0;
     let hunks = 0;
     for (const block of unified.blocks)
@@ -256,7 +265,6 @@ export function reviewFileMetadata(relative: string, diff: ReviewLoadedDiff) {
   const patch = ["--- review", "+++ review"];
   let oldStart = 1;
   let newStart = 1;
-  let previewLines = 0;
   const oldLast = diff.original.split("\n").length;
   const newLast = diff.current.split("\n").length;
   for (const block of diff.unified.blocks) {
@@ -267,8 +275,6 @@ export function reviewFileMetadata(relative: string, diff: ReviewLoadedDiff) {
       (line) => line.newNumber != null,
     ).length;
     if (block.kind === "hunk") {
-      previewLines += block.lines.length;
-      if (previewLines > MAX_RICH_LINES) return undefined;
       patch.push(
         `@@ -${oldCount ? oldStart : oldStart - 1},${oldCount} +${newCount ? newStart : newStart - 1},${newCount} @@`,
       );
@@ -288,7 +294,6 @@ export function reviewFileMetadata(relative: string, diff: ReviewLoadedDiff) {
     newStart += newCount;
   }
   const patchText = `${patch.join("\n")}\n`;
-  if (patchText.length > MAX_RICH_CHARS) return undefined;
   const patchOnly =
     diff.original.length + diff.current.length > MAX_RICH_CHARS ||
     exceedsLines(diff.original, MAX_RICH_LINES) ||
@@ -304,6 +309,9 @@ export function reviewFileMetadata(relative: string, diff: ReviewLoadedDiff) {
   if (metadata) {
     metadata.name = relative;
     metadata.prevName = relative;
+    // Keep large patches cheap to tokenize. Their full text, line numbers,
+    // additions/deletions and hunk actions remain available.
+    if (virtualizeReviewDiff(diff)) metadata.lang = "text";
   }
   return metadata;
 }

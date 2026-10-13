@@ -56,7 +56,7 @@ vi.mock("../../sessions/model/checkpoint", () => ({
   sessionCheckpointFileDiff: vi.fn(),
   subscribeReviewChanged: () => () => {},
 }));
-vi.mock("../../files/ui/FileTypeIcon", () => ({ FileTypeIcon: () => null }));
+vi.mock("../../connections/files/ui/FileTypeIcon", () => ({ FileTypeIcon: () => null }));
 vi.mock("./ReviewDiffsWorkerPool", () => ({
   ReviewDiffsWorkerPool: ({ children }: { children: ReactNode }) => children,
 }));

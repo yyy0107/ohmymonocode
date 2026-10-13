@@ -109,7 +109,7 @@ import { isRemoteProjectPath } from "../../features/projects/model/recents";
 import {
   ExplorerMenu,
   type ExplorerMenuItem,
-} from "../../features/files/ui/ExplorerMenu";
+} from "../../features/connections/files/ui/ExplorerMenu";
 import { HarnessIcon } from "../../features/sessions/ui/HarnessIcon";
 import { SessionWorktreeIcon } from "../../features/sessions/ui/SessionWorktreeIcon";
 import { TerminalSpinner } from "../../features/sessions/ui/TerminalSpinner";
@@ -2129,7 +2129,7 @@ const SessionCard = memo(function SessionCard({
               <span className="min-w-0">
                 <ParticleText
                   text={title}
-                  className={`min-w-0 line-clamp-1 text-ui-caption leading-snug text-content ${dense ? "font-normal" : "font-semibold"}`}
+                  className={`desktop-sidebar-session-title min-w-0 line-clamp-1 text-ui-caption leading-snug text-content ${dense ? "font-normal" : "font-semibold"}`}
                 />
               </span>
             </span>

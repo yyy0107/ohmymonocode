@@ -31,7 +31,7 @@ import {
   X,
 } from "../../../shared/ui/icons";
 import { ComposerNotice, ComposerNoticeButton } from "../../../shared/ui/ComposerNotice";
-import { ExplorerMenu } from "../../files/ui/ExplorerMenu";
+import { ExplorerMenu } from "../../connections/files/ui/ExplorerMenu";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 
 export function DesktopBotsMessageMenu({

@@ -4,6 +4,8 @@ import { act, createElement, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MenuBar } from "./MenuBar";
+import { WindowMenuButton } from "./WindowMenuButton";
+import { SurfaceVisibilityContext } from "../../shared/ui/SurfaceVisibility";
 import { APP_COMMANDS, type CommandHandlers } from "../commands/registry";
 import {
   saveKeybindingOverride,
@@ -303,6 +305,14 @@ describe("MenuBar", () => {
     expect(menuButton("File")).toBeDefined();
   });
 
+  it("keeps the Alt-revealed menu clear of custom window navigation", () => {
+    saveMenuBarVisible(false);
+    render({ windowNavigation: null, windowNavigationWidth: 248 });
+    tapAlt();
+    expect(container.querySelector<HTMLElement>("[data-menu-bar]")!.style.left).toBe("248px");
+    expect(menuButton("File")).toBeDefined();
+  });
+
   it("checks the menu bar item while it is pinned", () => {
     render();
     act(() => menuButton("View")!.click());
@@ -350,4 +360,39 @@ vi.mock("motion/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("motion/react")>();
   const { motionTestDriver } = await import("../../../tests/helpers/motionDriver");
   return { ...actual, ...motionTestDriver(actual, true) };
+});
+
+describe("WindowMenuButton", () => {
+  it("opens the compact menu and dispatches an available submenu command", async () => {
+    await act(async () => root.render(createElement(WindowMenuButton, {
+      handlers: { "Tab: New": () => {} }, dispatch,
+    })));
+    const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Main menu"]')!;
+    act(() => trigger.click());
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(openMenuItems().map(button => button.textContent)).toEqual(["File"]);
+    act(() => openMenuItems()[0].click());
+    const newTab = openMenuItems().find(button => button.textContent?.startsWith("New Tab"))!;
+    expect(newTab).toBeDefined();
+    act(() => newTab.click());
+    expect(dispatch).toHaveBeenCalledExactlyOnceWith("Tab: New");
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("localizes the compact menu and closes its portal when the sidebar hides", async () => {
+    const renderVisible = (visible: boolean) => act(async () => root.render(
+      createElement(SurfaceVisibilityContext.Provider, { value: visible },
+        createElement(WindowMenuButton, { handlers, dispatch })),
+    ));
+    await renderVisible(true);
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Main menu"]')!.click());
+    act(() => setUiLanguage("zh-CN"));
+    expect(container.querySelector('[aria-label="主菜单"]')).not.toBeNull();
+    expect(openMenuItems().some(button => button.textContent === "文件")).toBe(true);
+    await renderVisible(false);
+    act(() => completeMotionAnimation(document.body));
+    expect(document.querySelector('[role="menu"]')).toBeNull();
+    await renderVisible(true);
+    expect(container.querySelector('[aria-label="主菜单"]')?.getAttribute('aria-expanded')).toBe('false');
+  });
 });

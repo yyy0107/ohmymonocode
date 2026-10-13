@@ -14,7 +14,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
-import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
+import { FileTypeIcon } from "../../connections/files/ui/FileTypeIcon";
 import { HarnessIcon } from "../../sessions/ui/HarnessIcon";
 import { MatchText } from "../../../shared/ui/MatchText";
 import { ProjectLogoIcon } from "../../projects/ui/ProjectLogoIcon";
@@ -38,7 +38,7 @@ import {
   peekProjectFiles,
   rankProjectFiles,
   recentOpenedFiles,
-} from "../../files/model/fileIndex";
+} from "../../connections/files/model/fileIndex";
 import { prettyCwd, projectName } from "../../../shared/lib/paths";
 import {
   isLocalProject,
@@ -571,7 +571,7 @@ function ResultList({
             <span className="grid size-4 shrink-0 place-items-center">
               {row.icon}
             </span>
-            <span className="min-w-0 flex-1 truncate">{row.title}</span>
+            <span data-file-label={hit.kind === "file" || undefined} className="min-w-0 flex-1 truncate">{row.title}</span>
             {row.meta ? (
               <span className="min-w-0 max-w-[45%] truncate font-mono text-[11px] text-content/40">
                 {row.meta}

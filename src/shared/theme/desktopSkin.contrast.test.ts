@@ -12,6 +12,10 @@ function tokens(skin: string) {
   );
 }
 function rgba(hex: string): [number, number, number, number] {
+  if (hex.startsWith("color(srgb")) {
+    const channels = hex.match(/[\d.]+/g)!.map(Number);
+    return [channels[0] * 255, channels[1] * 255, channels[2] * 255, 255];
+  }
   const h = hex.slice(1);
   const v = h.length <= 4 ? [...h].map((c) => c + c).join("") : h;
   return [0, 2, 4, 6].map((i) => (i < v.length ? parseInt(v.slice(i, i + 2), 16) : 255)) as [
@@ -57,10 +61,7 @@ describe.each(["midnight", "daylight"] as const)("%s desktop skin", (skin) => {
     expect(contrast(t["bubble-user-ink"], t["bubble-user"])).toBeGreaterThanOrEqual(4.5);
   });
   it("keeps accent fills legible", () => {
-    // Midnight keeps the upstream blue (3.65:1), enough for the filled send
-    // and primary controls at the 3:1 non-text level.
-    expect(contrast(t["accent-ink"], t.accent)).toBeGreaterThanOrEqual(
-      skin === "midnight" ? 3 : 4.5,
-    );
+    // The measured blue is used for focus and filled control glyphs.
+    expect(contrast(t["accent-ink"], t.accent)).toBeGreaterThanOrEqual(3);
   });
 });

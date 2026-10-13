@@ -18,7 +18,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { ExplorerMenu } from "../../files/ui/ExplorerMenu";
+import { ExplorerMenu } from "../../connections/files/ui/ExplorerMenu";
 import { SurfaceTabs } from "../../workspace/ui/SurfaceTabs";
 import { IconButton } from "../../../app/shell/WindowChrome";
 import {

@@ -64,7 +64,7 @@ import {
   type WorkspaceMode,
   type ComposerTurnOptions,
 } from "../../sessions/model/session";
-import { FilePane } from "../../files/ui/FilePane";
+import { FilePane } from "../../connections/files/ui/FilePane";
 import { SessionPane, type SessionPaneProps } from "../../sessions/ui/SessionPane";
 import type { TranscriptPool } from "../../sessions/ui/TranscriptPool";
 import type { Worktree } from "../../source-control/model/worktrees";
@@ -1051,17 +1051,19 @@ function paneEnterFrom({ rect, axis }: LayoutLeaf): PaneEnterFrom {
   return "fade";
 }
 
-// ZCode panel rhythm: 4px window inset (none beside the sidebar and drag
-// strip) and 4px between neighbouring panels.
+// Desktop themes can set their panel rhythm without changing split ratios or
+// the stable tracks used by collapsed editor and terminal panes.
 const PANE_CARD_OUTER = 4;
 const PANE_CARD_GAP = 2;
 
 /** Outer window edges get the full gutter; shared edges split the gap between two cards. */
 function paneCardInset(rect: LayoutLeaf["rect"]): CSSProperties {
-  const side = (atEdge: boolean) => (atEdge ? PANE_CARD_OUTER : PANE_CARD_GAP);
+  const outer = `var(--desktop-pane-outer, ${PANE_CARD_OUTER}px)`;
+  const gap = `var(--desktop-pane-half-gap, ${PANE_CARD_GAP}px)`;
+  const side = (atEdge: boolean) => (atEdge ? outer : gap);
   return {
-    paddingLeft: rect.x < PANE_BOUNDARY_EPSILON ? 0 : PANE_CARD_GAP,
-    paddingTop: rect.y < PANE_BOUNDARY_EPSILON ? 0 : PANE_CARD_GAP,
+    paddingLeft: rect.x < PANE_BOUNDARY_EPSILON ? 0 : gap,
+    paddingTop: rect.y < PANE_BOUNDARY_EPSILON ? 0 : gap,
     paddingRight: side(rect.x + rect.w > 1 - PANE_BOUNDARY_EPSILON),
     paddingBottom: side(rect.y + rect.h > 1 - PANE_BOUNDARY_EPSILON),
   };

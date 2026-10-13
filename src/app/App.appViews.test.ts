@@ -130,8 +130,8 @@ vi.mock("./model/appLifecycle", async (original) => ({
   ...(await original<typeof import("./model/appLifecycle")>()),
   bindResumedSessions: () => {},
 }));
-vi.mock("../features/files/model/fileIndex", async (original) => ({
-  ...(await original<typeof import("../features/files/model/fileIndex")>()),
+vi.mock("../features/connections/files/model/fileIndex", async (original) => ({
+  ...(await original<typeof import("../features/connections/files/model/fileIndex")>()),
   prefetchProjectFiles: () => {},
   resolveFileOpenRequest: async (cwd: string, path: string) => {
     return await mocks.fileOpen(cwd, path);
@@ -153,10 +153,12 @@ vi.mock("./shell/MenuBar", async () => {
       dispatch,
       windowLeading,
       windowActions,
+      windowNavigation,
     }: {
       dispatch: (id: string) => void;
       windowLeading?: ReactNode;
       windowActions?: ReactNode;
+      windowNavigation?: ReactNode;
     }) =>
       el(
         "nav",
@@ -183,6 +185,7 @@ vi.mock("./shell/MenuBar", async () => {
         ),
         loadMenuBarVisible() ? el("div", { "data-window-leading": true }, windowLeading) : null,
         loadMenuBarVisible() ? windowActions : null,
+        loadMenuBarVisible() ? windowNavigation : null,
         loadMenuBarVisible() ? el(WindowControls) : null,
       ),
   };
@@ -227,6 +230,9 @@ vi.mock("./shell/Sidebar", async () => {
     Sidebar: ({
       navigation,
       footer,
+      modeToggle,
+      headerNavigation,
+      open,
       onOpenFile,
       onOpenDiff,
       cwd,
@@ -250,6 +256,9 @@ vi.mock("./shell/Sidebar", async () => {
     }: {
       navigation?: import("react").ReactNode;
       footer?: import("react").ReactNode;
+      modeToggle?: import("react").ReactNode;
+      headerNavigation?: import("react").ReactNode;
+      open?: boolean;
       onOpenFile: (
         path: string,
         navigation?: { line: number; column?: number },
@@ -258,7 +267,7 @@ vi.mock("./shell/Sidebar", async () => {
       cwd: string;
       gitCwd: string;
       projectHistory?: { id: string; cwd: string; title: string }[];
-      openSessions?: { id: string }[];
+      openSessions?: { id: string; cwd?: string }[];
       loadedProjectPaths?: ReadonlySet<string>;
       failedProjectPaths?: ReadonlySet<string>;
       onLoadProject: (cwd: string) => Promise<void>;
@@ -285,6 +294,7 @@ vi.mock("./shell/Sidebar", async () => {
           "data-sidebar-tab": tab,
           "data-open-sessions": openSessions.map((session) => session.id).join("|"),
         },
+        open ? (headerNavigation ?? modeToggle) : null,
         navigation,
         footer,
         ...["first", "recent", "replacement"].map((id) =>
@@ -293,7 +303,7 @@ vi.mock("./shell/Sidebar", async () => {
             {
               key: `select-${id}`,
               "data-select-session": id,
-              onClick: () => onSelectSession(id, "/repo"),
+              onClick: () => onSelectSession(id, openSessions.find(session => session.id === id)?.cwd ?? "/repo"),
             },
             id,
           ),
@@ -422,6 +432,12 @@ vi.mock("./shell/Sidebar", async () => {
       ),
   };
 });
+vi.mock("./shell/ProjectToolsPanel", async () => {
+  const { createElement: el } = await import("react");
+  return {
+    ProjectToolsPanel: ({ tab, cwd }: { tab: string; cwd: string }) => el("div", { "data-tools-panel": tab, "data-tools-cwd": cwd }),
+  };
+});
 vi.mock("./shell/ActivityBar", async () => {
   const { createElement: el } = await import("react");
   return {
@@ -546,7 +562,7 @@ vi.mock("../features/sessions/ui/SessionPane", async () => {
     },
   };
 });
-vi.mock("../features/files/ui/FileEditor", async () => {
+vi.mock("../features/connections/files/ui/FileEditor", async () => {
   const { createElement: el } = await import("react");
   return {
     FileEditor: ({
@@ -805,9 +821,9 @@ afterEach(async () => {
   localStorage.clear();
 });
 
-async function mount(onlyApp = false, side: DockSide = "bottom", seed?: Partial<Session>, strict = false) {
+async function mount(onlyApp = false, side: DockSide = "bottom", seed?: Partial<Session>, strict = false, recentSeed?: Partial<Session>) {
   const first = { ...newSession("codex", "/repo"), id: "first", ...seed };
-  const recent = { ...newSession("codex", "/repo"), id: "recent" };
+  const recent = { ...newSession("codex", "/repo"), id: "recent", ...recentSeed };
   const firstTab = newTab(first.id);
   const recentTab = newTab(recent.id);
   firstId = firstTab.id;
@@ -837,6 +853,14 @@ async function mount(onlyApp = false, side: DockSide = "bottom", seed?: Partial<
 async function click(selector: string) {
   const button = container.querySelector<HTMLButtonElement>(selector);
   expect(button, selector).not.toBeNull();
+  await act(async () => button!.click());
+  await act(async () => vi.dynamicImportSettled());
+}
+
+async function clickDesktopNavigation(label: string) {
+  const button = [...container.querySelectorAll<HTMLButtonElement>(".desktop-navigation-row")]
+    .find(item => item.textContent === label);
+  expect(button, label).not.toBeUndefined();
   await act(async () => button!.click());
   await act(async () => vi.dynamicImportSettled());
 }
@@ -969,6 +993,150 @@ async function pressKey(key: string, ctrlKey = false) {
   );
 }
 
+describe("desktop mode navigation", () => {
+  const chatCwd = "/home/me/Documents/ohmymonocode/2026-10-13/chat-120000-abcdef";
+  const switchMode = (mode: "Chat" | "Code") => click(`.desktop-mode-toggle button[aria-label="${mode}"]`);
+  const openProjects = async () => {
+    const button = [...container.querySelectorAll<HTMLButtonElement>(".desktop-navigation-row")]
+      .find(item => item.textContent === "Projects");
+    expect(button).not.toBeUndefined();
+    await act(async () => button!.click());
+    await act(async () => vi.dynamicImportSettled());
+  };
+
+  it.each([false, true])("launches in saved Chat mode without a snapshot even with a recent project: %s", async (hasRecentProject) => {
+    localStorage.setItem("monocode.desktopMode", "chat");
+    if (hasRecentProject) localStorage.setItem("monocode.recentProjects", JSON.stringify([{ path: "/repo", openedAt: 1 }]));
+    await act(async () => root.render(createElement(App)));
+    await act(async () => vi.dynamicImportSettled());
+    expect(document.documentElement.dataset.desktopMode).toBe("chat");
+    expect(container.querySelector('[data-app-page="projects"]')?.getAttribute("aria-hidden")).toBe("true");
+    expect(mocks.invoke).not.toHaveBeenCalledWith("default_cwd");
+    expect(localStorage.getItem("monocode.desktopMode")).toBe("chat");
+  });
+
+  it("prioritizes the restored conversation over the saved mode", async () => {
+    localStorage.setItem("monocode.desktopMode", "chat");
+    await mount(false, "bottom", { cwd: "/repo", blocks: [{ id: "restored", role: "user", text: "Restored Code" }] });
+    expect(document.documentElement.dataset.desktopMode).toBe("code");
+    expect(activeTabId()).toBe(firstId);
+  });
+
+  it("remembers each mode's conversation, file focus and independent unsent draft", async () => {
+    await mount(false, "bottom", { cwd: chatCwd, blocks: [{ id: "chat-user", role: "user", text: "Keep Chat" }] });
+    setComposerDraft("first", "Unsent Chat draft");
+    setComposerDraft("recent", "Unsent Code draft");
+    expect(document.documentElement.dataset.desktopMode).toBe("chat");
+    await switchMode("Code");
+    expect(activeTabId()).toBe(recentId);
+    await click("[data-open-file]");
+    expect(workspace(recentId).querySelector('[data-file-editor="/repo/file.ts"]')?.getAttribute("data-file-active")).toBe("true");
+
+    await switchMode("Chat");
+    expect(activeTabId()).toBe(firstId);
+    expect(getComposerDraft("first")).toBe("Unsent Chat draft");
+    await switchMode("Code");
+    expect(activeTabId()).toBe(recentId);
+    expect(getComposerDraft("recent")).toBe("Unsent Code draft");
+    expect(ownedFileTabs(recentId)).toHaveLength(1);
+    expect(workspace(recentId).querySelector('[data-file-editor="/repo/file.ts"]')?.getAttribute("data-file-active")).toBe("true");
+  });
+
+  it("follows a selected conversation into its actual mode and returns to the retained other mode", async () => {
+    await mount(false, "bottom", { cwd: chatCwd, blocks: [{ id: "chat-user", role: "user", text: "Keep Chat" }] });
+    setComposerDraft("recent", "Keep Code");
+    await selectSession("recent");
+    expect(document.documentElement.dataset.desktopMode).toBe("code");
+    expect(activeTabId()).toBe(recentId);
+    await selectSession("first");
+    expect(document.documentElement.dataset.desktopMode).toBe("chat");
+    expect(activeTabId()).toBe(firstId);
+    await switchMode("Code");
+    expect(activeTabId()).toBe(recentId);
+    await pressKey("[", true);
+    expect(document.documentElement.dataset.desktopMode).toBe("chat");
+    expect(activeTabId()).toBe(firstId);
+    await pressKey("]", true);
+    expect(document.documentElement.dataset.desktopMode).toBe("code");
+    expect(activeTabId()).toBe(recentId);
+  });
+
+  it("opens Projects and restores the owning workspace through native Back and Forward", async () => {
+    saveMenuBarVisible(false);
+    await mount(false, "bottom", { blocks: [{ id: "code-user", role: "user", text: "Keep Code" }] });
+    setComposerDraft("first", "Keep this project draft");
+    await openProjects();
+    expect(container.querySelector('[data-app-page="projects"]')?.getAttribute("aria-hidden")).toBe("false");
+    expect(container.querySelector(".desktop-projects-page")).not.toBeNull();
+    await click('[data-window-navigation] button[aria-label^="Back"]');
+    expect(container.querySelector('[data-app-page="projects"]')?.getAttribute("aria-hidden")).toBe("true");
+    expect(activeTabId()).toBe(firstId);
+    expect(getComposerDraft("first")).toBe("Keep this project draft");
+    await click('[data-window-navigation] button[aria-label^="Forward"]');
+    expect(container.querySelector('[data-app-page="projects"]')?.getAttribute("aria-hidden")).toBe("false");
+  });
+
+  it("falls back to Projects for a missing Code target while retaining the Chat workspace", async () => {
+    saveMenuBarVisible(false);
+    localStorage.setItem("monocode.desktopLocations.v1", JSON.stringify({ code: { tabId: "closed", sessionId: "gone", cwd: "/removed" } }));
+    await mount(false, "bottom", { cwd: chatCwd, blocks: [{ id: "chat-user", role: "user", text: "Keep Chat" }] }, false,
+      { cwd: "~", blocks: [{ id: "other-chat-user", role: "user", text: "Another Chat" }] });
+    setComposerDraft("first", "Keep fallback draft");
+    await switchMode("Code");
+    expect(document.documentElement.dataset.desktopMode).toBe("code");
+    expect(container.querySelector('[data-app-page="projects"]')?.getAttribute("aria-hidden")).toBe("false");
+    await switchMode("Chat");
+    expect(activeTabId()).toBe(firstId);
+    expect(getComposerDraft("first")).toBe("Keep fallback draft");
+  });
+
+  it("shows Projects when a remembered closed Code conversation can no longer be loaded", async () => {
+    const remembered = { ...newSession("codex", "/project-b"), id: "unavailable-code", title: "Unavailable", createdAt: 1, updatedAt: 2 };
+    const invoke = mocks.invoke.getMockImplementation()!;
+    mocks.invoke.mockImplementation(async (command, args) => {
+      if (command === "session_list_by_project" && args.cwd === "/project-b") return [remembered];
+      if (command === "session_get" && args.sessionId === remembered.id) return null;
+      return invoke(command, args);
+    });
+    localStorage.setItem("monocode.desktopLocations.v1", JSON.stringify({ code: { tabId: "closed", sessionId: remembered.id, cwd: remembered.cwd } }));
+    await mount(false, "bottom", { cwd: chatCwd, blocks: [{ id: "chat-user", role: "user", text: "Keep Chat" }] }, false,
+      { cwd: "~", blocks: [{ id: "other-chat-user", role: "user", text: "Another Chat" }] });
+    setComposerDraft("first", "Keep failed-restore draft");
+    await click('[data-load-project="/project-b"]');
+    await switchMode("Code");
+    expect(mocks.invoke).toHaveBeenCalledWith("session_get", { sessionId: remembered.id });
+    expect(document.documentElement.dataset.desktopMode).toBe("code");
+    expect(container.querySelector('[data-app-page="projects"]')?.getAttribute("aria-hidden")).toBe("false");
+    await switchMode("Chat");
+    expect(activeTabId()).toBe(firstId);
+    expect(getComposerDraft("first")).toBe("Keep failed-restore draft");
+  });
+
+  it("ignores a late Code restoration after switching back to Chat", async () => {
+    const remembered = { ...newSession("codex", "/project-b"), id: "delayed-code", title: "Delayed", createdAt: 1, updatedAt: 2 };
+    let finishRestore!: (session: Session) => void;
+    const invoke = mocks.invoke.getMockImplementation()!;
+    mocks.invoke.mockImplementation(async (command, args) => {
+      if (command === "session_list_by_project" && args.cwd === "/project-b") return [remembered];
+      if (command === "session_get" && args.sessionId === remembered.id) return await new Promise<Session>(resolve => { finishRestore = resolve; });
+      return invoke(command, args);
+    });
+    localStorage.setItem("monocode.desktopLocations.v1", JSON.stringify({ code: { tabId: "closed", sessionId: remembered.id, cwd: remembered.cwd } }));
+    await mount(false, "bottom", { cwd: chatCwd, blocks: [{ id: "chat-user", role: "user", text: "Keep Chat" }] }, false,
+      { cwd: "~", blocks: [{ id: "other-chat-user", role: "user", text: "Another Chat" }] });
+    setComposerDraft("first", "Keep rapid reversal draft");
+    await click('[data-load-project="/project-b"]');
+    await switchMode("Code");
+    expect(finishRestore).toBeDefined();
+    await switchMode("Chat");
+    await act(async () => finishRestore(remembered));
+    await act(async () => vi.dynamicImportSettled());
+    expect(document.documentElement.dataset.desktopMode).toBe("chat");
+    expect(activeTabId()).toBe(firstId);
+    expect(getComposerDraft("first")).toBe("Keep rapid reversal draft");
+  });
+});
+
 describe("window page navigation", () => {
   const navButton = (direction: "Back" | "Forward") =>
     container.querySelector<HTMLButtonElement>(
@@ -1039,7 +1207,7 @@ describe("window page navigation", () => {
   it("returns to the focused Assistant document and skips it once closed", async () => {
     await mount(false, "bottom", { blocks: [{ id: "prompt", role: "user", text: "Keep chat" }] });
     setComposerDraft("recent", "Keep the fallback chat");
-    await click("[data-open-assistant]");
+    await clickDesktopNavigation("Bots");
     const assistantTab = activeTabId();
     const assistant = () => container.querySelector(`[data-workspace-tab="${assistantTab}"] [data-app-view="assistant"]`);
     await click('[data-command="View: Notes"]');
@@ -1228,11 +1396,30 @@ describe("terminal dock disclosure motion", () => {
 });
 
 describe("App workspace app views", () => {
+  it.each([false, true])("opens the owning project's files from the session header with a pinned menu: %s", async (pinned) => {
+    saveMenuBarVisible(pinned);
+    await mount(false, "bottom", undefined, false, { cwd: "/project-b" });
+    expect(container.querySelector('[data-window-chrome] button[aria-label="Files"]')).toBeNull();
+    expect(container.querySelector('[data-window-chrome] button[aria-label="Changes"]')).toBeNull();
+    expect(container.querySelector('[data-session-tool-toggle="changes"]')).toBeNull();
+    const fileButton = (id: string) => `[data-session-surface-tabs="${id}"] [data-session-tool-toggle="files"]`;
+    await click(fileButton("first"));
+    expect(container.querySelector('.desktop-tools-layout')?.getAttribute('data-tools-open')).toBe('true');
+    expect(container.querySelector('[data-tools-panel="files"]')?.getAttribute('data-tools-cwd')).toBe('/repo');
+    expect(container.querySelector(fileButton("first"))?.getAttribute('aria-pressed')).toBe('true');
+    await click(fileButton("first"));
+    expect(container.querySelector('.desktop-tools-layout')?.getAttribute('data-tools-open')).toBe('false');
+    await selectSession("recent");
+    await click(fileButton("recent"));
+    expect(container.querySelector('[data-tools-panel="files"]')?.getAttribute('data-tools-cwd')).toBe('/project-b');
+    expect(container.querySelector(fileButton("recent"))?.getAttribute('aria-pressed')).toBe('true');
+  });
+
   it("opens Assistant as a reusable workspace page and retains its draft across chat switches", async () => {
     await mount();
-    expect(container.querySelector('[data-sidebar] [data-open-assistant]')).toBeNull();
-    expect(container.querySelector('[data-window-leading] [data-open-assistant]')).not.toBeNull();
-    await click("[data-open-assistant]");
+    expect(container.querySelector('[data-sidebar] .desktop-navigation')).not.toBeNull();
+    expect(container.querySelector('[data-window-leading] .desktop-navigation')).toBeNull();
+    await clickDesktopNavigation("Bots");
     const assistantTab = activeTabId();
     expect(assistantTab).not.toBe(firstId);
     expect(
@@ -1245,7 +1432,7 @@ describe("App workspace app views", () => {
     )!;
     draft.value = "Keep this draft";
     await selectSession("recent");
-    await click("[data-open-assistant]");
+    await clickDesktopNavigation("Bots");
     expect(activeTabId()).toBe(assistantTab);
     expect(
       container.querySelectorAll('[data-app-view="assistant"]'),
@@ -1280,13 +1467,19 @@ describe("App workspace app views", () => {
       expect(
         chrome.querySelector('[aria-label="Window controls"]'),
       ).not.toBeNull();
-      const sidebarToggle = dragBar.querySelector<HTMLButtonElement>(
+      const sidebarToggle = container.querySelector<HTMLButtonElement>(
         '[data-window-navigation] button[aria-label^="Toggle Sidebar"]',
       )!;
+      expect(sidebarToggle.closest("[data-sidebar]")).toBeNull();
+      expect(chrome.closest("[data-sidebar-main]")).toBeNull();
+      expect(dragBar.contains(sidebarToggle)).toBe(true);
+      expect(sidebarToggle.closest("[data-window-navigation]")?.querySelector('[aria-label="Main menu"]')).not.toBeNull();
       expect(sidebarToggle.getAttribute("aria-pressed")).toBe("true");
       await act(async () => sidebarToggle.click());
-      expect(sidebarToggle.getAttribute("aria-pressed")).not.toBe("true");
-      await click("[data-open-assistant]");
+      expect(dragBar.querySelector(".desktop-mode-toggle")).not.toBeNull();
+      expect(dragBar.querySelector('[aria-label^="Toggle Sidebar"]')).toBe(sidebarToggle);
+      expect(dragBar.querySelector('[aria-label^="Toggle Sidebar"]')?.getAttribute("aria-pressed")).not.toBe("true");
+      await clickDesktopNavigation("Bots");
       expect(container.querySelector("[data-window-drag-bar]")).toBe(dragBar);
       for (const command of [
         "View: Inbox",
@@ -1301,7 +1494,7 @@ describe("App workspace app views", () => {
       const dialog = document.querySelector<HTMLElement>(
         "[data-app-view-dialog]",
       )!;
-      expect(dialog.style.top).toBe("40px");
+      expect(dialog.style.top).toBe("48px");
       expect(Number(chrome.style.zIndex)).toBeGreaterThan(
         Number(dialog.style.zIndex),
       );
@@ -1319,71 +1512,62 @@ describe("App workspace app views", () => {
     },
   );
 
-  it("keeps sidebar animation phases from rendering the entire workspace again", async () => {
-    saveMenuBarVisible(false);
+  it.each([false, true])("keeps window navigation mounted through sidebar animation with pinned menu: %s", async (pinned) => {
+    saveMenuBarVisible(pinned);
     await mount();
-    const toggle = container.querySelector<HTMLButtonElement>(
+    const toggle = () => container.querySelector<HTMLButtonElement>(
       '[data-window-navigation] button[aria-label^="Toggle Sidebar"]',
     )!;
+    const button = toggle();
+    const navigation = button.closest("[data-window-navigation]");
+    const modeSwitch = navigation!.querySelector(".desktop-mode-toggle");
+    const modeCollapse = modeSwitch!.closest<HTMLElement>(".zen-fold-item")!;
     for (const open of [false, true]) {
       mocks.notificationFocus.mockClear();
-      await act(async () => toggle.click());
+      await act(async () => toggle().click());
       // This hook runs on each App render; only the actual toggle needs one.
       expect(mocks.notificationFocus).toHaveBeenCalledTimes(1);
-      expect(toggle.getAttribute("aria-pressed") === "true").toBe(open);
+      expect(toggle()).toBe(button);
+      expect(toggle().closest("[data-window-navigation]")).toBe(navigation);
+      expect(toggle().getAttribute("aria-pressed") === "true").toBe(open);
+      expect(navigation!.querySelector(".desktop-mode-toggle")).toBe(modeSwitch);
+      expect(modeCollapse.inert).toBe(!open);
+      expect(modeCollapse.getAttribute("aria-hidden") === "true").toBe(!open);
       const rail = container.querySelector<HTMLElement>("[data-sidebar-rail]")!;
       expect(rail.dataset.foldState).toBe(open ? "closing" : "opening");
       await act(async () => finishMotion());
       expect(rail.dataset.foldState).toBe(open ? "closed" : "open");
+      expect(modeCollapse.hidden).toBe(!open);
       expect(mocks.notificationFocus).toHaveBeenCalledTimes(1);
     }
   });
 
-  it("defaults to horizontal navigation and supports reversing the menu animation", async () => {
+  it("keeps the sidebar navigation and reverses More disclosure without losing its content", async () => {
     saveMenuBarVisible(false);
     await mount();
-    const toggle = container.querySelector<HTMLButtonElement>(
-      '[aria-controls="sidebar-navigation-menu"]',
-    )!;
-    const fold = () => container.querySelector<HTMLElement>("#sidebar-navigation-menu .zen-fold-item");
-    const horizontal = () => container.querySelector<HTMLElement>("[data-titlebar-navigation]")!;
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    expect(horizontal().dataset.foldState).toBe("open");
-    expect(horizontal().inert).toBe(false);
-    expect(horizontal().querySelector('[data-activity-bar="titlebar"]')).not.toBeNull();
-    expect(fold()).toBeNull();
-    await act(async () => toggle.click());
-    expect(fold()?.dataset.foldState).toBe("opening");
-    expect(horizontal().dataset.foldState).toBe("closing");
-    expect(horizontal().inert).toBe(true);
-    const menu = container.querySelector('[data-activity-bar="sidebar-top"]');
+    const toggle = container.querySelector<HTMLButtonElement>('[aria-controls="desktop-more-navigation"]')!;
+    const fold = () => container.querySelector<HTMLElement>(".desktop-navigation > .zen-fold-item")!;
     const footer = container.querySelector('[data-activity-bar="sidebar-footer"]');
-    const sidebarToggle = container.querySelector('[data-window-navigation] [aria-label^="Toggle Sidebar"]')!;
-    expect(container.querySelector('[data-window-navigation] img[alt="MonoCode"]')).not.toBeNull();
-    expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    await act(async () => toggle.click());
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    expect(fold()?.dataset.foldState).toBe("closing");
-    expect(horizontal().dataset.foldState).toBe("opening");
-    expect(horizontal().inert).toBe(false);
-    expect(horizontal().querySelector('[data-activity-bar="titlebar"]')).not.toBeNull();
-    expect(fold()?.inert).toBe(true);
-    expect(container.querySelector('[data-activity-bar="sidebar-top"]')).toBe(menu);
-    expect(container.querySelector('[data-activity-bar="sidebar-footer"]')).toBe(footer);
-    expect(sidebarToggle.getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector("#desktop-more-navigation")).toBeNull();
+    expect(container.querySelector("[data-titlebar-navigation]")).toBeNull();
     await act(async () => toggle.click());
-    expect(fold()?.dataset.foldState).toBe("opening");
-    expect(horizontal().dataset.foldState).toBe("closing");
-    expect(horizontal().inert).toBe(true);
-    expect(fold()?.inert).toBe(false);
-    expect(container.querySelector('[data-activity-bar="sidebar-top"]')).toBe(menu);
+    const content = container.querySelector<HTMLElement>("#desktop-more-navigation")!;
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(fold().dataset.foldState).toBe("opening");
+    expect(fold().inert).toBe(false);
+    await act(async () => toggle.click());
+    expect(fold().dataset.foldState).toBe("closing");
+    expect(fold().inert).toBe(true);
+    await act(async () => toggle.click());
+    expect(fold().dataset.foldState).toBe("opening");
+    expect(fold().inert).toBe(false);
+    expect(container.querySelector("#desktop-more-navigation")).toBe(content);
     await act(async () => toggle.click());
     await act(async () => finishMotion());
-    expect(fold()?.hidden).toBe(true);
-    expect(container.querySelector('[data-activity-bar="sidebar-top"]')).toBe(menu);
-    await act(async () => toggle.click());
-    expect(fold()?.dataset.foldState).toBe("opening");
-    expect(container.querySelector('[data-activity-bar="sidebar-top"]')).toBe(menu);
+    expect(fold().hidden).toBe(true);
+    expect(container.querySelector("#desktop-more-navigation")).toBe(content);
+    expect(container.querySelector('[data-activity-bar="sidebar-footer"]')).toBe(footer);
   });
 
   it("closes and unmounts Notes when it is disabled, without disturbing Settings", async () => {
@@ -2266,7 +2450,7 @@ describe("App multi-project history", () => {
 
   it("keeps a blank conversation behind tools, then removes it when another chat is opened", async () => {
     await mount();
-    await click("[data-open-assistant]");
+    await clickDesktopNavigation("Bots");
     expect(workspace(firstId)).not.toBeNull();
     await click('[data-new-project-session="/project-b"]');
     expect(workspace(firstId)).toBeNull();

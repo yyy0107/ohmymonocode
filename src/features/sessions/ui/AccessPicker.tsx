@@ -1,5 +1,6 @@
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { ChevronDown } from "../../../shared/ui/icons";
+import { MenuHover } from "../../../shared/ui/MenuHover";
 import { RuntimeModeIcon } from "./RuntimeModeIcon";
 import {
   useEffect,
@@ -13,7 +14,7 @@ import {
   RUNTIME_MODES,
   type RuntimeMode,
 } from "../model/session";
-import { ComposerPopover } from "./ComposerPopover";
+import { ComposerMenuPanel } from "./ComposerMenuPanel";
 
 type Props = {
   value: RuntimeMode;
@@ -108,12 +109,13 @@ export function AccessPicker({
           className={`size-3 shrink-0 text-content/50 ${open ? "rotate-180" : ""}`}
         />
       </button>
-      <ComposerPopover
+      <ComposerMenuPanel
+        appearance={appearance}
         open={open}
         enabled={appearance === "composer"}
         anchor={root}
         side="top"
-        width={appearance === "composer" ? 256 : MENU_WIDTH}
+        width={MENU_WIDTH}
         autoFocus
         onDismiss={(reason) => dismiss(reason === "escape")}
         role="listbox"
@@ -132,38 +134,43 @@ export function AccessPicker({
               type="button"
               role="option"
               aria-selected={selected}
+              data-menu-row={appearance === "composer" ? "single" : "description"}
+              data-highlighted={highlighted || selected || undefined}
               onMouseDown={(e) => e.preventDefault()}
               onMouseEnter={() => setActive(index)}
               onClick={() => pick(mode)}
-              className={`flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left ${
+              className={`relative isolate flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left ${
                 highlighted || selected
                   ? "bg-selection text-content"
                   : "text-content hover:bg-content/3"
               }`}
             >
+              <MenuHover />
               <RuntimeModeIcon
                 mode={mode}
                 className={`mt-0.5 size-3.5 shrink-0 ${mode === "full-access" ? "text-amber-400/90" : "text-content/70"}`}
               />
               <span className="min-w-0">
-                <span className="block text-[13px] font-medium leading-5">
+                <span data-menu-title className={`block text-[13px] leading-5 ${appearance === "composer" ? "font-normal" : "font-medium"}`}>
                   {uiT(RUNTIME_MODE_LABEL[mode])}
                 </span>
-                <span className="mt-0.5 block text-[11px] leading-4 text-content/50">
-                  {uiT(RUNTIME_MODE_HINT[mode])}
-                </span>
+                {appearance !== "composer" ? (
+                  <span data-menu-description className="mt-0.5 block text-[11px] leading-4 text-content/50">
+                    {uiT(RUNTIME_MODE_HINT[mode])}
+                  </span>
+                ) : null}
               </span>
             </button>
           );
         })}
         {busy ? (
-          <p className="px-2 py-1.5 text-[11px] leading-4 text-content/50">
+          <p data-menu-explanation className="px-2 py-1.5 text-[11px] leading-4 text-content/50">
             {uiT(
               "Access changes apply to the next turn. Stop and resend to apply them now.",
             )}
           </p>
         ) : null}
-      </ComposerPopover>
+      </ComposerMenuPanel>
     </div>
   );
 }

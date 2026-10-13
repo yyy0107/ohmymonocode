@@ -174,7 +174,7 @@ it("snapshots tools and execution directory for each run and applies changes to 
   expect(engine.bots.store.getBot(scope.botId)?.workingDirectory).toBeUndefined();
 });
 
-it("queues a shared execution directory without occupying another Bot's unrelated slot", async () => {
+it("runs shared execution directories concurrently within each Bot slot limit", async () => {
   const { directory, engine, turns, createBot, createThread, send } = await setup({ serial: false });
   const one = await createBot("Shared first"), two = await createBot("Shared second"), independent = await createBot("Separate");
   const shared = join(directory, "shared-project");
@@ -188,12 +188,10 @@ it("queues a shared execution directory without occupying another Bot's unrelate
   await send(two, "Wait for the directory");
   await send(sibling, "Also wait for the directory");
   await send(independent, "Use an independent directory");
-  await vi.waitFor(() => expect(turns).toHaveLength(2));
-  expect(engine.bots.store.runs(two).runs[0].status).toBe("queued");
-  expect(engine.bots.store.runs(sibling).runs[0].status).toBe("queued");
-  await engine.bots.rpc("botThreads.cancel", { ...one, commandId: "release" });
-  await vi.waitFor(() => expect(turns).toHaveLength(3));
-  expect(turns.filter(turn => turn.input.cwd === shared)).toHaveLength(2);
+  await vi.waitFor(() => expect(turns).toHaveLength(4));
+  expect(engine.bots.store.runs(two).runs[0].status).toBe("running");
+  expect(engine.bots.store.runs(sibling).runs[0].status).toBe("running");
+  expect(turns.filter(turn => turn.input.cwd === shared)).toHaveLength(3);
   expect(engine.bots.assistant(independent).currentRun?.status).toBe("running");
 });
 

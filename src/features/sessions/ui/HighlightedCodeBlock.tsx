@@ -9,7 +9,7 @@ import {
 import type { BundledLanguage } from "shiki";
 import type { HighlightResult } from "@streamdown/code";
 import { CodeBlockContainer, CodeBlockHeader } from "streamdown";
-import { boundedCode } from "../../files/editor/codeHighlightPlugin";
+import { boundedCode } from "../../connections/files/editor/codeHighlightPlugin";
 
 type Tokens = HighlightResult["tokens"][number];
 

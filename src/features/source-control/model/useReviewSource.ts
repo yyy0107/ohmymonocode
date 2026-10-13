@@ -1,5 +1,6 @@
 // Adapted from ZCode (Apache-2.0).
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import {
   gitBaseDiffFiles,
   gitBaseFileDiff,
@@ -29,6 +30,7 @@ export function useReviewSource(
   source: ReviewSource,
   sessionId?: string,
 ) {
+  const visible = useSurfaceVisibility();
   const [, redraw] = useReducer((n: number) => n + 1, 0);
   const [revision, refreshRevision] = useReducer((n: number) => n + 1, 0);
   const scope = useMemo<ReviewScope>(
@@ -86,6 +88,15 @@ export function useReviewSource(
   );
 
   useEffect(() => {
+    if (!visible) return;
+    // Hidden views miss change notifications; discard their mutable diff
+    // contents on reveal as well as reloading the file list below.
+    for (const kind of [...WORKTREE_REVIEW_SOURCES, "session"] as const)
+      cache?.invalidate({ cwd, source: kind, sessionId });
+  }, [visible, cache, cwd, sessionId]);
+
+  useEffect(() => {
+    if (!visible) return;
     let stale = false;
     const key = scopeKey;
     // Keep this source's rows mounted during refresh so mutations do not reset
@@ -145,9 +156,10 @@ export function useReviewSource(
     return () => {
       stale = true;
     };
-  }, [cwd, source, sessionId, scopeKey, revision]);
+  }, [visible, cwd, source, sessionId, scopeKey, revision]);
 
   useEffect(() => {
+    if (!visible) return;
     let frame = 0;
     const schedule = () => {
       if (!frame)
@@ -172,7 +184,7 @@ export function useReviewSource(
       document.removeEventListener("visibilitychange", onFocus);
       if (frame) window.cancelAnimationFrame(frame);
     };
-  }, [refresh, sessionId]);
+  }, [visible, refresh, sessionId]);
 
   const loadDiff = useCallback(
     (path: string) => cache?.load(scope, path),

@@ -27,7 +27,7 @@ vi.mock("./SessionSurfacePane", async (importOriginal) => {
     },
   };
 });
-vi.mock("../../files/ui/FilePane", () => ({
+vi.mock("../../connections/files/ui/FilePane", () => ({
   FilePane: memo((props: { tabsTrailing?: ReactNode }) => {
     paneRenders.file(props);
     return props.tabsTrailing;

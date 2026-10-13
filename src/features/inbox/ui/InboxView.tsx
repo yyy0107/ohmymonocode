@@ -1,3 +1,4 @@
+import { MenuHover } from "../../../shared/ui/MenuHover";
 import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { motion } from "motion/react";
 import { immediateTransition, motionDistance, motionGeometry, panelTransition } from "../../../shared/motion/tokens";
@@ -1902,6 +1903,7 @@ export function GithubPrActions({
                   : "text-content/75"
               }`}
             >
+              <MenuHover />
               <span
                 aria-hidden
                 className={`mt-1 size-1.5 shrink-0 rounded-full ${

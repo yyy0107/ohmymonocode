@@ -178,14 +178,12 @@ export function applyHarnessEvent(
         }),
       };
     }
-    case "context":
-      return {
-        ...session,
-        context: mergeContextUsage(session.context, {
-          used: event.used,
-          window: event.window,
-        }),
-      };
+    case "context": {
+      const context = mergeContextUsage(session.context, event);
+      return context.used === session.context?.used && context.window === session.context?.window
+        ? session
+        : { ...session, context };
+    }
     case "turn.metrics":
       return mergeTurnMetrics(session, event);
     case "tasks.updated":
@@ -294,6 +292,9 @@ function mergeTurnMetrics(
       ? { cacheHitPercent: event.cacheHitPercent }
       : {}),
   };
+  // Provider usage snapshots often repeat between text chunks. Preserve identity
+  // so unchanged telemetry neither re-renders the transcript nor schedules a save.
+  if (JSON.stringify(metrics) === JSON.stringify(current.turnMetrics ?? {})) return session;
   const blocks = session.blocks.slice();
   blocks[userIndex] = { ...current, turnMetrics: metrics };
   return { ...session, blocks };

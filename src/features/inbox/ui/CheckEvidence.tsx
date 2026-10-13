@@ -1,7 +1,7 @@
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useMemo, useState } from "react";
-import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
+import { FileTypeIcon } from "../../connections/files/ui/FileTypeIcon";
 import { AlertCircle, CircleX, ExternalLink } from "../../../shared/ui/icons";
 import { gitCommitFileDiff } from "../../../platform/tauri/fs";
 import type { GithubCheckDetails } from "../model/githubPrChecks";
@@ -126,7 +126,7 @@ function CheckAnnotation({
       {annotation.path ? (
         <div className="flex min-w-0 items-center gap-1.5 border-b border-stroke bg-content/[0.02] px-3 py-2 text-[12px] text-content/65">
           <FileTypeIcon name={annotation.path} isDir={false} size={13} />
-          <span title={location} className="min-w-0 flex-1 truncate">
+          <span data-file-label title={location} className="min-w-0 flex-1 truncate">
             {location}
           </span>
           {fileUrl ? (

@@ -15,6 +15,7 @@ import {
 } from "../../sessions/model/checkpoint";
 import { useReviewSource } from "./useReviewSource";
 import type { ReviewSource } from "./reviewDiff";
+import { SurfaceVisibilityContext } from "../../../shared/ui/SurfaceVisibility";
 
 const events = vi.hoisted(() => ({
   git: () => {},
@@ -25,7 +26,7 @@ vi.mock("../../../platform/tauri/fs", () => ({
   gitFileDiff: vi.fn(),
   subscribeGitChanged: (listener: () => void) => {
     events.git = listener;
-    return () => {};
+    return () => { if (events.git === listener) events.git = () => {}; };
   },
 }));
 vi.mock("../../sessions/model/checkpoint", () => ({
@@ -33,7 +34,7 @@ vi.mock("../../sessions/model/checkpoint", () => ({
   sessionCheckpointFileDiff: vi.fn(),
   subscribeReviewChanged: (listener: (id?: string) => void) => {
     events.review = listener;
-    return () => {};
+    return () => { if (events.review === listener) events.review = () => {}; };
   },
 }));
 
@@ -85,9 +86,10 @@ async function render(
   cwd = "/repo",
   sessionId: string | undefined = "s1",
   strict = false,
+  visible = true,
 ) {
   await act(async () => {
-    const node = createElement(Harness, { cwd, source, sessionId });
+    const node = createElement(SurfaceVisibilityContext.Provider, { value: visible }, createElement(Harness, { cwd, source, sessionId }));
     root.render(strict ? createElement(StrictMode, null, node) : node);
   });
 }
@@ -101,6 +103,33 @@ beforeEach(() => {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
+});
+
+it("pauses hidden sources and reloads their checkpoint status when revealed", async () => {
+  await render("session", "/repo", "s1", false, false);
+  await act(async () => { events.review("s1"); window.dispatchEvent(new Event("focus")); });
+  expect(sessionCheckpointStatus).not.toHaveBeenCalled();
+  await render("session");
+  expect(sessionCheckpointStatus).toHaveBeenCalledTimes(1);
+  await render("session", "/repo", "s1", false, false);
+  await act(async () => events.review("s1"));
+  expect(sessionCheckpointStatus).toHaveBeenCalledTimes(1);
+  vi.mocked(sessionCheckpointStatus).mockResolvedValue(checkpoint([]));
+  await render("session");
+  expect(sessionCheckpointStatus).toHaveBeenCalledTimes(2);
+  expect(result.files).toEqual([]);
+});
+
+it("discards diff contents that may have changed while the surface was hidden", async () => {
+  await render("session");
+  await act(async () => { await result.loadDiff(file.path); });
+  expect(sessionCheckpointFileDiff).toHaveBeenCalledTimes(1);
+  await render("session", "/repo", "s1", false, false);
+  await act(async () => events.review("s1"));
+  vi.mocked(sessionCheckpointFileDiff).mockResolvedValue({ ...diff, current: "updated while hidden\n" });
+  await render("session");
+  await act(async () => { await result.loadDiff(file.path); });
+  expect(sessionCheckpointFileDiff).toHaveBeenCalledTimes(2);
 });
 afterEach(() => {
   act(() => root.unmount());

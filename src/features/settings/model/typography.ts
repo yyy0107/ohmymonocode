@@ -1,4 +1,5 @@
 import { preferenceStorage } from "./sharedPreferences";
+import { isDesktopDocument } from "../../../shared/theme/desktopAppearance";
 import {
   applyReducedMotion,
   type ReducedMotionPreference,
@@ -45,7 +46,7 @@ export interface AppearanceProfile {
   /** Font family name; empty follows the interface font. */
   contentFont: string;
   contentWeight: FontWeight;
-  /** Font family name; empty uses Consolas, then the system monospace stack. */
+  /** Empty uses the platform's default code font (Anthropic Mono on desktop). */
   codeFont: string;
   codeWeight: FontWeight;
 }
@@ -128,6 +129,14 @@ export const DEFAULT_PROFILE: AppearanceProfile = {
   codeWeight: 500,
 };
 
+/** Missing desktop preferences use the reference's regular weight. Stored
+ * profiles keep every valid weight; the phone retains its existing default. */
+export function defaultAppearanceProfile(): AppearanceProfile {
+  return isDesktopDocument()
+    ? { ...DEFAULT_PROFILE, uiWeight: 400, contentWeight: 400, codeWeight: 400 }
+    : { ...DEFAULT_PROFILE };
+}
+
 const FONT_SIZE_KEYS: Record<FontSizeKind, string> = {
   ui: "monocode.uiFontSize",
   content: "monocode.contentFontSize",
@@ -201,6 +210,7 @@ function normalizeNumber(
 }
 
 export function normalizeProfile(value: unknown): AppearanceProfile {
+  const defaults = defaultAppearanceProfile();
   const raw = (value && typeof value === "object" ? value : {}) as Record<
     string,
     unknown
@@ -229,14 +239,14 @@ export function normalizeProfile(value: unknown): AppearanceProfile {
       CONTRAST_MAX,
     ),
     uiFont: normalizeFontFamily(raw.uiFont),
-    uiWeight: normalizeWeight(raw.uiWeight, DEFAULT_PROFILE.uiWeight),
+    uiWeight: normalizeWeight(raw.uiWeight, defaults.uiWeight),
     contentFont: normalizeFontFamily(raw.contentFont),
     contentWeight: normalizeWeight(
       raw.contentWeight,
-      DEFAULT_PROFILE.contentWeight,
+      defaults.contentWeight,
     ),
     codeFont: normalizeFontFamily(raw.codeFont),
-    codeWeight: normalizeWeight(raw.codeWeight, DEFAULT_PROFILE.codeWeight),
+    codeWeight: normalizeWeight(raw.codeWeight, defaults.codeWeight),
   };
 }
 

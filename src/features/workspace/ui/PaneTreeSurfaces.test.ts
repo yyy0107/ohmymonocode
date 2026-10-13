@@ -22,7 +22,7 @@ import {
 } from "./SessionHeaderActions";
 
 const lifetime = vi.hoisted(() => ({ mounts: 0, unmounts: 0 }));
-vi.mock("../../files/ui/FilePane", () => ({
+vi.mock("../../connections/files/ui/FilePane", () => ({
   FilePane: ({
     pane,
     visible,

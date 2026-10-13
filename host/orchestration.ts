@@ -131,7 +131,7 @@ export class HostOrchestration {
   private projectSession(id: string) { const value = this.engine.session(id); return value ? this.projectValue(value) : undefined; }
   private async recover() {
     await this.control.ready;
-    for (const value of this.store.sessions()) {
+    for (const value of this.store.scanSessions()) {
       if (!value.session.blocks.some((block) => block.orchestration?.status === "planning")) continue;
       this.engine.mutate(value.session.id, (current) => ({ ...current, session: { ...current.session,
         blocks: current.session.blocks.map((block) => block.orchestration?.status === "planning" ? {

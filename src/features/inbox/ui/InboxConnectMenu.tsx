@@ -5,6 +5,7 @@ import {
 } from "../model/inboxFilters";
 import { InboxProviderMark } from "./InboxProviderMark";
 import { Popover, type PopoverAnchor } from "../../../shared/ui/Popover";
+import { MenuHover } from "../../../shared/ui/MenuHover";
 
 const WIDTH = 188;
 
@@ -46,11 +47,12 @@ export function InboxConnectMenu({
           }}
           className="flex h-7 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] leading-5 text-content hover:bg-content/3"
         >
+          <MenuHover />
           <InboxProviderMark
             provider={source}
             className="block size-3.5 shrink-0"
           />
-          <span className="min-w-0 flex-1 truncate">
+          <span data-menu-title className="min-w-0 flex-1 truncate">
             {uiT("Connect ")}
             {INBOX_SOURCE_LABELS[source]}
           </span>

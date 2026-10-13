@@ -14,8 +14,8 @@ const groups: Record<PreferenceKind, readonly string[]> = {
 const deviceLocalGroups: Record<PreferenceKind, readonly string[]> = {
   flag: ["closeToTray", "menuBarVisible", "projectRailOpen", "sessionSidebarOpen", "bodyGlass", "sounds", "notifications", "sessionsShowArchived"],
   number: ["windowOpacity", "sidebarBlur", "sidebarWidth", "uiScale", "soundsEnabledAt"],
-  string: ["modelPickerTab", "desktopSkin", "desktopColorScheme", "desktopAppearanceBackup.v1"],
-  object: ["projectSidebarTabs.v1", "pinnedSessionsCollapsed", "reminderSessionsCollapsed", "sessionSidebarFilters"],
+  string: ["modelPickerTab", "desktopSkin", "desktopColorScheme", "desktopAppearanceBackup.v1", "desktopMode"],
+  object: ["projectSidebarTabs.v1", "pinnedSessionsCollapsed", "reminderSessionsCollapsed", "sessionSidebarFilters", "desktopLocations.v1"],
   array: ["sidebarSectionsCollapsed.v1", "projectTreeExpanded.v1"],
 };
 const kinds = (source: Record<PreferenceKind, readonly string[]>, extra: [string, PreferenceKind][]): Readonly<Record<string, PreferenceKind>> =>

@@ -65,8 +65,25 @@ vi.mock("../../../shared/ui/Popover", () => ({
     ),
 }));
 
-import { ModelControlPills, ModelPicker } from "./ModelPicker";
+import { composerModelMenuWidth, ModelControlPills, ModelPicker } from "./ModelPicker";
 import { SurfaceVisibilityContext } from "../../../shared/ui/SurfaceVisibility";
+
+it("uses desktop mode widths only for skinned composer model menus", () => {
+  const root = document.documentElement;
+  try {
+    root.dataset.skin = "daylight";
+    root.dataset.desktopMode = "chat";
+    expect(composerModelMenuWidth("composer", 280)).toBe(416);
+    root.dataset.desktopMode = "code";
+    expect(composerModelMenuWidth("composer", 320)).toBe(242);
+    expect(composerModelMenuWidth(undefined, 320)).toBe(320);
+    delete root.dataset.skin;
+    expect(composerModelMenuWidth("composer", 280)).toBe(280);
+  } finally {
+    delete root.dataset.skin;
+    delete root.dataset.desktopMode;
+  }
+});
 
 it("uses session-specific thinking choices in the toolbar menu", () => {
   const model = "pi:provider/live";
@@ -441,9 +458,10 @@ describe("model picker", () => {
     const modelFlyout = container.querySelector<HTMLElement>(
       '[role="dialog"][aria-label="Models"]',
     )!;
-    expect(modelFlyout.style.height).toBe("380px");
-    expect(modelFlyout.dataset.minHeight).toBe("382");
-    expect(modelFlyout.dataset.maxHeight).toBe("382");
+    expect(modelFlyout.style.height).toBe("");
+    expect(modelFlyout.style.minHeight).toBe("");
+    expect(modelFlyout.dataset.minHeight).toBeUndefined();
+    expect(modelFlyout.dataset.maxHeight).toBe("380");
     expect(
       container.querySelector('[role="tablist"][aria-orientation="horizontal"]'),
     ).not.toBeNull();

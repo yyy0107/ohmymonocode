@@ -38,6 +38,7 @@ function update(event?: HarnessEvent, clockOffsetMs?: number) {
   act(() => root.render(createElement(AgentTranscript, {
     blocks: session.blocks, busy: true, cwd: session.cwd, clockOffsetMs,
     pendingQuestion: !!session.pendingQuestion,
+    executionState: session.executionState,
   })));
 }
 function tick(seconds: number) {
@@ -174,4 +175,21 @@ it.each([-65_000, 65_000])("uses the Host clock for both live timers with %i ms 
   clock("round", "10s");
   expect(node.textContent).toContain("working… · 10s");
   expect(session.blocks[0].startedAt).toBe(100_000 + offset);
+});
+
+it("shows actual startup and resource phases with their own clocks instead of thinking", () => {
+  session.executionState = { runId: "run", phase: "waiting-resource", since: 95_000, reason: "integrating",
+    blockers: [{ id: "native:terminal", ownerPid: 123, kind: "integrating", path: "/project" }] };
+  update();
+  expect(node.textContent).toContain("Waiting for workspace changes to finish…");
+  expect(node.textContent).not.toContain("Thinking…");
+  expect(node.querySelector("[data-live-footer]")?.getAttribute("title")).toContain("PID 123");
+  session.executionState = { runId: "run", phase: "starting", since: 100_000 };
+  update(); expect(node.textContent).toContain("Preparing to start…");
+  session.executionState = { runId: "run", phase: "awaiting-response", since: 100_000, providerStartedAt: 100_000 };
+  update(); expect(node.textContent).toContain("Waiting for model response…");
+  expect(node.textContent).not.toContain("Thinking…");
+  session.executionState = { ...session.executionState, phase: "active" };
+  update({ type: "reasoning.delta", text: "Actual reasoning" });
+  expect(node.textContent).toContain("Thinking");
 });

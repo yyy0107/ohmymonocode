@@ -496,11 +496,13 @@ function ProjectSelection({
       />
       {mixed ? (
         <Minus
+          data-desktop-checkbox-mark
           className="pointer-events-none absolute size-3 text-white"
           aria-hidden="true"
         />
       ) : (
         <Check
+          data-desktop-checkbox-mark
           className="pointer-events-none absolute hidden size-3 text-white peer-checked:block"
           aria-hidden="true"
         />

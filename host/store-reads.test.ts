@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HostSession } from "../src/features/connections/model/protocol";
 import { rmSync } from "node:fs";
 import { HostStore } from "./store";
@@ -31,6 +31,99 @@ afterEach(() => {
 });
 
 describe("host store reads", () => {
+  it("reads only running directories from the summary index, including legacy rows but excluding retired ones", () => {
+    store = new HostStore(":memory:");
+    const project = store.addProject("/project", "Project");
+    for (const id of ["idle", "running", "legacy", "retired"])
+      store.save({ ...snapshot(project.id, id), status: id === "idle" ? "idle" : "running" }, { type: "seed" });
+    store.db.prepare("INSERT INTO retired_sessions VALUES (?)").run("retired");
+    const queries = vi.spyOn(store.db, "prepare");
+    expect(store.runningSessionDirectories()).toEqual([{ id: "legacy", cwd: "/project" }, { id: "running", cwd: "/project" }]);
+    expect(queries.mock.calls.filter(([sql]) => /SELECT snapshot FROM sessions/i.test(sql))).toHaveLength(0);
+    const query = queries.mock.calls.find(([sql]) => sql.includes("json_extract(summary, '$.status')"))![0];
+    expect(store.db.prepare(`EXPLAIN QUERY PLAN ${query}`).all().map(row => String(row.detail)).join("\n")).toContain("COVERING INDEX");
+    store.db.prepare("UPDATE sessions SET summary=NULL WHERE id='legacy'").run();
+    store.invalidateSession("legacy");
+    expect(store.runningSessionDirectories().map(value => value.id)).toEqual(["legacy", "running"]);
+  });
+
+  it("polls more sessions than the transcript cache holds without loading unchanged histories", () => {
+    store = new HostStore(":memory:");
+    const project = store.addProject("/project", "Project");
+    for (let index = 0; index < 64; index++)
+      store.save(snapshot(project.id, `s${index}`), { type: "seed" });
+    const recent = store.session("s63");
+    const prepare = vi.spyOn(store.db, "prepare");
+    for (let pass = 0; pass < 3; pass++)
+      for (let index = 0; index < 64; index++)
+        expect(store.sync(`s${index}`, 1)).toEqual({ kind: "unchanged", revision: 1 });
+    expect(prepare.mock.calls.filter(([sql]) => /SELECT snapshot FROM sessions/i.test(sql))).toHaveLength(0);
+    expect(store.session("s63")).toBe(recent);
+    expect(store.db.prepare("EXPLAIN QUERY PLAN SELECT summary FROM sessions INDEXED BY sessions_id_summary WHERE id=?").all("s0")
+      .map(row => String(row.detail)).join("\n")).toContain("COVERING INDEX");
+  });
+
+  it("still delivers changed blocks, metadata and full snapshots after version-only polls", () => {
+    store = new HostStore(":memory:");
+    const project = store.addProject("/project", "Project");
+    const value = store.save(snapshot(project.id, "s"), { type: "seed" });
+    expect(store.sync("s", 1).kind).toBe("unchanged");
+    const changed = store.save({ ...value, revision: 2, session: { ...value.session,
+      blocks: [...value.session.blocks, { id: "a", role: "assistant", text: "Answer" }] } }, { type: "reply" });
+    store.invalidateSession("s");
+    expect(store.sync("s", 1)).toMatchObject({ kind: "delta", base: 1, blocks: [{ id: "a", text: "Answer" }] });
+    expect(store.sync("s", 2).kind).toBe("unchanged");
+    store.updateSession("s", { title: "Renamed" });
+    expect(store.sync("s", 2)).toMatchObject({ kind: "delta", value: { revision: 3, session: { title: "Renamed" } }, blocks: [] });
+    expect(store.sync("s")).toMatchObject({ kind: "snapshot", value: { revision: 3 } });
+    expect(store.sync("s", 99)).toMatchObject({ kind: "snapshot", value: { revision: 3 } });
+    expect(() => store!.transaction(() => {
+      store!.save({ ...changed, revision: 4 }, { type: "rolled-back" });
+      expect(store!.sync("s", 4).kind).toBe("unchanged");
+      throw new Error("rollback");
+    })).toThrow("rollback");
+    expect(store.sync("s", 3).kind).toBe("unchanged");
+    expect(store.sync("s", 4)).toMatchObject({ kind: "snapshot", value: { revision: 3 } });
+  });
+
+  it("falls back for old summaries and never reports missing or retired sessions as unchanged", () => {
+    store = new HostStore(":memory:");
+    const project = store.addProject("/project", "Project");
+    store.save(snapshot(project.id, "legacy"), { type: "seed" });
+    store.db.prepare("UPDATE sessions SET summary=NULL WHERE id=?").run("legacy");
+    store.invalidateSession("legacy");
+    expect(store.sync("legacy", 1)).toEqual({ kind: "unchanged", revision: 1 });
+    expect(store.sessionSummary("legacy")).toMatchObject({ id: "legacy", revision: 1 });
+    store.db.prepare("INSERT INTO retired_sessions VALUES (?)").run("legacy");
+    expect(store.sessionSummary("legacy")).toBeUndefined();
+    expect(() => store!.sync("legacy", 1)).toThrow("Session not found");
+    expect(() => store!.sync("missing", 1)).toThrow("Session not found");
+    store.save(snapshot(project.id, "deleted"), { type: "seed" });
+    store.deleteSession("deleted");
+    expect(() => store!.sync("deleted", 1)).toThrow("Session not found");
+  });
+
+  it("scans one transcript at a time while recovery changes rows, preserving the read cache", () => {
+    store = new HostStore(":memory:");
+    const project = store.addProject("/project", "Project");
+    for (let index = 0; index < 40; index++)
+      store.save(snapshot(project.id, `s${String(index).padStart(2, "0")}`), { type: "seed" });
+    const recent = store.session("s39");
+    const reads = vi.spyOn(store, "peekSession");
+    const scan = store.scanSessions();
+    const first = scan.next().value!;
+    expect(reads).toHaveBeenCalledTimes(1);
+    expect(first.session.id).toBe("s00");
+    store.save({ ...first, revision: 2 }, { type: "recovered" });
+    store.deleteSession("s01");
+    store.save(snapshot(project.id, "new"), { type: "created-during-recovery" });
+    const ids = [...scan].map(value => value.session.id);
+    expect(ids).toHaveLength(38);
+    expect(ids).not.toContain("s01");
+    expect(ids).not.toContain("new");
+    expect(store.session("s39")).toBe(recent);
+  });
+
   it("lists summaries from covering indexes instead of session snapshots", () => {
     store = new HostStore(":memory:");
     const plan = (sql: string) =>

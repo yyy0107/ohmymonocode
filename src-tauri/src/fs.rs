@@ -2195,8 +2195,6 @@ fn git_file_diff_for(root: &Path, relative: &str, staged: bool) -> Result<GitFil
     let orig = original.unwrap_or_default();
     let current = current.unwrap_or_default();
     let binary = orig.contains(&0) || current.contains(&0);
-    let too_large =
-        orig.len() as u64 > MAX_TEXT_FILE_BYTES || current.len() as u64 > MAX_TEXT_FILE_BYTES;
     let status = if !had_original && had_current {
         if staged {
             "added"
@@ -2208,7 +2206,7 @@ fn git_file_diff_for(root: &Path, relative: &str, staged: bool) -> Result<GitFil
     } else {
         "modified"
     };
-    let (original_text, current_text) = if binary || too_large {
+    let (original_text, current_text) = if binary {
         (String::new(), String::new())
     } else {
         (
@@ -2223,7 +2221,7 @@ fn git_file_diff_for(root: &Path, relative: &str, staged: bool) -> Result<GitFil
         original: original_text,
         current: current_text,
         binary,
-        too_large,
+        too_large: false,
     })
 }
 
@@ -2504,8 +2502,6 @@ fn git_commit_file_diff_for(root: &Path, sha: &str, relative: &str) -> Result<Gi
     };
     let current_bytes = git_blob(root, &format!("{sha}:{relative}")).unwrap_or_default();
     let binary = original_bytes.contains(&0) || current_bytes.contains(&0);
-    let too_large = original_bytes.len() as u64 > MAX_TEXT_FILE_BYTES
-        || current_bytes.len() as u64 > MAX_TEXT_FILE_BYTES;
     let status = if original_bytes.is_empty() && !current_bytes.is_empty() {
         "added"
     } else if !original_bytes.is_empty() && current_bytes.is_empty() {
@@ -2513,7 +2509,7 @@ fn git_commit_file_diff_for(root: &Path, sha: &str, relative: &str) -> Result<Gi
     } else {
         "modified"
     };
-    let (original, current) = if binary || too_large {
+    let (original, current) = if binary {
         (String::new(), String::new())
     } else {
         (
@@ -2528,7 +2524,7 @@ fn git_commit_file_diff_for(root: &Path, sha: &str, relative: &str) -> Result<Gi
         original,
         current,
         binary,
-        too_large,
+        too_large: false,
     })
 }
 
@@ -2635,9 +2631,7 @@ fn git_base_file_diff_for(root: &Path, base: &str, relative: &str) -> Result<Git
     let original = original.unwrap_or_default();
     let current = current.unwrap_or_default();
     let binary = original.contains(&0) || current.contains(&0);
-    let too_large =
-        original.len() as u64 > MAX_TEXT_FILE_BYTES || current.len() as u64 > MAX_TEXT_FILE_BYTES;
-    let (original_text, current_text) = if binary || too_large {
+    let (original_text, current_text) = if binary {
         (String::new(), String::new())
     } else {
         (
@@ -2652,7 +2646,7 @@ fn git_base_file_diff_for(root: &Path, base: &str, relative: &str) -> Result<Git
         original: original_text,
         current: current_text,
         binary,
-        too_large,
+        too_large: false,
     })
 }
 
@@ -7241,6 +7235,30 @@ mod tests {
         let staged = git_file_diff_for(&workspace, "file.txt", true).unwrap();
         assert_eq!(staged.original, "original\n");
         assert_eq!(staged.current, "staged\n");
+    }
+
+    #[test]
+    fn git_large_file_diff_preserves_contents_across_review_sources() {
+        let dir = tmp("git-large-file-diff");
+        let original = "source line\n".repeat(800_000);
+        assert!(original.len() as u64 > MAX_TEXT_FILE_BYTES);
+        assert!(init_git_commit(&dir.0, &[("large.txt", &original)]));
+        let current = format!("{original}new tail\n");
+        std::fs::write(dir.0.join("large.txt"), &current).unwrap();
+        let check = |diff: GitFileDiff| {
+            assert!(!diff.binary);
+            assert!(!diff.too_large);
+            assert_eq!(diff.original, original);
+            assert_eq!(diff.current, current);
+        };
+        check(git_file_diff_for(&dir.0, "large.txt", false).unwrap());
+        check(git_base_file_diff_for(&dir.0, "head", "large.txt").unwrap());
+        check(git_base_file_diff_for(&dir.0, "branch", "large.txt").unwrap());
+        git_stage_file_for(&dir.0, "large.txt").unwrap();
+        check(git_file_diff_for(&dir.0, "large.txt", true).unwrap());
+        assert!(git(&dir.0, &["commit", "-m", "large change"]));
+        let sha = git_stdout(&dir.0, &["rev-parse", "HEAD"]).unwrap();
+        check(git_commit_file_diff_for(&dir.0, &sha, "large.txt").unwrap());
     }
 
     #[test]

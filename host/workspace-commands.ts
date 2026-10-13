@@ -17,7 +17,7 @@ import type { FileMtime, FsEntry, GitPr, ProjectFile } from "../src/platform/tau
 import { hostWorktrees } from "./git-worktrees";
 import { createHostBranch, hostBranches, switchHostBranch } from "./git-branches";
 import type { HostStore } from "./store";
-import { claimCheckoutResource, claimCheckoutWrite } from "./checkout-guards";
+import { claimCheckoutResource, claimCheckoutWrite, withCheckoutIntegration } from "./checkout-guards";
 import {
   createHostPath,
   existingPath,
@@ -138,18 +138,20 @@ export class WorkspaceCommands {
       return { ...location, path: resolve(location.root, location.relative) };
     }));
     const projects = [...new Set(locations.map(({ root }) => this.projectForRoot(root).id))].sort();
+    const exclusive = name.startsWith("git_");
     const operate = async () => {
       // Recheck after asynchronous resolution and idle-project acquisition.
       for (const location of locations) this.assertWrite(location.path);
       const releases: Array<() => void> = [];
       try {
-        for (const location of locations) releases.push(claimCheckoutWrite(this.store, `workspace:${randomUUID()}`, location.path));
+        if (!exclusive) for (const location of locations) releases.push(claimCheckoutWrite(this.store, `workspace:${randomUUID()}`, location.path));
         // Copy reads also retain their source while an accepted worker cleans up.
         if (name === "copy_path") releases.push(claimCheckoutResource(this.store, `workspace:${randomUUID()}`, await this.resourcePath(input.from)));
         return await this.execute(name, input);
       } finally { for (const release of releases) release(); }
     };
-    const idle = (index: number): Promise<unknown> => index === projects.length ? operate()
+    if (!exclusive) return operate();
+    const idle = (index: number): Promise<unknown> => index === projects.length ? withCheckoutIntegration(this.store, locations.map(l => l.root), operate)
       : this.withIdleProject(projects[index], () => idle(index + 1));
     return idle(0);
   }
@@ -692,8 +694,7 @@ export class WorkspaceCommands {
       this.gitBlob(root, `${sha}:${path}`),
     ]);
     const binary = original.bytes.includes(0) || current.bytes.includes(0);
-    const tooLarge = original.tooLarge || current.tooLarge ||
-      original.bytes.length > MAX_TEXT_FILE || current.bytes.length > MAX_TEXT_FILE;
+    const tooLarge = original.tooLarge || current.tooLarge;
     const status = !original.bytes.length && current.bytes.length ? "added"
       : original.bytes.length && !current.bytes.length ? "deleted" : "modified";
     return { path, relative: path, status,
@@ -759,15 +760,12 @@ export class WorkspaceCommands {
     const [original, current] = await Promise.all([
       this.gitBlob(root, `${commit}:${prefix}${path}`),
       stat(absolute).then(
-        async (info) => info.size > MAX_TEXT_FILE
-          ? { bytes: Buffer.alloc(0), tooLarge: true, exists: true }
-          : { bytes: await readFile(absolute), tooLarge: false, exists: true },
+        async () => ({ bytes: await readFile(absolute), tooLarge: false, exists: true }),
         () => ({ bytes: Buffer.alloc(0), tooLarge: false, exists: false }),
       ),
     ]);
     const binary = original.bytes.includes(0) || current.bytes.includes(0);
-    const tooLarge = original.tooLarge || current.tooLarge ||
-      original.bytes.length > MAX_TEXT_FILE || current.bytes.length > MAX_TEXT_FILE;
+    const tooLarge = original.tooLarge || current.tooLarge;
     const status = !original.bytes.length && current.exists ? "added"
       : !current.exists ? "deleted" : "modified";
     return { path, relative: path, status,
@@ -782,7 +780,7 @@ export class WorkspaceCommands {
         cwd: root,
         windowsHide: true,
         timeout: 30_000,
-        maxBuffer: MAX_TEXT_FILE + 1024,
+        maxBuffer: Infinity,
         encoding: "buffer",
         env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
       });

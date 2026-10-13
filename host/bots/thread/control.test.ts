@@ -116,9 +116,9 @@ it("suppresses a read result when its grant is revoked during an await", async (
   }
 });
 
-it("allows control reads but refuses writes and Git changes until a competing turn releases the checkout", async () => {
+it("allows control reads but refuses writes and Git changes during exclusive integration", async () => {
   const f = await resourceFixture();
-  expect(f.guard.acquire("other-run", { workingDirectory: f.cwd })).toBe(true);
+  f.store.db.prepare("INSERT INTO checkout_resources VALUES (?, ?, ?, ?)").run("integration", f.cwd, "integrating", process.pid);
   expect(await executeBotAction(f.engine.assistant, "read-busy", "files.read", {
     projectId: f.project.id, args: { path: f.path },
   }, () => true)).toBe("before");
@@ -129,25 +129,25 @@ it("allows control reads but refuses writes and Git changes until a competing tu
     projectId: f.project.id, command: "git_stage_all", args: { cwd: f.cwd },
   }, () => true)).rejects.toMatchObject({ code: "RESOURCE_BUSY" });
   expect(readFileSync(f.path, "utf8")).toBe("before");
-  f.guard.release("other-run");
+  f.store.db.prepare("DELETE FROM checkout_resources WHERE id=?").run("integration");
   // Refusal had no side effect, so the stable request can be retried safely.
   await executeBotAction(f.engine.assistant, "write-busy", "files.write", input, () => true);
   expect(readFileSync(f.path, "utf8")).toBe("after");
 });
 
-it("reenters a trusted Bot turn lease and retains withIdleProject plus the outer reservation", async () => {
+it("allows Bot file writes during shared execution without releasing the outer reservation", async () => {
   const f = await resourceFixture();
   const runId = f.engine.assistant.currentRun!.id;
-  expect(f.guard.acquire(runId, { workingDirectory: f.cwd })).toBe(true);
+  expect(f.guard.acquire(runId, { workingDirectory: f.cwd }).acquired).toBe(true);
   const idle = vi.spyOn(f.engine, "withIdleProject");
   await executeBotAction(f.engine.assistant, "own-write", "files.write", {
     projectId: f.project.id, args: { path: f.path, content: "same run" },
   }, () => true);
   expect(readFileSync(f.path, "utf8")).toBe("same run");
-  expect(idle).toHaveBeenCalledWith(f.project.id, expect.any(Function));
+  expect(idle).not.toHaveBeenCalled();
   const outsider = new HostResourceGuard(f.store);
-  expect(outsider.acquire("foreign", { workingDirectory: f.cwd })).toBe(false);
+  expect(outsider.acquire("foreign", { workingDirectory: f.cwd }).acquired).toBe(true);
   f.guard.release(runId);
-  expect(outsider.acquire("foreign", { workingDirectory: f.cwd })).toBe(true);
+  expect(outsider.acquire("foreign", { workingDirectory: f.cwd }).acquired).toBe(true);
   outsider.close();
 });

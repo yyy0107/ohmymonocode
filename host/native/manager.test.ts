@@ -55,6 +55,7 @@ function setup(options: { autoSync?: boolean } = {}) {
   });
   if (options.autoSync === false) engine.nativeSessions.setAutoSync(false);
   cleanups.push(async () => {
+    await Promise.all([engine.ready, engine.workflows.ready]);
     await engine.close();
     store.close();
     rmSync(directory, { recursive: true, force: true });
@@ -331,8 +332,36 @@ describe.runIf(linux)("Host-managed native sessions", () => {
     expect(context.provider.send).not.toHaveBeenCalled();
   }, 10_000);
 
+  it("tracks touched conversations from summaries without loading ordinary histories", async () => {
+    const context = setup({ autoSync: false });
+    await context.engine.ready;
+    const created = context.engine.command({ type: "create", commandId: "touch-ordinary", projectId: context.project.id,
+      harness: "claude", model: "claude:test", runtimeMode: "supervised" });
+    const template = context.store.session(created.sessionId);
+    const ids = Array.from({ length: 64 }, (_, index) => `ordinary-${index}`);
+    for (const id of ids)
+      context.store.save({ ...template, session: { ...template.session, id } }, { type: "seed" });
+    const managed = imported(context);
+    const prepare = vi.spyOn(context.store.db, "prepare");
+    try {
+      for (let pass = 0; pass < 2; pass++)
+        for (const id of ids) context.engine.nativeSessions.touch(id);
+      context.engine.nativeSessions.touch(managed.id);
+      context.engine.nativeSessions.touch("missing");
+      expect(prepare.mock.calls.filter(([sql]) => /SELECT snapshot FROM sessions/i.test(sql))).toHaveLength(0);
+    } finally {
+      prepare.mockRestore();
+    }
+    // A newly managed conversation still joins the watched set immediately.
+    const peek = vi.spyOn(context.store, "peekSession");
+    context.engine.nativeSessions.poll();
+    expect(peek).toHaveBeenCalledWith(managed.id);
+    for (const id of ids) expect(peek).not.toHaveBeenCalledWith(id);
+  });
+
   it("polls settled conversations from their summaries without parsing transcripts", async () => {
     const context = setup();
+    await context.engine.ready;
     const settled = imported(context);
     const watched = imported(context);
     await context.engine.nativeSessions.refresh(settled.id, { force: true });

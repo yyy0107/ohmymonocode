@@ -14,7 +14,7 @@ import {
 } from "../../../../../shared/ui/icons";
 import { useContext, type ReactNode } from "react";
 import type { ApprovalDecision } from "../../../../../integrations/harness";
-import { FileTypeIcon } from "../../../../files/ui/FileTypeIcon";
+import { FileTypeIcon } from "../../../../connections/files/ui/FileTypeIcon";
 import type { Block, ToolPreview } from "../../../model/session";
 import {
   resolveToolCallDisplay,

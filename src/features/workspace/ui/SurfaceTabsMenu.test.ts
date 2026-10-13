@@ -21,7 +21,7 @@ vi.mock("../../../platform/tauri/fs", async (importOriginal) => ({
   revealPath: actions.revealPath,
 }));
 
-vi.mock("../../files/ui/FileTypeIcon", () => ({
+vi.mock("../../connections/files/ui/FileTypeIcon", () => ({
   FileTypeIcon: ({ name }: { name: string }) =>
     createElement("span", { "data-icon": name }),
 }));

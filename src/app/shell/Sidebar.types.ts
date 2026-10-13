@@ -17,6 +17,10 @@ import type { RecentProject } from "../../features/projects/model/recents";
 type SidebarTab = SidebarTabId;
 
 export type SidebarProps = {
+  desktopMode?: "chat" | "code";
+  modeToggle?: ReactNode;
+  headerBrand?: ReactNode;
+  headerNavigation?: ReactNode;
   /** The Workflows section (runs and saved workflows), shown in the sessions tab. */
   workflowsSection?: ReactNode;
   cwd: string;

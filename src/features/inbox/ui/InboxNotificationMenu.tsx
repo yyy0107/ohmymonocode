@@ -16,7 +16,7 @@ import { useNotificationProjects } from "../../notifications/hooks/useNotificati
 import {
   ExplorerMenu,
   type ExplorerMenuItem,
-} from "../../files/ui/ExplorerMenu";
+} from "../../connections/files/ui/ExplorerMenu";
 import { NotificationMuteDatePicker } from "../../notifications/ui/NotificationMuteDatePicker";
 import { Popover } from "../../../shared/ui/Popover";
 import {

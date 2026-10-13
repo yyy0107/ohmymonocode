@@ -5,7 +5,7 @@ import {
   readTextFile,
   writeTextFile,
 } from "../../../platform/tauri/fs";
-import { invalidateProjectFiles } from "../../files/model/fileIndex";
+import { invalidateProjectFiles } from "../../connections/files/model/fileIndex";
 import { joinPath } from "../../../shared/lib/paths";
 import { isLocalProject, normalizeProjectPath } from "../../projects/model/recents";
 import type { HarnessId } from "../../sessions/model/session";

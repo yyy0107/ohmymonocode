@@ -1,6 +1,5 @@
-/* Existing desktop workspace geometry, now backed by the unified static tokens.
-   Source-matched controls live in desktop-controls.css. Professional pane sizes
-   and business springs without Grok evidence remain project adaptations.
+/* Desktop workspace metrics backed by the measured reference tokens.
+   Shared controls and workspace-specific presentation live in their stylesheets.
    Every rule stays behind html[data-skin], which mobile explicitly removes. */
 
 html[data-skin] {
@@ -23,7 +22,7 @@ html[data-skin] {
   --omb-chrome: 28px;
   --omb-row: 32px;
   --omb-row-project: 32px;
-  --omb-option: 36px;
+  --omb-option: 32px;
   --omb-settings-row: 44px;
   --omb-switch-width: var(--desktop-switch-width);
   --omb-switch-height: var(--desktop-switch-height);
@@ -34,10 +33,10 @@ html[data-skin] {
   --omb-radius-field: var(--desktop-radius-field);
   --omb-radius-row: 8px;
   --omb-radius-card: var(--desktop-radius-card);
-  --omb-radius-sheet: 16px;
+  --omb-radius-sheet: var(--desktop-radius-dialog);
   --omb-radius-bubble: var(--desktop-radius-bubble);
   --omb-radius-capsule: 999px;
-  --omb-radius-composer: 18px;
+  --omb-radius-composer: var(--desktop-radius-composer);
 
   --omb-shadow-float: 0 8px 28px rgb(0 0 0 / 0.28), 0 1px 3px rgb(0 0 0 / 0.18);
 
@@ -246,85 +245,7 @@ html[data-skin] [data-session-dense] [data-orchestration-icon] {
   border-radius: 999px;
 }
 
-/* Composer: an 18px card, 14px text, 32px round actions and a 28px send
-   disc centred in its 32px column. The field
-   and its highlight mirror must share every metric. */
-html[data-skin] [data-composer-layout="desktop"] .composer-surface-with-workspace {
-  border-radius: var(--omb-radius-composer);
-}
-html[data-skin] [data-composer-layout="desktop"] .composer-workspace-bar {
-  gap: var(--omb-space-10);
-  min-height: var(--omb-hit);
-  padding: var(--omb-space-4) var(--omb-space-8) var(--omb-space-4) var(--omb-space-12);
-}
-html[data-skin] [data-composer-layout="desktop"] .composer-workspace-bar > div > button {
-  height: var(--omb-control-sm);
-  gap: 5px;
-}
-html[data-skin] [data-composer-layout="desktop"] .composer-workspace-bar button span {
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 16px;
-}
-html[data-skin] [data-composer-layout="desktop"] .composer-input-shell {
-  gap: var(--omb-space-4);
-  padding: var(--omb-space-8) var(--omb-space-12) var(--omb-space-6);
-  border-radius: var(--omb-radius-composer);
-  box-shadow: var(--omb-shadow-float);
-}
-html[data-skin] [data-composer-layout="desktop"] :is(.composer-field, .composer-highlight) {
-  min-height: 32px;
-  font-size: 14px;
-  line-height: 22px;
-}
-html[data-skin] [data-composer-layout="desktop"] .composer-footer {
-  gap: var(--omb-space-6);
-  min-height: var(--omb-hit);
-  margin-inline: calc(-1 * var(--omb-space-6));
-}
-html[data-skin] [data-composer-layout="desktop"] .composer-toolbar {
-  gap: var(--omb-space-6);
-}
-html[data-skin] [data-composer-layout="desktop"] .composer-footer > div:first-child > button {
-  width: var(--omb-hit);
-  min-width: var(--omb-hit);
-  height: var(--omb-hit);
-  min-height: var(--omb-hit);
-  border-radius: 999px;
-}
-html[data-skin] [data-composer-layout="desktop"] .composer-footer > div:first-child > button svg {
-  width: 16px;
-  height: 16px;
-}
-html[data-skin] [data-composer-layout="desktop"] .composer-leading-controls > button,
-html[data-skin] [data-composer-layout="desktop"] .composer-footer :is([data-access-picker-trigger], [data-model-picker-trigger], button[data-model-control]) {
-  height: var(--omb-control);
-  gap: var(--omb-space-4);
-  padding: 0 var(--omb-space-8);
-  border-radius: 999px;
-  font-size: 13px;
-  line-height: 18px;
-}
-html[data-skin] [data-composer-layout="desktop"] .composer-footer :is([data-access-picker-trigger], [data-model-picker-trigger], button[data-model-control]) > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-  line-height: 18px;
-}
-html[data-skin] [data-composer-layout="desktop"] .composer-footer :is(.composer-send, .composer-stop) {
-  width: var(--omb-control);
-  height: var(--omb-control);
-  margin: calc((var(--omb-hit) - var(--omb-control)) / 2);
-  border-radius: 999px;
-}
-html[data-skin] [data-composer-layout="desktop"] :is(.composer-send, .composer-stop) > svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* Question and approval cards: 36px options and 28px action pills.
+/* Question and approval cards use standard rows and compact action controls.
    Selectors keep the skin prefix so the
    phone's `.mobile-shared-question` rules never meet them. */
 html[data-skin] [data-question-card] {
@@ -438,97 +359,6 @@ html[data-skin] .approval-toast :is([data-approval="allow"], [data-approval="den
   font-size: 13px;
 }
 
-/* Menus: 12px cards with 4px insets and 32px rows. Listbox options
-   in pickers keep their own density. */
-html[data-skin] :is(.popover-frame, .composer-popover) {
-  max-width: calc(100vw - 32px);
-  max-height: calc(100dvh - 32px);
-  border-radius: var(--omb-radius-card);
-}
-/* Popover puts padding on its content layer; its glass frame stays unpadded. */
-html[data-skin] .popover-frame > [data-popover-side]:has([role^="menuitem"]),
-html[data-skin] .composer-popover {
-  padding: var(--omb-space-4);
-}
-html[data-skin] :is(.popover-frame, .composer-popover) :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]),
-html[data-skin] .composer-popover > button {
-  gap: var(--omb-space-8);
-  min-height: var(--omb-hit);
-  padding: var(--omb-space-4) var(--omb-space-8);
-  border-radius: var(--omb-radius-row);
-  font-size: 13px;
-  line-height: 18px;
-}
-html[data-skin] :is(.popover-frame, .composer-popover) :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]) svg,
-html[data-skin] .composer-popover > button svg {
-  width: 16px;
-  height: 16px;
-}
-html[data-skin] :is(.popover-frame, .composer-popover) [role="option"] {
-  border-radius: var(--omb-radius-row);
-}
-
-/* Right-hand sheet: only the leading corners round. */
-html[data-skin] .app-view-dialog.omb-slide-panel {
-  border-radius: var(--omb-radius-sheet) 0 0 var(--omb-radius-sheet);
-}
-
-/* User bubble: 16px corners with a tight tail and 14px body text.
-   The row's 18% leading padding already keeps it off the far side, and its
-   parent is fit-content, so a percentage cap here would wrap short text. */
-html[data-skin] :where(.user-message-row:not(.mobile-desktop-transcript *)) .user-message-bubble {
-  padding: var(--omb-space-8) var(--omb-space-12);
-  border-radius: var(--omb-radius-bubble) var(--omb-radius-bubble) var(--omb-space-6) var(--omb-radius-bubble);
-}
-html[data-skin] :where(.user-message-row:not(.mobile-desktop-transcript *)) .user-message-bubble[data-bubble-layout="chat"] {
-  max-width: min(100%, 720px);
-}
-html[data-skin] :where(.user-message-row:not(.mobile-desktop-transcript *)) :is(.user-message-bubble > pre, .user-message-with-link) {
-  font-size: 14px;
-  line-height: 22px;
-}
-
-/* Session tab strip. It stays in flow as window chrome (drag region, file
-   tabs, tool toggles); its controls are compact desktop pills. */
-html[data-skin] [data-session-surface-tabs] .surface-tab {
-  height: var(--omb-control);
-  padding-inline-start: var(--omb-space-12);
-  border: 0;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 18px;
-}
-html[data-skin] [data-session-surface-tabs] .surface-tab + button {
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-}
-html[data-skin] [data-session-surface-tabs] :is([data-session-tool-toggle], [data-session-overflow-menu]) {
-  width: var(--omb-control);
-  height: var(--omb-control);
-  border-radius: 999px;
-}
-html[data-skin] [data-session-surface-tabs] :is([data-session-tool-toggle], [data-session-overflow-menu]) svg {
-  width: 16px;
-  height: 16px;
-}
-html[data-skin] [data-session-surface-tabs] [data-session-project-chip] {
-  padding: var(--omb-space-2) var(--omb-space-8);
-  border-radius: 999px;
-  font-size: 12px;
-  line-height: 16px;
-}
-
-/* The composer stays in flow; the transcript's last 8px fade out so
-   messages dissolve into the input instead of ending on a hard line. A mask
-   fades the content itself, so it works over translucent panes and chat
-   background images alike. */
-html[data-skin] .agent-transcript {
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--omb-space-8)), transparent);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--omb-space-8)), transparent);
-}
-
 /* Session status keeps its place at the top right: a 32px capsule when
    collapsed, a 12px card when expanded. */
 html[data-skin] [data-session-status][data-state="collapsed"] {
@@ -606,24 +436,6 @@ html[data-skin] [data-jump-to-bottom] svg {
   height: 18px;
 }
 
-/* Empty states use desktop title and description sizes. */
-html[data-skin] [data-empty-state] {
-  gap: var(--omb-space-16);
-  min-height: max(100%, 260px);
-  padding: 32px var(--omb-space-20);
-}
-html[data-skin] [data-empty-state] > p {
-  max-width: 320px;
-  font-size: 13px;
-  line-height: 1.5;
-}
-html[data-skin] [data-empty-title] {
-  font-size: 17px;
-  font-weight: 600;
-  line-height: 1.411765;
-  letter-spacing: -0.3px;
-}
-
 /* Transcript images: capped at 300px tall with row-radius corners; inline images
    inside text keep their natural shape. */
 html[data-skin] .agent-markdown img {
@@ -649,7 +461,7 @@ html[data-skin] .project-terminal-card.omb-slide-panel {
    stretches toward the new option and settles. */
 html[data-skin] [data-settings-segmented] {
   --segment-pad: var(--omb-space-2);
-  --segment-gap: var(--omb-space-2);
+  --segment-gap: 0px;
   --segment-cell: calc(
     (100% - 2 * var(--segment-pad) - (var(--segment-count) - 1) * var(--segment-gap)) /
       var(--segment-count)

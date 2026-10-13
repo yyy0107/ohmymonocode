@@ -329,7 +329,7 @@ button.mobile-drawer-group-status,
   transition:
     background-color 120ms ease,
     scale 120ms ease,
-    --mobile-press-spread 280ms cubic-bezier(0.2, 0, 0, 1);
+    --mobile-press-spread 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 @media (hover: hover) {
   :is(.mobile-app, .mobile-sheet, .mobile-modal, [data-popover-side]) button:enabled:hover {

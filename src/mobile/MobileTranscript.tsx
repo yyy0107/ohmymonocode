@@ -378,6 +378,7 @@ export const MobileTranscript = memo(function MobileTranscript({
         visible={parentVisible}
         animateFrom={animateFrom}
         blocks={session.blocks}
+        executionState={session.executionState}
         historyEntries={historyEntries}
         busy={snapshot.status === "running"}
         cwd={session.cwd}

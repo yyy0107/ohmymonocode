@@ -8,6 +8,7 @@ import {
   popTransition,
 } from "../../../../../shared/motion/tokens";
 import { useMotionPreference } from "../../../../../shared/motion/useMotionPreference";
+import { MenuHover } from "../../../../../shared/ui/MenuHover";
 import * as React from "react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 import {
@@ -100,7 +101,7 @@ function DropdownMenuContent({
               exit={popExit}
               transition={reduced ? immediateTransition : popTransition}
             >
-              {props.children}
+              <div data-menu-gutter>{props.children}</div>
             </motion.div>
           </DropdownMenuPrimitive.Content>
         </MotionPresenceItem>
@@ -129,6 +130,7 @@ function DropdownMenuGroup({
 
 function DropdownMenuItem({
   className,
+  children,
   inset,
   variant = "default",
   ...props
@@ -146,7 +148,9 @@ function DropdownMenuItem({
         className,
       )}
       {...props}
-    />
+    >
+      {props.asChild ? children : <><MenuHover />{children}</>}
+    </DropdownMenuPrimitive.Item>
   );
 }
 
@@ -170,6 +174,7 @@ function DropdownMenuCheckboxItem({
       checked={checked}
       {...props}
     >
+      {props.asChild ? null : <MenuHover />}
       <span
         className="pointer-events-none absolute right-2 flex items-center justify-center"
         data-slot="dropdown-menu-checkbox-item-indicator"
@@ -214,6 +219,7 @@ function DropdownMenuRadioItem({
       )}
       {...props}
     >
+      {props.asChild ? null : <MenuHover />}
       <span
         className="pointer-events-none absolute right-2 flex items-center justify-center"
         data-slot="dropdown-menu-radio-item-indicator"
@@ -318,8 +324,9 @@ function DropdownMenuSubTrigger({
       )}
       {...props}
     >
+      {props.asChild ? null : <MenuHover />}
       {children}
-      <ChevronRightIcon className="ml-auto size-4 text-foreground-subtle group-data-[highlighted]/dropdown-menu-sub-trigger:text-foreground-subtle" />
+      <ChevronRightIcon data-menu-arrow className="ml-auto size-4 text-foreground-subtle group-data-[highlighted]/dropdown-menu-sub-trigger:text-foreground-subtle" />
     </DropdownMenuPrimitive.SubTrigger>
   );
 }
@@ -348,7 +355,7 @@ function DropdownMenuSubContent({
           exit={popExit}
           transition={reduced ? immediateTransition : popTransition}
         >
-          {props.children}
+          <div data-menu-gutter>{props.children}</div>
         </motion.div>
       </DropdownMenuPrimitive.SubContent>
     </MotionPresenceItem>

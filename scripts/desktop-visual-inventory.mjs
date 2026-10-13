@@ -8,13 +8,15 @@ const files=walk('src').filter(p=>p.endsWith('.tsx')&&!p.startsWith('src/mobile/
 const rows=[];
 function hasJsx(node) { return ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node) || Boolean(ts.forEachChild(node, child => hasJsx(child) || undefined)); }
 const groups={
- settings:['SC0001–SC0347; M01–M15','Settings navigation, rows, fields, cards, menu motion; workspace geometry retained'],
- bots:['S001–S081; SC common controls','Existing Bots REA mapping; shared radii, controls, typography; 54px list measurement retained'],
- sessions:['S020–S041; S061–S067; M07/M09','Composer and transcript controls; code/tool content width and virtualization retained'],
- workflows:['S026–S046; S061–S067; SC common controls','Shared kit controls, settings rows, owned headings/cards; graph geometry and business motion retained'],
- 'source-control':['S026–S046; S061–S067','Owned chrome, dialogs, fields; diff and graph geometry retained'],
- files:['S026–S041; S061–S067','Owned toolbar and fields; editor content and tree row measurements retained'],
- terminal:['S026–S036; S061–S067','Owned dock chrome; xterm sizing, retained PTY and resizing unchanged'],
+ settings:['Claude final-comparison Settings metrics; design-tokens/menu-metrics; Monocode settings content','Centered 1024×800 dialog, 192px nav, uncarded rows and shared controls; retain real settings actions'],
+ bots:['Monocode adaptation of shared Claude desktop palette, fonts and controls','Scoped desktop Bots surfaces adopt shared semantics; existing contacts, messages, management geometry and state remain Monocode behavior'],
+ sessions:['Claude new/chat/Code layout and typography; Monocode provider behavior','Chat composer640/radius14/input15/21; Code header32/prose14/20; retain tools, approval, attachments, provider and virtual scrolling behavior'],
+ workflows:['Claude shared menu/control metrics; repository Motion rules','Shared kit controls and owned chrome; retain graph geometry and business behavior; selected labels survive menu closing'],
+ 'source-control':['Claude shared desktop palette and controls; Monocode professional workspace adaptation','Owned chrome, dialogs and fields; retain diff/graph content, editor themes and virtual measurements'],
+ files:['Claude shared desktop palette and controls; Monocode file workspace adaptation','Owned toolbar and fields; preserve editor, search, tree, navigation and content measurements'],
+ terminal:['Claude compact panel chrome; Monocode terminal adaptation','Owned dock chrome; retain xterm sizing, mounted PTY and direct resizing behavior'],
+ shell:['Claude final-comparison sidebar/new and layout metrics; Monocode navigation','Sidebar288/header44/rows32/mode70×28; preserve project, provider, archived-session and native window control semantics'],
+ shared:['Claude design-tokens/menu-metrics; repository Motion/collapse contracts','Shared semantic palette, local fonts, controls and portal lifecycle; retain public props, focus and accessibility contracts'],
 };
 const resolve=(from,spec)=>{
  if(!spec.startsWith('.'))return null;
@@ -35,15 +37,15 @@ for(const file of files){
   if(ts.isJsxAttribute(n)&&n.name.getText(ast)==='className'&&n.initializer){for(const m of n.initializer.getText(ast).matchAll(/\b(?:desktop-[\w-]+|settings-row[\w-]*|ui-button[\w-]*)/g))hooks.add(m[0]);}
   ts.forEachChild(n,visit);
  };visit(ast);
- const group=file.startsWith('src/features/')?file.split('/')[2]:file.startsWith('src/app/')?'shell':file.startsWith('src/shared/')?'shared':'entry';
- const [evidence,target]=groups[group]??['S026–S046; S061–S067; SC common controls','Shared semantic palette, controls and owned chrome; unmatched domain geometry and business states retained'];
- rows.push({id:file.replace(/^src\//,'').replace(/\.tsx$/,''),file,components:[...new Set(components)],group,jsxElements:jsx,hooks:[...hooks].sort(),imports,styleSources:[...(jsx?['src/styles/desktop-tokens.css','src/styles/desktop-controls.css','src/styles/desktop-workspaces.css','src/styles/omb-skin.css','src/styles/omb-metrics.css']:[]),...imports.filter(p=>p.endsWith('.css'))],evidence:jsx?evidence:'not visual',mapping:jsx?'MonoCode adaptation (direct source families listed in specification)':'nonvisual provider/context',target:jsx?target:'No visual change',geometry:'Preserve unless explicitly mapped in docs/desktop-visual-spec.md',themes:'light: source + documented contrast adaptation; dark: Midnight adaptation',motion:'Mapped shared menu/switch feedback; retain unmatched motion; shared bidirectional collapse',runtime:'Not individually runtime-tested; see delivery matrix',sha256:crypto.createHash('sha256').update(source).digest('hex')});
+ const group=file.startsWith('src/features/connections/files/')?'files':file.startsWith('src/features/')?file.split('/')[2]:file.startsWith('src/app/')?'shell':file.startsWith('src/shared/')?'shared':'entry';
+ const [evidence,target]=groups[group]??['Claude shared desktop design tokens; Monocode domain adaptation','Shared semantic palette, controls and owned chrome; unmatched domain geometry and business states retained'];
+ rows.push({id:file.replace(/^src\//,'').replace(/\.tsx$/,''),file,components:[...new Set(components)],group,jsxElements:jsx,hooks:[...hooks].sort(),imports,styleSources:[...(jsx?['src/styles/desktop-tokens.css','src/styles/desktop-fonts.css','src/styles/desktop-controls.css','src/styles/desktop-workspaces.css','src/styles/desktop-sidebar.css','src/styles/desktop-navigation.css','src/styles/desktop-conversation.css','src/styles/omb-skin.css','src/styles/omb-metrics.css']:[]),...imports.filter(p=>p.endsWith('.css'))],evidence:jsx?evidence:'not visual',mapping:jsx?'Monocode adaptation of measured Claude geometry and shared semantics; file-level applicability is not runtime coverage':'nonvisual provider/context',target:jsx?target:'No visual change',geometry:'Preserve unless explicitly mapped in docs/desktop-visual-spec.md',themes:'light and dark: Claude measured semantic palette; user font/scale preferences retain precedence',motion:'Repository easing and180/200/240ms timings; AutoAnimate lists; shared bidirectional collapse; reduced-motion and hidden portal rules',runtime:'Not individually runtime-tested; see delivery matrix',sha256:crypto.createHash('sha256').update(source).digest('hex')});
 }
 // Record direct/transitive use of the migrated component implementations.
 const migrated=new Set(rows.filter(r=>r.hooks.length||/shared\/ui\/(Popover|Modal|SearchableSelect)|kit\/components\/ui\//.test(r.file)).map(r=>r.file));
 let added=true;while(added){added=false;for(const r of rows)if(!migrated.has(r.file)&&r.imports.some(i=>migrated.has(i))){migrated.add(r.file);added=true;}}
 for(const row of rows)row.integration=!row.jsxElements?'nonvisual':row.hooks.length?'explicit component hooks':migrated.has(row.file)?'shared component adapter':'semantic palette; local geometry retained';
-const json=JSON.stringify({version:1,evidence:'Grok Bot 0.30.0 static installation audit, 2026-10-12',sourceFiles:rows.length,componentDeclarations:rows.reduce((n,r)=>n+r.components.length,0),rows},null,2)+'\n';
+const json=JSON.stringify({version:2,evidence:'Claude UI analysis final measured geometry, 2026-10-12; Monocode adaptations, 2026-10-13',reference:'/home/wy/projects/claude-ui-analysis/final-comparison.md',boundary:'Static source inventory, including compatibility and lazy components. Declarations can include JSX constants; imports and hooks do not establish reachability, measurement or runtime validation of every component.',sourceFiles:rows.length,componentDeclarations:rows.reduce((n,r)=>n+r.components.length,0),rows},null,2)+'\n';
 const fields=['id','file','components','group','integration','evidence','mapping','target','geometry','themes','motion','runtime','hooks','styleSources'];
 const quote=v=>'"'+String(Array.isArray(v)?v.join(' | '):v).replaceAll('"','""')+'"';
 const csv=[fields.join(','),...rows.map(r=>fields.map(k=>quote(r[k])).join(','))].join('\n')+'\n';

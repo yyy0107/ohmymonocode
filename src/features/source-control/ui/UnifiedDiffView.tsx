@@ -19,7 +19,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
+import { FileTypeIcon } from "../../connections/files/ui/FileTypeIcon";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
 import { useColorScheme } from "../../../shared/hooks/useColorScheme";
 import { formatInteger } from "../../../shared/lib/numbers";
@@ -28,7 +28,7 @@ import { basename } from "../../../platform/tauri/fs";
 import {
   highlightDiffFile,
   type SyntaxToken,
-} from "../../files/editor/syntaxTokens";
+} from "../../connections/files/editor/syntaxTokens";
 import { DiffCommentComposer } from "./DiffCommentComposer";
 import {
   expandFold,

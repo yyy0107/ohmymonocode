@@ -46,6 +46,7 @@ export function CreateBranchDialog({ busy, error, onCreate, onCancel }: Props) {
             {uiT("Branch name")}
           </span>
           <input
+            data-code-label
             ref={input}
             type="text"
             value={name}

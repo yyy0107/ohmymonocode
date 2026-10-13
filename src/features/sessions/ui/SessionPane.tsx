@@ -105,6 +105,7 @@ import {
 import { markLinkedSessionUpdateSeen } from "../../inbox/model/linkedSessionSeen";
 import { RemoteSession } from "../../connections/ui/RemoteSession";
 import { isRemoteProjectPath } from "../../projects/model/recents";
+import { isChatFolder } from "../../projects/model/chatFolderPath";
 import {
   latestAnswerableQuestionId,
   questionAnswerableLater,
@@ -729,7 +730,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
         !!session.inboxAsk ||
         (hideProjectPicker ? !showDeckProjectPicker : false)
       }
-      hideBranchPicker={!!session.inboxAsk || managed}
+      hideBranchPicker={!!session.inboxAsk || managed || isChatFolder(session.cwd)}
       hideTopBar={!!session.inboxAsk}
       context={session.context}
       quoteRequest={quoteRequest}
@@ -890,7 +891,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
       data-project-background-effect={projectBackground?.effect}
       data-project-background-scope={projectBackground?.scope}
       style={projectBackgroundStyle}
-      className="chat-pane-background relative isolate flex h-full min-h-0 min-w-0 flex-1 flex-col"
+      className="desktop-session-pane chat-pane-background relative isolate flex h-full min-h-0 min-w-0 flex-1 flex-col"
       onMouseDown={() => onFocus(session.id)}
     >
       {projectBackground?.effect === "gradient-blur" ||
@@ -908,6 +909,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
       ) : null}
       {renderHeader ? renderHeader(session) : inSplit ? (
         <div
+          data-session-pane-header
           className={`flex h-9 shrink-0 touch-none items-center gap-1.5 border-b border-stroke px-2 select-none ${
             onPaneDragStart ? "cursor-grab active:cursor-grabbing" : ""
           }`}
@@ -954,7 +956,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
           </button>
         </div>
       ) : null}
-      <div className="@container relative flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="desktop-conversation-body @container relative flex min-h-0 min-w-0 flex-1 flex-col">
         <div
           ref={transcriptScope}
           className="@container relative min-h-0 flex-1"
@@ -1057,6 +1059,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
                   pendingQuestion={!!session.pendingQuestion}
                   pendingQuestionHistoryId={session.pendingQuestion?.historyId}
                   onQuestionFollowUp={lateQuestionsEnabled ? answerQuestionLater : undefined}
+                  executionState={session.executionState}
                   backgroundTasks={session.backgroundTasks}
                   onApproval={session.worktreeRemoved ? undefined : approve}
                   onAddToChat={addSelectionToChat}
@@ -1190,7 +1193,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
             ref={composerDockMotion.dockedRef}
             data-session-composer
             inert={btw.open}
-            className="mx-auto w-full max-w-4xl shrink-0"
+            className="desktop-composer-dock mx-auto w-full max-w-4xl shrink-0"
           >
             {composer}
           </div>

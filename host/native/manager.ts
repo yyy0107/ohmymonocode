@@ -212,7 +212,7 @@ export class NativeSessionManager {
 
   /** A managed session the cached ID list has not seen yet (saved by another writer). */
   private track(id: string): void {
-    if (this.managed && !this.managed.ids.includes(id) && nativeManaged(this.host.store.sessionIfExists(id)))
+    if (this.managed && !this.managed.ids.includes(id) && this.host.store.sessionSummary(id)?.nativeSession?.mode === "managed")
       this.managed = { ...this.managed, ids: [...this.managed.ids, id] };
   }
 

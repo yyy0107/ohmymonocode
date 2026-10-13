@@ -8,7 +8,7 @@ import {
   notificationMuteStatus,
 } from "./notificationMuteActions";
 import { NotificationMuteDatePicker } from "./NotificationMuteDatePicker";
-import { ExplorerMenu } from "../../files/ui/ExplorerMenu";
+import { ExplorerMenu } from "../../connections/files/ui/ExplorerMenu";
 import { Popover } from "../../../shared/ui/Popover";
 import { SecondaryButton } from "../../../shared/ui/SecondaryButton";
 import { BellOff, ChevronDown } from "../../../shared/ui/icons";

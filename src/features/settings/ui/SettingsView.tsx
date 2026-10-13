@@ -56,6 +56,7 @@ import {
   ColorSwatchRow,
 } from "../../../shared/ui/ColorPickerPopover";
 import { Popover } from "../../../shared/ui/Popover";
+import { MenuHover } from "../../../shared/ui/MenuHover";
 import { SecondaryButton } from "../../../shared/ui/SecondaryButton";
 import {
   announceHarnessesRefreshed,
@@ -90,7 +91,7 @@ import {
   CONTENT_FONT_PRESETS,
   CONTRAST_MAX,
   CONTRAST_MIN,
-  DEFAULT_PROFILE,
+  defaultAppearanceProfile,
   enableSeparateSchemes,
   FONT_SIZE_LIMITS,
   FONT_WEIGHT_LABELS,
@@ -345,7 +346,7 @@ import {
 import {
   ExplorerMenu,
   type ExplorerMenuItem,
-} from "../../files/ui/ExplorerMenu";
+} from "../../connections/files/ui/ExplorerMenu";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import {
   loadSessionSidebarFilters,
@@ -2336,7 +2337,7 @@ function useAppearanceSettings() {
     // Typography defaults; colour defaults follow through the calls below.
     const shared = saveProfile("shared", {
       ...loadProfile("shared"),
-      ...DEFAULT_PROFILE,
+      ...defaultAppearanceProfile(),
       accentColor: loadAccentColor(),
       hue: loadThemeHue(),
       saturation: loadThemeSaturation(),
@@ -2761,6 +2762,7 @@ function FontFamilySelect({
       <div className="w-40">
         <Select
           label={label}
+          fontMenu="family"
           value={custom ? CUSTOM_FONT : value}
           options={[
             { value: "", label: defaultLabel },
@@ -2796,6 +2798,7 @@ function FontWeightSelect({
     <div className="w-28">
       <Select
         label={label}
+        fontMenu="weight"
         value={String(value)}
         options={FONT_WEIGHTS.map((weight) => ({
           value: String(weight),
@@ -2941,7 +2944,7 @@ function TypographyCards({ appearance }: { appearance: AppearanceSettings }) {
           <FontFamilySelect
             label={uiT("Code font")}
             value={profile.codeFont}
-            defaultLabel={uiT("Default (Consolas)")}
+            defaultLabel={uiT("Default (Anthropic Mono)")}
             presets={CODE_FONT_PRESETS}
             monospace
             onChange={(codeFont) => updateProfile({ codeFont })}
@@ -4279,12 +4282,14 @@ function ProviderAccountMenu({
         type="button"
         disabled={disabled}
         aria-label={uiT("Actions for {account}", { account: label })}
+        data-menu-trigger="settings"
         title={uiT("More actions")}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
         className="grid size-7 place-items-center rounded-md text-content/40 transition-transform duration-150 hover:bg-content/6 hover:text-content active:scale-[0.96] disabled:opacity-35"
       >
+        <MenuHover />
         {busy ? (
           <Loader className="size-3.5 animate-spin" />
         ) : (
@@ -5805,12 +5810,14 @@ function Select({
   options,
   onChange,
   onOpen,
+  fontMenu,
 }: {
   label: string;
   value: string;
   options: { value: string; label: string; icon?: ReactNode }[];
   onChange: (value: string) => void;
   onOpen?: () => void;
+  fontMenu?: "family" | "weight";
 }) {
   const reduced = useMotionPreference();
   const [open, setOpen] = useState(false);
@@ -5823,6 +5830,7 @@ function Select({
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const activeOption = useRef<HTMLButtonElement>(null);
+  const fontListbox = useRef<HTMLDivElement>(null);
   const listId = useId();
   const selected = options.find((option) => option.value === value);
   const activeId =
@@ -5889,6 +5897,47 @@ function Select({
     }
   };
 
+  const optionElements = options.map((option, index) => {
+    const isSelected = option.value === value;
+    const highlighted = index === active;
+    return (
+      <button
+        key={option.value}
+        ref={highlighted ? activeOption : undefined}
+        type="button"
+        id={`${listId}-opt-${index}`}
+        role="option"
+        data-desktop-select-option
+        data-settings-font-option={fontMenu ? "" : undefined}
+        data-highlighted={highlighted || undefined}
+        tabIndex={-1}
+        aria-selected={isSelected}
+        onMouseDown={(e) => e.preventDefault()}
+        onMouseEnter={() => setActive(index)}
+        onClick={() => pick(option.value)}
+        className="relative isolate flex min-h-7 w-full items-center gap-2 rounded-md bg-transparent px-2 py-1 text-left text-ui-base text-foreground"
+      >
+        <span
+          aria-hidden="true"
+          data-menu-hover
+          className={`absolute inset-0 -z-10 rounded-[inherit] ${highlighted ? "bg-menu-hover" : ""}`}
+        />
+        {option.icon ? (
+          <span className="grid size-4 shrink-0 place-items-center">
+            {option.icon}
+          </span>
+        ) : null}
+        <span className="min-w-0 flex-1 truncate">{option.label}</span>
+        {isSelected ? (
+          <Check
+            data-settings-font-check={fontMenu ? "" : undefined}
+            className="size-4 shrink-0 text-foreground-subtle"
+          />
+        ) : null}
+      </button>
+    );
+  });
+
   return (
     <div ref={root} className="relative max-w-52">
       <button
@@ -5931,45 +5980,34 @@ function Select({
           setOpen(false);
           if (reason === "escape") trigger.current?.focus();
         }}
-        role="listbox"
-        aria-label={label}
-        aria-activedescendant={activeId}
+        role={fontMenu ? undefined : "listbox"}
+        aria-label={fontMenu ? undefined : label}
+        aria-activedescendant={fontMenu ? undefined : activeId}
+        data-settings-font-menu={fontMenu}
         tabIndex={-1}
         onKeyDown={onMenuKey}
-        className="overflow-y-auto overscroll-contain p-1"
+        onFocus={fontMenu ? (event) => {
+          if (event.target === event.currentTarget) {
+            fontListbox.current?.focus({ preventScroll: true });
+          }
+        } : undefined}
+        className={fontMenu ? "overflow-hidden p-0" : "overflow-y-auto overscroll-contain p-1"}
       >
-        {options.map((option, index) => {
-          const isSelected = option.value === value;
-          const highlighted = index === active;
-          return (
-            <button
-              key={option.value}
-              ref={highlighted ? activeOption : undefined}
-              type="button"
-              id={`${listId}-opt-${index}`}
-              role="option"
-              data-desktop-select-option
+        {fontMenu ? (
+          <div data-settings-font-gutter className="overflow-y-auto overscroll-contain p-1" style={{ maxHeight: "inherit" }}>
+            <div
+              ref={fontListbox}
+              role="listbox"
+              aria-label={label}
+              aria-activedescendant={activeId}
               tabIndex={-1}
-              aria-selected={isSelected}
-              onMouseDown={(e) => e.preventDefault()}
-              onMouseEnter={() => setActive(index)}
-              onClick={() => pick(option.value)}
-              className={`flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-ui-base text-foreground ${
-                highlighted ? "bg-menu-hover" : ""
-              }`}
+              data-settings-font-listbox
+              className="p-0 outline-none"
             >
-              {option.icon ? (
-                <span className="grid size-4 shrink-0 place-items-center">
-                  {option.icon}
-                </span>
-              ) : null}
-              <span className="min-w-0 flex-1 truncate">{option.label}</span>
-              {isSelected ? (
-                <Check className="size-4 shrink-0 text-foreground-subtle" />
-              ) : null}
-            </button>
-          );
-        })}
+              {optionElements}
+            </div>
+          </div>
+        ) : optionElements}
       </Popover>
     </div>
   );

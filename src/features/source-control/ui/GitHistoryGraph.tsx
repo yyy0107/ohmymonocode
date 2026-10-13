@@ -262,6 +262,7 @@ function HistoryRow({
         </svg>
         <span className="ml-1 flex min-w-0 flex-1 items-center overflow-hidden">
           <span
+            data-code-label
             className={`min-w-0 shrink truncate text-[12px] leading-[22px] ${
               row.kind === "HEAD" ? "font-semibold" : ""
             }`}
@@ -330,7 +331,7 @@ function CommitSummary({
           </div>
         ))}
       </div>
-      <p className="max-h-48 overflow-y-auto whitespace-pre-wrap text-content/85 [overflow-wrap:anywhere]">
+      <p data-code-label className="max-h-48 overflow-y-auto whitespace-pre-wrap text-content/85 [overflow-wrap:anywhere]">
         {message || commit.shortSha}
       </p>
       {stats ? (
@@ -350,6 +351,7 @@ function CommitSummary({
         <span className="font-mono">{commit.shortSha}</span>
         {commit.refs.map((ref) => (
           <span
+            data-code-label
             key={`${ref.kind}:${ref.name}`}
             className="max-w-full truncate rounded-full bg-content/10 px-1.5 text-content/60"
           >
@@ -426,7 +428,7 @@ function RefPill({ refInfo }: { refInfo: GraphRef }) {
       {local ? (
         <GitBranch className="size-2.5 shrink-0" strokeWidth={2} />
       ) : null}
-      <span className="min-w-0 truncate">{refInfo.name}</span>
+      <span data-code-label className="min-w-0 truncate">{refInfo.name}</span>
     </span>
   );
 }

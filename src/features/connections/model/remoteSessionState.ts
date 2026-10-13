@@ -17,6 +17,7 @@ export function remoteSessionState(
   return {
     ...shell,
     ...host,
+    executionState: host.executionState,
     createdAt: snapshot.createdAt ?? host.createdAt,
     updatedAt: snapshot.updatedAt,
     id: shell.id,

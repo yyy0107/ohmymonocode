@@ -1,0 +1,858 @@
+{
+  "version": 2,
+  "status": "current",
+  "reference_date": "2026-10-12",
+  "implementation_date": "2026-10-13",
+  "effective_spec": "desktop-visual-spec.md",
+  "delivery": "desktop-visual-delivery.md",
+  "boundary": "Measured Claude desktop geometry/colors plus a later user-supplied Code composer image. The new image overrides relative composer structure only and has no CSS size/DPR metadata. Reference206 metrics, browser implementation measurements and static inventory do not imply full-product pixel equivalence.",
+  "inputs": [
+    {
+      "path": "/home/wy/projects/claude-ui-analysis/final-comparison.md",
+      "sha256": "0ad9f52acf835b3a30b35148ddf4b940bbc4e1ada6232e70bfc380697f80018b",
+      "role": "Effective final corrections and scope limits"
+    },
+    {
+      "path": "/home/wy/projects/claude-ui-analysis/verification/final-comparison/metrics.csv",
+      "sha256": "7875221c0da222c2bb33c5c2f065901e75fbb1b2c74ef93ac538772e182823a4",
+      "role": "206 selected reference geometry/style measurements, not full-product pixel coverage"
+    },
+    {
+      "path": "/home/wy/projects/claude-ui-analysis/verification/final-comparison/source.json",
+      "sha256": "b7f13b9e1ba70a1d066edbc259d439134f99cf28a565bb686e6aac76ec9dfc66",
+      "role": "Original source measurements at1280×932, DPR1"
+    },
+    {
+      "path": "/home/wy/projects/claude-ui-analysis/design-tokens.md",
+      "sha256": "1fdbfebde807bec04dea198a864c79af536debbb9c6c91dbacfb2d8ac65c8820",
+      "role": "Measured light/dark typography, colors and controls"
+    },
+    {
+      "path": "/home/wy/projects/claude-ui-analysis/layout.md",
+      "sha256": "df1286386b9255bea05e7fe497e6febbb8d460641c6b41a85f0aa2650ba3288e",
+      "role": "Observed pages, tiles and responsive layouts"
+    },
+    {
+      "path": "/home/wy/projects/claude-ui-analysis/menu-metrics.md",
+      "sha256": "e2dc8be7431c6256aceaa64efe1c53a49db9ecad5b6fb32f71216cbcf20ad802",
+      "role": "Menu density and state-dependent composition"
+    },
+    {
+      "path": "/home/wy/projects/claude-ui-analysis/drag-and-context-menus.md",
+      "sha256": "a5406b1bf8f403b46a0b640128dc953383c547505a0eea2085c4c7d8f87bf682",
+      "role": "Verified tile behavior and explicitly unconfirmed drag cases"
+    },
+    {
+      "path": "/home/wy/projects/claude-ui-analysis/coverage.md",
+      "sha256": "d8db3ed0b9295a0ba0b77dac3173023cde5d3164abd77b39cde69fd2dcb720fc",
+      "role": "Coverage, failed observations and limits"
+    },
+    {
+      "path": "/tmp/codex-clipboard-517004d9-b744-4f1d-986f-079536a2f73c.png",
+      "sha256": "bcc6cfeded7a0ba5ae4cb17ea552ecaf51a209ffa97d5648d4e1761caea25e5a",
+      "width": 992,
+      "height": 172,
+      "role": "User-supplied later Code composer layout reference; overrides conflicting older Code composer layout only. Other desktop geometry, Chat and compact rules remain scoped separately."
+    },
+    {
+      "path": "/tmp/codex-clipboard-350605d2-5c50-4393-8296-c7b2b2277aa0.png",
+      "sha256": "d80dcf93935ae8f1b3515494a686b48003ccb167ba2988e7693108e81d298c11",
+      "role": "User clarification: branch/base and worktree checkbox form one continuous pill without an internal border or rounding."
+    },
+    {
+      "path": "/tmp/codex-clipboard-76b5154f-b968-4012-92ab-3bced59baab6.png",
+      "sha256": "17b13fde8201b0dff4ae70bc05e750848780074bc018002ba68532117539853e",
+      "role": "User clarification: each half has a rounded hover fill inside the continuous branch/worktree outer pill."
+    },
+    {
+      "path": "/tmp/codex-clipboard-29e606af-027d-433d-ab65-b8868454364f.png",
+      "sha256": "0d8ea707d3a63a0110800b996a737ff8c7002eb5765cad8db6bbb2b36d38683e",
+      "role": "User asks that enabling a worktree defaults its source to main; connected control displays the plain source name."
+    },
+    {
+      "path": "/tmp/codex-clipboard-8cd7fadc-e72e-4fb3-bae4-716d367c749e.png",
+      "sha256": "32f487cf3d783a0b02be9c19aab44200acc39419e9982b7e9a0a88e568b87690",
+      "width": 495,
+      "height": 536,
+      "role": "User branch dropdown reference: compact rows, bottom search, right blue check, scroll fades and visible thumb; original DPR/zoom unknown."
+    },
+    {
+      "path": "/tmp/codex-clipboard-5720c5d5-c711-4a9d-a221-9e9c987c90bb.png",
+      "sha256": "6fba877a9d403e07b3cae6d9593de74208fb3fba84e56c18147b58652277db35",
+      "width": 77,
+      "height": 42,
+      "role": "User Code send-button hover reference; background sample #f3f3f3."
+    },
+    {
+      "path": "/tmp/codex-clipboard-df3a6089-610f-45e9-9944-bca2caa39b92.png",
+      "sha256": "6c5a71f10bdcc55565dc203056903c6389c06f4ad97959407e8b10a68c53af9f",
+      "width": 1113,
+      "height": 63,
+      "role": "User feedback: Code composer placeholder/text is not vertically centered."
+    },
+    {
+      "path": "/tmp/codex-clipboard-798003ee-0e86-48d3-9395-f92840964f41.png",
+      "sha256": "fa9f1470b28b4fc15848fb41ba0233eb9611aa8bc351cb2a281313f44a0ad3a3",
+      "width": 343,
+      "height": 514,
+      "role": "Earlier user request to calibrate model option height; final instruction preserves this model panel when reusing it for permissions."
+    },
+    {
+      "path": "/tmp/codex-clipboard-f93d5401-6abf-4721-af66-ac9d50082b15.png",
+      "sha256": "aca4567a142724c75a576a916624b83e451aa038963e5f0da5540bb5ab7da984",
+      "width": 332,
+      "height": 259,
+      "role": "Remove permission option descriptions. Final user clarification: permission width/font must reuse the existing model panel; do not independently redesign the model panel."
+    }
+  ],
+  "implementation_rules": {
+    "motion": "Repository rules override differing source timings/springs; free motion/react, shared easing and180/200/240ms, AutoAnimate lists and shared bidirectional collapse",
+    "fonts": "User fonts first; optional local Anthropic names only; bundled IBM Plex with OFL license; glyph/pixel equivalence not claimed",
+    "mobile": "Desktop rules scoped by data-skin; mobile clears desktop marker and preserves its default weight500"
+  },
+  "runtime_evidence": {
+    "browser": "build/desktop-visual/chromium-verification.json",
+    "scope": "Evidence includes prior overall desktop checks and a later focused composer-reference round. Only listed scopes were run; earlier full-page matrices were not rerun for the new composer image. Native/provider IO remains inert in fixtures.",
+    "browser_runs": [
+      {
+        "engine": "chromium",
+        "version": "154.0.8037.97",
+        "path": "build/desktop-visual/chromium-verification.json",
+        "status": "passed",
+        "dpr": 1,
+        "screenshots": 47,
+        "check_groups": 17,
+        "page_errors": [],
+        "round": "prior overall desktop refactor; not rerun in composer-reference round"
+      },
+      {
+        "engine": "webkit",
+        "version": "26.6",
+        "path": "build/desktop-visual/webkit-verification.json",
+        "status": "passed",
+        "dpr": 1,
+        "screenshots": 49,
+        "check_groups": 18,
+        "page_errors": [],
+        "round": "prior overall desktop refactor; not rerun in composer-reference round"
+      }
+    ],
+    "projects": {
+      "path": "build/desktop-visual/projects-geometry.json",
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "viewport": {
+        "width": 1280,
+        "height": 932
+      },
+      "heading": {
+        "x": 328,
+        "y": 56
+      },
+      "card": {
+        "x": 328,
+        "y": 172,
+        "width": 444,
+        "height": 137
+      },
+      "mode_toggle": {
+        "x": 207.703125,
+        "y": 10,
+        "width": 70,
+        "height": 28
+      },
+      "webkit_difference": "WebKit 26.6 full-run cards have y=173 in both themes, passing the 1 CSS px tolerance; other listed geometry agrees.",
+      "final_layout": {
+        "path": "build/desktop-visual/projects-final-layout.json",
+        "status": "passed",
+        "scenario_count": 12,
+        "browsers": [
+          "chromium 154.0.8037.97",
+          "webkit 26.6"
+        ],
+        "themes": [
+          "light",
+          "dark"
+        ],
+        "viewports": [
+          {
+            "width": 1280,
+            "height": 932
+          },
+          {
+            "width": 1000,
+            "height": 800
+          },
+          {
+            "width": 800,
+            "height": 600
+          }
+        ],
+        "scope": "Real Open project/New chat action in filter toolbar, primary button and rounded selected tab; filters wrap at narrow sizes. Baseline geometry retained; all12 project surfaces have no internal horizontal overflow.",
+        "page_errors": []
+      }
+    },
+    "menu_bar": {
+      "scope": "800px menu scrolling, Tab focus and window-button hit tests passed in the browser fixture",
+      "screenshots": [
+        "build/desktop-visual/audit-alt-menu-at800.png",
+        "build/desktop-visual/audit-pinned-menu-at800.png"
+      ]
+    },
+    "unverified": [
+      "WebKitGTK",
+      "real Tauri windows",
+      "Windows native execution",
+      "physical mobile devices",
+      "native first paint/zoom/multi-window synchronization",
+      "real provider streaming",
+      "real terminal PTY",
+      "all editor/Diff/Bots business combinations",
+      "native dialogs",
+      "native OS IME input"
+    ],
+    "theme_aliases": {
+      "path": "build/desktop-visual/desktop-theme-aliases.json",
+      "scope": "Final focused Chromium/WebKit light/dark checks after the alias-cascade fix. Ten legacy/semantic aliases agree; actual shared shell, Settings and Bots surfaces checked. Inline window color, user accent and mobile isolation preserved. Projects/Settings/Bots screenshots refreshed; no all-secondary-page runtime claim.",
+      "status": "passed",
+      "main_background": {
+        "light": "#fcfcfb",
+        "dark": "#151515"
+      },
+      "settings_background": {
+        "light": "#ffffff",
+        "dark": "#1a1a19"
+      },
+      "page_errors": []
+    },
+    "workflow_time_localization": {
+      "path": "build/desktop-pages/workflows-time-localization.json",
+      "status": "passed",
+      "scope": "Actual Workflows last-run badge in English and Simplified Chinese contains resolved relative time, no raw automations.time.* ID or unresolved placeholder. The 7 time-message mappings were missing and are now supplied; 16 focused formatter/localization tests passed.",
+      "page_errors": []
+    },
+    "app_dialog_focus": {
+      "path": "build/desktop-visual/app-dialog-focus.json",
+      "status": "passed",
+      "scope": "Chromium/WebKit with actual SettingsView and AppViewDialog, original background trigger; 47 focusable controls, both Tab boundaries/full traversal, existing Escape and Close restoration; no page errors. Three focused unit tests additionally cover hidden/disabled controls, prevented Tab and nested dialog ownership."
+    },
+    "tool_composition": {
+      "path": "build/desktop-tools-visual/verification.json",
+      "engine": "chromium",
+      "version": "154.0.8037.97",
+      "screenshots": 8,
+      "check_groups": 6,
+      "page_errors": [],
+      "scope": "Production nested/full-width wrappers: Files full-height, terminal only in workspace column, tools track288 includes margin8 with visible panel280, final leaf fills workspace. Real Files, GitReview, SourceControl, CodeMirror, xterm and conversation UI use synthetic offline RPC; retention, hidden output, close/reversal, reduced motion and overflow checks passed. Real PTY/native IO unrun."
+    },
+    "final_interaction_source": {
+      "log": "/tmp/monocode-claude-final-interaction-tests.log",
+      "status": "passed",
+      "tests": 101,
+      "files": {
+        "App": 79,
+        "SidebarTransition": 3,
+        "AppViewDialog": 3,
+        "automationFormat": 16
+      },
+      "boundary": "Final rerun of overlapping focused test scopes; do not add to previous test counts. This is Vitest execution, not fixture TypeScript coverage or native IO validation.",
+      "round": "prior overall desktop refactor; separate from current composer99/99"
+    },
+    "secondary_pages": {
+      "path": "build/desktop-pages/verification.json",
+      "status": "passed",
+      "engine": "chromium",
+      "version": "154.0.8037.97",
+      "page_scenarios": 29,
+      "screenshots": 30,
+      "check_groups": 5,
+      "page_errors": [],
+      "scope": "Real Workflows, Automations, Notes, Inbox and Search. 24 light/dark1280x932 states, 5 Chinese800x800 states, plus sidebar regression; offline synthetic services, no unimplemented RPC or document overflow. Notes narrow list/detail and Automation one-column template checked.",
+      "sidebar": {
+        "initial": 0,
+        "open50": 261.84375,
+        "close50": 96.5,
+        "drag": 368,
+        "restored": 368
+      },
+      "search_boundary": "Actual Search result icons/title prefix rules passed in both themes. Fixture onClose is inert; browser Search dismissal/focus restoration not validated. App tests separately cover Escape owning-chat behavior.",
+      "final_automations": {
+        "path": "build/desktop-pages/verification-automations.json",
+        "status": "passed",
+        "page_scenarios": 8,
+        "page_errors": [],
+        "scope": "Final narrow-pane vertical layout: list max200px, full-width templates and existing automation editor at800px Chinese;1280px remains two-column. Overlaps the primary page matrix.",
+        "combined_unique_screenshots": 31
+      }
+    },
+    "question_approval_composition": {
+      "path": "build/desktop-state-visual/verification.json",
+      "engine": "chromium",
+      "version": "154.0.8037.97",
+      "screenshots": 4,
+      "check_groups": 6,
+      "page_errors": [],
+      "scope": "Actual QuestionForm option IDs, Send callbacks and composer focus; actual Allow/Deny callback request9 without command execution. Synthetic isComposing Enter suppressed, post-composition Enter routes to fixture busy and actual Stop click returns fixture idle. No native IME or live provider start/stop claim."
+    },
+    "retained_state": {
+      "path": "build/desktop-visual/retained-state-check.json",
+      "scope": "Scope record of already executed manual draft/attachment/mode/sidebar/reduced-motion retention and component tests. Manual record is not a replayable browser script."
+    },
+    "final_source_checks": {
+      "typescript": {
+        "command": "npx tsc --noEmit --pretty false -p tests/browser/tsconfig.desktop.json",
+        "status": "passed",
+        "scope": "All production src plus desktop-visual.tsx, desktop-pages.tsx and desktop-tools.tsx. Vitest test files explicitly excluded; this is not test-file type coverage."
+      },
+      "inventory": {
+        "commands": [
+          "node scripts/desktop-visual-inventory.mjs",
+          "node scripts/desktop-visual-inventory.mjs --check"
+        ],
+        "status": "passed",
+        "source_files": 393,
+        "component_declarations": 886,
+        "boundary": "Static applicability only, not all-component reachability or runtime coverage."
+      },
+      "diff_check": {
+        "command": "git diff --check",
+        "status": "passed"
+      },
+      "state_runner_syntax": {
+        "command": "node --check tests/browser/desktop-states.verify.mjs",
+        "status": "passed"
+      },
+      "build_publication": "Not run"
+    },
+    "composer_reference": {
+      "path": "build/composer-reference/verification.json",
+      "script": "tests/browser/composer-reference.verify.mjs",
+      "status": "passed",
+      "engine": "chromium",
+      "version": "154.0.8037.97",
+      "scenarios": 7,
+      "screenshots": 7,
+      "check_groups": 3,
+      "page_errors": [],
+      "baseline": {
+        "viewport": {
+          "width": 1280,
+          "height": 932,
+          "dpr": 1
+        },
+        "themes": [
+          "light",
+          "dark"
+        ],
+        "input": {
+          "width": 800,
+          "height": 42,
+          "radius": 14,
+          "font": 14,
+          "line_height": 20
+        },
+        "top_height": 32.1875,
+        "footer_height": 28,
+        "context_model_gap": 8
+      },
+      "adaptation": {
+        "chinese_font20": {
+          "viewport": {
+            "width": 1000,
+            "height": 800
+          },
+          "input_width": 680,
+          "input_height": 47
+        },
+        "dpr125": {
+          "css_viewport": {
+            "width": 1280,
+            "height": 932
+          },
+          "physical_screenshot": {
+            "width": 1600,
+            "height": 1165
+          }
+        },
+        "narrow_split": {
+          "viewport": {
+            "width": 1000,
+            "height": 800
+          },
+          "input_widths": [
+            387.1875,
+            236.796875
+          ]
+        },
+        "chat": {
+          "width": 640,
+          "input_height": 105
+        },
+        "compact": {
+          "viewport_width": 390,
+          "scope": "Isolated actual compact Composer only, not production phone shell or physical phone"
+        }
+      },
+      "interaction_scope": "Five pickers Escape back to textarea; Worktree checkbox changes draft mode/base and restores current branch; retained Chat/Code textarea identity and separate unsent drafts. Offline real UI components; no native pixel equivalence claimed.",
+      "focused_tests": {
+        "runner": "Vitest3.2.7",
+        "status": "passed",
+        "total": 99,
+        "files": {
+          "Composer": 56,
+          "Worktrees": 38,
+          "SearchableSelect": 2,
+          "workflowSelect": 3
+        },
+        "workspace_picker_new_cases_included_in_worktrees": 7,
+        "boundary": "Final current-round focused execution,99/99. Do not add to prior101 or earlier overlapping test scopes. Worktrees assertions target the active aria-controls listbox and respect Escape exit/focus lifecycle."
+      },
+      "source_checks": {
+        "typescript": {
+          "command": "npx tsc --noEmit --pretty false -p tests/browser/tsconfig.desktop.json",
+          "status": "passed",
+          "scope": "Production src and three UI fixtures; Vitest test files excluded."
+        },
+        "inventory": {
+          "status": "regenerated and checked",
+          "source_files": 393,
+          "component_declarations": 886
+        },
+        "script_syntax": {
+          "command": "node --check tests/browser/composer-reference.verify.mjs",
+          "status": "passed"
+        },
+        "diff": "passed"
+      },
+      "not_rerun": "Earlier full-page Chromium/WebKit desktop matrices",
+      "browser_runs": [
+        {
+          "engine": "chromium",
+          "version": "154.0.8037.97",
+          "path": "build/composer-reference/verification.json",
+          "status": "passed",
+          "scenarios": 7,
+          "screenshots": 7,
+          "check_groups": 3,
+          "page_errors": []
+        },
+        {
+          "engine": "webkit",
+          "version": "26.6",
+          "path": "build/composer-reference-webkit/verification.json",
+          "status": "passed",
+          "scenarios": 7,
+          "screenshots": 8,
+          "check_groups": 3,
+          "page_errors": []
+        }
+      ],
+      "review_image": "build/composer-reference-webkit/code-light-1280-composer.png",
+      "measurement_boundary": "User image has no CSS-size/DPR metadata. It guides relative structure;800px width/42px input/28px footer are measured implementation CSS baselines. Do not derive a <=1 CSS px reference error from physical image pixels; original report metrics apply only to mapped regions.",
+      "development_runtime": {
+        "status": "Development server restored while retaining existing desktop process",
+        "boundary": "Runtime preparation only. No native Tauri window, live provider, native OS IME or real PTY validation in this composer round."
+      }
+    },
+    "composer_connected": {
+      "path": "build/composer-connected/verification.json",
+      "status": "passed",
+      "scenarios": 4,
+      "engines": [
+        {
+          "engine": "chromium",
+          "version": "154.0.8037.97",
+          "theme": "light"
+        },
+        {
+          "engine": "webkit",
+          "version": "26.6",
+          "theme": "dark"
+        }
+      ],
+      "states": [
+        "current",
+        "checked"
+      ],
+      "height": 24.1875,
+      "gap": 0,
+      "inner_border": 0,
+      "inner_radius": 0,
+      "outer_radius": 6,
+      "checks": [
+        "checkbox toggles",
+        "current branch and checked base pickers open",
+        "Escape restores textarea focus"
+      ],
+      "page_errors": [],
+      "boundary": "Focused CSS correction only; previous99 tests and full-page matrices were not rerun. Native verification not inferred."
+    },
+    "composer_hover": {
+      "path": "build/composer-hover/verification.json",
+      "independent_chromium_confirmation": "build/composer-hover-chromium/verification.json",
+      "status": "passed",
+      "micro_scenes": 12,
+      "engines": [
+        {
+          "engine": "chromium",
+          "version": "154.0.8037.97",
+          "theme": "light"
+        },
+        {
+          "engine": "webkit",
+          "version": "26.6",
+          "theme": "dark"
+        }
+      ],
+      "states": [
+        "current",
+        "checked"
+      ],
+      "fill_radius": 4,
+      "fill_inset": 1,
+      "outer_gap": 0,
+      "height": 24.1875,
+      "checks": [
+        "hover fill visible in actual pixels",
+        "mouse leave clears fill",
+        "keyboard visible focus highlights fill",
+        "checkbox toggles",
+        "branch/base picker Escape restores textarea focus",
+        "outer contour and geometry unchanged"
+      ],
+      "page_errors": [],
+      "boundary": "Focused CSS hover check. Prior component tests and full-page matrices not rerun; native verification not inferred."
+    },
+    "worktree_default_main": {
+      "path": "build/worktree-main/verification.json",
+      "script": "tests/browser/worktree-main.verify.mjs",
+      "base_url": "http://127.0.0.1:1420",
+      "status": "passed",
+      "scenarios": 2,
+      "engines": [
+        {
+          "engine": "chromium",
+          "version": "154.0.8037.97",
+          "theme": "light"
+        },
+        {
+          "engine": "webkit",
+          "version": "26.6",
+          "theme": "dark"
+        }
+      ],
+      "checks": [
+        "feature/current defaults to local main",
+        "manual release source persists",
+        "uncheck retains original checkout; recheck defaults to main",
+        "same textarea and unsent draft retained",
+        "no fixture checkout RPC",
+        "missing/HEAD recovery uses same base resolver",
+        "initial branch loading blocks worktree selection",
+        "without local main fall back to current branch"
+      ],
+      "tests": {
+        "Composer": 56,
+        "Worktrees": 41,
+        "QuickGitPopup": 8,
+        "total": 105,
+        "version": "Vitest3.2.7"
+      },
+      "type_check": "tsc --noEmit -p tests/browser/tsconfig.desktop.json passed",
+      "inventory": {
+        "source_files": 393,
+        "declarations": 886
+      },
+      "page_errors": [],
+      "boundary": "Browser scenarios are offline fixtures. Loading/fallback/HEAD checks also have component-test coverage. No real worktree creation, provider or native acceptance; prior rounds are separate."
+    },
+    "checkbox_reference": {
+      "path": "build/checkbox-reference/verification.json",
+      "inspection_script": "build/checkbox-reference/inspect.mjs",
+      "status": "passed",
+      "engines": [
+        {
+          "engine": "chromium",
+          "version": "154.0.8037.97",
+          "theme": "light"
+        },
+        {
+          "engine": "webkit",
+          "version": "26.6",
+          "theme": "dark"
+        }
+      ],
+      "scenarios": 2,
+      "screenshots": 4,
+      "normal": {
+        "size": 16,
+        "radius": 5
+      },
+      "compact": {
+        "size": 12,
+        "radius": 3
+      },
+      "focus": {
+        "outline": 1,
+        "offset": 1
+      },
+      "checks": [
+        "native and Radix checked colors and frames agree",
+        "shared SVG glyph geometry and stroke",
+        "mouse and Space toggles",
+        "native indeterminate and disabled styles",
+        "custom mark has no duplicate background glyph",
+        "hidden Radix form proxy excluded",
+        "switch remains32x20",
+        "desktop-marker isolation",
+        "worktree base main retained"
+      ],
+      "page_errors": [],
+      "type_check": "tsc --noEmit -p tests/browser/tsconfig.desktop.json passed",
+      "boundary": "Focused checkbox styling inspection only.105 behavioral tests were run earlier in this round, not repeated after CSS; no full-page, physical mobile or native Tauri acceptance."
+    },
+    "branch_menu_reference": {
+      "path": "build/branch-menu-reference/verification.json",
+      "script": "tests/browser/branch-menu.verify.mjs",
+      "base_url": "http://127.0.0.1:1420",
+      "status": "passed",
+      "scenarios": 6,
+      "screenshots": 4,
+      "engines": [
+        {
+          "engine": "chromium",
+          "version": "155.0.8059.39",
+          "theme": "light"
+        },
+        {
+          "engine": "webkit",
+          "version": "26.6",
+          "theme": "dark"
+        }
+      ],
+      "geometry_css_px": {
+        "width": 320,
+        "max_height": 360,
+        "rows": 24,
+        "list_height": 326,
+        "search_width": 312,
+        "search_height": 26,
+        "row_radius": 6,
+        "check_size": 14,
+        "scrollbar_width": 6,
+        "short_window_height": 115.8125
+      },
+      "checks": [
+        "checkout and base menu shared geometry",
+        "current/selected branch initially visible",
+        "only selected row highlighted at open",
+        "normal font weight, no leading row icon, blue trailing check",
+        "bottom search fixed while scrolling",
+        "thumb dragging works in both browsers",
+        "hover does not drive scrolling",
+        "filter and clear restore current row",
+        "current Enter does not checkout",
+        "remote base origin/release preserved",
+        "same textarea and Chinese/English draft retained",
+        "640x240 search visible and enlargement restores full height",
+        "Escape restores composer focus"
+      ],
+      "tests": {
+        "BranchPicker": 8,
+        "WorktreeBasePicker": 4,
+        "Worktrees": 41,
+        "QuickGitPopup": 8,
+        "total": 61,
+        "version": "Vitest3.2.7"
+      },
+      "type_check": "tsc --noEmit --pretty false -p tests/browser/tsconfig.desktop.json passed",
+      "inventory": {
+        "source_files": 394,
+        "declarations": 887
+      },
+      "versions": {
+        "node": "24.16.0",
+        "typescript": "5.8.3"
+      },
+      "page_errors": [],
+      "boundary": "Offline production UI fixtures. PNG DPR/zoom unknown; 320/360/24/26 are measured implementation CSS baselines. No full-product or native-window pixel claim. No actual Git checkout/worktree creation, Provider flow, build or publication."
+    },
+    "send_hover_reference": {
+      "path": "build/send-hover-reference/verification.json",
+      "script": "build/send-hover-reference/inspect.mjs",
+      "status": "passed",
+      "scenarios": 4,
+      "screenshots": 8,
+      "engines": [
+        {
+          "engine": "chromium",
+          "version": "155.0.8059.39",
+          "themes": [
+            "light",
+            "dark"
+          ]
+        },
+        {
+          "engine": "webkit",
+          "version": "26.6",
+          "themes": [
+            "light",
+            "dark"
+          ]
+        }
+      ],
+      "checks": [
+        "empty/enabled send share control hover fill",
+        "disabled icon remains tertiary",
+        "hover filter none",
+        "24x24 size and6px radius retained",
+        "mouse leave restores transparent background",
+        "user accent does not override neutral fill",
+        "Code hover selector isolated from Chat"
+      ],
+      "light_background_pixel": "#f3f3f3",
+      "reference_background_pixel": "#f3f3f3",
+      "page_errors": [],
+      "boundary": "Focused production Composer CSS check. No new behavioral tests, TypeScript rerun, build, publication or native-window verification."
+    },
+    "input_center_reference": {
+      "path": "build/input-center-reference/verification.json",
+      "script": "build/input-center-reference/inspect.mjs",
+      "base_url": "http://127.0.0.1:1437",
+      "status": "passed",
+      "scenarios": 4,
+      "screenshots": 8,
+      "engines": [
+        {
+          "engine": "chromium",
+          "version": "155.0.8059.39",
+          "themes": [
+            "light",
+            "dark"
+          ]
+        },
+        {
+          "engine": "webkit",
+          "version": "26.6",
+          "themes": [
+            "light",
+            "dark"
+          ]
+        }
+      ],
+      "geometry_css_px": {
+        "old_center_offset_down": 2,
+        "new_center_offset": 0,
+        "single_line_shell_height": 42,
+        "single_line_field_height": 20,
+        "two_line_shell_height": 58,
+        "two_line_field_height": 40
+      },
+      "checks": [
+        "old2px downward offset reproduced with local previous-style override",
+        "placeholder and Chinese/English single line centered",
+        "highlight and textarea share top/height",
+        "multiline send stays bottom aligned",
+        "clearing restores42px shell and centered field"
+      ],
+      "page_errors": [],
+      "boundary": "Focused production Composer CSS geometry check. No typography/input code change, new behavioral tests, TypeScript rerun, build, publication or native-window verification."
+    },
+    "model_access_shared_panel": {
+      "path": "build/model-menu-reference/verification.json",
+      "script": "build/model-menu-reference/inspect.mjs",
+      "status": "passed",
+      "base_url": "http://127.0.0.1:1437",
+      "scenarios": 4,
+      "screenshots": 8,
+      "engines": [
+        {
+          "engine": "chromium",
+          "version": "155.0.8059.39",
+          "themes": [
+            "light",
+            "dark"
+          ]
+        },
+        {
+          "engine": "webkit",
+          "version": "26.6",
+          "themes": [
+            "light",
+            "dark"
+          ]
+        }
+      ],
+      "geometry_css_px": {
+        "code_model_and_access_width": 242,
+        "option_height": 32,
+        "font_size": 14,
+        "line_height": 20,
+        "row_radius": 8,
+        "permission_font_weight": 400,
+        "effort_option_height": 24,
+        "permission_description_elements": 0
+      },
+      "checks": [
+        "Shared production ComposerMenuPanel class and width",
+        "Model and permission width/font/line/row geometry equality",
+        "Model search filters and restores seven catalog rows",
+        "Selected model remains visible and enabled",
+        "Effort submenu remains compact24",
+        "Escape returns to composer focus"
+      ],
+      "source_checks": {
+        "vitest": {
+          "version": "3.2.7",
+          "model_picker": 32,
+          "composer": 56,
+          "status": "passed"
+        },
+        "typescript": {
+          "version": "5.8.3",
+          "command": "npx tsc --noEmit --pretty false -p tests/browser/tsconfig.desktop.json",
+          "status": "passed"
+        },
+        "inventory": {
+          "status": "regenerated and checked",
+          "source_files": 397,
+          "component_declarations": 891
+        },
+        "diff": "passed",
+        "node_version": "24.16.0"
+      },
+      "page_errors": [],
+      "boundary": "Only production desktop Code menus were rendered in this focused browser round. Shared Chat416 width/max-width and generic/mobile appearance isolation reviewed in source; no separate browser/runtime claim for those surfaces. PNG DPR/zoom unknown. No build, publication, native window or real provider IO. Scripts and images in ignored build directory."
+    }
+  },
+  "history": {
+    "path": "desktop-visual-evidence.grok-static-20261012.json",
+    "status": "historical-superseded",
+    "description": "Former raw Grok style/animation expressions kept for provenance, not the current desktop specification"
+  },
+  "reference_overrides": {
+    "code_composer": {
+      "path": "/tmp/codex-clipboard-517004d9-b744-4f1d-986f-079536a2f73c.png",
+      "priority": "User-supplied later image takes precedence over older Claude analysis only for Code composer layout.",
+      "implementation": "Real Local/Remote environment, project short name, actual branch and worktree checkbox/retained menu above input; default max800 width/min42 single-line input/radius14/return send; one footer row for attachment/access/model/provider effort/context. Existing functionality only; no fake microphone or pet.",
+      "retained": "User fonts and scaling, Chat and compact structures; real draft mode/base and picker behavior.",
+      "measurement_boundary": "User image has no CSS-size/DPR metadata. It guides relative structure;800px width/42px input/28px footer are measured implementation CSS baselines. Do not derive a <=1 CSS px reference error from physical image pixels; original report metrics apply only to mapped regions."
+    },
+    "branch_menu": {
+      "path": "/tmp/codex-clipboard-8cd7fadc-e72e-4fb3-bae4-716d367c749e.png",
+      "priority": "Later user screenshot controls desktop checkout/base branch menu layout.",
+      "implementation": "Compact24px rows, max320x360 panel, bottom26px search, trailing blue check, visible draggable6px scrollbar, clipped-row fades and edge hints. Real Git options and creation/switch protection remain.",
+      "measurement_boundary": "495x536 screenshot has about30 physical pixel row intervals, consistent with24 CSS px at1.25 display ratio; original DPR/zoom unknown. Do not infer a1 CSS px reference error from the PNG."
+    },
+    "permission_menu": {
+      "paths": [
+        "/tmp/codex-clipboard-f93d5401-6abf-4721-af66-ac9d50082b15.png"
+      ],
+      "priority": "Final user clarification requires permissions to reuse the model panel, preserving the existing model appearance.",
+      "implementation": "Shared ComposerMenuPanel surface and width helper; shared option typography/density. Permission choices only show icon/title; preserve tooltip, busy operational notice and generic descriptions.",
+      "measurement_boundary": "Permission PNG332x259 and model PNG343x514 have unknown DPR/zoom. Code242/32/14/20 are measured implementation CSS values, not a claim of reference pixel equivalence."
+    }
+  }
+}

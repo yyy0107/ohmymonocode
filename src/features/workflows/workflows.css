@@ -55,7 +55,7 @@
   --wf-t-base: 160ms;
   --wf-t-enter: 200ms;
   --wf-t-ink: 320ms;
-  --wf-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --wf-ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* 正在运行的灯的心跳周期；脊线与卡共用。 */
   --wf-beat: 1.6s;
 }

@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import {
-  GitCompare,
+  Folder,
   Maximize2,
   MessageSquare,
   PanelRight,
@@ -126,6 +126,7 @@ export function SessionSurfaceToolbar({
   return (
     <div
       data-session-surface-tabs={session.id}
+      data-session-empty={session.blocks.length === 0 || undefined}
       data-tauri-drag-region="deep"
       onMouseDownCapture={startWindowDrag}
       className="min-w-0 shrink-0"
@@ -219,7 +220,7 @@ export function SessionSurfaceToolbar({
         }}
         trailing={
           <>
-            <SessionToolToggles />
+            <SessionToolToggles session={session} />
             <SessionOverflowMenu session={session} onRename={setRenameAnchor} />
             {windowControls}
           </>
@@ -238,11 +239,12 @@ export function SessionSurfaceToolbar({
   );
 }
 
-/** Claude Desktop style terminal / changes switches in the chat header. */
-function SessionToolToggles() {
+/** Compact terminal and working-files switches beside the session title. */
+function SessionToolToggles({ session }: { session: Session }) {
   const { t } = useTranslation();
   const actions = useSessionHeaderActions();
   if (!actions) return null;
+  const filesOpen = actions.filesSessionId === session.id;
   const button = (active: boolean) =>
     `mr-1 grid size-7.5 shrink-0 self-center place-items-center rounded-md hover:bg-content/3 hover:text-content ${
       active ? "bg-content/8 text-content" : "text-content/60"
@@ -263,18 +265,22 @@ function SessionToolToggles() {
           <Terminal className="size-4" />
         </button>
       ) : null}
-      <button
-        type="button"
-        data-session-tool-toggle="changes"
-        data-tauri-drag-region="false"
-        aria-label={t("Changes")}
-        aria-pressed={actions.changesOpen}
-        title={t("Changes")}
-        onClick={actions.toggleChanges}
-        className={button(actions.changesOpen)}
-      >
-        <GitCompare className="size-4" />
-      </button>
+      {actions.toggleFiles && session.cwd && session.cwd !== "~" ? (
+        <button
+          type="button"
+          data-session-tool-toggle="files"
+          data-tauri-drag-region="false"
+          aria-label={t("Files")}
+          aria-pressed={filesOpen}
+          title={t("Files")}
+          onPointerDown={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={() => actions.toggleFiles?.(session.id)}
+          className={button(filesOpen)}
+        >
+          <Folder className="size-4" />
+        </button>
+      ) : null}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { stageChunkText } from "../../files/editor/editorGit";
+import { stageChunkText } from "../../connections/files/editor/editorGit";
 import { LINE_DIFF_CONFIG } from "./lineDiff";
 import { buildUnifiedFile } from "./unifiedDiff";
 import { formatDiffComment } from "./diffComment";
@@ -11,6 +11,8 @@ import {
   reviewDiffKey,
   reviewFileMetadata,
   reviewStageAnnotations,
+  virtualizeReviewDiff,
+  REVIEW_VIRTUAL_HEIGHT,
   type ReviewDiff,
   type ReviewLoadedDiff,
   type ReviewScope,
@@ -135,18 +137,42 @@ describe("Pierre line/chunk bridge", () => {
     ).toBe(current);
   });
 
-  it("avoids rich rendering for huge patches and full comparison for oversized inputs or binary data", () => {
+  it("keeps every changed line in large patches and switches to virtual rendering", () => {
     const diff = loaded("", "new\n".repeat(2_000));
-    expect(reviewFileMetadata("huge.txt", diff)).toBeUndefined();
-    expect(
-      prepareReviewDiff({ ...textDiff("x".repeat(2_000_001)) }).tooLarge,
-    ).toBe(true);
-    expect(
-      prepareReviewDiff(textDiff("x\n".repeat(50_001))).unified,
-    ).toBeNull();
+    const metadata = reviewFileMetadata("huge.ts", diff)!;
+    expect(metadata.additionLines).toHaveLength(2_000);
+    expect(metadata.lang).toBe("text");
+    expect(virtualizeReviewDiff(diff)).toBe(true);
+    expect(estimateReviewBodyHeight(diff.unified!, { state: "loaded", diff }))
+      .toBe(REVIEW_VIRTUAL_HEIGHT);
+    expect(reviewStageAnnotations(diff.unified!.lines)[0].lineNumber).toBe(1);
+    expect(reviewCommentLine(diff.unified!.lines, "additions", 2_000)?.text).toBe("new");
+  });
+
+  it("compares text beyond the old character and line limits without truncation", () => {
+    const longLine = "x".repeat(2_000_001);
+    const longDiff = prepareReviewDiff(textDiff(longLine));
+    expect(longDiff.tooLarge).toBe(false);
+    expect(reviewFileMetadata("huge.txt", longDiff)!.additionLines.join(""))
+      .toContain(longLine);
+    const manyLines = prepareReviewDiff(textDiff("x\n".repeat(50_001)));
+    expect(manyLines.unified!.additions).toBe(50_001);
+    expect(reviewFileMetadata("many.txt", manyLines)!.additionLines).toHaveLength(50_001);
+  });
+
+  it("preserves large unchanged regions without exceeding argument limits", () => {
+    const context = "unchanged\n".repeat(150_000);
+    const diff = prepareReviewDiff({ ...textDiff(`${context}after\n`), original: `${context}before\n` });
+    expect(diff.unified!.additions).toBe(1);
+    expect(diff.unified!.deletions).toBe(1);
+    expect(reviewCommentLine(diff.unified!.lines, "additions", 150_001)?.text).toBe("after");
+  });
+
+  it("keeps binary and unavailable snapshot contents out of text comparison", () => {
     expect(
       prepareReviewDiff({ ...textDiff("binary"), binary: true }).unified,
     ).toBeNull();
+    expect(prepareReviewDiff({ ...textDiff(""), tooLarge: true }).unified).toBeNull();
   });
 
   it("keeps deleted, added and shifted context comment numbers", () => {
@@ -268,12 +294,12 @@ describe("estimateReviewBodyHeight", () => {
         { additions: 1, deletions: 1 },
         { state: "loaded", diff },
       ),
-    ).toBe(lines * 20 + 32);
+    ).toBe(lines * 17 + 32);
     expect(estimateReviewBodyHeight({ additions: 3, deletions: 1 })).toBe(
-      (4 + 6) * 20 + 32,
+      (4 + 6) * 17 + 32,
     );
     expect(estimateReviewBodyHeight({ additions: 1e6, deletions: 0 })).toBe(
-      1200 * 20 + 32,
+      1200 * 17 + 32,
     );
     expect(
       estimateReviewBodyHeight(

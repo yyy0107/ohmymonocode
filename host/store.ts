@@ -195,6 +195,35 @@ export class HostStore {
     return this.isRetired(id) ? undefined : this.find(id);
   }
 
+  /** Read metadata from the covering index without loading or caching a transcript. */
+  sessionSummary(id: string): HostSessionSummary | undefined {
+    if (this.isRetired(id)) return undefined;
+    const row = this.db.prepare("SELECT summary FROM sessions INDEXED BY sessions_id_summary WHERE id=?").get(id);
+    if (!row) return undefined;
+    if (row.summary) {
+      const value = JSON.parse(String(row.summary)) as HostSessionSummary;
+      if (value.id === id && Number.isSafeInteger(value.revision)) return value;
+    }
+    // Old databases may not have a populated summary yet.
+    const value = this.sessionIfExists(id);
+    return value ? summary(value) : undefined;
+  }
+
+  /** Checkout guards need running identities and directories, never message history. */
+  runningSessionDirectories(): { id: string; cwd: string }[] {
+    const rows = this.db.prepare(`SELECT id, summary FROM sessions INDEXED BY sessions_id_summary
+      WHERE json_extract(summary, '$.status') = 'running' OR summary IS NULL`).all();
+    return rows.flatMap(row => {
+      const id = String(row.id);
+      if (this.isRetired(id)) return [];
+      const metadata = row.summary ? JSON.parse(String(row.summary)) as HostSessionSummary : undefined;
+      if (metadata?.cwd) return [{ id, cwd: metadata.cwd }];
+      // Legacy rows can lack summaries or directories; preserve their guards.
+      const value = this.peekSession(id);
+      return value?.status === "running" ? [{ id, cwd: value.session.cwd }] : [];
+    });
+  }
+
   /** Reads a session for a background scan without displacing the recently
    * used sessions that clients are reading from the cache. */
   peekSession(id: string): HostSession | undefined {
@@ -267,6 +296,10 @@ export class HostStore {
   }
 
   sync(id: string, revision?: number): SessionSync {
+    // Polling more conversations than the transcript LRU can hold must not
+    // continually evict and reparse them just to return "unchanged".
+    if (revision !== undefined && this.sessionSummary(id)?.revision === revision)
+      return { kind: "unchanged", revision };
     const value = this.session(id);
     const { blockRevisions, ...snapshot } = value;
     if (revision === value.revision) return { kind: "unchanged", revision };
@@ -285,6 +318,16 @@ export class HostStore {
         (block) => (blockRevisions[block.id] ?? value.revision) > revision,
       ),
     };
+  }
+
+  /** Recovery may write or delete rows between reads. Snapshot only the IDs,
+   * then release each transcript before reading the next, without filling the LRU. */
+  *scanSessions(): Generator<HostSession> {
+    const ids = this.db.prepare("SELECT id FROM sessions ORDER BY id").all();
+    for (const row of ids) {
+      const value = this.peekSession(String(row.id));
+      if (value) yield value;
+    }
   }
 
   sessions(projectId?: string): HostSession[] {

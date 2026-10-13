@@ -7,7 +7,7 @@ import {
   isSearchTool,
   isWeakToolTitle,
 } from "../../../integrations/harness/core/preview";
-import { leafName } from "../../files/model/fileName";
+import { leafName } from "../../connections/files/model/fileName";
 import {
   displayPath,
   pathKey,

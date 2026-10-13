@@ -16,7 +16,7 @@ await expect(active().locator('.desktop-bots-navigation')).toHaveCSS('width','40
 await resize.focus();await page.keyboard.press('Home');await expect(active().locator('.desktop-bots-navigation')).toHaveCSS('width','240px');await resize.dblclick();await expect(active().locator('.desktop-bots-navigation')).toHaveCSS('width','280px');checks.push('pointer clamp / keyboard bounds / double-click reset');
 await input().fill('First line\nSecond line\n'+ 'long line\n'.repeat(12));await expect(active().locator('.assistant-compose')).toHaveAttribute('data-multiline','true');
 await expect(input()).toHaveCSS('max-height','120px');
-expect(await active().locator('.assistant-compose').evaluate(e=>e.getBoundingClientRect().height-e.querySelector('textarea').getBoundingClientRect().height)).toBe(56);await page.screenshot({path:'build/bots-rea/after-multiline.png'});
+expect(await active().locator('.assistant-compose').evaluate(e=>e.getBoundingClientRect().height-e.querySelector('textarea').getBoundingClientRect().height)).toBe(60);await page.screenshot({path:'build/bots-rea/after-multiline.png'});
 await input().fill('Draft survives panels');
 const details=page.getByRole('button',{name:'Bot details',exact:true});
 for(let i=0;i<7;i++) await details.click({delay:20});

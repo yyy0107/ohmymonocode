@@ -4,9 +4,10 @@ import { preloadHighlighter } from "@pierre/diffs";
 import { WorkerPoolContext } from "@pierre/diffs/react";
 import { WorkerPoolManager } from "@pierre/diffs/worker";
 import ReviewDiffsWorker from "@pierre/diffs/worker/worker.js?worker";
+import { REVIEW_THEMES } from "./reviewThemes";
 
 const highlighterOptions = {
-  theme: { light: "github-light", dark: "github-dark" },
+  theme: REVIEW_THEMES,
   preferredHighlighter: "shiki-wasm",
   lineDiffType: "word-alt",
   maxLineDiffLength: 1000,
@@ -98,7 +99,7 @@ function acquire() {
   // Main-thread fallback renders nothing until a highlighter exists; with the
   // themes loaded it shows plain text at once and highlights afterwards.
   void preloadHighlighter({
-    themes: ["github-light", "github-dark"],
+    themes: [REVIEW_THEMES.light, REVIEW_THEMES.dark],
     langs: [],
     preferredHighlighter: highlighterOptions.preferredHighlighter,
   }).catch(() => undefined);

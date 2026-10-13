@@ -179,7 +179,7 @@ export function ReviewSourceSelect({
   };
 
   const rowClass = (highlight: boolean) =>
-    `flex h-9 w-full shrink-0 items-center gap-2 rounded-lg px-2.5 text-left text-ui-base outline-none hover:bg-menu-hover ${highlight ? "bg-menu-hover" : ""}`;
+    `flex min-h-8 w-full shrink-0 items-center gap-2 rounded-lg px-2.5 text-left text-ui-base outline-none hover:bg-menu-hover ${highlight ? "bg-menu-hover" : ""}`;
 
   return (
     <>
@@ -216,6 +216,7 @@ export function ReviewSourceSelect({
           autoFocus={open}
           id={menuId}
           role="listbox"
+          data-menu-density="compact"
           aria-label={label}
           aria-activedescendant={
             inSubmenu && commits?.length
@@ -297,7 +298,7 @@ export function ReviewSourceSelect({
             setSubmenu(false);
             setKeyboardNavigation(true);
           }}
-          className="review-source-menu flex w-44 flex-col gap-0.5 overflow-y-auto rounded-lg border p-1.5 text-content"
+          className="review-source-menu flex w-44 flex-col overflow-y-auto rounded-lg border p-1 text-content"
         >
           {groups.map((group, groupIndex) => (
             <Fragment key={groupIndex}>
@@ -319,6 +320,7 @@ export function ReviewSourceSelect({
                     id={`${menuId}-option-${index}`}
                     type="button"
                     role="option"
+                    data-menu-row="single"
                     aria-selected={isSelected(entry)}
                     aria-haspopup="listbox"
                     aria-expanded={submenu}
@@ -350,6 +352,7 @@ export function ReviewSourceSelect({
                     id={`${menuId}-option-${index}`}
                     type="button"
                     role="option"
+                    data-menu-row="single"
                     aria-selected={isSelected(entry)}
                     tabIndex={-1}
                     onMouseDown={(event) => event.preventDefault()}
@@ -395,13 +398,14 @@ export function ReviewSourceSelect({
           bare
           id={submenuId}
           role="listbox"
+          data-menu-density="compact"
           aria-label={t("Committed")}
           data-fold-state={shown && submenu ? "open" : "closed"}
           inert={!(shown && submenu)}
           aria-hidden={!(shown && submenu) || undefined}
 
           ref={commitList}
-          className="review-source-menu review-source-commits flex max-h-[400px] flex-col gap-0.5 overflow-y-auto overscroll-contain rounded-lg border p-1.5 text-content"
+          className="review-source-menu review-source-commits flex max-h-[400px] flex-col overflow-y-auto overscroll-contain rounded-lg border p-1 text-content"
         >
           {commits == null ? (
             <div className="px-2.5 py-2 text-ui-caption text-foreground-subtle">
@@ -420,6 +424,7 @@ export function ReviewSourceSelect({
                   id={`${submenuId}-${index}`}
                   type="button"
                   role="option"
+                  data-menu-row="single"
                   aria-selected={selected}
                   tabIndex={-1}
                   title={`${commit.shortSha} · ${commit.author}\n${commit.subject}`}
@@ -431,7 +436,7 @@ export function ReviewSourceSelect({
                   onClick={() => pick(`commit:${commit.sha}`)}
                   className={rowClass(inSubmenu && index === commitIndex)}
                 >
-                  <span className="min-w-0 truncate">{commit.subject}</span>
+                  <span data-code-label className="min-w-0 truncate">{commit.subject}</span>
                   <span className="shrink-0 text-ui-caption text-foreground-subtle">
                     {formatMobileRelativeTime(commit.timestamp * 1000)}
                   </span>

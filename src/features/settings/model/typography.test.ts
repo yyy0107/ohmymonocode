@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   applyFontSize,
+  defaultAppearanceProfile,
   enableSeparateSchemes,
   initTypography,
   loadFontSize,
@@ -29,9 +30,10 @@ beforeEach(() => {
   root().removeAttribute("style");
   root().className = "";
   delete root().dataset.reducedMotion;
+  delete root().dataset.mobileSkin;
 });
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.restoreAllMocks(); delete root().dataset.mobileSkin; });
 
 describe("font sizes", () => {
   it("clamps, rounds and falls back to the default", () => {
@@ -86,6 +88,24 @@ describe("reduced motion override", () => {
 });
 
 describe("appearance profiles", () => {
+  it("uses regular desktop defaults without changing the phone default", () => {
+    expect(defaultAppearanceProfile()).toMatchObject({ uiWeight: 400, contentWeight: 400, codeWeight: 400 });
+    expect(loadProfile("shared")).toMatchObject({ uiWeight: 400, contentWeight: 400, codeWeight: 400 });
+    root().dataset.mobileSkin = "midnight";
+    expect(defaultAppearanceProfile()).toMatchObject({ uiWeight: 500, contentWeight: 500, codeWeight: 500 });
+    expect(loadProfile("shared")).toMatchObject({ uiWeight: 500, contentWeight: 500, codeWeight: 500 });
+  });
+
+  it("keeps explicit saved desktop weights and font families", () => {
+    localStorage.setItem("monocode.typographyProfile", JSON.stringify({ uiFont: "Custom UI", uiWeight: 500, contentFont: "Custom Content", contentWeight: 600, codeFont: "Custom Mono", codeWeight: 700 }));
+    const shared = loadProfile("shared");
+    expect(shared).toMatchObject({ uiFont: "Custom UI", uiWeight: 500, contentFont: "Custom Content", contentWeight: 600, codeFont: "Custom Mono", codeWeight: 700 });
+    initTypography();
+    expect(root().style.getPropertyValue("--ui-font-weight")).toBe("500");
+    expect(root().style.getPropertyValue("--content-font-weight")).toBe("600");
+    expect(root().style.getPropertyValue("--code-font-weight")).toBe("700");
+  });
+
   it("keeps shared colour in the original keys", () => {
     saveAccentColor("#123456");
     const shared = loadProfile("shared");
@@ -102,7 +122,7 @@ describe("appearance profiles", () => {
       uiWeight: 450 as never,
     });
     expect(next.codeFont).toBe("Evil  body  color: red");
-    expect(next.uiWeight).toBe(500);
+    expect(next.uiWeight).toBe(400);
   });
 
   it("starts both modes from the shared look and follows the active mode", () => {

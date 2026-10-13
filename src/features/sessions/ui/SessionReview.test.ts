@@ -12,6 +12,7 @@ import {
 } from "../model/checkpoint";
 import { SessionReview } from "./SessionReview";
 import { notifyGitChanged } from "../../../platform/tauri/fs";
+import { SurfaceVisibilityContext } from "../../../shared/ui/SurfaceVisibility";
 
 vi.mock("../model/checkpoint", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../model/checkpoint")>()),
@@ -30,13 +31,13 @@ vi.mock("../../../platform/tauri/fs", () => {
     },
   };
 });
-vi.mock("../../files/model/fileIndex", () => ({
+vi.mock("../../connections/files/model/fileIndex", () => ({
   invalidateProjectFiles: vi.fn(),
 }));
-vi.mock("../../files/model/fileWatch", () => ({
+vi.mock("../../connections/files/model/fileWatch", () => ({
   invalidateWatchedFiles: vi.fn(),
 }));
-vi.mock("../../files/ui/FileTypeIcon", () => ({ FileTypeIcon: () => null }));
+vi.mock("../../connections/files/ui/FileTypeIcon", () => ({ FileTypeIcon: () => null }));
 
 let root: Root;
 let container: HTMLDivElement;
@@ -62,15 +63,16 @@ function deferred<T>() {
 }
 async function render(
   props: Partial<ComponentProps<typeof SessionReview>> = {},
+  visible = true,
 ) {
   await act(async () => {
     root.render(
-      createElement(SessionReview, {
+      createElement(SurfaceVisibilityContext.Provider, { value: visible }, createElement(SessionReview, {
         sessionId: "s1",
         cwd: "/repo",
         onOpenDiff,
         ...props,
-      }),
+      })),
     );
   });
 }
@@ -104,6 +106,25 @@ afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+it("pauses hidden review refreshes and reloads when the surface becomes visible", async () => {
+  await render({}, false);
+  await changed();
+  await act(async () => { notifyGitChanged(); window.dispatchEvent(new Event("focus")); });
+  await advance();
+  expect(sessionCheckpointStatus).not.toHaveBeenCalled();
+  await render();
+  expect(sessionCheckpointStatus).toHaveBeenCalledTimes(1);
+  expect(row("a.ts")).not.toBeNull();
+  await render({}, false);
+  await changed();
+  await advance();
+  expect(sessionCheckpointStatus).toHaveBeenCalledTimes(1);
+  vi.mocked(sessionCheckpointStatus).mockResolvedValue({ files: [file("b.ts")] });
+  await render();
+  expect(sessionCheckpointStatus).toHaveBeenCalledTimes(2);
+  expect(row("b.ts")).not.toBeNull();
 });
 
 it("waits for the turn to finish before loading and showing captured changes", async () => {

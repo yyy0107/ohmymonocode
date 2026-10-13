@@ -364,6 +364,19 @@ fn acquire_resource_row(
     )
 }
 
+fn checkout_kinds_conflict(request: &str, held: &str) -> bool {
+    if request == "computer" || held == "computer" {
+        return request == held;
+    }
+    if request == "removing" || held == "removing" {
+        return true;
+    }
+    if request == "resource" || held == "resource" {
+        return false;
+    }
+    request == "integrating" || held == "integrating"
+}
+
 fn acquire_resource_kind(
     database: &Path,
     id: &str,
@@ -394,6 +407,8 @@ fn acquire_resource_kind(
             .map_err(|e| e.to_string())?
     };
     let key = resource_path(path);
+    let mut blockers = Vec::new();
+    let mut removing = requested_kind == "removing";
     for (other_id, other_path, kind, pid) in rows {
         if !owner_alive(pid) {
             conn.execute(
@@ -401,21 +416,21 @@ fn acquire_resource_kind(
                 rusqlite::params![other_id, pid],
             )
             .map_err(|e| e.to_string())?;
-        } else if other_id != id && paths_overlap(&key, &other_path) {
-            if requested_kind == "removing" || kind == "removing" {
-                return Err("Close files and terminals using this working copy before cleanup; it may currently be being removed.".into());
-            }
-            if kind == "executing"
-                && matches!(requested_kind, "writing" | "integrating" | "executing")
-            {
-                return Err("This working copy is in use by an active Host turn. Retry when that turn finishes.".into());
-            }
-            if (requested_kind == "writing" && kind == "integrating")
-                || (requested_kind == "integrating" && (kind == "writing" || kind == "integrating"))
-            {
-                return Err("This working copy is receiving an accepted result or an active write. Retry when the operation finishes.".into());
-            }
+        } else if other_id != id
+            && paths_overlap(&key, &other_path)
+            && checkout_kinds_conflict(requested_kind, &kind)
+        {
+            removing |= kind == "removing";
+            blockers.push(format!("{other_id} · {kind} · PID {pid} · {other_path}"));
         }
+    }
+    if !blockers.is_empty() {
+        let message = if removing {
+            "Close files and terminals using this working copy before cleanup; it may currently be being removed."
+        } else {
+            "This working copy is receiving an accepted result or an active write. Retry when the operation finishes."
+        };
+        return Err(format!("{message}\n{}", blockers.join("\n")));
     }
     conn.execute("INSERT INTO checkout_resources VALUES (?1, ?2, ?3, ?4) ON CONFLICT(id) DO UPDATE SET path=excluded.path, kind=excluded.kind, owner_pid=excluded.owner_pid", rusqlite::params![id, key, requested_kind, std::process::id()]).map_err(|e| e.to_string())?;
     conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
@@ -767,7 +782,8 @@ mod tests {
         drop(rusqlite::Connection::open(&database).unwrap());
         assert!(acquire_resource_kind(&database, "bot:run", &project, "executing").unwrap());
         for path in [&project, &project.join("nested"), &root] {
-            assert!(acquire_resource_kind(&database, "write:blocked", path, "writing").is_err());
+            assert!(acquire_resource_kind(&database, "write:shared", path, "writing").unwrap());
+            release_resource_row(&database, "write:shared").unwrap();
             assert!(
                 acquire_resource_kind(&database, "integrate:blocked", path, "integrating").is_err()
             );

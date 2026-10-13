@@ -2,6 +2,7 @@ import { animate, motion, useMotionValue } from "motion/react";
 import { panelTransition, immediateTransition, springs, motionGeometry } from "../../../shared/motion/tokens";
 import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { MessageQueue } from "./MessageQueue";
+import { MenuHover } from "../../../shared/ui/MenuHover";
 import type { SessionModelSettings } from "../model/models";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
@@ -9,10 +10,13 @@ import {
   AiIdea,
   Check,
   CircleDashed,
+  CornerDownLeft,
   CursorMagicSelection,
   FilePlus,
   Folder,
   Link,
+  Laptop,
+  Internet,
   Plus,
   Share,
   Square,
@@ -62,7 +66,7 @@ import {
   peekProjectFiles,
   recentOpenedFiles,
   subscribeProjectFiles,
-} from "../../files/model/fileIndex";
+} from "../../connections/files/model/fileIndex";
 import {
   buildMentionIndex,
   fileMentionParts,
@@ -72,7 +76,7 @@ import {
   replaceMentionToken,
   type MentionIndex,
   type MentionToken,
-} from "../../files/model/fileMentions";
+} from "../../connections/files/model/fileMentions";
 import type { ProjectFile } from "../../../platform/tauri/fs";
 import {
   composeInboxMessage,
@@ -127,10 +131,11 @@ import {
   WorkspacePicker,
 } from "../../workspace/ui/WorkspacePicker";
 import type { Worktree } from "../../source-control/model/worktrees";
+import { resolveWorktreeBase } from "../../source-control/model/worktreeBase";
 import { CwdPicker } from "../../projects/ui/CwdPicker";
 import { FileMentionPicker } from "./FileMentionPicker";
 import { McpServerPicker } from "./McpServerPicker";
-import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
+import { FileTypeIcon } from "../../connections/files/ui/FileTypeIcon";
 import { InboxMiniCard } from "../../inbox/ui/InboxMiniCard";
 import { NoteMiniCard } from "../../notes/ui/NoteMiniCard";
 import { HandoffMiniCard } from "./HandoffMiniCard";
@@ -477,14 +482,11 @@ export function Composer({
   // re-render with the latest draft (remote sessions on every poll), so keep
   // the mount-time value; the effect below applies later changes.
   const [mountDraft] = useState(initialDraft);
-  const { branches: draftBranches } = useProjectBranchesState(
+  const { branches: draftBranches, settled: draftBranchesSettled } = useProjectBranchesState(
     executionCwd,
     draftWorkspace && enabled && !busy,
   );
-  const resolvedWorktreeBase =
-    worktreeBase && worktreeBase !== "HEAD"
-      ? worktreeBase
-      : branch || draftBranches?.current || worktreeBase || undefined;
+  const resolvedWorktreeBase = resolveWorktreeBase(worktreeBase, draftBranches, branch);
   // A worktree is named by its folder, which keeps its name when the branch is renamed.
   const workingName =
     pathKey(cwd) !== pathKey(executionCwd)
@@ -495,13 +497,15 @@ export function Composer({
     if (
       draftWorkspace &&
       workspaceMode === "worktree" &&
-      worktreeBase === "HEAD" &&
-      draftBranches?.current
+      (!worktreeBase || worktreeBase === "HEAD") &&
+      draftBranches &&
+      resolvedWorktreeBase && resolvedWorktreeBase !== "HEAD"
     ) {
-      onWorktreeBaseChange?.(draftBranches.current);
+      onWorktreeBaseChange?.(resolvedWorktreeBase);
     }
   }, [
-    draftBranches?.current,
+    draftBranches,
+    resolvedWorktreeBase,
     draftWorkspace,
     onWorktreeBaseChange,
     workspaceMode,
@@ -1039,6 +1043,21 @@ export function Composer({
     });
     return () => cancelAnimationFrame(frame);
   }, [enabled]);
+
+  // The same retained composer can become visible while the desktop changes
+  // its chat/code typography. Re-measure after the root attribute changes so
+  // the textarea's inline height does not keep the previous mode's metrics.
+  useEffect(() => {
+    if (compact || !enabled) return;
+    const root = document.documentElement;
+    const measure = () => {
+      if (root.dataset.desktopMode && ref.current) resizeComposer(ref.current);
+    };
+    measure();
+    const observer = new MutationObserver(measure);
+    observer.observe(root, { attributes: true, attributeFilter: ["data-desktop-mode"] });
+    return () => observer.disconnect();
+  }, [compact, enabled]);
 
   useEffect(() => {
     onDraftChange?.(draft);
@@ -1812,7 +1831,7 @@ export function Composer({
     e.stopPropagation();
     const next =
       (workspaceMode ?? "current") === "current" ? "worktree" : "current";
-    if (next === "worktree" && !resolvedWorktreeBase) return;
+    if (next === "worktree" && (!resolvedWorktreeBase || (!draftBranches && !draftBranchesSettled))) return;
     onWorkspaceModeChange(
       next,
       next === "worktree" ? resolvedWorktreeBase : undefined,
@@ -1932,11 +1951,24 @@ export function Composer({
   // Typing and menu toggles re-render the composer on every change. The
   // pickers below only depend on props, so keep their elements stable and let
   // React skip them instead of reconciling every picker per keystroke.
+  const contextControls = useMemo(() => hideTopBar ? null : (
+    <div className="composer-context-controls flex shrink-0 items-center" data-composer-context>
+      <ContextMeter
+        usage={context}
+        onCompact={compactSupported && !worktreeRemoved && !disabled ? onCompactContext : undefined}
+        compactDisabled={busy}
+      />
+    </div>
+  ), [hideTopBar, context, compactSupported, worktreeRemoved, disabled, onCompactContext, busy]);
   const workspaceBar = useMemo(
     () =>
       hideTopBar ? null : (
         <div className="composer-workspace-bar flex min-w-0 items-center gap-2.5 px-3 pt-2.5">
-          {!remote && !hideProjectPicker ? (
+          {!compact ? <span className="composer-environment-badge hidden" title={uiT(remote ? "Remote connection" : "Local")}>
+            {remote ? <Internet /> : <Laptop />}<span>{uiT(remote ? "Remote" : "Local")}</span>
+          </span> : null}
+          {!remote && (!hideProjectPicker || !compact) ? (
+            <div className="composer-project-picker" data-picker-hidden={hideProjectPicker || undefined}>
             <CwdPicker
               cwd={cwd}
               recents={recents}
@@ -1946,17 +1978,20 @@ export function Composer({
                 compact ? undefined : "composer-workspace-trigger"
               }
               chevron={!compact}
+              shortLabel={!compact ? projectName(cwd ?? executionCwd) : undefined}
               onCwdChange={onCwdChange}
               onClear={() => onCwdChange("~")}
               onNewTerminal={worktreeRemoved ? undefined : onNewTerminal}
               onClose={() => ref.current?.focus()}
             />
+            </div>
           ) : null}
           {hideBranchPicker ? null : draftWorkspace &&
             onWorkspaceModeChange &&
             onWorktreeBaseChange ? (
-            <>
+            <div className="composer-git-controls">
               <WorkspacePicker
+                composerControls={!compact}
                 cwd={executionCwd}
                 mode={workspaceMode ?? "current"}
                 base={resolvedWorktreeBase}
@@ -1970,15 +2005,15 @@ export function Composer({
                 onClose={() => ref.current?.focus()}
               />
               {(workspaceMode ?? "current") === "current" ? (
-                <BranchPicker
+                <div className="composer-current-branch"><BranchPicker
                   cwd={executionCwd}
                   branch={branch}
                   enabled={enabled && !busy}
                   onChange={onBranchChange}
                   onClose={() => ref.current?.focus()}
-                />
+                /></div>
               ) : null}
-            </>
+            </div>
           ) : worktreeRemoved && onWorktreeChange ? (
             <WorktreePicker
               cwd={cwd}
@@ -2007,17 +2042,7 @@ export function Composer({
               />
             </>
           )}
-          <div className="ml-auto flex shrink-0 items-center">
-            <ContextMeter
-              usage={context}
-              onCompact={
-                compactSupported && !worktreeRemoved && !disabled
-                  ? onCompactContext
-                  : undefined
-              }
-              compactDisabled={busy}
-            />
-          </div>
+          {compact ? contextControls : null}
         </div>
       ),
     [
@@ -2026,6 +2051,7 @@ export function Composer({
       compact,
       compactSupported,
       context,
+      contextControls,
       cwd,
       disabled,
       draftWorkspace,
@@ -2051,6 +2077,7 @@ export function Composer({
       creating,
       workspaceMode,
       worktreeRemoved,
+      uiT,
     ],
   );
 
@@ -2191,6 +2218,86 @@ export function Composer({
       shownUsageLimit,
       usageLimit,
     ],
+  );
+
+  const footerControls = (
+    <div
+      className="composer-toolbar flex min-w-0 flex-1 items-center gap-1"
+      onWheel={(e) => {
+        if (
+          e.target instanceof Element &&
+          e.target.closest(
+            "[data-model-picker], [data-model-control], [data-access-picker], [data-model-settings]",
+          )
+        ) {
+          return;
+        }
+        const el = e.currentTarget;
+        if (el.scrollWidth <= el.clientWidth) return;
+        if (e.deltaX === 0 && e.deltaY !== 0)
+          el.scrollLeft += e.deltaY;
+      }}
+    >
+      <div className="composer-leading-controls flex shrink-0 items-center gap-1">
+        {accessPicker}
+        {!compact && operatorActive ? (
+          <ModeCommandPill
+            name={OPERATOR_COMMAND.name}
+            onClear={() => {
+              setOperatorSelected(false);
+              clearLeadingMode(OPERATOR_COMMAND.name);
+              ref.current?.focus();
+            }}
+          />
+        ) : null}
+        {!compact && orchestrationActive ? (
+          <ModeCommandPill
+            name={ORCHESTRATOR_COMMAND.name}
+            onClear={() => {
+              setOrchestrationSelected(false);
+              clearLeadingMode(ORCHESTRATOR_COMMAND.name);
+              ref.current?.focus();
+            }}
+          />
+        ) : null}
+        {!compact && planActive ? (
+          <ModeCommandPill
+            name={PLAN_COMMAND.name}
+            onClear={() => {
+              setPlanSelected(false);
+              clearLeadingMode(PLAN_COMMAND.name);
+              ref.current?.focus();
+            }}
+          />
+        ) : null}
+        {!compact && draftActive ? (
+          <ModeCommandPill
+            name={DRAFT_COMMAND.name}
+            onClear={() => {
+              setDraftSelected(false);
+              clearLeadingMode(DRAFT_COMMAND.name);
+              ref.current?.focus();
+            }}
+          />
+        ) : null}
+      </div>
+      <div className="composer-model-controls ml-auto flex min-w-0 items-center gap-1">
+        {resendEdited ? (
+          <button
+            type="button"
+            title={uiT("Stop editing last message")}
+            aria-label={uiT("Stop editing last message")}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={exitEditMode}
+            className="edit-last-turn-button flex h-6.5 shrink-0 items-center gap-1 rounded-md border border-current/20 px-2 text-[11px] font-medium transition-[background-color,color,border-color] hover:border-current/35 hover:bg-content/10 hover:text-content focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+          >
+            <X className="size-3" strokeWidth={1.8} />
+            <span>{uiT("Cancel edit")}</span>
+          </button>
+        ) : null}
+        {modelControlElements}
+      </div>
+    </div>
   );
 
   return (
@@ -2339,8 +2446,6 @@ export function Composer({
         <div
           className={`composer-surface ${hideTopBar ? "" : "composer-surface-with-workspace"}`}
         >
-          {compact ? null : workspaceBar}
-
           <div
             ref={boxRef}
             data-composer-box
@@ -2470,7 +2575,7 @@ export function Composer({
             <div className="composer-footer flex items-center gap-1 px-2 pb-2">
               <div
                 ref={plusRef}
-                className={compact ? "hidden" : "relative shrink-0"}
+                className={compact ? "hidden" : "composer-plus-container relative shrink-0"}
               >
                 <ToolButton
                   label={uiT("Add files or choose a mode")}
@@ -2497,20 +2602,22 @@ export function Composer({
                   </p>
                   <button
                     type="button"
+                    data-menu-row="description"
                     disabled={!attachmentsSupported}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
                       setPlusOpen(false);
                       attachFromPicker();
                     }}
-                    className="flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-content hover:bg-content/6 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="relative isolate flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-content hover:bg-content/6 disabled:cursor-not-allowed disabled:opacity-40"
                   >
+                    <MenuHover />
                     <FilePlus className="mt-0.5 size-4 shrink-0" />
                     <span className="min-w-0">
-                      <span className="block text-[13px]">
+                      <span data-menu-title className="block text-[13px]">
                         {uiT("Upload file")}
                       </span>
-                      <span className="block truncate whitespace-nowrap text-[11px] leading-4 text-content/45">
+                      <span data-menu-description className="block truncate whitespace-nowrap text-[11px] leading-4 text-content/45">
                         {attachmentsSupported
                           ? uiT("Attach files or images")
                           : remote && !remoteFeatures?.attachments
@@ -2525,38 +2632,44 @@ export function Composer({
                     <>
                       <button
                         type="button"
+                        data-menu-row="single"
                         onMouseDown={(event) => event.preventDefault()}
                         onClick={() => openReferencePicker("@")}
-                        className="composer-add-reference"
+                        className="composer-add-reference relative isolate"
                       >
+                        <MenuHover />
                         <Folder className="size-4 shrink-0" />
-                        <span>
+                        <span data-menu-title>
                           {uiT(notesEnabled ? "Files and notes" : "Files")}
                         </span>
                         <span className="ml-auto text-content/45">@</span>
                       </button>
                       <button
                         type="button"
+                        data-menu-row="single"
                         onMouseDown={(event) => event.preventDefault()}
                         onClick={() => openReferencePicker("/")}
-                        className="composer-add-reference"
+                        className="composer-add-reference relative isolate"
                       >
+                        <MenuHover />
                         <Terminal className="size-4 shrink-0" />
-                        <span>{uiT("Skills and commands")}</span>
+                        <span data-menu-title>{uiT("Skills and commands")}</span>
                         <span className="ml-auto text-content/45">/</span>
                       </button>
                       <button
                         type="button"
+                        data-menu-row="single"
                         onMouseDown={(event) => event.preventDefault()}
                         onClick={() => {
                           setPlusOpen(false);
                           openMcpPicker();
                           ref.current?.focus();
                         }}
-                        className="composer-add-reference"
+                        className="composer-add-reference relative isolate"
                       >
+                        <MenuHover />
                         <Link className="size-4 shrink-0" />
-                        <span>{uiT("MCP servers")}</span>
+                        <span data-menu-title>{uiT("MCP servers")}</span>
                       </button>
                       <div
                         role="separator"
@@ -2567,6 +2680,7 @@ export function Composer({
                   {!remote || remoteFeatures?.plan ? (
                     <button
                       type="button"
+                      data-menu-row="description"
                       aria-pressed={planActive}
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
@@ -2578,25 +2692,27 @@ export function Composer({
                         setPlusOpen(false);
                         ref.current?.focus();
                       }}
-                      className="flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-content hover:bg-content/6"
+                      className="relative isolate flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-content hover:bg-content/6"
                     >
+                      <MenuHover />
                       <AiIdea className="mt-0.5 size-4 shrink-0 text-yellow-300/80" />
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[13px]">
+                        <span data-menu-title className="block text-[13px]">
                           {uiT("Plan mode")}
                         </span>
-                        <span className="block truncate whitespace-nowrap text-[11px] leading-4 text-content/45">
+                        <span data-menu-description className="block truncate whitespace-nowrap text-[11px] leading-4 text-content/45">
                           {uiT("Review a plan before building")}
                         </span>
                       </span>
                       {planActive ? (
-                        <Check className="mt-0.5 size-3.5 shrink-0 text-accent" />
+                        <Check data-menu-check className="mt-0.5 size-3.5 shrink-0 text-accent" />
                       ) : null}
                     </button>
                   ) : null}
                   {!remote ? (
                     <button
                       type="button"
+                      data-menu-row="description"
                       aria-pressed={operatorActive}
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => {
@@ -2610,19 +2726,20 @@ export function Composer({
                         setPlusOpen(false);
                         ref.current?.focus();
                       }}
-                      className="flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-content hover:bg-content/6"
+                      className="relative isolate flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-content hover:bg-content/6"
                     >
+                      <MenuHover />
                       <CursorMagicSelection className="mt-0.5 size-4 shrink-0 text-sky-300/80" />
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[13px]">
+                        <span data-menu-title className="block text-[13px]">
                           {uiT("Operator")}
                         </span>
-                        <span className="block truncate whitespace-nowrap text-[11px] leading-4 text-content/45">
+                        <span data-menu-description className="block truncate whitespace-nowrap text-[11px] leading-4 text-content/45">
                           {uiT("Give this thread access to MonoCode")}
                         </span>
                       </span>
                       {operatorActive ? (
-                        <Check className="mt-0.5 size-3.5 shrink-0 text-sky-300/80" />
+                        <Check data-menu-check className="mt-0.5 size-3.5 shrink-0 text-sky-300/80" />
                       ) : null}
                     </button>
                   ) : null}
@@ -2631,6 +2748,7 @@ export function Composer({
                     !hideTopBar && (
                       <button
                         type="button"
+                        data-menu-row="description"
                         aria-pressed={orchestrationActive}
                         onMouseDown={(event) => event.preventDefault()}
                         onClick={() => {
@@ -2644,30 +2762,32 @@ export function Composer({
                           setPlusOpen(false);
                           ref.current?.focus();
                         }}
-                        className="flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-content hover:bg-content/6"
+                        className="relative isolate flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-content hover:bg-content/6"
                       >
+                        <MenuHover />
                         <Share className="mt-0.5 size-4 shrink-0 text-fuchsia-300/65" />
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center gap-1.5">
-                            <span className="text-[13px]">
+                            <span data-menu-title className="text-[13px]">
                               {uiT("Orchestrator")}
                             </span>
                             <span className="rounded-full bg-fuchsia-300/10 px-1.5 py-0.5 text-[9px] font-medium leading-none tracking-wide text-fuchsia-200/55 mb-px">
                               v1
                             </span>
                           </span>
-                          <span className="block truncate whitespace-nowrap text-[11px] leading-4 text-content/45">
+                          <span data-menu-description className="block truncate whitespace-nowrap text-[11px] leading-4 text-content/45">
                             {uiT("Plan and coordinate agent work")}
                           </span>
                         </span>
                         {orchestrationActive && (
-                          <Check className="mt-0.5 size-3.5 shrink-0 text-fuchsia-300/80" />
+                          <Check data-menu-check className="mt-0.5 size-3.5 shrink-0 text-fuchsia-300/80" />
                         )}
                       </button>
                     )}
                   {canSaveDraft && onSaveDraft ? (
                     <button
                       type="button"
+                      data-menu-row="description"
                       aria-pressed={draftActive}
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => {
@@ -2679,105 +2799,30 @@ export function Composer({
                         setPlusOpen(false);
                         ref.current?.focus();
                       }}
-                      className="flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-content hover:bg-content/6"
+                      className="relative isolate flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-content hover:bg-content/6"
                     >
+                      <MenuHover />
                       <CircleDashed className="mt-0.5 size-4 shrink-0 text-content/60" />
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[13px]">
+                        <span data-menu-title className="block text-[13px]">
                           {uiT("Draft")}
                         </span>
-                        <span className="block truncate whitespace-nowrap text-[11px] leading-4 text-content/45">
+                        <span data-menu-description className="block truncate whitespace-nowrap text-[11px] leading-4 text-content/45">
                           {uiT("Save this message without starting the agent")}
                         </span>
                       </span>
                       {draftActive ? (
-                        <Check className="mt-0.5 size-3.5 shrink-0 text-accent" />
+                        <Check data-menu-check className="mt-0.5 size-3.5 shrink-0 text-accent" />
                       ) : null}
                     </button>
                   ) : null}
                 </ComposerPopover>
               </div>
-              <div
-                className="composer-toolbar flex min-w-0 flex-1 items-center gap-1"
-                onWheel={(e) => {
-                  if (
-                    e.target instanceof Element &&
-                    e.target.closest(
-                      "[data-model-picker], [data-model-control], [data-access-picker], [data-model-settings]",
-                    )
-                  ) {
-                    return;
-                  }
-                  const el = e.currentTarget;
-                  if (el.scrollWidth <= el.clientWidth) return;
-                  if (e.deltaX === 0 && e.deltaY !== 0)
-                    el.scrollLeft += e.deltaY;
-                }}
-              >
-                <div className="composer-leading-controls flex shrink-0 items-center gap-1">
-                  {accessPicker}
-                  {!compact && operatorActive ? (
-                    <ModeCommandPill
-                      name={OPERATOR_COMMAND.name}
-                      onClear={() => {
-                        setOperatorSelected(false);
-                        clearLeadingMode(OPERATOR_COMMAND.name);
-                        ref.current?.focus();
-                      }}
-                    />
-                  ) : null}
-                  {!compact && orchestrationActive ? (
-                    <ModeCommandPill
-                      name={ORCHESTRATOR_COMMAND.name}
-                      onClear={() => {
-                        setOrchestrationSelected(false);
-                        clearLeadingMode(ORCHESTRATOR_COMMAND.name);
-                        ref.current?.focus();
-                      }}
-                    />
-                  ) : null}
-                  {!compact && planActive ? (
-                    <ModeCommandPill
-                      name={PLAN_COMMAND.name}
-                      onClear={() => {
-                        setPlanSelected(false);
-                        clearLeadingMode(PLAN_COMMAND.name);
-                        ref.current?.focus();
-                      }}
-                    />
-                  ) : null}
-                  {!compact && draftActive ? (
-                    <ModeCommandPill
-                      name={DRAFT_COMMAND.name}
-                      onClear={() => {
-                        setDraftSelected(false);
-                        clearLeadingMode(DRAFT_COMMAND.name);
-                        ref.current?.focus();
-                      }}
-                    />
-                  ) : null}
-                </div>
-                <div className="composer-model-controls ml-auto flex min-w-0 items-center gap-1">
-                  {resendEdited ? (
-                    <button
-                      type="button"
-                      title={uiT("Stop editing last message")}
-                      aria-label={uiT("Stop editing last message")}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={exitEditMode}
-                      className="edit-last-turn-button flex h-6.5 shrink-0 items-center gap-1 rounded-md border border-current/20 px-2 text-[11px] font-medium transition-[background-color,color,border-color] hover:border-current/35 hover:bg-content/10 hover:text-content focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                    >
-                      <X className="size-3" strokeWidth={1.8} />
-                      <span>{uiT("Cancel edit")}</span>
-                    </button>
-                  ) : null}
-                  {modelControlElements}
-                </div>
-              </div>
+              {compact ? footerControls : null}
               <motion.div
                 data-send-kick={sendKick || undefined}
                 style={{ scale: sendScale }}
-                className="flex shrink-0 items-center gap-1"
+                className="composer-submit-controls flex shrink-0 items-center gap-1"
               >
                 <ComposerAction
                   busy={busy}
@@ -2791,6 +2836,13 @@ export function Composer({
               </motion.div>
             </div>
           </div>
+          {!compact ? (
+            <div className="composer-meta">
+              {workspaceBar}
+              {footerControls}
+              {contextControls}
+            </div>
+          ) : null}
         </div>
         {runnerLive && runnerEnabled && !remote ? (
           <ComposerRunner
@@ -2932,6 +2984,7 @@ export function ComposerAction({
   onStop: () => void;
 }) {
   const { t: uiT } = useTranslation();
+  const sendIcon = <><ArrowUp className="composer-send-arrow size-3.5" strokeWidth={2.25} /><CornerDownLeft className="composer-send-return hidden size-3.5" strokeWidth={1.5} /></>;
   if (disabled) {
     return (
       <button
@@ -2941,7 +2994,7 @@ export function ComposerAction({
         disabled
         className="composer-send primary-action grid size-6.5 place-items-center rounded-md disabled:cursor-default"
       >
-        <ArrowUp className="size-3.5" strokeWidth={2.25} />
+        {sendIcon}
       </button>
     );
   }
@@ -2954,7 +3007,7 @@ export function ComposerAction({
         onClick={onSend}
         className="composer-send primary-action grid size-6.5 place-items-center rounded-md"
       >
-        <ArrowUp className="size-3.5" strokeWidth={2.25} />
+        {sendIcon}
       </button>
     ) : (
       <button
@@ -2978,7 +3031,7 @@ export function ComposerAction({
       onClick={onSend}
       className="composer-send primary-action grid size-6.5 place-items-center rounded-md disabled:cursor-default"
     >
-      <ArrowUp className="size-3.5" strokeWidth={2.25} />
+      {sendIcon}
     </button>
   );
 }

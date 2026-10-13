@@ -1,3 +1,6 @@
+import { desktopModeForCwd, desktopModeTarget, loadDesktopLocations, loadDesktopMode, saveDesktopMode, type DesktopMode } from "../model/desktopMode";
+import { DesktopNavigation, DesktopModeToggle } from "../shell/DesktopNavigation";
+import { ProjectsPage } from "../../features/projects/ui/ProjectsPage";
 import { loadSharedAgentDefaults } from "../../features/settings/model/agentPreferences";
 import { selectComposerConfiguration,sessionComposerConfiguration } from "../../features/sessions/model/composerConfiguration";
 import { DesktopBotsButton } from "../../features/bots/ui/DesktopBotsButton";
@@ -104,7 +107,6 @@ useState,
 useSyncExternalStore,
 useTransition
 } from "react";
-import { TitlebarNavigation } from "../shell/TitlebarNavigation";
 import {
 HELP_URLS,type CommandHandlers
 } from "../commands/registry";
@@ -197,7 +199,7 @@ prefetchProjectFiles,
 rememberOpenedFile,
 resolveFileOpenRequest,
 resolveOpenablePath,
-} from "../../features/files/model/fileIndex";
+} from "../../features/connections/files/model/fileIndex";
 import {
 closeLeaf,
 closeSurfacePanes,
@@ -363,11 +365,11 @@ notifyReviewChanged,
 prepareSessionCheckpoint,
 sessionCheckpointCleanupSafe,
 } from "../../features/sessions/model/checkpoint";
-import { notifyDirsChanged } from "../../features/files/model/fileTree";
+import { notifyDirsChanged } from "../../features/connections/files/model/fileTree";
 import {
 invalidateWatchedFiles,
 nudgeWatchedFiles,
-} from "../../features/files/model/fileWatch";
+} from "../../features/connections/files/model/fileWatch";
 import {
 type EditorNavigationTarget,
 type OpenFileFn,
@@ -589,7 +591,6 @@ turnUserRequest,
 
 import { SessionSurfaceActions } from "../../features/workspace/ui/SessionSurfaceToolbar";
 import { type OpenSubagentRequest } from "../../features/sessions/ui/SubagentTabsContext";
-import { AnimatedCollapse } from "../../shared/ui/AnimatedCollapse";
 import { lazySurface } from "../../shared/ui/lazySurface";
 import { preloadRemoteSession } from "../../features/connections/ui/RemoteSession";
 import { preloadNavigationWhenIdle } from "../model/preloadNavigation";
@@ -676,7 +677,7 @@ import {
 handleEditorFindKey,
 openFindInActiveEditor,
 openReplaceInActiveEditor,
-} from "../../features/files/editor/editorSearch";
+} from "../../features/connections/files/editor/editorSearch";
 
 import {
 mergeHistorySummary,
@@ -992,12 +993,20 @@ export function useWorkspaceController({
   historyCwd: bootHistoryCwd = null,
 }: AppProps) {
   const { t: translateUi } = useTranslation();
+  const [desktopStartup] = useState(() => {
+    const mode = loadDesktopMode();
+    return {
+      mode,
+      cwd: mode === "chat"
+        ? loadDesktopLocations().chat?.cwd ?? "~"
+        : lastProjectPath() ?? "~",
+    };
+  });
   const [projectCwd, setProjectCwd] = useState(
     () =>
       windowTransfer?.projectCwd ??
       resumed?.projectCwd ??
-      lastProjectPath() ??
-      "~",
+      desktopStartup.cwd,
   );
   const [recents, setRecents] = useState(() =>
     resumed?.projectCwd && looksLikeProject(resumed.projectCwd)
@@ -1005,7 +1014,7 @@ export function useWorkspaceController({
       : loadRecents(),
   );
   const [seed] = useState(() => {
-    const cwd = lastProjectPath() ?? "~";
+    const cwd = desktopStartup.cwd;
     const session = newDefaultSession(cwd);
     const tab = newTab(session.id);
     return { session, tab };
@@ -1068,7 +1077,9 @@ export function useWorkspaceController({
   const [filesSearchOpen, setFilesSearchOpen] = useState(false);
   const [searchFocusToken, setSearchFocusToken] = useState(0);
   const [searchViewFocusToken, setSearchViewFocusToken] = useState(0);
-  const [appPage, setAppPage] = useState<AppPageKind | null>(null);
+  const [appPage, setAppPage] = useState<AppPageKind | null>(() =>
+    !resumed && !windowTransfer && !lastProjectPath() && loadDesktopMode() === "code" ? "projects" : null,
+  );
   const closeAppPage = useCallback(() => {
     setAppPage(null);
     setComposerFocused(true);
@@ -1777,6 +1788,22 @@ export function useWorkspaceController({
     active?.cwd ??
     (activeTab ? workspaceTabCwd(activeTab, sessions) : undefined) ??
     projectCwd;
+  const [desktopMode, setDesktopMode] = useState<DesktopMode>(desktopStartup.mode);
+  const desktopLocationsRef = useRef(loadDesktopLocations());
+  const desktopModeRequestRef = useRef(0);
+  useLayoutEffect(() => {
+    if (!workspaceVisible || activeAppView || !activeTab) return;
+    const mode = desktopModeForCwd(sidebarCwd);
+    setDesktopMode(mode);
+    desktopLocationsRef.current = {
+      ...desktopLocationsRef.current,
+      [mode]: { tabId: activeTab.id, paneId: activeTab.focusedId, sessionId: active?.id, cwd: sidebarCwd },
+    };
+    saveDesktopMode(mode, desktopLocationsRef.current);
+  }, [workspaceVisible, activeAppView, activeTab?.id, activeTab?.focusedId, active?.id, sidebarCwd]);
+  useLayoutEffect(() => {
+    document.documentElement.dataset.desktopMode = desktopMode;
+  }, [desktopMode]);
   const sidebarCwdRef = useRef(sidebarCwd);
   sidebarCwdRef.current = sidebarCwd;
   const [sidebarTabSelection, setSidebarTabSelection] = useState<{
@@ -2319,7 +2346,8 @@ export function useWorkspaceController({
   ]);
 
   useEffect(() => {
-    if (lastProjectPath()) return;
+    // A restored workspace or explicit Chat launch already owns its location.
+    if (lastProjectPath() || resumed || windowTransfer || desktopStartup.mode === "chat") return;
     void invoke<string>("default_cwd")
       .then((cwd) => {
         if (!looksLikeProject(cwd)) return;
@@ -4540,10 +4568,12 @@ export function useWorkspaceController({
     async (
       sessionId: string,
       project?: string,
-      opts?: { newColumn?: boolean },
+      opts?: { newColumn?: boolean; shouldNavigate?: () => boolean },
     ) => {
+      if (opts?.shouldNavigate && !opts.shouldNavigate()) return;
       workspaceNavigation.cancel();
       let session = await ensureOpenSession(sessionId);
+      if (opts?.shouldNavigate && !opts.shouldNavigate()) return;
       if (project && session && !sameProjectPath(session.cwd, project)) return;
       if (project) setSidebarTab("sessions", project);
       if (!session || session.inboxAsk) return;
@@ -4554,7 +4584,7 @@ export function useWorkspaceController({
       if (parentId && parentId !== sessionId) {
         setInspectedWorkerId(sessionId);
         session = await ensureOpenSession(parentId);
-        if (!session) return;
+        if (!session || (opts?.shouldNavigate && !opts.shouldNavigate())) return;
       }
       if (looksLikeProject(session.cwd))
         setProjectCwd(normalizeProjectPath(session.cwd));
@@ -11223,6 +11253,22 @@ export function useWorkspaceController({
       terminalAvailable: isLocalProject(projectCwd),
       terminalOpen: dockVisible,
       toggleTerminal: onToggleProjectTerminal,
+      filesSessionId:
+        sidebarTab === "files" && active && sameProjectPath(sidebarCwd, active.cwd)
+          ? active.id
+          : undefined,
+      toggleFiles: (sessionId) => {
+        const session = sessionsRef.current.find(
+          (entry) => entry.id === sessionId,
+        );
+        if (!session?.cwd || session.cwd === "~") return;
+        const close =
+          sidebarTab === "files" && active?.id === sessionId &&
+          sameProjectPath(sidebarCwd, session.cwd);
+        onFocusPane(sessionId);
+        setSidebarTab(close ? "sessions" : "files", session.cwd);
+        if (!close) setFilesSearchOpen(false);
+      },
       selectProviderAccount: onSelectProviderAccount,
       manageProviderAccounts: () =>
         openSettings("providers", "provider-accounts"),
@@ -11238,6 +11284,11 @@ export function useWorkspaceController({
     }),
     [
       changesPaneFiles,
+      active?.id,
+      sidebarTab,
+      sidebarCwd,
+      onFocusPane,
+      setSidebarTab,
       dockVisible,
       onArchiveHistorySession,
       onCloseFile,
@@ -11252,8 +11303,61 @@ export function useWorkspaceController({
     ],
   );
 
+  const onDesktopModeChange = useCallback((mode: DesktopMode) => {
+    const request = ++desktopModeRequestRef.current;
+    if (mode === desktopMode && workspaceVisible && !activeAppView) return;
+    workspaceNavigation.cancel();
+    setPaletteOpen(false);
+    setAppDialog(null);
+    setDesktopMode(mode);
+    saveDesktopMode(mode, desktopLocationsRef.current);
+    const target = desktopModeTarget(mode, desktopLocationsRef.current, tabsRef.current, sessionsRef.current);
+    if (target) {
+      setProjectCwd(target.cwd);
+      activateTab(target.tabId, target.paneId ?? target.sessionId);
+      setAppPage(null);
+      return;
+    }
+    const remembered = desktopLocationsRef.current[mode];
+    const fallback = () => {
+      if (mode === "chat") onNewChat();
+      else { setAppPage("projects"); setComposerFocused(false); }
+    };
+    if (remembered?.sessionId && history.some(session => session.id === remembered.sessionId)) {
+      const originTab = activeTabIdRef.current;
+      const originView = appViewFocusedRef.current;
+      const current = () => desktopModeRequestRef.current === request &&
+        activeTabIdRef.current === originTab && appViewFocusedRef.current === originView;
+      void (async () => {
+        try {
+          const restored = await ensureOpenSession(remembered.sessionId!);
+          if (!current()) return;
+          if (!restored || restored.inboxAsk || desktopModeForCwd(restored.cwd) !== mode) { fallback(); return; }
+          await onSelectHistorySession(restored.id, restored.cwd, { shouldNavigate: current });
+        } catch {
+          if (current()) fallback();
+        }
+      })();
+    } else fallback();
+  }, [desktopMode, workspaceVisible, activeAppView, workspaceNavigation.cancel, activateTab, history, ensureOpenSession, onSelectHistorySession, onNewChat]);
+  const onNewDesktopSession = useCallback(() => {
+    if (desktopMode === "chat") onNewChat();
+    else if (desktopModeForCwd(sidebarCwd) === "code") onNew();
+    else {
+      const cwd = desktopLocationsRef.current.code?.cwd;
+      if (cwd) onNewInProject(cwd);
+      else openAppView("projects");
+    }
+  }, [desktopMode, sidebarCwd, onNewChat, onNew, onNewInProject, openAppView]);
+  const desktopModeToggle = <DesktopModeToggle mode={desktopMode} onChange={onDesktopModeChange} />;
   const renderAppView: AppViewRenderer = (kind, active) => {
     switch (kind) {
+      case "projects":
+        return <ProjectsPage mode={desktopMode} cwd={sidebarCwd} recents={recents}
+          onSelect={(path) => { closeAppPage(); onSelectProject(path); }}
+          onOpen={pickProject} onNewChat={onNewChat}
+          onArchive={(path) => onRemoveProject(path, { purgeData: false })}
+          onRestore={onRestoreProject} />;
       case "assistant":
         return (
           <DesktopBots
@@ -11450,18 +11554,13 @@ export function useWorkspaceController({
     onOpenAutomations, onOpenWorkflows, activeAppView, appPage, inboxUnseen,
     onOpenNotificationSettings, updateNotice, onOpenWhatsNew,
   ]);
-  const sidebarNavigation = useMemo(() => (
-    <div id="sidebar-navigation-menu" className="shrink-0">
-      <AnimatedCollapse expanded={navigationExpanded} keepMounted>
-        <ActivityBar layout="sidebar-top" {...activityBarProps} />
-      </AnimatedCollapse>
-    </div>
-  ), [navigationExpanded, activityBarProps]);
-  const titlebarNavigation = (
-    <TitlebarNavigation expanded={sessionSidebarOpen && !navigationExpanded}>
-      <ActivityBar layout="titlebar" {...activityBarProps} />
-    </TitlebarNavigation>
+  const sidebarNavigation = (
+    <DesktopNavigation mode={desktopMode} onNew={onNewDesktopSession}
+      onProjects={() => openAppView("projects")} projectsActive={appPage === "projects"}
+      onBots={() => onOpenAssistant()} botsActive={activeAppView === "assistant"}
+      activity={activityBarProps} />
   );
+  const titlebarNavigation = null;
   const sidebarFooter = useMemo(() => (
     <ActivityBar layout="sidebar-footer" {...activityBarProps} />
   ), [activityBarProps]);
@@ -11476,6 +11575,10 @@ export function useWorkspaceController({
   return {
     active,
     activeAppView,
+    desktopMode,
+    desktopModeToggle,
+    onDesktopModeChange,
+    onNewDesktopSession,
     activeLinkedWorkItemPanel,
     activeSessionId,
     activeTab,

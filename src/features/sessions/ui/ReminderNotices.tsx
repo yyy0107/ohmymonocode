@@ -14,7 +14,7 @@ import {
   reminderTime,
   type SessionReminder,
 } from "../model/sessionReminders";
-import { ExplorerMenu } from "../../files/ui/ExplorerMenu";
+import { ExplorerMenu } from "../../connections/files/ui/ExplorerMenu";
 import { Clock } from "../../../shared/ui/icons";
 import { sessionReminderPresets } from "./sessionReminderPresets";
 

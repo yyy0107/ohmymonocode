@@ -1,0 +1,530 @@
+/* Measured shell geometry; desktop-only so shared controls retain mobile sizing. */
+html[data-skin][data-desktop-mode] .desktop-navigation {
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5px;
+  flex-shrink: 0;
+}
+html[data-skin][data-desktop-mode] .desktop-navigation button {
+  color: var(--color-ink-secondary);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+html[data-skin][data-desktop-mode] .desktop-navigation-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 2px 2px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 21px;
+}
+html[data-skin][data-desktop-mode] .desktop-navigation-row:hover,
+html[data-skin][data-desktop-mode] .desktop-navigation-row[aria-current] {
+  background: var(--color-raised);
+  color: var(--color-ink);
+}
+html[data-skin][data-desktop-mode] .desktop-navigation-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+html[data-skin][data-desktop-mode] .desktop-navigation-icon svg {
+  width: 20px;
+  height: 20px;
+  transition: rotate 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+html[data-skin][data-desktop-mode] .desktop-search-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  margin-bottom: 7px;
+  border: 1px solid var(--color-hairline) !important;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px #00000008;
+  font-size: 14px;
+}
+html[data-skin][data-desktop-mode] .desktop-search-trigger svg {
+  width: 16px;
+  height: 16px;
+}
+html[data-skin][data-desktop-mode] .desktop-search-trigger kbd {
+  margin-left: auto;
+  color: var(--color-ink-tertiary);
+  font-size: 12px;
+  font-family: inherit;
+}
+html[data-skin][data-desktop-mode] .desktop-more-navigation {
+  padding-left: 12px;
+}
+html[data-skin][data-desktop-mode] .desktop-navigation-dot {
+  margin-left: auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+html[data-skin][data-desktop-mode] .desktop-mode-toggle {
+  display: flex;
+  width: 70px;
+  height: 28px;
+  padding: 1px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--color-control);
+  flex-shrink: 0;
+}
+html[data-skin][data-desktop-mode] .desktop-mode-toggle button {
+  width: 34px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  border-radius: 5px;
+  color: var(--color-ink-tertiary);
+  cursor: pointer;
+}
+html[data-skin][data-desktop-mode]
+  .desktop-mode-toggle
+  button[aria-pressed="true"] {
+  background: var(--color-card);
+  color: var(--color-ink);
+  box-shadow: 0 1px 2px #00000014;
+}
+html[data-skin][data-desktop-mode] .desktop-mode-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+html[data-skin][data-desktop-mode] [data-window-drag-bar] {
+  background: var(--color-app);
+}
+html[data-skin][data-desktop-mode] .desktop-titlebar-navigation {
+  display: flex;
+  align-items: center;
+  width: 228px;
+  max-width: 100%;
+  gap: 8px;
+  flex-shrink: 0;
+}
+html[data-skin][data-desktop-mode] .desktop-titlebar-navigation [data-window-visit-nav] {
+  flex: 1;
+  min-width: 0;
+  justify-content: space-between;
+}
+/* Reserve the mode switch's space so hiding it never moves window navigation. */
+html[data-skin][data-desktop-mode] .desktop-titlebar-mode-slot {
+  width: 70px;
+  flex: 0 0 70px;
+}
+html[data-skin][data-desktop-mode] .desktop-titlebar-navigation .ui-icon-button {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  border-radius: 8px;
+  color: var(--color-ink);
+}
+html[data-skin][data-desktop-mode] .desktop-titlebar-navigation .ui-icon-button[aria-disabled="true"] {
+  color: var(--color-ink-tertiary);
+  opacity: 1;
+}
+html[data-skin][data-desktop-mode] .desktop-titlebar-navigation .ui-icon-button svg {
+  width: 18px;
+  height: 18px;
+}
+html[data-skin][data-desktop-mode] [data-window-drag-bar] > div:has(> .desktop-titlebar-navigation) {
+  padding-inline: 10px;
+}
+html[data-skin][data-desktop-mode] [data-menu-bar]:has(.desktop-titlebar-navigation) {
+  padding-left: 10px;
+}
+html[data-skin][data-desktop-mode] [data-menu-bar] .desktop-titlebar-navigation {
+  margin-right: 10px;
+}
+html[data-skin][data-desktop-mode].is-mac [data-window-drag-bar] > div:has(> .desktop-titlebar-navigation) {
+  padding-left: 78px;
+}
+html[data-skin][data-desktop-mode] .desktop-tools-layout {
+  display: grid;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  transition: grid-template-columns var(--collapse-duration)
+    cubic-bezier(0.22, 1, 0.36, 1);
+}
+html[data-skin][data-desktop-mode] .desktop-tools-layout[data-resizing],
+html.is-resizing .desktop-tools-layout {
+  transition: none;
+}
+html[data-skin][data-desktop-mode] .desktop-tools-workspace {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+html[data-skin][data-desktop-mode] .desktop-tools-divider {
+  position: relative;
+  min-width: 0;
+}
+html[data-skin][data-desktop-mode] .desktop-tools-panel {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  margin: 8px 8px 8px 0;
+  overflow: hidden;
+  background: var(--color-card);
+  box-shadow: 0 0 0 1px var(--color-hairline);
+}
+html[data-skin][data-desktop-mode] .desktop-tools-panel[hidden] {
+  display: none;
+}
+html[data-skin][data-desktop-mode] .desktop-tools-heading {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  flex-shrink: 0;
+}
+html[data-skin][data-desktop-mode] .desktop-tools-heading .sidebar-segment {
+  flex: 1;
+  margin: 0;
+  background: transparent;
+  border-radius: 0;
+  height: 32px;
+}
+html[data-skin][data-desktop-mode] .desktop-tools-heading > button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-ink-secondary);
+  margin-right: 3px;
+}
+html[data-skin][data-desktop-mode] .desktop-tools-heading > button:hover {
+  background: var(--color-control);
+}
+html[data-skin][data-desktop-mode] .desktop-tools-heading > button svg {
+  width: 16px;
+  height: 16px;
+}
+html[data-skin][data-desktop-mode] .desktop-projects-page {
+  padding: 12px 40px 40px;
+  width: 100%;
+  min-height: 0;
+  overflow: auto;
+  color: var(--color-ink);
+}
+html[data-skin][data-desktop-mode] .desktop-collection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  min-height: 32px;
+}
+html[data-skin][data-desktop-mode] .desktop-collection-header h1 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 500;
+}
+html[data-skin][data-desktop-mode] .desktop-collection-create {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  line-height: 20px;
+  min-height: 32px;
+  border: 1px solid var(--color-ink);
+  border-radius: 8px;
+  background: var(--color-ink);
+  color: var(--color-app);
+  font-size: 14px;
+  cursor: pointer;
+}
+html[data-skin][data-desktop-mode] .desktop-collection-create svg {
+  width: 16px;
+  height: 16px;
+}
+html[data-skin][data-desktop-mode] .desktop-collection-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+  min-height: 36px;
+}
+html[data-skin][data-desktop-mode] .desktop-collection-tabs {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+html[data-skin][data-desktop-mode] .desktop-collection-tabs button {
+  min-height: 32px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--color-ink-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+html[data-skin][data-desktop-mode]
+  .desktop-collection-tabs
+  button[aria-selected="true"] {
+  color: var(--color-ink);
+  background: var(--color-raised);
+}
+html[data-skin][data-desktop-mode] .desktop-collection-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  max-width: 100%;
+  gap: 8px;
+}
+html[data-skin][data-desktop-mode] .desktop-collection-search {
+  display: flex;
+  align-items: center;
+  width: 200px;
+  height: 32px;
+  padding: 0 8px;
+  gap: 6px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 8px;
+}
+html[data-skin][data-desktop-mode] .desktop-collection-search svg {
+  width: 16px;
+  height: 16px;
+  color: var(--color-ink-tertiary);
+}
+html[data-skin][data-desktop-mode] .desktop-collection-search input {
+  padding: 0;
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+  font-size: 14px;
+}
+html[data-skin][data-desktop-mode] .desktop-collection-filters select {
+  width: auto;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 8px;
+  background: var(--color-card);
+  font-size: 13px;
+}
+html[data-skin][data-desktop-mode] .desktop-project-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+html[data-skin][data-desktop-mode] .desktop-project-card {
+  position: relative;
+  min-width: 0;
+  height: 137px;
+  border-radius: 12px;
+  background: var(--color-card);
+  box-shadow: 0 0 0 1px var(--color-hairline);
+}
+html[data-skin][data-desktop-mode] .desktop-project-card:hover {
+  background: var(--color-raised-hover);
+}
+html[data-skin][data-desktop-mode] .desktop-project-open {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+html[data-skin][data-desktop-mode] .desktop-project-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--color-control);
+  color: var(--color-ink-secondary);
+}
+html[data-skin][data-desktop-mode] .desktop-project-icon svg {
+  width: 20px;
+  height: 20px;
+}
+html[data-skin][data-desktop-mode] .desktop-project-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  font-size: 16px;
+  line-height: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html[data-skin][data-desktop-mode] .desktop-project-name svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+html[data-skin][data-desktop-mode] .desktop-project-path {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 17px;
+  color: var(--color-ink-tertiary);
+}
+html[data-skin][data-desktop-mode] .desktop-project-more {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-ink-secondary);
+  opacity: 0;
+  cursor: pointer;
+}
+html[data-skin][data-desktop-mode] .desktop-project-more svg {
+  width: 18px;
+  height: 18px;
+}
+html[data-skin][data-desktop-mode]
+  .desktop-project-card:hover
+  .desktop-project-more,
+html[data-skin][data-desktop-mode]
+  .desktop-project-card:focus-within
+  .desktop-project-more {
+  opacity: 1;
+}
+html[data-skin][data-desktop-mode] .desktop-project-menu {
+  padding: 4px;
+}
+html[data-skin][data-desktop-mode] .desktop-project-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-ink);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+html[data-skin][data-desktop-mode] .desktop-project-menu button:hover {
+  background: var(--color-control);
+}
+html[data-skin][data-desktop-mode] .desktop-project-menu svg {
+  width: 16px;
+  height: 16px;
+}
+html[data-skin][data-desktop-mode] .desktop-collection-empty {
+  padding: 40px 0;
+  color: var(--color-ink-secondary);
+  font-size: 14px;
+}
+@media (max-width: 1000px) {
+  html[data-skin][data-desktop-mode] .desktop-projects-page {
+    padding-inline: 24px;
+  }
+  html[data-skin][data-desktop-mode] .desktop-project-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 767px) {
+  html[data-skin][data-desktop-mode] .desktop-projects-page {
+    padding-inline: 16px;
+  }
+  html[data-skin][data-desktop-mode] .desktop-collection-filters {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+  html[data-skin][data-desktop-mode] .desktop-collection-search {
+    width: 160px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-skin][data-desktop-mode] .desktop-tools-layout,
+  html[data-skin][data-desktop-mode] .desktop-navigation-icon svg {
+    transition: none;
+  }
+}
+html[data-reduced-motion="on"] .desktop-tools-layout,
+html[data-reduced-motion="on"] .desktop-navigation-icon svg {
+  transition: none !important;
+}
+
+html[data-skin] [data-desktop-sidebar] {
+  padding-inline: 8px 8.8px;
+}
+html[data-skin] [data-desktop-sidebar-mode] {
+  margin-right: 1.5px;
+}
+
+html[data-skin] [data-menu-density="compact"] [role^="menuitem"] {
+  height: auto;
+}
+html[data-skin]
+  [data-menu-density="compact"]
+  [role^="menuitem"]
+  > span
+  > span:first-child {
+  line-height: var(--desktop-menu-leading);
+}
+
+/* Native traffic lights stay at the viewport origin when the sidebar folds. */
+html[data-skin].is-mac .sidebar-rail [data-activity-bar="rail"] {
+  padding-top: 44px;
+}
+
+/* Keep the native controls outside the scrollable application menu at minimum window sizes. */
+html[data-skin][data-desktop-mode] [data-menu-bar].relative {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+html[data-skin][data-desktop-mode] [data-menu-bar] > div:first-child {
+  min-width: 0;
+  flex-shrink: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+html[data-skin][data-desktop-mode] [data-menu-bar] > div:first-child > button {
+  flex-shrink: 0;
+}

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EditorPane, LayoutNode } from "../model/layout";
 import { PaneTree } from "./PaneTree";
 
-vi.mock("../../files/ui/FilePane", async () => {
+vi.mock("../../connections/files/ui/FilePane", async () => {
   const { createElement } = await import("react");
   return {
     FilePane: ({ pane }: { pane: EditorPane }) =>

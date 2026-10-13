@@ -16,6 +16,7 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock("@pierre/diffs", () => ({
   preloadHighlighter: vi.fn(() => Promise.resolve()),
+  registerCustomTheme: vi.fn(),
 }));
 vi.mock("@pierre/diffs/worker", () => ({
   WorkerPoolManager: class {

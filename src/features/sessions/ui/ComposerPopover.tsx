@@ -12,7 +12,9 @@ export function ComposerPopover({ open, enabled = true, children, className, aut
     className={enabled ? `composer-popover ${className ?? ""}` : className}
     inert={!open || !visible} aria-hidden={!open || !visible || undefined}
     autoFocus={open && autoFocus} onDismiss={open && visible ? onDismiss : undefined}>
-    <ComposerPopoverContent open={open}>{open ? children : retainedChildren.current}</ComposerPopoverContent>
+    <div className="composer-popover-gutter">
+      <ComposerPopoverContent open={open}>{open ? children : retainedChildren.current}</ComposerPopoverContent>
+    </div>
   </Popover>;
 }
 

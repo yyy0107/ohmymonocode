@@ -2,7 +2,7 @@ import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { ToolPreview } from "../model/session";
-import { FilePreview } from "../../files/ui/FilePreview";
+import { FilePreview } from "../../connections/files/ui/FilePreview";
 import { Popover } from "../../../shared/ui/Popover";
 import { X } from "../../../shared/ui/icons";
 

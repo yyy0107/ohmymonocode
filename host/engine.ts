@@ -1,6 +1,6 @@
 import { botContextPrompt, snapshotBotContext, type HarnessBotContext, type HarnessBotCapabilities } from "../src/integrations/harness/core/botContext";
 import { providerBotCapabilities } from "../src/integrations/harness/providers/botCapabilities";
-import { HostResourceGuard } from "./bots/resources";
+import { HostResourceGuard, HostResourceWaiter, HostResourceBusyError } from "./bots/resources";
 import { selectComposerConfiguration } from "../src/features/sessions/model/composerConfiguration";
 import { createHash, randomUUID } from "node:crypto";
 import { HostOrchestration, type HostOrchestrationOptions } from "./orchestration";
@@ -10,7 +10,7 @@ import { HostImService, type HostImOptions } from "./im-service";
 import { HostWorkflows } from "./workflows/service";
 import type { WorkflowWorkerPort } from "./workflows/driver";
 import type { ControlOutcome, ControlReceiptContext, OrchestrationRun, OrchestrationTask, WorkerPreparation } from "../src/features/orchestration/model/orchestrationRuntime";
-import { assertCheckoutAvailable, claimCheckoutResource, checkoutPath, checkoutPathsOverlap, withCheckoutOwner } from "./checkout-guards";
+import { assertCheckoutAvailable, claimCheckoutResource, checkoutPath, checkoutPathsOverlap, withCheckoutOwner, withCheckoutIntegration } from "./checkout-guards";
 import type { LegacyRetirementManifest } from "./legacy-orchestration";
 import { SessionTitleCoordinator } from "../src/integrations/harness/core/titleCoordinator";
 import { TitleModelApi } from "./title-model";
@@ -83,6 +83,8 @@ const FLUSH_MS = 120;
 const BATCHED = new Set<string>([
   "message.delta",
   "reasoning.delta",
+  "context",
+  "turn.metrics",
   "tool.updated",
   "agent.step",
   "agent.updated",
@@ -347,6 +349,7 @@ export class HostEngine {
     {
       runId: string;
       resourceOwner: string;
+      abort: AbortController;
       done: Promise<void>;
       controls: Promise<void>;
       finishing: boolean;
@@ -368,6 +371,7 @@ export class HostEngine {
   >();
   private retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private closing = false;
+  private readonly resourceWaiter: HostResourceWaiter;
   private readonly titles: SessionTitleCoordinator;
   readonly titleModel: TitleModelApi;
   private parked = new Map<string, { harness: string; timer: ReturnType<typeof setTimeout> }>();
@@ -383,6 +387,7 @@ export class HostEngine {
   readonly checkpoints: SessionCheckpoints;
   /** Paths of structured edits that started in each running turn, by tool call. */
   private checkpointCalls = new Map<string, Map<string, string[]>>();
+  private checkpointStatusReads = new Map<string, { cwd: string; revision: number; promise: ReturnType<SessionCheckpoints["status"]> }>();
   private readonly clientState: HostClientState;
   private nativeLeases = new Map<string, NativeLease>();
   private editors = new Map<
@@ -398,6 +403,7 @@ export class HostEngine {
   ) {
     this.clientState = new HostClientState(store);
     this.notes = new HostNotes(dirname(store.attachmentDir), () => this.desktopDirectory());
+    this.resourceWaiter = new HostResourceWaiter(store);
     this.checkpoints = new SessionCheckpoints(join(dirname(store.attachmentDir), "checkpoints"));
     this.nativeSessions = new NativeSessionManager({
       store,
@@ -434,7 +440,7 @@ export class HostEngine {
     });
     // Provider dispatch is not transactional with SQLite. Never replay a send
     // automatically after a crash; its external effects may already exist.
-    for (const stored of store.sessions()) {
+    for (const stored of store.scanSessions()) {
       const restoredActivity = stored.session.nativeSession &&
         stored.updatedAt > stored.session.nativeSession.updatedAt
         ? restoreImportedNativeActivity(stored, store.events(stored.session.id, 0).events)
@@ -639,7 +645,7 @@ export class HostEngine {
     try { value = this.store.session(id); } catch { return; }
     const provider = this.provider(value.session.harness);
     const active = this.running.get(id);
-    if (active) active.cancelled = true;
+    if (active) { active.cancelled = true; active.abort.abort(); }
     const parked = this.parked.get(id);
     if (parked) { clearTimeout(parked.timer); this.parked.delete(id); }
     await provider.stop(id);
@@ -727,6 +733,19 @@ export class HostEngine {
     void this.checkpoints.prepare(session.id, session.cwd, paths).catch(() => undefined);
   }
 
+  /** Share the lightweight checkout guard between status display and actual undo. */
+  private otherRunningCheckout(sessionId: string, cwd: string): boolean {
+    const directories = new Map(this.store.runningSessionDirectories().map(value => [value.id, value.cwd]));
+    // Prefer current run state over persisted metadata while a batch is pending.
+    for (const [id, { value }] of this.live) {
+      if (value.status === "running") directories.set(id, value.session.cwd);
+      else directories.delete(id);
+    }
+    const checkout = checkoutPath(cwd);
+    return [...directories].some(([id, path]) => id !== sessionId &&
+      checkoutPathsOverlap(checkoutPath(path), checkout));
+  }
+
   /** Review, keep or undo the edits a conversation made in its checkout. */
   async sessionCheckpoint(sessionId: string, action: unknown, path: unknown): Promise<unknown> {
     const value = this.session(sessionId);
@@ -738,11 +757,17 @@ export class HostEngine {
       throw new Error("Session changes are no longer available");
     }
     if (action === "status") {
-      const status = await this.checkpoints.status(sessionId, session.cwd);
-      const checkout = checkoutPath(session.cwd);
-      const locked = status.files.length > 0 && this.currentValues().some((other) =>
-        other.session.id !== sessionId && other.status === "running" &&
-        checkoutPathsOverlap(checkoutPath(other.session.cwd), checkout));
+      let read = this.checkpointStatusReads.get(sessionId);
+      if (!read || read.cwd !== session.cwd || read.revision !== value.revision) {
+        read = { cwd: session.cwd, revision: value.revision, promise: this.checkpoints.status(sessionId, session.cwd) };
+        this.checkpointStatusReads.set(sessionId, read);
+      }
+      let status: Awaited<typeof read.promise>;
+      try { status = await read.promise; }
+      finally {
+        if (this.checkpointStatusReads.get(sessionId) === read) this.checkpointStatusReads.delete(sessionId);
+      }
+      const locked = status.files.length > 0 && this.otherRunningCheckout(sessionId, session.cwd);
       return locked ? { ...status, undoLocked: true } : status;
     }
     if (action === "diff") {
@@ -753,12 +778,11 @@ export class HostEngine {
     // Keep and Undo wait until the agent has finished writing to the checkout.
     if (value.status === "running" || this.running.has(sessionId))
       throw new Error("Keep and undo are unavailable while the session is running");
+    this.checkpointStatusReads.delete(sessionId);
     if (action === "keep") return this.checkpoints.keep(sessionId, session.cwd, path);
-    const checkout = checkoutPath(session.cwd);
-    if (this.currentValues().some((other) => other.session.id !== sessionId && other.status === "running" &&
-      checkoutPathsOverlap(checkoutPath(other.session.cwd), checkout)))
+    if (this.otherRunningCheckout(sessionId, session.cwd))
       throw new Error("Undo is unavailable while another session is running in this project");
-    return this.checkpoints.undo(sessionId, session.cwd, path);
+    return withCheckoutIntegration(this.store, [session.cwd], () => this.checkpoints.undo(sessionId, session.cwd, path));
   }
 
   /** Native bootstrap only: device RPC never exposes retirement. */
@@ -1497,6 +1521,7 @@ export class HostEngine {
             session: {
               ...value.session,
               busy: true,
+              executionState: { runId, phase: "starting", since: Date.now() },
               pendingQuestion: undefined,
               titleState: value.session.titleState ?? (firstTurn && placeholderTitle ? titleStateFor(value.session) : undefined),
               title:
@@ -1572,7 +1597,7 @@ export class HostEngine {
             };
             effect = () => {
               const active = this.running.get(command.sessionId);
-              if (active) active.cancelled = true;
+              if (active) { active.cancelled = true; active.abort.abort(); }
               void provider
                 .cancel(command.sessionId)
                 .catch(() => provider.stop(command.sessionId));
@@ -2010,6 +2035,7 @@ export class HostEngine {
     const active = {
       runId: runId!,
       resourceOwner,
+      abort: new AbortController(),
       done: Promise.resolve(),
       controls: Promise.resolve(),
       finishing: false,
@@ -2024,13 +2050,15 @@ export class HostEngine {
         let error: string | undefined;
         let checkpointTurn: string | undefined;
         try {
+          this.executionPhase(session.id, runId!, "starting");
           await this.cleanPreviousProviders(session.id);
           // Waiting has no provider side effects and remains cancellable. A restart
           // interrupts this accepted run rather than replaying an uncertain send.
-          while (!this.closing && !active.cancelled && !resources.acquire(resourceOwner, {
+          await this.resourceWaiter.wait(resources, resourceOwner, {
             workingDirectory: session.cwd, computer: botContext?.tools?.computer,
-          })) await new Promise<void>(resolve => setTimeout(resolve, 100));
+          }, active.abort.signal, blockers => this.executionPhase(session.id, runId!, "waiting-resource", blockers));
           if (!this.closing && !active.cancelled) {
+            this.executionPhase(session.id, runId!, "starting");
             if (!this.boundSessions.has(session.id) && session.providerSessionId)
               this.bindRetainedSession(session);
             if (!this.checkoutReleases.has(session.id)) this.checkoutReleases.set(session.id, claimCheckoutResource(this.store, `host-provider:${session.id}:${randomUUID()}`, session.cwd));
@@ -2072,6 +2100,10 @@ export class HostEngine {
               const prepared = await this.skills.prepare(turnPrompt!, { harness: session.harness as RemoteProvider, cwd: session.worktreeCwd || session.cwd, sessionId: session.id }, provider);
               if (!this.closing && !active.cancelled) await provider.send({
                 ...input,
+                onAccepted: () => {
+                  if (this.live.get(session.id)?.value.session.executionState?.phase === "starting")
+                    this.executionPhase(session.id, runId!, "awaiting-response");
+                },
                 text: providerText(handoff ? wrapHandoffPrompt(handoff.text, handoff.from, prepared, priorRequests) : prepared),
                 attachments: attachments?.map((file) =>
                   session.harness !== "codex" &&
@@ -2098,9 +2130,10 @@ export class HostEngine {
             }
           }
         } catch (reason) {
-          error = reason instanceof Error ? reason.message : String(reason);
+          error = reason instanceof HostResourceBusyError ? `${reason.code}: ${reason.message}` : reason instanceof Error ? reason.message : String(reason);
         }
         active.finishing = true;
+        this.executionPhase(session.id, runId!, "settling");
         await active.controls;
         // Keep the session running until the old process has stopped. Otherwise
         // a follow-up can race cleanup and have its newly spawned child killed.
@@ -2208,6 +2241,21 @@ export class HostEngine {
       }).finally(() => resources.close());
   }
 
+  private executionPhase(id: string, runId: string, phase: NonNullable<Session["executionState"]>["phase"], blockers?: NonNullable<Session["executionState"]>["blockers"], persist = true): void {
+    const live = this.live.get(id);
+    if (!live || live.value.runId !== runId || live.value.status !== "running") return;
+    const previous = live.value.session.executionState;
+    if (previous?.runId === runId && previous.phase === phase && JSON.stringify(previous.blockers) === JSON.stringify(blockers)) return;
+    const since = previous?.phase === phase ? previous.since : Date.now();
+    const state: NonNullable<Session["executionState"]> = { runId, phase, since,
+      providerStartedAt: previous?.providerStartedAt ?? (phase === "awaiting-response" || phase === "active" ? Date.now() : undefined),
+      ...(blockers ? { blockers, reason: blockers.some(b => b.kind === "computer") ? "computer" : blockers.some(b => b.kind === "removing") ? "removing" : "integrating" } : {}),
+    };
+    if (persist) this.flush(id);
+    const next = { ...live.value, session: { ...live.value.session, executionState: state } };
+    live.value = persist ? this.save(next, { type: "session.executionState", state }) : next;
+  }
+
   private event(id: string, runId: string, event: HarnessEvent, expectedHarness?: string, expectedAccount?: string): void {
     if (event.type === "session.titleUpdated" || event.type === "session.titleRefreshRequested") {
       if (this.closing) return;
@@ -2221,6 +2269,11 @@ export class HostEngine {
     const live = this.live.get(id);
     if (!live || live.value.runId !== runId || live.value.status !== "running")
       return;
+    const phase = live.value.session.executionState?.phase;
+    if ((event.type === "session.started" || event.type === "turn.started") && phase !== "active" && phase !== "settling")
+      this.executionPhase(id, runId, "awaiting-response");
+    else if (["message.delta", "reasoning.delta", "tool.started", "image.generated"].includes(event.type) && phase !== "active" && phase !== "settling")
+      this.executionPhase(id, runId, "active", undefined, false);
     if (event.type === "session.error" || event.type === "usage.limited") {
       const active = this.running.get(id);
       if (active) active.failed = true;
@@ -2301,6 +2354,7 @@ export class HostEngine {
     const stopped = stopStreaming(value.session, endedAt);
     const session = {
       ...stopped,
+      executionState: undefined,
       queueStatus:
         stopped.queuedMessages?.length && (message || status === "interrupted")
           ? ("paused" as const)
@@ -2338,6 +2392,8 @@ export class HostEngine {
 
   async close(): Promise<void> {
     this.closing = true;
+    for (const active of this.running.values()) active.abort.abort();
+    this.resourceWaiter.close();
     this.nativeSessions.close();
     await this.im.close();
     await this.workflows.close();

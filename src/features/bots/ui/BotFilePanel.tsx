@@ -9,7 +9,7 @@ import {
   useSurfaceVisibility,
 } from "../../../shared/ui/SurfaceVisibility";
 import { Maximize2, Minus, PanelRight, X } from "../../../shared/ui/icons";
-import { FilePane } from "../../files/ui/FilePane";
+import { FilePane } from "../../connections/files/ui/FilePane";
 import {
   newEditorPane,
   newFileTab,

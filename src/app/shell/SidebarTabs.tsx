@@ -19,6 +19,7 @@ import {
 import { useAnimatedReorder } from "../../shared/hooks/useAnimatedReorder";
 import { useTranslation } from "../../shared/i18n/useTranslation";
 import { formatInteger } from "../../shared/lib/numbers";
+import { mergeOrderedSubset } from "../../shared/lib/reorder";
 
 const TAB_LABELS: Record<SidebarTabId, string> = {
   sessions: "Sessions",
@@ -33,6 +34,7 @@ type Props = {
   deletions?: number;
   filesLabel?: string;
   resizing?: boolean;
+  tabs?: readonly SidebarTabId[];
 };
 
 export const SidebarTabs = memo(function SidebarTabs({
@@ -42,6 +44,7 @@ export const SidebarTabs = memo(function SidebarTabs({
   deletions = 0,
   filesLabel,
   resizing = false,
+  tabs,
 }: Props) {
   const { t } = useTranslation();
   const reduced = useMotionPreference();
@@ -49,12 +52,14 @@ export const SidebarTabs = memo(function SidebarTabs({
   const tabsRef = useRef<HTMLDivElement>(null);
   const [selectedTab, selectTab] = useOptimistic(tab);
   const [tabOrder, setTabOrder] = usePreferenceState(loadSidebarTabOrder);
-  const sortable = useAnimatedReorder(tabOrder, (next) => {
-    setTabOrder(next);
-    saveSidebarTabOrder(next);
+  const visibleTabs = tabs ? tabOrder.filter((id) => tabs.includes(id)) : tabOrder;
+  const sortable = useAnimatedReorder(visibleTabs, (next) => {
+    const order = mergeOrderedSubset(tabOrder.map((id) => ({ id })), next.map((id) => ({ id }))).map(({ id }) => id);
+    setTabOrder(order);
+    saveSidebarTabOrder(order);
   });
 
-  useListReorderMotion(tabsRef, tabOrder, "data-sidebar-tab-reorder", !sortable.draggingId);
+  useListReorderMotion(tabsRef, visibleTabs, "data-sidebar-tab-reorder", !sortable.draggingId);
   return (
     <div
       ref={tabsRef}
@@ -63,12 +68,12 @@ export const SidebarTabs = memo(function SidebarTabs({
       data-reordering={sortable.draggingId ? "" : undefined}
       data-resizing={resizing ? "" : undefined}
       style={{
-        "--sidebar-active-tab": tabOrder.indexOf(selectedTab),
-        "--sidebar-tab-count": tabOrder.length,
+        "--sidebar-active-tab": visibleTabs.indexOf(selectedTab),
+        "--sidebar-tab-count": visibleTabs.length,
       } as CSSProperties}
       className="sidebar-segment mx-2 mb-1 flex h-7 shrink-0 items-center gap-px rounded-full bg-surface p-0.5"
     >
-      {tabOrder.map((id) => (
+      {visibleTabs.map((id) => (
         <motion.div
           key={id}
           data-sidebar-tab-reorder={id}

@@ -168,6 +168,8 @@ it("selects a draft workspace without opening the creation dialog", async () => 
       }),
     ),
   );
+  expect(container.querySelector('input[type="checkbox"]')).toBeNull();
+  expect(container.querySelector(".composer-worktree-menu-trigger")).toBeNull();
 
   await act(async () =>
     container
@@ -211,7 +213,133 @@ it("selects a draft workspace without opening the creation dialog", async () => 
   expect(document.querySelector('[aria-label="Workspace"]')).toBeNull();
 });
 
-it("selects an existing worktree from the draft workspace menu", async () => {
+it("toggles composer worktree controls with the effective base and retains the regular trigger", async () => {
+  const onModeChange = vi.fn();
+  const render = (mode: "current" | "worktree") => root.render(createElement(WorkspacePicker, {
+    cwd: "/composer-worktree-toggle", mode, base: "release", composerControls: true,
+    onModeChange, onBaseChange: vi.fn(),
+  }));
+  await act(async () => render("current"));
+  const regular = container.querySelector(".composer-workspace-mode-trigger");
+  const checkbox = container.querySelector<HTMLInputElement>(".composer-worktree-checkbox-input")!;
+  expect(checkbox.checked).toBe(false);
+  expect(checkbox.disabled).toBe(false);
+  expect(container.querySelector(".composer-worktree-base")).toBeNull();
+  await act(async () => checkbox.click());
+  expect(onModeChange).toHaveBeenLastCalledWith("worktree", "release");
+  await act(async () => render("worktree"));
+  expect(checkbox.checked).toBe(true);
+  expect(container.querySelector(".composer-workspace-mode-trigger")).toBe(regular);
+  expect(container.querySelector('.composer-worktree-base [aria-label="Create worktree from release"]')).not.toBeNull();
+  await act(async () => checkbox.click());
+  expect(onModeChange).toHaveBeenLastCalledWith("current", undefined);
+  expect(document.querySelector('[aria-label="Create worktree"]')).toBeNull();
+});
+
+it("uses local main for both draft worktree controls while another branch is current", async () => {
+  vi.mocked(useProjectBranchesState).mockReturnValue({
+    branches: {
+      current: "feature/current", detached: false,
+      branches: [
+        { name: "feature/current", remote: null, current: true },
+        { name: "main", remote: null, current: false },
+      ],
+    },
+    settled: true,
+  });
+  const onModeChange = vi.fn();
+  await act(async () => root.render(createElement(WorkspacePicker, {
+    cwd: "/composer-main-base", mode: "current", composerControls: true,
+    onModeChange, onBaseChange: vi.fn(),
+  })));
+  await act(async () => container.querySelector<HTMLInputElement>(".composer-worktree-checkbox-input")!.click());
+  expect(onModeChange).toHaveBeenNthCalledWith(1, "worktree", "main");
+  await act(async () => container.querySelector<HTMLButtonElement>(".composer-worktree-menu-trigger")!.click());
+  await act(async () => button("New worktree").click());
+  expect(onModeChange).toHaveBeenNthCalledWith(2, "worktree", "main");
+});
+
+it("falls back to the current branch when no local main exists", async () => {
+  vi.mocked(useProjectBranchesState).mockReturnValue({
+    branches: {
+      current: "feature/current", detached: false,
+      branches: [
+        { name: "feature/current", remote: null, current: true },
+        { name: "main", remote: "origin", current: false },
+      ],
+    },
+    settled: true,
+  });
+  const onModeChange = vi.fn();
+  await act(async () => root.render(createElement(WorkspacePicker, {
+    cwd: "/composer-current-base", mode: "current", composerControls: true,
+    onModeChange, onBaseChange: vi.fn(),
+  })));
+  await act(async () => container.querySelector<HTMLInputElement>(".composer-worktree-checkbox-input")!.click());
+  expect(onModeChange).toHaveBeenCalledWith("worktree", "feature/current");
+});
+
+it("waits for the first branch list before switching a draft HEAD base to a worktree", async () => {
+  vi.mocked(useProjectBranchesState).mockReturnValue({ branches: null, settled: false });
+  const onModeChange = vi.fn();
+  const render = () => root.render(createElement(WorkspacePicker, {
+    cwd: "/composer-loading-base", mode: "current", base: "HEAD", composerControls: true,
+    onModeChange, onBaseChange: vi.fn(),
+  }));
+  await act(async () => render());
+  const checkbox = container.querySelector<HTMLInputElement>(".composer-worktree-checkbox-input")!;
+  const icon = container.querySelector<HTMLButtonElement>(".composer-worktree-menu-trigger")!;
+  const regular = container.querySelector<HTMLButtonElement>(".composer-workspace-mode-trigger")!;
+  expect(checkbox.disabled).toBe(true);
+  expect(icon.disabled).toBe(true);
+  expect(regular.disabled).toBe(true);
+  await act(async () => { checkbox.click(); icon.click(); regular.click(); });
+  expect(onModeChange).not.toHaveBeenCalled();
+  expect(document.querySelector("[data-workspace-picker]")).toBeNull();
+
+  vi.mocked(useProjectBranchesState).mockReturnValue({
+    branches: {
+      current: "feature/current", detached: false,
+      branches: [
+        { name: "feature/current", remote: null, current: true },
+        { name: "main", remote: null, current: false },
+      ],
+    },
+    settled: true,
+  });
+  await act(async () => render());
+  expect(checkbox.disabled).toBe(false);
+  expect(icon.disabled).toBe(false);
+  expect(regular.disabled).toBe(false);
+  await act(async () => checkbox.click());
+  expect(onModeChange).toHaveBeenCalledWith("worktree", "main");
+});
+
+it("disables composer worktree controls while unavailable or creating", async () => {
+  const onModeChange = vi.fn();
+  const render = (enabled: boolean, creating = false) => root.render(createElement(WorkspacePicker, {
+    cwd: "/composer-worktree-disabled", mode: "current", composerControls: true,
+    enabled, creating, onModeChange, onBaseChange: vi.fn(),
+  }));
+  const checkDisabled = async () => {
+    const checkbox = container.querySelector<HTMLInputElement>(".composer-worktree-checkbox-input")!;
+    const icon = container.querySelector<HTMLButtonElement>(".composer-worktree-menu-trigger")!;
+    expect(checkbox.disabled).toBe(true);
+    expect(icon.disabled).toBe(true);
+    await act(async () => { checkbox.click(); icon.click(); });
+    expect(onModeChange).not.toHaveBeenCalled();
+    expect(document.querySelector("[data-workspace-picker]")).toBeNull();
+  };
+  await act(async () => render(false));
+  await checkDisabled();
+  await act(async () => render(true, true));
+  await checkDisabled();
+  vi.mocked(useProjectBranchesState).mockReturnValue({ branches: null, settled: true });
+  await act(async () => render(true));
+  await checkDisabled();
+});
+
+it.each([false, true])("selects an existing worktree from the draft workspace menu (composer controls: %s)", async (composerControls) => {
   const onModeChange = vi.fn();
   const onSelectWorktree = vi.fn(async () => {});
   await act(async () =>
@@ -222,6 +350,7 @@ it("selects an existing worktree from the draft workspace menu", async () => {
         onModeChange,
         onBaseChange: vi.fn(),
         onSelectWorktree,
+        composerControls,
       }),
     ),
   );
@@ -229,7 +358,7 @@ it("selects an existing worktree from the draft workspace menu", async () => {
   await act(async () =>
     container
       .querySelector<HTMLButtonElement>(
-        '[aria-label="Workspace Current checkout"]',
+        composerControls ? ".composer-worktree-menu-trigger" : '[aria-label="Workspace Current checkout"]',
       )!
       .click(),
   );
@@ -1049,6 +1178,8 @@ it("offers to keep or delete the last session's worktree", async () => {
 });
 
 it("uses searchable custom selects in the create worktree dialog", async () => {
+  const listFor = (search: HTMLInputElement) =>
+    document.getElementById(search.getAttribute("aria-controls")!)!;
   vi.mocked(useProjectBranchesState).mockReturnValue({
     branches: {
       current: "main",
@@ -1084,7 +1215,7 @@ it("uses searchable custom selects in the create worktree dialog", async () => {
   await act(async () => {
     type(search, "existing");
   });
-  expect(document.querySelectorAll('[role="option"]')).toHaveLength(1);
+  expect(listFor(search).querySelectorAll('[role="option"]')).toHaveLength(1);
   await act(async () =>
     search.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
@@ -1102,8 +1233,11 @@ it("uses searchable custom selects in the create worktree dialog", async () => {
   await act(async () => {
     type(search, "feature");
   });
-  expect(document.querySelectorAll('[role="option"]')).toHaveLength(1);
-  expect(document.body.textContent).not.toContain("origin/release");
+  // The previous select retains an inert surface during its closing animation.
+  // Search results belong to the active combobox's linked listbox.
+  expect(listFor(search).querySelectorAll('[role="option"]')).toHaveLength(1);
+  expect(listFor(search).textContent).toContain("feature/search");
+  expect(listFor(search).textContent).not.toContain("origin/release");
   await act(async () =>
     search.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
@@ -1145,6 +1279,9 @@ it("uses searchable custom selects in the create worktree dialog", async () => {
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     ),
   );
+  expect(search.closest("[inert]")).not.toBeNull();
+  expect(document.activeElement).toBe(startFrom);
+  await act(async () => completeMotionAnimation(document.body));
   expect(
     document.querySelector('input[placeholder="Search branches and refs…"]'),
   ).toBeNull();

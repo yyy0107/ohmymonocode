@@ -22,7 +22,7 @@ import {
   type ProjectSearchOptions,
   type ProjectSearchResult,
 } from "../../search/model/search";
-import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
+import { FileTypeIcon } from "../../connections/files/ui/FileTypeIcon";
 
 type Props = {
   cwd: string;
@@ -273,7 +273,7 @@ export function ProjectSearch({
           <section key={group.path} className="border-b border-stroke">
             <div className="flex items-center gap-1.5 px-2 py-1.5">
               <FileTypeIcon name={group.name} isDir={false} size={16} />
-              <span className="min-w-0 flex-1 truncate text-[12px] text-content">
+              <span data-file-label className="min-w-0 flex-1 truncate text-[12px] text-content">
                 {group.name}
               </span>
               <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[10px] tabular-nums text-accent">

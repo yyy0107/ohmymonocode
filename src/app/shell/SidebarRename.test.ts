@@ -24,7 +24,7 @@ vi.mock("../../features/source-control/hooks/useProjectDiffStats", () => ({
 vi.mock("../../features/source-control/hooks/useGitFileStatuses", () => ({
   useGitFileStatuses: () => ({ files: new Map(), dirs: new Map() }),
 }));
-vi.mock("../../features/files/ui/FileTree", () => ({ FileTree: () => null }));
+vi.mock("../../features/connections/files/ui/FileTree", () => ({ FileTree: () => null }));
 vi.mock("../../platform/tauri/clipboard", () => ({
   copyText: vi.fn().mockResolvedValue(undefined),
 }));

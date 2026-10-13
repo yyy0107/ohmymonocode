@@ -14,6 +14,7 @@ import {
 import type { JiraProject } from "../model/jira";
 import type { LinearTeam } from "../model/linear";
 import { Popover } from "../../../shared/ui/Popover";
+import { MenuHover } from "../../../shared/ui/MenuHover";
 import { ProjectLogoIcon } from "../../projects/ui/ProjectLogoIcon";
 
 export const INBOX_FILTER_MENU_WIDTH = 228;
@@ -310,6 +311,7 @@ export function InboxFiltersMenu({
             }}
             className="flex h-7 w-full items-center rounded-lg px-2 text-left text-[13px] leading-none text-content/70 hover:bg-content/3 hover:text-content"
           >
+            <MenuHover />
             {uiT("Clear filters")}
           </button>
         </>
@@ -346,8 +348,9 @@ function FilterItem({
       onClick={onClick}
       className="flex h-7 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] leading-none text-content hover:bg-content/3"
     >
+      <MenuHover />
       {icon}
-      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span data-menu-title className="min-w-0 flex-1 truncate">{label}</span>
       {checked ? (
         <Check className="size-3.5 shrink-0" strokeWidth={2.25} />
       ) : null}

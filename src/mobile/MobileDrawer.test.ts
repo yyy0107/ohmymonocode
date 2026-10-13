@@ -566,6 +566,53 @@ describe("mobile sidebar recents", async () => {
     expect(loadSessions).toHaveBeenCalledTimes(2);
     expect(title).not.toHaveBeenCalled();
   });
+
+  it("keeps pinned rows in place as background activity changes and still updates their content", async () => {
+    let history = [
+      session("android", 200, { id: "first-pin", pinned: true }),
+      session("android", 100, { id: "second-pin", pinned: true }),
+      session("android", 50, { id: "recent" }),
+    ];
+    const loadSessions = vi.fn(async () => structuredClone(history));
+    const props = { projects: [projects[0]], project: undefined, sessions: [], loadSessions };
+    await act(async () => render(true, props));
+    expect(pinnedIds()).toEqual(["first-pin", "second-pin"]);
+    const second = node.querySelector('[data-session-id="second-pin"]');
+    const changes = vi.fn();
+    const observer = new MutationObserver(changes);
+    observer.observe(second!.parentElement!, { childList: true });
+    try {
+      history = history.map((item) => item.id === "second-pin"
+        ? { ...item, updatedAt: 300, revision: 2, title: "Waiting for approval", needsInput: true }
+        : item);
+      await act(async () => vi.advanceTimersByTimeAsync(3_000));
+      expect(pinnedIds()).toEqual(["first-pin", "second-pin"]);
+      expect(node.querySelector('[data-session-id="second-pin"]')).toBe(second);
+      expect(second?.textContent).toContain("Waiting for approval");
+      expect(second?.textContent).toContain("Needs input");
+      expect(changes).not.toHaveBeenCalled();
+
+      history = history.map((item) => item.id === "first-pin" ? { ...item, updatedAt: 400 } : item);
+      await act(async () => vi.advanceTimersByTimeAsync(3_000));
+      expect(pinnedIds()).toEqual(["first-pin", "second-pin"]);
+      expect(changes).not.toHaveBeenCalled();
+    } finally { observer.disconnect(); }
+  });
+
+  it("places newly pinned rows first and removes unpinned or archived rows from the pin order", () => {
+    const first = session(project.id, 200, { id: "first-pin", pinned: true });
+    const second = session(project.id, 100, { id: "second-pin", pinned: true });
+    const recent = session(project.id, 50, { id: "recent" });
+    const props = { projects: [project], project };
+    render(true, { ...props, sessions: [first, second, recent] });
+    render(true, { ...props, sessions: [first, second, { ...recent, pinned: true }] });
+    expect(pinnedIds()).toEqual(["recent", "first-pin", "second-pin"]);
+    render(true, { ...props, sessions: [{ ...first, pinned: false }, { ...second, archived: true }, { ...recent, pinned: true }] });
+    expect(pinnedIds()).toEqual(["recent"]);
+    expect(recentIds()).toEqual(["first-pin"]);
+    render(true, { ...props, sessions: [first, { ...second, archived: true }, { ...recent, pinned: true }] });
+    expect(pinnedIds()).toEqual(["first-pin", "recent"]);
+  });
   it.each([false, true])("shows pending input before running for a pinned=%s conversation and clears it after responding", (pinned) => {
     const waiting = session(project.id, 100, { status: "running", needsInput: true, pinned });
     const props = { projects: [project], project, sessions: [waiting], unreadIds: new Set([waiting.id]) };

@@ -26,13 +26,9 @@ import { useLockOverscroll } from "../../shared/hooks/useLockOverscroll";
 import { sessionRecencyAt } from "../../features/sessions/model/sessionActivity";
 import { useProjectDiffStats } from "../../features/source-control/hooks/useProjectDiffStats";
 import { useProjectBranchesState } from "../../features/source-control/hooks/useProjectBranches";
-import { useGitFileStatuses } from "../../features/source-control/hooks/useGitFileStatuses";
 import { BranchPicker } from "../../features/source-control/ui/BranchPicker";
 import { SidebarWorktreeSwitcher } from "../../features/source-control/ui/SidebarWorktreeSwitcher";
-import { FileTree } from "../../features/files/ui/FileTree";
-import { ProjectSearch } from "../../features/projects/ui/ProjectSearch";
 import { SearchableProjectPicker } from "../../features/projects/ui/SearchableProjectPicker";
-import { SourceControl } from "../../features/source-control/ui/SourceControl";
 import {
   loadSidebarWidth,
   saveSidebarWidth,
@@ -81,23 +77,22 @@ import {
   cachedRemoteSessions,
   hasCachedRemoteProjectSessions,
   REMOTE_HISTORY_UPDATED,
-  remotePendingWorktree,
   remoteSessionFor,
   remoteSessionResolver,
 } from "../../features/connections/model/connections";
 import {
-  parseRemotePath,
-  remotePath,
   remoteProjectFor,
 } from "../../features/connections/model/remoteProjects";
 import type { SessionSummary } from "../../features/sessions/data/sessionStore";
 import { SessionFiltersMenu } from "../../features/sessions/ui/SessionFiltersMenu";
 import { IconButton, WindowNavigationSpace } from "./WindowChrome";
+import { startWindowDrag } from "./startWindowDrag";
 import { SidebarTransition } from "./SidebarTransition";
 import { SidebarTabs } from "./SidebarTabs";
 import { ResizeHandle } from "../../shared/ui/ResizeHandle";
 import { ProjectList, AddProjectButton } from "./ProjectList";
 import { ProjectSessionSection } from "./ProjectSessionSection";
+import { ProjectToolsPanel, projectToolsCwd } from "./ProjectToolsPanel";
 import { ExternalSessions } from "./ExternalSessions";
 import type { SidebarProps } from "./Sidebar.types";
 import {
@@ -112,16 +107,17 @@ function SidebarComponent(props: SidebarProps) {
   const {
     cwd,
     open,
-    tab,
     sessions,
     recents = [],
     projectHistory = sessions,
     onNewInProject,
   } = props;
+  const tab = props.desktopMode ? "sessions" : props.tab;
   const toggleLabel = useShortcutLabel("Toggle Sidebar", "App: Toggle Sidebar");
   const quickOpenLabel = useShortcutLabel("Quick Open", "App: Go to File");
   const [initialWidth] = usePreferenceState(loadSidebarWidth);
   const resize = useDragResize({
+    cssProperty: "--sidebar-resize-width",
     min: SIDEBAR_WIDTH_MIN,
     max: () => Math.min(SIDEBAR_WIDTH_MAX, Math.floor(window.innerWidth * 0.5)),
     defaultWidth: SIDEBAR_WIDTH_DEFAULT,
@@ -173,14 +169,18 @@ function SidebarComponent(props: SidebarProps) {
     () => [...collectRailProjects(recents, cwd).values()],
     [cwd, recents],
   );
+  const modeProjects = useMemo(
+    () => props.desktopMode === "chat" ? [] : allProjects,
+    [allProjects, props.desktopMode],
+  );
   const projects = useMemo(
     () =>
       tab === "sessions" && sessionProjectPath
-        ? allProjects.filter(({ path }) =>
+        ? modeProjects.filter(({ path }) =>
             sameProjectPath(path, sessionProjectPath),
           )
-        : allProjects,
-    [allProjects, tab, sessionProjectPath],
+        : modeProjects,
+    [modeProjects, tab, sessionProjectPath],
   );
   useEffect(() => {
     if (
@@ -190,9 +190,15 @@ function SidebarComponent(props: SidebarProps) {
       setSessionProjectPath(null);
   }, [allProjects, sessionProjectPath]);
   const chatFolders = useChatFolders(props.recents !== undefined);
+  const chatPaths = useMemo(() => [...new Set([
+    ...chatFolders,
+    ...projectHistory.filter((row) => row.cwd === "~" || isChatFolder(row.cwd)).map((row) => row.cwd),
+    ...(props.openSessions ?? []).filter((row) => row.cwd === "~" || isChatFolder(row.cwd)).map((row) => row.cwd),
+  ])], [chatFolders, projectHistory, props.openSessions]);
+  const visibleChatPaths = props.desktopMode === "code" ? [] : chatPaths;
   const projectPathsKey = [
     ...projects.map((project) => project.path),
-    ...chatFolders,
+    ...visibleChatPaths,
   ]
     .map(pathKey)
     .join("\0");
@@ -331,7 +337,7 @@ function SidebarComponent(props: SidebarProps) {
     }
     searchQueue.current = [
       ...projects.map(({ path }) => path),
-      ...(loadAllProjectSummaries ? chatFolders : []),
+      ...(loadAllProjectSummaries ? visibleChatPaths.filter((path) => path !== "~") : []),
     ].flatMap((path) => {
       const key = pathKey(path);
       const remote = isRemoteProjectPath(path) || !!remoteProjectFor(path);
@@ -789,25 +795,7 @@ function SidebarComponent(props: SidebarProps) {
   };
 
   const remoteCurrent = isRemoteProjectPath(cwd) || !!remoteProjectFor(cwd);
-  const hostProject = remoteCurrent ? remoteProjectFor(cwd) : undefined;
-  const activeRemoteId = props.activeSessionId
-    ? remoteSessionFor(props.activeSessionId)
-    : undefined;
-  const remoteExecutionCwd =
-    cachedRemoteSessions(cwd).find((row) => row.id === activeRemoteId)?.cwd ??
-    (props.activeSessionId
-      ? remotePendingWorktree(props.activeSessionId)
-      : undefined) ??
-    (remoteCurrent && props.gitCwd && props.gitCwd !== cwd
-      ? (parseRemotePath(props.gitCwd)?.hostPath ?? props.gitCwd)
-      : undefined);
-  const gitRoot =
-    remoteCurrent && hostProject && !hostProject.local
-      ? remotePath(
-          hostProject.environmentId,
-          remoteExecutionCwd ?? hostProject.cwd,
-        )
-      : props.gitCwd || cwd;
+  const gitRoot = projectToolsCwd(props);
   const headerProjectPath = tab === "sessions" ? sessionProjectPath : cwd;
   const headerGitRoot = headerProjectPath
     ? sameProjectPath(headerProjectPath, cwd)
@@ -821,7 +809,6 @@ function SidebarComponent(props: SidebarProps) {
   const changes = useProjectDiffStats(gitRoot, open);
   const additions = changes?.additions ?? 0;
   const deletions = changes?.deletions ?? 0;
-  const gitStatuses = useGitFileStatuses(gitRoot, open && tab === "files");
   const workingCopyHeight = Math.min(420, treeHeight * 0.6);
   const busyPaths = projects
     .filter(
@@ -843,75 +830,10 @@ function SidebarComponent(props: SidebarProps) {
     )
     .map(({ path }) => path);
 
-  const renderWorkingCopy = (): ReactNode => {
-    if (props.recents !== undefined && (!cwd || cwd === "~"))
-      return (
-        <p className="px-3 py-2 text-[12px] text-content/50">
-          {t("Choose project")}
-        </p>
-      );
-    return (
-      <div
-        data-project-working-copy
-        className={`flex min-h-0 flex-1 flex-col ${tab === "changes" ? "overflow-y-auto" : "overflow-hidden"}`}
-        style={
-          props.recents === undefined
-            ? { height: workingCopyHeight, maxHeight: workingCopyHeight }
-            : undefined
-        }
-      >
-        {tab === "files" ? (
-          props.filesSearchOpen ? (
-            <ProjectSearch
-              cwd={gitRoot}
-              focusToken={props.searchFocusToken}
-              onOpenFile={props.onOpenFile}
-              onClose={() => props.onFilesSearchOpenChange(false)}
-            />
-          ) : (
-            <FileTree
-              key={gitRoot}
-              cwd={gitRoot}
-              rootLabel={props.explorerRootLabel}
-              onOpenFile={props.onOpenFile}
-              onOpenTerminal={
-                isRemoteProjectPath(cwd) ? undefined : props.onOpenTerminal
-              }
-              onFileMoved={props.onFileMoved}
-              onFileDeleted={props.onFileDeleted}
-              onSearch={props.onOpenFilesSearch}
-              gitStatuses={gitStatuses}
-            />
-          )
-        ) : (
-          <div
-            data-project-changes-content
-            className={`flex min-h-[480px] shrink-0 flex-col ${props.recents !== undefined ? "flex-1" : ""}`}
-            style={
-              props.recents === undefined
-                ? { height: Math.max(480, workingCopyHeight) }
-                : undefined
-            }
-          >
-            <SourceControl
-              cwd={gitRoot}
-              enabled={open}
-              textHarness={props.textHarness}
-              selectedPath={props.selectedDiffPath}
-              selectedKind={props.selectedDiffKind}
-              selectedSha={props.selectedCommitSha}
-              onOpenFile={
-                props.onOpenDiff ??
-                ((file) => props.onOpenFile(file, undefined, { exact: true }))
-              }
-              onOpenAllChanges={props.onOpenAllChanges ?? (() => {})}
-              onOpenCommit={props.onOpenCommit ?? (() => {})}
-            />
-          </div>
-        )}
-      </div>
-    );
-  };
+  const renderWorkingCopy = (): ReactNode => tab === "sessions" ? null : (
+    <ProjectToolsPanel {...props} tab={tab} showHeader={false}
+      contentHeight={props.recents === undefined ? workingCopyHeight : undefined} />
+  );
 
   const renderChildren = (path: string, shortcutId?: string): ReactNode => {
     const current = sameProjectPath(path, cwd);
@@ -935,6 +857,7 @@ function SidebarComponent(props: SidebarProps) {
       <Fragment key={key}>
       <ProjectSessionSection
         {...props}
+        tab={tab}
         key={key}
         cwd={path}
         shortcutId={shortcutId}
@@ -1001,7 +924,7 @@ function SidebarComponent(props: SidebarProps) {
   const shortcutSessions =
     props.recents === undefined
       ? []
-      : [...projects.map(({ path }) => path), ...chatFolders]
+      : [...projects.map(({ path }) => path), ...visibleChatPaths]
           .flatMap((path) => {
             const remoteRows =
               isRemoteProjectPath(path) || remoteProjectFor(path)
@@ -1069,7 +992,7 @@ function SidebarComponent(props: SidebarProps) {
           .sort(compareSessionSummaries);
   const pinnedSessions = shortcutSessions.filter((session) => session.pinned);
   const chatSessions = shortcutSessions
-    .filter((session) => !session.pinned && isChatFolder(session.cwd))
+    .filter((session) => !session.pinned && (session.cwd === "~" || isChatFolder(session.cwd)))
     .sort(
       (a, b) =>
         sessionRecencyAt(b) - sessionRecencyAt(a) ||
@@ -1131,11 +1054,25 @@ function SidebarComponent(props: SidebarProps) {
       }
     >
       <aside
+        data-desktop-sidebar={props.desktopMode}
         className="sidebar-glass relative flex h-full min-h-0 shrink-0 flex-col"
         style={{ width: resize.dragging ? "100%" : resize.width }}
       >
+        {props.desktopMode && !props.chromeInMenuBar ? (
+          <header
+            data-desktop-sidebar-header
+            data-tauri-drag-region="deep"
+            onMouseDownCapture={startWindowDrag}
+          >
+            {props.headerNavigation ?? <>{props.onToggleSidebar ? <IconButton label={toggleLabel} onClick={props.onToggleSidebar}>
+              <PanelLeft className="size-5" />
+            </IconButton> : null}
+            <div data-desktop-sidebar-mode>{props.modeToggle}</div>
+            </>}
+          </header>
+        ) : null}
         {props.navigation}
-        {!props.chromeInMenuBar ? (
+        {!props.desktopMode && !props.chromeInMenuBar ? (
           <div
             className="flex h-10 shrink-0 select-none items-center pr-2"
             data-tauri-drag-region="deep"
@@ -1149,7 +1086,7 @@ function SidebarComponent(props: SidebarProps) {
             ) : null}
           </div>
         ) : null}
-        <div
+        {props.desktopMode === "chat" ? null : <div
           data-project-header
           className={`flex h-8 min-w-0 shrink-0 items-center gap-1 ${projectHeader ? "pl-1.5" : "pl-3"} pr-2`}
         >
@@ -1213,8 +1150,8 @@ function SidebarComponent(props: SidebarProps) {
           {props.onOpenProject ? (
             <AddProjectButton onOpenFolder={props.onOpenProject} />
           ) : null}
-        </div>
-        <SidebarTabs
+        </div>}
+        {props.desktopMode ? null : <SidebarTabs
           key={pathKey(cwd)}
           tab={tab}
           onTabChange={props.onTabChange}
@@ -1222,7 +1159,7 @@ function SidebarComponent(props: SidebarProps) {
           deletions={deletions}
           filesLabel={props.recents !== undefined ? t("Files") : undefined}
           resizing={resize.dragging}
-        />
+        />}
         {tab === "sessions" ? (
           <div
             data-sidebar-search
@@ -1287,7 +1224,7 @@ function SidebarComponent(props: SidebarProps) {
             {t("Searching projects…")}
           </p>
         ) : null}
-        {searchActive && !searchPending && matchInfo.matched.size === 0 ? (
+        {searchActive && !searchPending && matchInfo.matched.size === 0 && chatSessions.length === 0 && pinnedSessions.length === 0 ? (
           <p className="px-3 py-2 text-[12px] text-content/50">
             {t("No matching sessions")}
           </p>
@@ -1302,6 +1239,8 @@ function SidebarComponent(props: SidebarProps) {
             <ProjectList
               cwd={cwd}
               recents={recents}
+              visibleProjectPaths={props.desktopMode ? new Set(projects.map(({ path }) => pathKey(path))) : undefined}
+              showProjectSections={props.desktopMode !== "chat"}
               busyPaths={busyPaths}
               needsApprovalPaths={approvalPaths}
               projectSummaries={projectSummaries}
@@ -1310,7 +1249,7 @@ function SidebarComponent(props: SidebarProps) {
                 content: () => renderChildren(session.cwd, session.id),
               })) : undefined}
               chatEntries={
-                props.recents !== undefined && tab === "sessions"
+                props.recents !== undefined && tab === "sessions" && props.desktopMode !== "code"
                   ? chatSessions.map((session) => ({
                       id: `${pathKey(session.cwd)}:${session.id}`,
                       content: () => renderChildren(session.cwd, session.id),
@@ -1341,7 +1280,7 @@ function SidebarComponent(props: SidebarProps) {
               searchActive={searchActive || !!sessionProjectPath}
               // A chosen project keeps "Show more" paging; only a query lists every match.
               previewAll={searchActive}
-              previewKey={sessionProjectPath ?? ""}
+              previewKey={`${props.desktopMode ?? "all"}:${sessionProjectPath ?? ""}`}
               matchedProjectPaths={
                 searchActive
                   ? matchInfo.matched

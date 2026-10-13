@@ -1,121 +1,98 @@
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { HostStore } from "../store";
 import { checkoutExecutionPrefix, checkoutPath, claimCheckoutResource, claimCheckoutWrite, withCheckoutIntegration, withCheckoutOwner, withCheckoutRemoval } from "../checkout-guards";
-import { HostResourceBusyError, HostResourceGuard, withHostResources } from "./resources";
-
+import { HostResourceGuard, HostResourceWaiter, withHostResources } from "./resources";
 const cleanups: Array<() => void> = [];
-afterEach(() => { for (const cleanup of cleanups.splice(0).reverse()) cleanup(); });
+afterEach(() => { for (const cleanup of cleanups.splice(0).reverse()) cleanup(); vi.useRealTimers(); });
 function fixture() {
-  const root = mkdtempSync(join(tmpdir(), "bot-resources-"));
-  const path = join(root, "project"); mkdirSync(path);
-  const database = join(root, "host.db"), store = new HostStore(database);
-  cleanups.push(() => { store.close(); rmSync(root, { force: true, recursive: true }); });
-  return { root, path, database, store, guard: new HostResourceGuard(store) };
+  const root = mkdtempSync(join(tmpdir(), "bot-resources-")), path = join(root, "project"); mkdirSync(path);
+  const store = new HostStore(join(root, "host.db")), guard = new HostResourceGuard(store);
+  cleanups.push(() => { guard.close(); store.close(); rmSync(root, { force: true, recursive: true }); });
+  return { root, path, store, guard };
 }
-
-it("atomically excludes parent/child paths and a Host-wide computer while keeping separate projects runnable", () => {
-  const f = fixture();
-  const secondStore = new HostStore(f.database); cleanups.push(() => secondStore.close());
-  const second = new HostResourceGuard(secondStore);
-  expect(f.guard.acquire("run-a", { workingDirectory: f.path, computer: true })).toBe(true);
-  expect(second.acquire("run-b", { workingDirectory: join(f.path, "nested") })).toBe(false);
-  expect(second.acquire("run-b", { workingDirectory: f.root })).toBe(false);
-  expect(second.acquire("run-b", { workingDirectory: `${f.path}-2`, computer: true })).toBe(false);
-  // A failed multi-resource request does not leak its otherwise available path.
-  expect(second.acquire("run-c", { workingDirectory: `${f.path}-2` })).toBe(true);
-  expect(f.store.db.prepare("SELECT * FROM checkout_resources").all()).toHaveLength(3);
-  f.guard.release("run-a");
-  expect(second.acquire("run-b", { paths: [join(f.path, "nested")], computer: true })).toBe(true);
-  second.close();
-  expect(f.store.db.prepare("SELECT * FROM checkout_resources").all()).toEqual([]);
-});
-
-it("allows trusted same-run writes without releasing another claim or an untrusted native writer", async () => {
-  const f = fixture(), engine = new HostResourceGuard(f.store);
-  expect(f.guard.acquire("bot-run", { workingDirectory: f.path })).toBe(true);
-  expect(engine.acquire("bot-run", { workingDirectory: f.path })).toBe(true);
-  expect(() => claimCheckoutWrite(f.store, "native-write", join(f.path, "file"))).toThrow("another run");
-  const read = claimCheckoutResource(f.store, "reader", f.path);
-  await expect(withHostResources(f.store, "other", { paths: [f.path] }, async () => true)).rejects.toBeInstanceOf(HostResourceBusyError);
-  await withHostResources(f.store, "bot-run", { paths: [f.path] }, async () => {
-    await Promise.resolve();
-    const release = claimCheckoutWrite(f.store, "control-write", join(f.path, "file"));
-    // Reentering during an asynchronous write still belongs to this run.
-    await withHostResources(f.store, "bot-run", { paths: [f.path] }, async () => true);
-    release();
-  });
-  await expect(withCheckoutIntegration(f.store, [f.path], async () => true)).rejects.toThrow("being changed");
-  engine.release("bot-run"); engine.release("bot-run");
-  expect(() => claimCheckoutWrite(f.store, "still-blocked", f.path)).toThrow("another run");
-  f.guard.release("bot-run");
-  claimCheckoutWrite(f.store, "now-writable", f.path)();
-  read();
-  expect(f.store.db.prepare("SELECT * FROM checkout_resources").all()).toEqual([]);
-});
-
-it("recovers dead owners but keeps parked providers' cleanup protection separate from turn availability", async () => {
-  const f = fixture();
-  f.store.db.prepare("INSERT INTO checkout_resources VALUES ('dead-turn', ?, 'executing', 0)").run(checkoutPath(f.path));
-  f.store.db.prepare("INSERT INTO checkout_resources VALUES ('dead-computer', '@host-computer', 'computer', 0)").run();
-  const parked = claimCheckoutResource(f.store, "host-provider:parked", f.path);
-  expect(f.guard.acquire("next-turn", { workingDirectory: f.path, computer: true })).toBe(true);
-  f.guard.release("next-turn");
-  await expect(withCheckoutRemoval(f.store, f.path, async () => true)).rejects.toThrow("Close files and terminals");
-  parked();
-  await expect(withCheckoutRemoval(f.store, f.path, async () => true)).resolves.toBe(true);
-});
-
-it("cleans only this guard's unique claims after failures, late releases, and close", async () => {
+it("shares parent and child workspaces with terminals and writes, but acquires computer access atomically", () => {
   const f = fixture(), other = new HostResourceGuard(f.store);
-  expect(f.guard.acquire("same-run", { workingDirectory: f.path })).toBe(true);
-  await expect(withHostResources(f.store, "same-run", { paths: [f.path] }, async () => { throw new Error("write failed"); })).rejects.toThrow("write failed");
-  expect(f.store.db.prepare("SELECT * FROM checkout_resources").all()).toHaveLength(1);
-  expect(other.acquire("same-run", { workingDirectory: f.path })).toBe(true);
-  f.guard.close(); f.guard.release("same-run");
-  expect(f.store.db.prepare("SELECT * FROM checkout_resources").all()).toHaveLength(1);
-  other.close();
-  const activeWrite = claimCheckoutWrite(f.store, "ordinary-write", f.path);
-  expect(f.guard.acquire("waiting", { workingDirectory: f.path })).toBe(false);
-  activeWrite();
-  expect(f.guard.acquire("waiting", { workingDirectory: f.path })).toBe(true);
+  const terminal = claimCheckoutWrite(f.store, "native:terminal", f.path);
+  expect(f.guard.acquire("a", { workingDirectory: f.path, computer: true }).acquired).toBe(true);
+  expect(other.acquire("b", { workingDirectory: join(f.path, "child") }).acquired).toBe(true);
+  expect(other.acquire("c", { workingDirectory: f.root, computer: true })).toMatchObject({ acquired: false, blockers: [{ kind: "computer", ownerPid: process.pid }] });
+  expect(f.store.db.prepare("SELECT * FROM checkout_resources WHERE path=?").all(checkoutPath(f.root))).toEqual([]);
   f.guard.close();
+  expect(other.acquire("c", { workingDirectory: f.root, computer: true }).acquired).toBe(true);
+  other.close(); terminal();
 });
-
-it("resolves symlink aliases and still distinguishes sibling path prefixes", () => {
-  const f = fixture(), other = new HostResourceGuard(f.store);
+it("never lets shared use bypass integration or removal, including symlink aliases", async () => {
+  const f = fixture();
   const alias = join(f.root, "alias"); symlinkSync(f.path, alias, process.platform === "win32" ? "junction" : "dir");
-  expect(f.guard.acquire("one", { paths: [join(alias, "future")] })).toBe(true);
-  expect(other.acquire("two", { paths: [f.path] })).toBe(false);
-  expect(other.acquire("two", { paths: [`${f.path}-copy`] })).toBe(true);
-  f.guard.close(); other.close();
-});
-
-it("lets trusted orchestration integrate its own settled worker without exempting foreign execution or active writes", async () => {
-  const f = fixture();
-  expect(f.guard.acquire("orchestration:lead", { workingDirectory: f.path })).toBe(true);
-  await expect(withCheckoutIntegration(f.store, [f.path], async () => true)).rejects.toThrow("being changed");
-  await expect(withCheckoutOwner(f.store, "other-lead", () => withCheckoutIntegration(f.store, [f.path], async () => true))).rejects.toThrow("being changed");
-  await withCheckoutOwner(f.store, "orchestration:lead", async () => {
-    expect(await withCheckoutIntegration(f.store, [f.path], async () => true)).toBe(true);
-    const release = claimCheckoutWrite(f.store, "pending-write", f.path);
-    await expect(withCheckoutIntegration(f.store, [f.path], async () => true)).rejects.toThrow("being changed");
-    release();
+  await withCheckoutIntegration(f.store, [f.path], async () => {
+    expect(f.guard.acquire("blocked", { workingDirectory: join(alias, "child") })).toMatchObject({ acquired: false, blockers: [{ kind: "integrating", path: checkoutPath(f.path) }] });
+    expect(f.guard.acquire("other", { workingDirectory: `${f.path}-2` }).acquired).toBe(true);
+    expect(() => claimCheckoutWrite(f.store, "write", f.path)).toThrow();
   });
-  f.guard.close();
+  await withCheckoutRemoval(f.store, f.path, async () => {
+    expect(f.guard.acquire("blocked", { workingDirectory: f.path })).toMatchObject({ acquired: false, blockers: [{ kind: "removing" }] });
+  });
 });
-
-it("never treats a surviving process's matching owner identity as local reentry", async () => {
-  const f = fixture();
-  const id = `${checkoutExecutionPrefix("same-logical-run")}prior-process`;
+it("releases only its claims and preserves foreign execution against integration", async () => {
+  const f = fixture(), other = new HostResourceGuard(f.store);
+  f.guard.acquire("same", { paths: [f.path] }); other.acquire("same", { paths: [f.path] });
+  await expect(withHostResources(f.store, "same", { paths: [f.path] }, async () => { throw new Error("failed"); })).rejects.toThrow("failed");
+  expect(f.store.db.prepare("SELECT * FROM checkout_resources").all()).toHaveLength(2);
+  other.close();
+  await withCheckoutOwner(f.store, "same", () => withCheckoutIntegration(f.store, [f.path], async () => {}));
+  const id = `${checkoutExecutionPrefix("same")}foreign`;
   f.store.db.prepare("INSERT INTO checkout_resources VALUES (?, ?, 'executing', ?)").run(id, checkoutPath(f.path), process.ppid);
-  expect(f.guard.acquire("same-logical-run", { workingDirectory: f.path })).toBe(false);
-  await withCheckoutOwner(f.store, "same-logical-run", async () => {
-    expect(() => claimCheckoutWrite(f.store, "own-write", f.path)).toThrow("another run");
-    await expect(withCheckoutIntegration(f.store, [f.path], async () => true)).rejects.toThrow("being changed");
-  });
+  await expect(withCheckoutOwner(f.store, "same", () => withCheckoutIntegration(f.store, [f.path], async () => {}))).rejects.toThrow();
   f.guard.close();
-  expect(f.store.db.prepare("SELECT id FROM checkout_resources WHERE id=?").get(id)).toBeDefined();
+  expect(f.store.db.prepare("SELECT id FROM checkout_resources").all()).toEqual([{ id }]);
+});
+it("cleans dead owners but keeps mounted resources protecting removal", async () => {
+  const f = fixture();
+  f.store.db.prepare("INSERT INTO checkout_resources VALUES ('dead', ?, 'integrating', 0)").run(checkoutPath(f.path));
+  const mounted = claimCheckoutResource(f.store, "buffer", f.path);
+  expect(f.guard.acquire("run", { paths: [f.path] }).acquired).toBe(true);
+  f.guard.close();
+  await expect(withCheckoutRemoval(f.store, f.path, async () => {})).rejects.toThrow();
+  mounted();
+  await withCheckoutRemoval(f.store, f.path, async () => {});
+});
+it("wakes on local release, aborts promptly, and never acquires after cancellation", async () => {
+  const f = fixture(), waiter = new HostResourceWaiter(f.store); cleanups.push(() => waiter.close());
+  let unblock!: () => void;
+  const integration = withCheckoutIntegration(f.store, [f.path], () => new Promise<void>(r => { unblock = r; }));
+  const aborted = new AbortController(), blocked = vi.fn();
+  const wait = waiter.wait(f.guard, "cancelled", { paths: [f.path] }, aborted.signal, blocked);
+  expect(blocked).toHaveBeenCalledWith([expect.objectContaining({ kind: "integrating" })]);
+  aborted.abort(); await expect(wait).rejects.toThrow("cancelled");
+  const next = waiter.wait(f.guard, "next", { paths: [f.path] }, new AbortController().signal, () => {});
+  unblock(); await integration; await next;
+  expect(f.store.db.prepare("SELECT id FROM checkout_resources").all()).toEqual([{ id: expect.stringContaining(checkoutExecutionPrefix("next")) }]);
+});
+it("uses one fallback poll and times out without stealing or later replaying", async () => {
+  vi.useFakeTimers();
+  const f = fixture(), waiter = new HostResourceWaiter(f.store); cleanups.push(() => waiter.close());
+  f.store.db.prepare("INSERT INTO checkout_resources VALUES ('foreign', ?, 'integrating', ?)").run(checkoutPath(f.path), process.pid);
+  const wait = waiter.wait(f.guard, "timeout", { paths: [f.path] }, new AbortController().signal, () => {});
+  const failed = expect(wait).rejects.toMatchObject({ code: "RESOURCE_BUSY" });
+  await vi.advanceTimersByTimeAsync(30_000); await failed;
+  expect(f.store.db.prepare("SELECT id FROM checkout_resources").all()).toEqual([{ id: "foreign" }]);
+  f.store.db.prepare("DELETE FROM checkout_resources").run();
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(f.store.db.prepare("SELECT id FROM checkout_resources").all()).toEqual([]);
+});
+it("notices a release by another process with a single shared fallback timer", async () => {
+  vi.useFakeTimers();
+  const f = fixture(), waiter = new HostResourceWaiter(f.store); cleanups.push(() => waiter.close());
+  f.store.db.prepare("INSERT INTO checkout_resources VALUES ('foreign', ?, 'integrating', ?)").run(checkoutPath(f.path), process.pid);
+  const other = new HostResourceGuard(f.store); cleanups.push(() => other.close());
+  const one = waiter.wait(f.guard, "one", { paths: [f.path] }, new AbortController().signal, () => {});
+  const two = waiter.wait(other, "two", { paths: [f.path] }, new AbortController().signal, () => {});
+  expect(vi.getTimerCount()).toBe(1);
+  f.store.db.prepare("DELETE FROM checkout_resources WHERE id='foreign'").run();
+  await vi.advanceTimersByTimeAsync(1000); await Promise.all([one, two]);
+  expect(vi.getTimerCount()).toBe(0);
+  expect(f.store.db.prepare("SELECT * FROM checkout_resources").all()).toHaveLength(2);
 });

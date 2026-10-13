@@ -273,7 +273,7 @@ export function GitGraphDialog({
                             title={ref.name}
                           >
                             <GitBranch className="size-3 shrink-0" />
-                            <span className="truncate">{ref.name}</span>
+                            <span data-code-label className="truncate">{ref.name}</span>
                           </span>
                         ))}
                         {trees.map((path) => (
@@ -283,7 +283,7 @@ export function GitGraphDialog({
                             title={t("Worktree: {path}", { path })}
                           >
                             <FolderTree className="size-3 shrink-0" />
-                            <span className="truncate">
+                            <span data-file-label className="truncate">
                               {path
                                 .replace(/\\/g, "/")
                                 .split("/")
@@ -294,6 +294,7 @@ export function GitGraphDialog({
                         ))}
                         <button
                           type="button"
+                          data-code-label
                           title={[commit.subject, commit.body]
                             .filter(Boolean)
                             .join("\n\n")}

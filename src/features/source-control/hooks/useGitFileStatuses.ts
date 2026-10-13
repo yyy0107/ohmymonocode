@@ -4,7 +4,7 @@ import {
   subscribeGitChanged,
   type GitDiffIndex,
 } from "../../../platform/tauri/fs";
-import { subscribeDirsChanged } from "../../files/model/fileTree";
+import { subscribeDirsChanged } from "../../connections/files/model/fileTree";
 import { parentPath } from "../../../shared/lib/paths";
 
 export type GitStatusMap = {

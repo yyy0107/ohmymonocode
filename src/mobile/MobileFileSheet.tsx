@@ -2,8 +2,8 @@ import { useContext, useEffect, useMemo, useState, type CSSProperties } from "re
 import { isLongText, ReadonlyTextView } from "../shared/ui/ReadonlyTextView";
 import { TranscriptPlatformContext } from "../features/sessions/ui/TranscriptPlatform";
 import { AgentMarkdown } from "../features/sessions/ui/AgentMarkdown";
-import { sniffImageMime } from "../features/files/model/filePreview";
-import { FileTypeIcon } from "../features/files/ui/FileTypeIcon";
+import { sniffImageMime } from "../features/connections/files/model/filePreview";
+import { FileTypeIcon } from "../features/connections/files/ui/FileTypeIcon";
 import { displayPath } from "../shared/lib/paths";
 import { useTranslation } from "../shared/i18n/useTranslation";
 import { MobileSheet, MobileSheetHeader } from "./MobileSheet";

@@ -100,7 +100,7 @@ vi.mock("../../features/source-control/ui/SidebarWorktreeSwitcher", () => ({
       "master",
     ),
 }));
-vi.mock("../../features/files/ui/FileTree", () => ({
+vi.mock("../../features/connections/files/ui/FileTree", () => ({
   FileTree: ({ cwd }: { cwd: string }) =>
     createElement("div", { "data-files-project": cwd }, "Files"),
 }));

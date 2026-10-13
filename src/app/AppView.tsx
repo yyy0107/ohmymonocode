@@ -1,3 +1,5 @@
+import { WorkspaceToolsDock } from "./shell/WorkspaceToolsDock";
+import type { SidebarProps } from "./shell/Sidebar.types";
 import { PresenceBoundary } from "../shared/ui/PresenceBoundary";
 import { translate } from "../shared/i18n/language";
 import {
@@ -20,6 +22,8 @@ import {
 type CSSProperties
 } from "react";
 import { Sidebar } from "./shell/Sidebar";
+import { DesktopTitlebarNavigation } from "./shell/DesktopNavigation";
+import { WindowMenuButton } from "./shell/WindowMenuButton";
 import { SidebarRail } from "./shell/SidebarTransition";
 import { SidebarMain } from "./shell/SidebarMain";
 import { GradientBlurBackground } from "../features/settings/ui/GradientBlurBackground";
@@ -80,6 +84,8 @@ import type { WorkspaceViewModel } from "./controller/useWorkspaceController";
 /** Workspace window layout. Pure view over the controller's view-model. */
 export function AppView({ vm }: { vm: WorkspaceViewModel }) {
   const {
+    desktopMode,
+    desktopModeToggle,
     active,
     activeAppView,
     activeLinkedWorkItemPanel,
@@ -181,7 +187,6 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
     onSessionNavigationOrder,
     onSetHistorySessionLinkedWorkItem,
     onTerminalMetaChange,
-    onToggleNavigation,
     onToggleSidebar,
     onUpdatePlan,
     openFilePaths,
@@ -240,7 +245,6 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
     unseenFinishedIds,
     updateStatus,
     whatsNewVersion,
-    windowLeading,
     workflowActivity,
     workflowApp,
     workflowProjects,
@@ -249,6 +253,99 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
     worktreeTabStats,
   } = vm;
 
+
+  const sidebarProps: SidebarProps = {
+    navigation: sidebarNavigation,
+    footer: sidebarFooter,
+    workflowsSection: sidebarWorkflows,
+    recents: recents,
+    onSelectProject: onSelectProject,
+    onOpenProject: pickProject,
+    onRemoveProject: onRemoveProject,
+    onOpenNotificationSettings: onOpenNotificationSettings,
+    projectHistory: treeHistory,
+    loadedProjectPaths: loadedProjects,
+    failedProjectPaths: failedProjectPaths,
+    onLoadProject: refreshHistory,
+    onPrefetchRemoteProject: prefetchRemoteProjectSessions,
+    onNewInProject: onNewInProject,
+    cwd: sidebarCwd,
+    gitCwd: gitCwd,
+    worktreeTabStats: worktreeTabStats,
+    onSelectWorkspace: onSelectWorkspace,
+    workspaceSwitchPending: workspaceNavigation.pending?.project === sidebarCwd,
+    workspaceSwitchError: workspaceNavigation.error?.project === sidebarCwd
+                      ? workspaceNavigation.error.message
+                      : undefined,
+    explorerRootLabel: explorerRootLabel,
+    open: sessionSidebarOpen,
+    chromeInMenuBar: true,
+    onToggleSidebar: onToggleSidebar,
+    tab: sidebarTab,
+    onTabChange: setSidebarTab,
+    filesSearchOpen: filesSearchOpen,
+    onFilesSearchOpenChange: setFilesSearchOpen,
+    onOpenFilesSearch: onFindInProject,
+    searchFocusToken: searchFocusToken,
+    sessions: sidebarHistory,
+    busySessionIds: busySessionIds,
+    approvalSessionIds: approvalSessionIds,
+    questionSessionIds: questionSessionIds,
+    activeSessionId: active?.id,
+    visibleSessionId: activeSessionId ?? null,
+    status: historyFailed ? "error" : "idle",
+    pending: historyPending,
+    onSelectSession: onSelectHistorySession,
+    onSelectRemoteSession: onSelectRemoteSession,
+    onRemoteSessionDeleted: onRemoteSessionDeleted,
+    onPrefetchSession: onPrefetchHistorySession,
+    onSessionNavigationOrder: onSessionNavigationOrder,
+    onPlaceSessionOnPane: onPlaceSessionOnPane,
+    onRenameSession: onRenameHistorySession,
+    onArchiveSession: onArchiveHistorySession,
+    onArchiveSessions: onArchiveHistorySessions,
+    onPinSession: onPinHistorySession,
+    onPinSessions: onPinHistorySessions,
+    onSetSessionLinkedWorkItem: onSetHistorySessionLinkedWorkItem,
+    reminders: sessionReminders.reminders,
+    onSetReminders: sessionReminders.schedule,
+    onCancelReminders: sessionReminders.cancel,
+    onDeleteSession: onDeleteHistorySession,
+    onDeleteSessions: onDeleteHistorySessions,
+    onOpenFile: onOpenFile,
+    onOpenTerminal: onOpenTerminal,
+    onFileMoved: onFileMoved,
+    onFileDeleted: onFileDeleted,
+    onOpenDiff: onOpenWorkingTreeDiff,
+    onOpenAllChanges: onOpenAllChanges,
+    onOpenCommit: onOpenCommit,
+    selectedDiffPath: activeTab
+                      ? selectedChangePath(activeTab, gitCwd)
+                      : undefined,
+    selectedDiffKind: activeTab ? selectedChangeKind(activeTab) : undefined,
+    selectedCommitSha: activeTab ? selectedCommitSha(activeTab) : undefined,
+    textHarness: pickTextHarness(active?.harness),
+    onNew: onNew,
+    onNewChat: onNewChat,
+    openSessions: openProjectSessions,
+    openSessionIds: sidebarOpenSessionIds,
+    onOpenInboxItem: onOpenLinkedWorkItem,
+    onGoToFile: onGoToFile,
+    unseenFinishedIds: unseenFinishedIds,
+    linkedSessionUpdateIds: linkedSessionUpdateIds,
+  };
+  const desktopTitlebarNavigation = (
+    <DesktopTitlebarNavigation
+      menu={<WindowMenuButton handlers={commandHandlers} dispatch={dispatch} />}
+      modeToggle={desktopModeToggle}
+      canGoBack={tabVisitNav.canBack}
+      canGoForward={tabVisitNav.canForward}
+      onGoBack={onRailBack}
+      onGoForward={onRailForward}
+      onTogglePanel={onToggleSidebar}
+      panelActive={sessionSidebarOpen}
+    />
+  );
 
   return (
     <WorkflowAppContext.Provider value={workflowApp}>
@@ -260,7 +357,8 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
         <AppViewRendererContext.Provider value={renderAppView}>
           <SessionHeaderActionsContext.Provider value={sessionHeaderActions}>
             <div
-              className={`app-shell-root relative isolate flex h-full flex-col text-content ${
+              data-desktop-mode={desktopMode}
+              className={`app-shell-root desktop-workspace relative isolate flex h-full flex-col text-content ${
                 HAS_NATIVE_GLASS
                   ? "bg-background-base/40"
                   : "bg-background-base"
@@ -276,6 +374,7 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
               <div aria-hidden className="window-chat-background">
                 <GradientBlurBackground />
               </div>
+
               <div
                 data-window-chrome
                 className="relative shrink-0"
@@ -283,6 +382,8 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
               >
                 {!IS_MAC ? (
                   <MenuBar
+                    windowNavigationWidth={248}
+                    windowNavigation={desktopTitlebarNavigation}
                     navigationItems={titlebarNavigation}
                     handlers={commandHandlers}
                     dispatch={dispatch}
@@ -290,15 +391,13 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
                     canGoForward={tabVisitNav.canForward}
                     sidebarOpen={sessionSidebarOpen}
                     navigationExpanded={navigationExpanded}
-                    onToggleNavigation={
-                      sessionSidebarOpen ? onToggleNavigation : undefined
-                    }
-                    windowLeading={windowLeading}
+                    onToggleNavigation={undefined}
                     windowActions={surfaceModeToggle}
                   />
                 ) : null}
                 {!menuBarPinned ? (
                   <WindowDragBar
+                    windowNavigation={desktopTitlebarNavigation}
                     navigationItems={titlebarNavigation}
                     canGoBack={tabVisitNav.canBack}
                     canGoForward={tabVisitNav.canForward}
@@ -307,14 +406,12 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
                     onTogglePanel={onToggleSidebar}
                     panelActive={sessionSidebarOpen}
                     navigationExpanded={navigationExpanded}
-                    onToggleNavigation={
-                      sessionSidebarOpen ? onToggleNavigation : undefined
-                    }
-                    windowLeading={windowLeading}
+                    onToggleNavigation={undefined}
                     windowActions={surfaceModeToggle}
                   />
                 ) : null}
               </div>
+
               <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
                 <SidebarRail open={!sessionSidebarOpen}>
                   <ActivityBar
@@ -323,96 +420,7 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
                     {...activityBarProps}
                   />
                 </SidebarRail>
-                <Sidebar
-                  navigation={sidebarNavigation}
-                  footer={sidebarFooter}
-                  workflowsSection={sidebarWorkflows}
-                  recents={recents}
-                  onSelectProject={onSelectProject}
-                  onOpenProject={pickProject}
-                  onRemoveProject={onRemoveProject}
-                  onOpenNotificationSettings={onOpenNotificationSettings}
-                  projectHistory={treeHistory}
-                  loadedProjectPaths={loadedProjects}
-                  failedProjectPaths={failedProjectPaths}
-                  onLoadProject={refreshHistory}
-                  onPrefetchRemoteProject={prefetchRemoteProjectSessions}
-                  onNewInProject={onNewInProject}
-                  cwd={sidebarCwd}
-                  gitCwd={gitCwd}
-                  worktreeTabStats={worktreeTabStats}
-                  onSelectWorkspace={onSelectWorkspace}
-                  workspaceSwitchPending={
-                    workspaceNavigation.pending?.project === sidebarCwd
-                  }
-                  workspaceSwitchError={
-                    workspaceNavigation.error?.project === sidebarCwd
-                      ? workspaceNavigation.error.message
-                      : undefined
-                  }
-                  explorerRootLabel={explorerRootLabel}
-                  open={sessionSidebarOpen}
-                  chromeInMenuBar
-                  onToggleSidebar={onToggleSidebar}
-                  tab={sidebarTab}
-                  onTabChange={setSidebarTab}
-                  filesSearchOpen={filesSearchOpen}
-                  onFilesSearchOpenChange={setFilesSearchOpen}
-                  onOpenFilesSearch={onFindInProject}
-                  searchFocusToken={searchFocusToken}
-                  sessions={sidebarHistory}
-                  busySessionIds={busySessionIds}
-                  approvalSessionIds={approvalSessionIds}
-                  questionSessionIds={questionSessionIds}
-                  activeSessionId={active?.id}
-                  visibleSessionId={activeSessionId ?? null}
-                  status={historyFailed ? "error" : "idle"}
-                  pending={historyPending}
-                  onSelectSession={onSelectHistorySession}
-                  onSelectRemoteSession={onSelectRemoteSession}
-                  onRemoteSessionDeleted={onRemoteSessionDeleted}
-                  onPrefetchSession={onPrefetchHistorySession}
-                  onSessionNavigationOrder={onSessionNavigationOrder}
-                  onPlaceSessionOnPane={onPlaceSessionOnPane}
-                  onRenameSession={onRenameHistorySession}
-                  onArchiveSession={onArchiveHistorySession}
-                  onArchiveSessions={onArchiveHistorySessions}
-                  onPinSession={onPinHistorySession}
-                  onPinSessions={onPinHistorySessions}
-                  onSetSessionLinkedWorkItem={onSetHistorySessionLinkedWorkItem}
-                  reminders={sessionReminders.reminders}
-                  onSetReminders={sessionReminders.schedule}
-                  onCancelReminders={sessionReminders.cancel}
-                  onDeleteSession={onDeleteHistorySession}
-                  onDeleteSessions={onDeleteHistorySessions}
-                  onOpenFile={onOpenFile}
-                  onOpenTerminal={onOpenTerminal}
-                  onFileMoved={onFileMoved}
-                  onFileDeleted={onFileDeleted}
-                  onOpenDiff={onOpenWorkingTreeDiff}
-                  onOpenAllChanges={onOpenAllChanges}
-                  onOpenCommit={onOpenCommit}
-                  selectedDiffPath={
-                    activeTab
-                      ? selectedChangePath(activeTab, gitCwd)
-                      : undefined
-                  }
-                  selectedDiffKind={
-                    activeTab ? selectedChangeKind(activeTab) : undefined
-                  }
-                  selectedCommitSha={
-                    activeTab ? selectedCommitSha(activeTab) : undefined
-                  }
-                  textHarness={pickTextHarness(active?.harness)}
-                  onNew={onNew}
-                  onNewChat={onNewChat}
-                  openSessions={openProjectSessions}
-                  openSessionIds={sidebarOpenSessionIds}
-                  onOpenInboxItem={onOpenLinkedWorkItem}
-                  onGoToFile={onGoToFile}
-                  unseenFinishedIds={unseenFinishedIds}
-                  linkedSessionUpdateIds={linkedSessionUpdateIds}
-                />
+                <Sidebar {...sidebarProps} desktopMode={desktopMode} />
 
                 <SidebarMain open={sessionSidebarOpen}>
                   <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -461,6 +469,7 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
                         <SurfaceVisibilityContext.Provider
                           value={workspaceVisible}
                         >
+                          <WorkspaceToolsDock sidebar={sidebarProps} visible={workspaceVisible}>
                           <TerminalDockLayout
                             projectTerminals={projectTerminals}
                             currentDock={currentProjectDock}
@@ -581,6 +590,7 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
                               </div>
                             </div>
                           </TerminalDockLayout>
+                          </WorkspaceToolsDock>
                           {[...linkedWorkItemPanels.values()].map((panel) => (
                             <LinkedWorkItemPanel
                               repairSessions={repairSessions}

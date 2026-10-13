@@ -2,6 +2,13 @@
 // Keys are ZCode message ids; values are the English UI text, which Monocode
 // uses as its translation key (src/shared/i18n/zh-CN.json holds the Chinese).
 export const WORKFLOW_MESSAGES: Record<string, string> = {
+  "automations.time.ago": "{amount} ago",
+  "automations.time.days": "{value}d",
+  "automations.time.hours": "{value}h",
+  "automations.time.in": "in {amount}",
+  "automations.time.justNow": "just now",
+  "automations.time.minutes": "{value}m",
+  "automations.time.soon": "soon",
   "chat.backgroundResult.workflow.answered": "Subagent question answered",
   "chat.backgroundResult.workflow.artifacts.more": "+{count}",
   "chat.backgroundResult.workflow.asked": "Subagent asked a question",

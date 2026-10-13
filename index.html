@@ -42,7 +42,8 @@
           var light = scheme === "light" || scheme === "system" && window.matchMedia("(prefers-color-scheme: light)").matches;
           root.classList.toggle("theme-light", light);
           root.dataset.skin = light ? "daylight" : "midnight";
-          root.dataset.desktopVisual = "grok-static-v1";
+          root.dataset.desktopVisual = "claude-measured-v1";
+          root.dataset.desktopMode = localStorage.getItem("monocode.desktopMode") === "chat" ? "chat" : "code";
           root.style.colorScheme = light ? "light" : "dark";
           var bodyGlass = localStorage.getItem("monocode.bodyGlass");
           if (bodyGlass == null || bodyGlass === "1" || bodyGlass === "true") {
@@ -75,8 +76,8 @@
 
       /* Skin grounds (`--color-app` in omb-skin.css) so the splash matches
          the first paint instead of flashing the Classic tint. */
-      html[data-skin="midnight"] { --color-background-base: #070707; }
-      html[data-skin="daylight"] { --color-background-base: #fcfcfc; }
+      html[data-skin="midnight"] { --color-background-base: #151515; }
+      html[data-skin="daylight"] { --color-background-base: #fcfcfb; }
 
       html,
       body,

@@ -8,7 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { ExplorerMenu } from "../../features/files/ui/ExplorerMenu";
+import { ExplorerMenu } from "../../features/connections/files/ui/ExplorerMenu";
 import {
   loadAutosave,
   loadKeybindingOverrides,
@@ -24,7 +24,7 @@ import {
   type MenuId,
 } from "../commands/registry";
 import type { CommandDispatch } from "../commands/useCommandDispatcher";
-import { TabVisitNav, WINDOW_NAVIGATION_END } from "./WindowChrome";
+import { TabVisitNav, WINDOW_DRAG_BAR_HEIGHT, WINDOW_NAVIGATION_END } from "./WindowChrome";
 import { WindowControls } from "./WindowControls";
 import { startWindowDrag } from "./startWindowDrag";
 
@@ -41,6 +41,9 @@ type Props = {
   windowLeading?: ReactNode;
   /** Window-wide actions shown just before the window controls. */
   windowActions?: ReactNode;
+  windowNavigation?: ReactNode;
+  /** Space occupied by custom navigation when revealing the menu with Alt. */
+  windowNavigationWidth?: number;
 };
 
 export const MENU_BAR_HEIGHT = 36;
@@ -60,6 +63,8 @@ export function MenuBar({
   onToggleNavigation,
   windowLeading,
   windowActions,
+  windowNavigation,
+  windowNavigationWidth,
 }: Props) {
   const { t: uiT } = useTranslation();
   const visible = useSyncExternalStore(
@@ -214,15 +219,15 @@ export function MenuBar({
         // Alt-reveal leaves the title-row navigation and window buttons usable.
         ...(!visible
           ? {
-              left: WINDOW_NAVIGATION_END,
+              left: windowNavigationWidth ?? (windowNavigation === undefined ? WINDOW_NAVIGATION_END : 8),
               right: 120,
-              top: (40 - MENU_BAR_HEIGHT) / 2,
+              top: (WINDOW_DRAG_BAR_HEIGHT - MENU_BAR_HEIGHT) / 2,
             }
           : {}),
       }}
     >
       <div className="flex shrink-0 items-center gap-0.5">
-        {visible ? (
+        {visible && windowNavigation === undefined ? (
           <nav
             aria-label={uiT("Window navigation")}
             data-window-navigation
@@ -240,7 +245,7 @@ export function MenuBar({
               onToggleNavigation={onToggleNavigation}
             />
           </nav>
-        ) : null}
+        ) : visible ? windowNavigation : null}
         {visible ? navigationItems : null}
         {available.map(({ id, label }) => {
           const isActive = activeMenu === id;

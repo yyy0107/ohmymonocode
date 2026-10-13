@@ -23,6 +23,22 @@ import {
 } from "./models";
 import { loadProjectProviderSettings } from "./projectProviders";
 
+export type ResourceBlocker = {
+  id: string;
+  kind: string;
+  path: string;
+  ownerPid: number;
+};
+export type SessionExecutionState = {
+  runId: string;
+  phase: "waiting-resource" | "starting" | "awaiting-response" | "active" | "settling";
+  since: number;
+  /** Separate resource queue time from provider time. */
+  providerStartedAt?: number;
+  reason?: "integrating" | "removing" | "computer";
+  blockers?: ResourceBlocker[];
+};
+
 export type HarnessId =
   | "claude"
   | "codex"
@@ -497,6 +513,7 @@ export type Session = {
   blocks: Block[];
   /** True while a harness turn is in flight. */
   busy?: boolean;
+  executionState?: SessionExecutionState;
   /**
    * What the live turn is waiting on after the agent yielded with work still
    * running in the background. In-memory only.

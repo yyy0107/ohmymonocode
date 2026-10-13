@@ -29,11 +29,12 @@ vi.mock("../model/terminalLayout", () => layout);
 vi.mock("@xterm/xterm", () => ({
   Terminal: class {
     constructor(options: { fontFamily?: string }) {
+      this.options = options;
       xterm.options.push(options);
     }
     cols = 80;
     rows = 24;
-    options = {};
+    options: { fontFamily?: string } = {};
     parser = { registerOscHandler: () => ({ dispose() {} }) };
     buffer = {
       active: { type: "normal" },
@@ -427,6 +428,31 @@ it.each([
     });
     await lapseHandoff();
     measure.mockRestore();
+    host.remove();
+    document.documentElement.style.removeProperty("--font-terminal");
+  }
+});
+
+it("updates an open terminal's font without replacing its PTY", async () => {
+  const { host, root } = setup();
+  const initial = '"anthropic-mono", "Symbols Nerd Font Mono", monospace';
+  const selected = '"Selected Mono", "Symbols Nerd Font Mono", monospace';
+  document.documentElement.style.setProperty("--font-terminal", initial);
+  try {
+    await act(async () => root.render(createElement(TerminalView, {
+      id: "live-font", cwd: "/tmp", active: true,
+    })));
+    expect(xterm.options[0]?.fontFamily).toBe(initial);
+    await act(async () => {
+      document.documentElement.style.setProperty("--font-terminal", selected);
+      await vi.waitFor(() => expect(xterm.options[0]?.fontFamily).toBe(selected));
+    });
+    expect(xterm.options).toHaveLength(1);
+    expect(pty.spawnPty).toHaveBeenCalledTimes(1);
+    expect(pty.killPty).not.toHaveBeenCalled();
+  } finally {
+    await act(async () => root.unmount());
+    await lapseHandoff();
     host.remove();
     document.documentElement.style.removeProperty("--font-terminal");
   }

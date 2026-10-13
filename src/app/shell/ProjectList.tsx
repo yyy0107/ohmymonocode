@@ -4,6 +4,7 @@ import { DisclosureChevron } from "../../shared/ui/DisclosureChevron";
 import { usePreferenceState } from "../../features/settings/model/usePreferenceState";
 import { useSidebarListPreview } from "./useSidebarListPreview";
 import { AnimatedCollapse } from "../../shared/ui/AnimatedCollapse";
+import { MenuHover } from "../../shared/ui/MenuHover";
 import { useSurfaceVisibility } from "../../shared/ui/SurfaceVisibility";
 import {
   HoverSummary,
@@ -146,6 +147,8 @@ export type ProjectListProps = {
   scrollable?: boolean;
   scrollRef?: Ref<HTMLDivElement>;
   matchedProjectPaths?: ReadonlySet<string>;
+  visibleProjectPaths?: ReadonlySet<string>;
+  showProjectSections?: boolean;
   searchActive?: boolean;
   /** Lists every row instead of the paged preview; defaults to `searchActive`. */
   previewAll?: boolean;
@@ -221,6 +224,8 @@ export function ProjectList({
   scrollable = true,
   scrollRef: externalScrollRef,
   matchedProjectPaths,
+  visibleProjectPaths,
+  showProjectSections = true,
   searchActive: searchActiveProp,
   previewAll: previewAllProp,
   previewKey = "",
@@ -439,7 +444,11 @@ export function ProjectList({
     for (const path of project.paths) muteStatuses.set(pathKey(path), status);
   }
   const sections = useMemo(() => {
-    const ordered = projectRailSections(recents, cwd, railOrder, pinnedPaths);
+    const all = projectRailSections(recents, cwd, railOrder, pinnedPaths);
+    const ordered = visibleProjectPaths ? {
+      pinned: all.pinned.filter((project) => visibleProjectPaths.has(pathKey(project.path))),
+      projects: all.projects.filter((project) => visibleProjectPaths.has(pathKey(project.path))),
+    } : all;
     if (matchedProjectPaths) {
       const matches = (project: RecentProject) =>
         matchedProjectPaths.has(pathKey(project.path));
@@ -471,6 +480,7 @@ export function ProjectList({
     query,
     groupLabels,
     matchedProjectPaths,
+    visibleProjectPaths,
   ]);
   const groupedProjectSections = useMemo(() => {
     const byGroup = new Map<string, RecentProject[]>(
@@ -581,8 +591,8 @@ export function ProjectList({
       chatEntries !== undefined &&
       (!searchActive || chatEntries.length > 0),
     workflows: !compact && !!workflowsSection,
-    groups: projectGroups.length > 0,
-    projects: true,
+    groups: showProjectSections && projectGroups.length > 0,
+    projects: showProjectSections,
   };
   const visibleSectionIds = (
     compact ? DEFAULT_SIDEBAR_SECTION_ORDER : sectionOrder
@@ -703,6 +713,7 @@ export function ProjectList({
         >
           <div
             id={groupContentId}
+            data-project-rows
             className={
               compact
                 ? "flex flex-col items-center gap-1"
@@ -987,6 +998,7 @@ function ProjectSection({
             </p>
           ) : null}
           <div
+            data-project-rows
             className={
               compact
                 ? "flex flex-col items-center gap-1"
@@ -1382,6 +1394,7 @@ function ProjectGroupSection({
             type="button"
             data-no-drag
             title={uiT("Group options")}
+            data-menu-trigger="sidebar"
             aria-label={uiT("{value0} group options", {
               value0: String(group.name),
             })}
@@ -1393,6 +1406,7 @@ function ProjectGroupSection({
             }}
             className="absolute right-1 top-1/2 hidden size-6 -translate-y-1/2 place-items-center rounded-lg text-content/55 hover:bg-surface-hover hover:text-content group-hover:grid group-has-[:focus-visible]:grid"
           >
+            <MenuHover />
             <MoreHorizontal className="size-4" />
           </button>
         </div>
@@ -1838,6 +1852,7 @@ function ProjectCard({
             type="button"
             data-no-drag
             title={uiT("Project options")}
+            data-menu-trigger="sidebar"
             aria-label={uiT("Project options")}
             aria-haspopup="menu"
             onPointerDown={(event) => event.stopPropagation()}
@@ -1852,6 +1867,7 @@ function ProjectCard({
             }}
             className="absolute right-1 top-1/2 hidden size-6 -translate-y-1/2 place-items-center rounded-lg text-content/55 hover:bg-surface-hover hover:text-content group-hover:grid group-has-[:focus-visible]:grid"
           >
+            <MenuHover />
             <MoreHorizontal className="size-4" />
           </button>
           {tree ? null : (
@@ -2155,6 +2171,7 @@ export function AddProjectButton({
               onOpenFolder();
             }}
           >
+            <MenuHover />
             <FolderPlus className="size-3.5 shrink-0" />
             {uiT("Open folder…")}
           </button>
@@ -2167,6 +2184,7 @@ export function AddProjectButton({
               window.dispatchEvent(new Event(OPEN_REMOTE_PROJECT_EVENT));
             }}
           >
+            <MenuHover />
             <Internet className="size-3.5 shrink-0" />
             {uiT("Open folder on a machine…")}
           </button>

@@ -272,6 +272,7 @@ export function NotesView({
   const list = (
     <div
       ref={resize.setPaneRef}
+      data-notes-list
       className="relative flex h-full min-h-0 shrink-0 flex-col border-r border-stroke"
     >
       <div className="desktop-toolbar flex h-9 shrink-0 items-center gap-1 border-b border-stroke px-2">
@@ -398,9 +399,9 @@ export function NotesView({
       className="flex min-h-0 min-w-0 flex-1 flex-col text-content"
     >
       <AppPageHeader title={uiT("Notes")} icon={File} onBack={onClose} />
-      <div className="flex min-h-0 min-w-0 flex-1">
+      <div data-notes-columns className="flex min-h-0 min-w-0 flex-1">
         {list}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col pl-4">
+        <div data-notes-detail className="flex min-h-0 min-w-0 flex-1 flex-col pl-4">
           {selectedTopic ? (
             <BotTopicNote key={selectedTopic.key} note={selectedTopic} active={active} />
           ) : <NoteDetail

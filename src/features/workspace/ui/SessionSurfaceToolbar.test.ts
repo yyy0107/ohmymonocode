@@ -94,6 +94,7 @@ beforeEach(() => {
     terminalAvailable: true,
     terminalOpen: false,
     toggleTerminal: vi.fn(),
+    toggleFiles: vi.fn(),
     changesOpen: false,
     toggleChanges: vi.fn(),
   };
@@ -208,7 +209,7 @@ it("places the sole action trigger after tools and before window controls", asyn
     const buttons = [...header.querySelectorAll("button")];
     const order = [
       "[data-session-tool-toggle=terminal]",
-      "[data-session-tool-toggle=changes]",
+      "[data-session-tool-toggle=files]",
       "[data-session-overflow-menu]",
       "[data-window-controls]",
     ].map((selector) => buttons.indexOf(header.querySelector(selector)!));
@@ -216,6 +217,32 @@ it("places the sole action trigger after tools and before window controls", asyn
       order.every((index, i) => index >= 0 && (!i || index > order[i - 1])),
     ).toBe(true);
   }
+});
+
+it("opens the owning session's files without routing through a different focused pane", async () => {
+  actions.filesSessionId = "right";
+  await render();
+  expect(container.querySelector('[data-session-tool-toggle="changes"]')).toBeNull();
+  const left = container.querySelector<HTMLButtonElement>(
+    '[data-session-surface-tabs="left"] [data-session-tool-toggle="files"]',
+  )!;
+  const right = container.querySelector<HTMLButtonElement>(
+    '[data-session-surface-tabs="right"] [data-session-tool-toggle="files"]',
+  )!;
+  expect(left.getAttribute("aria-pressed")).toBe("false");
+  expect(right.getAttribute("aria-pressed")).toBe("true");
+  const focusOtherPane = vi.fn();
+  document.body.addEventListener("mousedown", focusOtherPane);
+  try {
+    act(() => {
+      left.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      left.click();
+    });
+  } finally {
+    document.body.removeEventListener("mousedown", focusOtherPane);
+  }
+  expect(focusOtherPane).not.toHaveBeenCalled();
+  expect(actions.toggleFiles).toHaveBeenCalledExactlyOnceWith("left");
 });
 
 it("renames, splits and archives the owning pane while another pane is focused", async () => {

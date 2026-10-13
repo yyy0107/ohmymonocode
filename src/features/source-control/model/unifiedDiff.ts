@@ -144,9 +144,8 @@ function unifiedLinesFromTexts(original: string, current: string): UnifiedLine[]
   let newPos = 0;
   for (const chunk of chunks) {
     if (newPos < chunk.fromB) {
-      lines.push(
-        ...contextLines(newDoc, oldDoc, newPos, chunk.fromB, oldPos),
-      );
+      for (const line of contextLines(newDoc, oldDoc, newPos, chunk.fromB, oldPos))
+        lines.push(line);
     }
     const deleted = linesInRange(oldDoc, chunk.fromA, chunk.toA);
     const inserted = linesInRange(newDoc, chunk.fromB, chunk.toB);
@@ -172,7 +171,8 @@ function unifiedLinesFromTexts(original: string, current: string): UnifiedLine[]
     newPos = chunk.toB;
   }
   if (newPos < newDoc.length) {
-    lines.push(...contextLines(newDoc, oldDoc, newPos, newDoc.length, oldPos));
+    for (const line of contextLines(newDoc, oldDoc, newPos, newDoc.length, oldPos))
+      lines.push(line);
   }
   return lines;
 }

@@ -1,5 +1,6 @@
 import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cx, PRESSABLE } from "./cx";
+import { MenuHover } from "../MenuHover";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "xs" | "sm" | "md" | "lg" | "xl";
@@ -106,6 +107,7 @@ export function IconButton({
         className,
       )}
     >
+      <MenuHover />
       {children}
     </button>
   );

@@ -2,7 +2,7 @@ import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useContext, useEffect, useState } from "react";
 import { TranscriptPlatformContext } from "./TranscriptPlatform";
-import { formatFileSize, sniffImageMime } from "../../files/model/filePreview";
+import { formatFileSize, sniffImageMime } from "../../connections/files/model/filePreview";
 import { ImageLightbox } from "../../../shared/ui/ImageLightbox";
 import type { GeneratedImageMeta, Attachment } from "../model/session";
 

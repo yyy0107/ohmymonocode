@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   warmNativeSkills: vi.fn(),
 }));
 
-vi.mock("../../files/model/fileMentions", () => ({
+vi.mock("../../connections/files/model/fileMentions", () => ({
   applyFileMentionsToTurn: mocks.applyFileMentionsToTurn,
 }));
 

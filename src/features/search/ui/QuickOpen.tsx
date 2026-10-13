@@ -23,7 +23,7 @@ import {
   recentOpenedFiles,
   rememberOpenedFile,
   type RankedFile,
-} from "../../files/model/fileIndex";
+} from "../../connections/files/model/fileIndex";
 import { LAYER } from "../../../shared/lib/layers";
 import {
   looksLikeProject,
@@ -31,7 +31,7 @@ import {
 } from "../../projects/model/recents";
 import type { OpenFileFn } from "../model/search";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
-import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
+import { FileTypeIcon } from "../../connections/files/ui/FileTypeIcon";
 import { MatchText } from "../../../shared/ui/MatchText";
 import { projectName } from "../../../shared/lib/paths";
 import { MOD } from "../../../platform/tauri/platform";
@@ -485,7 +485,7 @@ function renderItem(
         <span className="shrink-0">
           <FileTypeIcon name={file.name} isDir={false} />
         </span>
-        <span className="min-w-0 flex-1 truncate">
+        <span data-file-label className="min-w-0 flex-1 truncate">
           <MatchText
             text={file.name}
             positions={file.positions

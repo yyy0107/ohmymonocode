@@ -3,7 +3,7 @@ import { motionGeometry, panelTransition } from "../shared/motion/tokens";
 import { useContext, useId, useMemo, useState, type ReactNode } from "react";
 import { isLongText, ReadonlyTextView } from "../shared/ui/ReadonlyTextView";
 import { isReadTool } from "../integrations/harness/core/preview";
-import { FilePreview } from "../features/files/ui/FilePreview";
+import { FilePreview } from "../features/connections/files/ui/FilePreview";
 import { TranscriptPlatformContext } from "../features/sessions/ui/TranscriptPlatform";
 import {
   editVerb,

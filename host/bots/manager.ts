@@ -14,6 +14,14 @@ import type { HostModelCatalog, HostSession, RemoteProvider } from "../../src/fe
 import type { TurnOrigin } from "../../src/features/sessions/model/session";
 
 const BOT_CONTROLS = new Set(["pause", "resume", "disable", "enable"]);
+const PASSIVE_SESSION_EVENTS = new Set(["message.delta", "reasoning.delta", "context", "turn.metrics"]);
+
+function passiveSessionBatch(event: unknown): boolean {
+  if (!event || typeof event !== "object") return false;
+  const batch = event as { type?: unknown; events?: unknown };
+  return batch.type === "events" && Array.isArray(batch.events) && batch.events.length > 0 &&
+    batch.events.every(value => value && typeof value === "object" && PASSIVE_SESSION_EVENTS.has(value.type));
+}
 
 /** Owns Host callbacks and routes every runtime through its durable Bot/Thread scope. */
 export class BotManager {
@@ -34,6 +42,11 @@ export class BotManager {
   private available?: () => Promise<RemoteProvider[]>;
   private catalog?: (projectId?: string) => Promise<HostModelCatalog>;
   private readonly observeSession = (previous: HostSession | undefined, next: HostSession, event: unknown) => {
+    // Ordinary streamed text/usage cannot create Bot sources or change followed
+    // cards. Bot brains still need their durable message projection on every save.
+    if (previous && !previous.session.assistantOwnerId && !next.session.assistantOwnerId &&
+      previous.status === next.status && previous.lastCompletedRunId === next.lastCompletedRunId &&
+      previous.session.queuedMessages === next.session.queuedMessages && passiveSessionBatch(event)) return;
     const errors: unknown[] = [];
     for (const runtime of this.runtimes.values()) {
       try { runtime.observe(previous, next, event); } catch (error) { errors.push(error); }
@@ -129,7 +142,7 @@ export class BotManager {
     if (previous) return previous === run.id;
     if (owners.size >= (bot.maxConcurrentRuns ?? 3)) return false;
     const workingDirectory = config.workingDirectory ?? join(dirname(this.engine.store.attachmentDir), "bots", scope.botId, "threads", scope.threadId);
-    if (!this.resources.acquire(run.id, { workingDirectory, computer: config.tools?.computer === true })) return false;
+    if (!this.resources.acquire(run.id, { workingDirectory, computer: config.tools?.computer === true }).acquired) return false;
     owners.set(scope.threadId, run.id);
     this.leases.set(scope.botId, owners);
     return true;

@@ -1,0 +1,176 @@
+html[data-skin] [data-desktop-sidebar] {
+  --omb-side-project-row: 32px;
+  --omb-side-row: 32px;
+  --omb-side-row-pad: 0px;
+  --omb-side-gap: 8px;
+  --omb-side-avatar: 28px;
+  --omb-side-avatar-icon: 20px;
+  --omb-side-tile-icon: 20px;
+  --omb-side-nest: 20px;
+  --omb-side-title: 14px;
+  --omb-side-title-line: 21px;
+  --omb-side-title-weight: 400;
+  --omb-side-group-row: 32px;
+  padding-inline: 8px;
+  background: var(--color-panel);
+  box-shadow: inset -.8px 0 var(--color-stroke);
+  font-size: 14px;
+  line-height: 21px;
+}
+
+/* Pointer resizing owns the width until release; disclosure motion owns it otherwise. */
+.sidebar-transition[data-resizing] {
+  width: var(--sidebar-resize-width) !important;
+}
+
+html[data-skin] [data-desktop-sidebar-header] {
+  display: flex;
+  height: 48px;
+  min-height: 48px;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  padding-inline: 2px;
+  user-select: none;
+}
+html[data-skin] [data-desktop-sidebar-header] > button {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+html[data-skin] [data-desktop-sidebar-header] > button svg {
+  width: 20px;
+  height: 20px;
+}
+html[data-skin] [data-desktop-sidebar-mode] {
+  display: flex;
+  width: 70px;
+  height: 28px;
+  flex: 0 0 70px;
+  align-items: center;
+}
+html[data-skin].is-mac [data-desktop-sidebar-header] {
+  height: 76px;
+  min-height: 76px;
+  padding-top: 28px;
+}
+
+html[data-skin] [data-desktop-sidebar] > [data-project-header] {
+  height: 32px;
+  padding-inline: 2px;
+  margin-block-start: 12px;
+}
+html[data-skin] [data-desktop-sidebar] [data-sidebar-search] {
+  height: 40px;
+  flex-shrink: 0;
+  padding: 4px 2px;
+  border-bottom: 0;
+  gap: 4px;
+}
+html[data-skin] [data-desktop-sidebar] [data-sidebar-search] > div:first-child {
+  height: 32px;
+}
+html[data-skin] [data-desktop-sidebar] [data-sidebar-search] input {
+  font-size: 13px;
+  line-height: 19px;
+  padding-inline: 32px 8px;
+}
+html[data-skin] [data-desktop-sidebar] [data-sidebar-search] > div:first-child > svg {
+  left: 8px;
+  width: 16px;
+  height: 16px;
+}
+html[data-skin] [data-desktop-sidebar] [data-sidebar-search] > button {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+}
+html[data-skin] [data-desktop-sidebar] [data-project-list] > div {
+  gap: .5px;
+}
+html[data-skin] [data-desktop-sidebar] [data-project-list] [data-project-section] {
+  margin-block-end: 12px;
+}
+html[data-skin] [data-desktop-sidebar] :is([data-project-rows], [data-chat-project-children]) {
+  padding-inline: 0;
+}
+html[data-skin] [data-desktop-sidebar] [data-sidebar-section-header] {
+  padding-inline: 6px;
+}
+html[data-skin] [data-desktop-sidebar] [data-sidebar-section-toggle] {
+  padding-inline: 0;
+  font-size: 12px;
+  line-height: 16px;
+}
+html[data-skin] [data-desktop-sidebar] [data-project-header] .project-name {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 21px;
+}
+html[data-skin] [data-desktop-sidebar] .project-tree-header {
+  min-height: 32px;
+  height: 32px;
+  padding-inline: 2px;
+  border-radius: 8px;
+}
+html[data-skin] [data-desktop-sidebar] .project-tree-header [data-project-tile] {
+  width: 28px;
+  height: 28px;
+  align-self: center;
+  flex: 0 0 28px;
+}
+html[data-skin] [data-desktop-sidebar] .project-tree-header [data-project-select] {
+  padding-inline-start: 8px;
+}
+html[data-skin] [data-desktop-sidebar] [data-session-dense] {
+  min-height: 32px;
+  height: 32px;
+  padding-block: 0;
+  padding-inline: 2px;
+  gap: 8px;
+  border-radius: 8px;
+}
+html[data-skin] [data-desktop-sidebar] [data-session-dense]:not([data-session-shortcut]) {
+  padding-inline-start: 22px;
+}
+html[data-skin] [data-desktop-sidebar] [data-session-dense][data-density="compact"]:not([data-session-shortcut]) {
+  padding-inline-start: 42px;
+}
+html[data-skin] [data-desktop-sidebar] [data-session-avatar] {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+}
+html[data-skin] [data-desktop-sidebar] [data-session-avatar] svg {
+  width: 20px;
+  height: 20px;
+}
+html[data-skin] [data-desktop-sidebar] .desktop-sidebar-session-title {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 21px;
+}
+html[data-skin] [data-desktop-sidebar] [data-session-group-row] {
+  height: 32px;
+  padding-block: 0;
+}
+html[data-skin] [data-desktop-sidebar] [data-sidebar-list-toggle] {
+  min-height: 32px;
+  font-size: 13px;
+}
+html[data-skin] [data-project-tools-panel] {
+  background: var(--color-panel, var(--color-surface));
+  font-size: 13px;
+  line-height: 19px;
+}
+html[data-skin] [data-project-tools-context] {
+  min-height: 32px;
+  border-bottom: .8px solid var(--color-stroke);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-skin] [data-desktop-sidebar] .project-tree-header [data-project-select] {
+    transition: none;
+  }
+}

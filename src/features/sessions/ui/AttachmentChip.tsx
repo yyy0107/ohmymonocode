@@ -5,7 +5,7 @@ import { X } from "../../../shared/ui/icons";
 import { attachmentPreviewSrc, isAttachmentFolder } from "../model/attachments";
 import { attachmentThumbnail } from "../model/attachmentThumbnails";
 import type { Attachment } from "../model/session";
-import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
+import { FileTypeIcon } from "../../connections/files/ui/FileTypeIcon";
 import { ImageLightbox } from "../../../shared/ui/ImageLightbox";
 
 type Props = {
@@ -86,7 +86,7 @@ export function AttachmentChip({ attachment, onRemove, tile = false, onOpen }: P
               />
             </span>
             <span className="attachment-chip-card-text">
-              <span className="attachment-chip-card-name">{attachment.name}</span>
+              <span data-file-label className="attachment-chip-card-name">{attachment.name}</span>
               <span className="attachment-chip-card-type">{typeLabel}</span>
             </span>
           </button>
@@ -99,7 +99,7 @@ export function AttachmentChip({ attachment, onRemove, tile = false, onOpen }: P
                 size={16}
               />
             </span>
-            <span className="min-w-0 max-w-[140px] truncate text-[11px] leading-none text-content/80">
+            <span data-file-label className="min-w-0 max-w-[140px] truncate text-[11px] leading-none text-content/80">
               {attachment.name}
             </span>
           </>

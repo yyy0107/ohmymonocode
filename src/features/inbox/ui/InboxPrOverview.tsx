@@ -5,7 +5,7 @@ import {
   ChevronRight,
   LoaderCircle,
 } from "../../../shared/ui/icons";
-import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
+import { FileTypeIcon } from "../../connections/files/ui/FileTypeIcon";
 import { formatInteger } from "../../../shared/lib/numbers";
 import { AgentMarkdown } from "../../sessions/ui/AgentMarkdown";
 import type { GithubPrDiff } from "../model/githubTasks";

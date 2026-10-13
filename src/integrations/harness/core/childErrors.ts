@@ -8,7 +8,8 @@ export function localizeChildExitError(
   message: string,
   translate: (key: string) => string,
 ): string {
-  return message === HOST_OUTPUT_LIMIT_ERROR ||
+  return message === "RESOURCE_BUSY: The requested project or computer is in use by another run. Retry when it finishes." ||
+    message === HOST_OUTPUT_LIMIT_ERROR ||
     message === HOST_DIAGNOSTIC_LIMIT_ERROR
     ? translate(message)
     : message;

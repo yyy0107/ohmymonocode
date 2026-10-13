@@ -41,7 +41,7 @@ import {
   type ReviewFile,
   type ReviewSource,
 } from "../model/reviewDiff";
-import { stageChunkText } from "../../files/editor/editorGit";
+import { stageChunkText } from "../../connections/files/editor/editorGit";
 import { LINE_DIFF_CONFIG } from "../model/lineDiff";
 import { GitReviewChangeCard, ReviewIconButton } from "./GitReviewChangeCard";
 import { ReviewDiffsWorkerPool } from "./ReviewDiffsWorkerPool";
@@ -287,7 +287,7 @@ export function GitReviewPane({
   );
 
   const counts = (
-    <span className="ml-1 flex shrink-0 gap-2 text-ui-base tabular-nums">
+    <span className="review-total-counts ml-1 flex shrink-0 gap-0.5 tabular-nums">
       <span className="text-[var(--review-added)]">
         +{totals.additions.toLocaleString()}
       </span>
@@ -303,10 +303,10 @@ export function GitReviewPane({
         className="git-review-pane content-surface flex h-full min-h-0 min-w-0 flex-col"
         data-git-review-pane
       >
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 p-3">
+        <div className="review-toolbar flex shrink-0 items-center justify-between gap-1 p-1">
           {worktree && !worktree.isMain ? (
             <span
-              className="git-review-worktree flex h-8 min-w-0 max-w-48 items-center gap-1.5 text-ui-base text-foreground-subtle"
+              className="git-review-worktree flex h-6 min-w-0 max-w-48 items-center gap-1.5 text-ui-base text-foreground-subtle"
               title={t("Worktree: {path}", { path: worktree.path })}
             >
               <FolderTree className="size-3.5 shrink-0" />
@@ -315,7 +315,7 @@ export function GitReviewPane({
           ) : null}
           {commit ? (
             <div
-              className="flex h-8 min-w-0 items-center gap-2 text-ui-base"
+              className="review-commit-label flex h-6 min-w-0 items-center gap-1.5"
               title={commit}
             >
               <span className="text-foreground-subtle">{t("Committed")}</span>
@@ -335,7 +335,7 @@ export function GitReviewPane({
               trailing={counts}
             />
           )}
-          <div className="ml-auto flex shrink-0 items-center gap-1">
+          <div className="review-toolbar-actions ml-auto flex shrink-0 items-center gap-0.5">
             <button
               type="button"
               className="grid size-8 shrink-0 place-items-center rounded-lg text-foreground-subtle outline-none hover:bg-surface-hover focus-visible:bg-surface-hover disabled:opacity-40"
@@ -386,6 +386,7 @@ export function GitReviewPane({
             <button
               type="button"
               title={t("Refresh changes")}
+              aria-label={t("Refresh changes")}
               disabled={loading}
               onClick={() => refresh()}
               className="flex h-8 items-center gap-2 rounded-lg px-3 text-ui-base text-content transition-colors hover:bg-surface-hover disabled:opacity-40 motion-reduce:transition-none"
@@ -393,7 +394,6 @@ export function GitReviewPane({
               <RefreshCw
                 className={`size-3.5 ${loading ? "animate-spin" : ""}`}
               />
-              {t("Refresh")}
             </button>
           </div>
         </div>

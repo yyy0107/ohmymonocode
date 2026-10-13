@@ -102,7 +102,7 @@ export function DesktopBotMemory({ botId, rpc, drafts }: { botId: string; rpc: B
   };
   return <section className="desktop-bots-memory" aria-label={t("Memory files")}>
     <div className="desktop-bots-memory-toolbar">
-      <label>{t("File")}<select aria-label={t("Memory file")} value={path} onChange={(event) => drafts.update(botId, (value) => ({ ...value, path: event.target.value }))}>
+      <label>{t("File")}<select data-file-label aria-label={t("Memory file")} value={path} onChange={(event) => drafts.update(botId, (value) => ({ ...value, path: event.target.value }))}>
         {[...new Set([path, ...Object.keys(state.drafts)])].filter((item) => !files?.files.some((file) => file.path === item)).map((item) => <option key={item} value={item}>{item}</option>)}
         {kinds.map(([kind, label]) => {
           const items = files?.files.filter((file) => file.kind === kind) ?? [];
@@ -126,7 +126,7 @@ export function DesktopBotMemory({ botId, rpc, drafts }: { botId: string; rpc: B
         <span>{t("{lines} / {maxLines} lines · {bytes} / {maxBytes} bytes loaded", { lines: draft.base.budget.loadedLines, maxLines: draft.base.budget.maxLines, bytes: draft.base.budget.loadedBytes, maxBytes: draft.base.budget.maxBytes })}</span>
         <span>{t("Full file: {lines} lines · {bytes} bytes", { lines: draft.base.budget.lines, bytes: draft.base.budget.bytes })}</span>
       </div>}
-      <label className="desktop-bots-memory-editor-label"><span>{path}{dirty ? ` • ${t("Unsaved changes")}` : ""}</span>
+      <label className="desktop-bots-memory-editor-label"><span><span data-file-label>{path}</span>{dirty ? ` • ${t("Unsaved changes")}` : ""}</span>
         <textarea aria-label={t("File contents")} value={draft.text} disabled={draft.busy} spellCheck={false}
           onChange={(event) => drafts.draft(botId, path, (value) => ({ ...value!, text: event.target.value, error: undefined }))} />
       </label>

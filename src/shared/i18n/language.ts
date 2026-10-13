@@ -70,11 +70,23 @@ export function subscribeUiLanguage(listener: () => void): () => void {
 }
 
 /** Only application-owned UI strings are translated; unknown text passes through. */
+const resourceConflictMessages = new Set([
+  "This working copy is being changed or removed. Retry accepting the result when the operation finishes.",
+  "Close files and terminals using this worker checkout before cleanup. Its worktree was kept.",
+  "Close files and terminals using this working copy before cleanup; it may currently be being removed.",
+  "This working copy is receiving an accepted result or an active write. Retry when the operation finishes.",
+]);
+
 export function translate(
   text: string,
   values?: TranslationValues,
   locale: UiLanguage = getUiLanguage(),
 ): string {
+  // Only these application-owned error headers are translated; occupant IDs,
+  // process IDs and paths on following lines remain literal diagnostic data.
+  const newline = text.indexOf("\n");
+  if (newline > 0 && resourceConflictMessages.has(text.slice(0, newline)))
+    return translate(text.slice(0, newline), values, locale) + text.slice(newline);
   const template =
     locale === "zh-CN" &&
     Object.prototype.hasOwnProperty.call(translations, text)

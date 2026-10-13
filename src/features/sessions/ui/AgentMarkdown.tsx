@@ -37,19 +37,19 @@ import type { PluggableList } from "unified";
 import {
   ExplorerMenu,
   type ExplorerMenuItem,
-} from "../../files/ui/ExplorerMenu";
-import { FileActionError } from "../../files/ui/FileActionError";
-import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
-import { boundedCode } from "../../files/editor/codeHighlightPlugin";
-import { createLazyMermaidPlugin } from "../../files/editor/mermaidPlugin";
+} from "../../connections/files/ui/ExplorerMenu";
+import { FileActionError } from "../../connections/files/ui/FileActionError";
+import { FileTypeIcon } from "../../connections/files/ui/FileTypeIcon";
+import { boundedCode } from "../../connections/files/editor/codeHighlightPlugin";
+import { createLazyMermaidPlugin } from "../../connections/files/editor/mermaidPlugin";
 import {
   displayPath,
   isExtensionlessFileName,
   resolveWorkspaceFileReference,
 } from "../../../shared/lib/paths";
 import type { EditorNavigation, OpenFileFn } from "../../search/model/search";
-import { remarkWorkspaceFileLinks } from "../../files/model/markdownFileLinks";
-import { isAtxHeadingLine } from "../../files/model/markdownSource";
+import { remarkWorkspaceFileLinks } from "../../connections/files/model/markdownFileLinks";
+import { isAtxHeadingLine } from "../../connections/files/model/markdownSource";
 import { useColorScheme } from "../../../shared/hooks/useColorScheme";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
 

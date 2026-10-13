@@ -12,7 +12,7 @@ import type {
   SessionSearchHit,
   SessionSummary,
 } from "../../sessions/data/sessionStore";
-import type { RankedFile } from "../../files/model/fileIndex";
+import type { RankedFile } from "../../connections/files/model/fileIndex";
 import type { ProjectSearchMatch } from "./search";
 import { transcriptBlockText } from "../../sessions/model/transcriptFind";
 

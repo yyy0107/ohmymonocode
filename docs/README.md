@@ -14,6 +14,7 @@
 
 - [贡献指南](../CONTRIBUTING.md)与[仓库约定](../AGENTS.md)。
 - [本地化](localization.md)、[手动刷新开发环境](../scripts/dev-refresh.md)。
+- [Claude 参考桌面规格](desktop-visual-spec.md)、[桌面重构交付记录](desktop-visual-delivery.md)、[静态源码清单](desktop-visual-inventory.csv)；清单不代表全部组件已运行验收。
 - [IM 适配器](../host/im/README.md)、[助理评测](../host/bots/eval/README.md)。
 - [更新记录](../CHANGELOG.md)、[截图来源](screenshots/README.md)。
 

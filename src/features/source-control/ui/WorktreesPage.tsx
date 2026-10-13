@@ -185,7 +185,7 @@ export function WorktreesPage({
                 <GitBranch className="mt-0.5 size-4 shrink-0 text-content/45" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="min-w-0 break-all text-[13px] font-medium">
+                    <span data-code-label className="min-w-0 break-all text-[13px] font-medium">
                       {tree.branch ??
                         uiT("Detached at {value0}", {
                           value0: String(tree.head.slice(0, 7)),

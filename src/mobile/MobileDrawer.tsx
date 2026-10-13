@@ -432,10 +432,16 @@ function useMobileDrawerController({
   const allSessions = useMemo(() => sortMobileSessions(
     tree.flatMap((item) => projectHistory(item).sessions ?? []),
   ).filter((item) => ownerById.has(item.projectId)), [tree, projectHistory, ownerById]);
-  const sessionOrder = useMemo(() => allSessions.map((item) => item.id), [allSessions]);
-  useListReorderMotion(sessionsList, sessionOrder, "data-session-id");
-  const pins = useMemo(() => allSessions.filter((item) => item.pinned), [allSessions]);
+  const pinnedOrder = useRef(new Map<string, number>());
+  const pins = useMemo(() => allSessions.filter((item) => item.pinned).sort((a, b) =>
+    (pinnedOrder.current.get(a.id) ?? -1) - (pinnedOrder.current.get(b.id) ?? -1),
+  ), [allSessions]);
+  useLayoutEffect(() => {
+    pinnedOrder.current = new Map(pins.map((item, index) => [item.id, index]));
+  }, [pins]);
   const recents = useMemo(() => allSessions.filter((item) => !item.pinned), [allSessions]);
+  const sessionOrder = useMemo(() => [...pins, ...recents].map((item) => item.id), [pins, recents]);
+  useListReorderMotion(sessionsList, sessionOrder, "data-session-id");
   const failedProjects = useMemo(() => tree.filter((item) => {
     const history = projectHistory(item);
     return history.failed && !history.sessions;

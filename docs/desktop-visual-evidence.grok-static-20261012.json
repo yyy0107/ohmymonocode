@@ -1,0 +1,1332 @@
+{
+  "boundary": "Historical Grok static snapshot, superseded by the Claude desktop specification. Source expressions and static branches; not computed or runtime measurements. Typography headings/caption retain unresolved-selection classification.",
+  "inputs": [
+    {
+      "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/settings/deliverables/settings-components.csv",
+      "sha256": "6bfb7bfa87e271f0dbd6f990aad19c34f03dfd311b5c35faa5a760986cebaf9d"
+    },
+    {
+      "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/settings/deliverables/settings-animations.csv",
+      "sha256": "d9be3991a21d51d6f3150028b92fb5e4ed1b00601ba96e7dd937f944b5ba6568"
+    }
+  ],
+  "styles": [
+    {
+      "id": "SC0073",
+      "label": "Lt.heading1",
+      "mapping_kind": "same-style-family-unresolved-selection",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "1678854",
+      "owner_functions": "index-DCpFUyZ2.js#J9e | index-DCpFUyZ2.js#Isn | index-DCpFUyZ2.js#Msn | index-DCpFUyZ2.js#Ms | index-DCpFUyZ2.js#Ms | index-DCpFUyZ2.js#K9e | index-DCpFUyZ2.js#c9t | index-DCpFUyZ2.js#hsn | index-DCpFUyZ2.js#asn",
+      "font-size": "26px",
+      "line-height": "32px",
+      "other_declarations": "letter-spacing:-.015em",
+      "notes": "同族未直接引用不证明此规格用于设置；需结合调用参数。"
+    },
+    {
+      "id": "SC0074",
+      "label": "Lt.heading2",
+      "mapping_kind": "same-style-family-unresolved-selection",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "1678939",
+      "owner_functions": "index-DCpFUyZ2.js#J9e | index-DCpFUyZ2.js#Isn | index-DCpFUyZ2.js#Msn | index-DCpFUyZ2.js#Ms | index-DCpFUyZ2.js#Ms | index-DCpFUyZ2.js#K9e | index-DCpFUyZ2.js#c9t | index-DCpFUyZ2.js#hsn | index-DCpFUyZ2.js#asn",
+      "font-size": "22px",
+      "line-height": "28px",
+      "other_declarations": "letter-spacing:-.012em",
+      "notes": "同族未直接引用不证明此规格用于设置；需结合调用参数。"
+    },
+    {
+      "id": "SC0075",
+      "label": "Lt.heading3",
+      "mapping_kind": "same-style-family-unresolved-selection",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "1679024",
+      "owner_functions": "index-DCpFUyZ2.js#J9e | index-DCpFUyZ2.js#Isn | index-DCpFUyZ2.js#Msn | index-DCpFUyZ2.js#Ms | index-DCpFUyZ2.js#Ms | index-DCpFUyZ2.js#K9e | index-DCpFUyZ2.js#c9t | index-DCpFUyZ2.js#hsn | index-DCpFUyZ2.js#asn",
+      "font-size": "17px",
+      "line-height": "24px",
+      "other_declarations": "letter-spacing:-.008em",
+      "notes": "同族未直接引用不证明此规格用于设置；需结合调用参数。"
+    },
+    {
+      "id": "SC0076",
+      "label": "Lt.body1",
+      "mapping_kind": "direct-style-reference",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "1679107",
+      "owner_functions": "index-DCpFUyZ2.js#J9e | index-DCpFUyZ2.js#Isn | index-DCpFUyZ2.js#Msn | index-DCpFUyZ2.js#Ms",
+      "font-size": "14px",
+      "line-height": "20px",
+      "other_declarations": "letter-spacing:0",
+      "notes": "组件代码直接引用该样式对象；最终层叠未验证。"
+    },
+    {
+      "id": "SC0077",
+      "label": "Lt.body2",
+      "mapping_kind": "direct-style-reference",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "1679189",
+      "owner_functions": "index-DCpFUyZ2.js#c9t | index-DCpFUyZ2.js#hsn | index-DCpFUyZ2.js#asn",
+      "font-size": "13px",
+      "line-height": "18px",
+      "other_declarations": "letter-spacing:0",
+      "notes": "组件代码直接引用该样式对象；最终层叠未验证。"
+    },
+    {
+      "id": "SC0078",
+      "label": "Lt.label",
+      "mapping_kind": "direct-style-reference",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "1679270",
+      "owner_functions": "index-DCpFUyZ2.js#Ms | index-DCpFUyZ2.js#K9e",
+      "font-size": "12px",
+      "line-height": "16px",
+      "other_declarations": "letter-spacing:0",
+      "notes": "组件代码直接引用该样式对象；最终层叠未验证。"
+    },
+    {
+      "id": "SC0079",
+      "label": "Lt.caption",
+      "mapping_kind": "same-style-family-unresolved-selection",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "1679354",
+      "owner_functions": "index-DCpFUyZ2.js#J9e | index-DCpFUyZ2.js#Isn | index-DCpFUyZ2.js#Msn | index-DCpFUyZ2.js#Ms | index-DCpFUyZ2.js#Ms | index-DCpFUyZ2.js#K9e | index-DCpFUyZ2.js#c9t | index-DCpFUyZ2.js#hsn | index-DCpFUyZ2.js#asn",
+      "font-size": "11px",
+      "line-height": "16px",
+      "other_declarations": "letter-spacing:.005em",
+      "notes": "同族未直接引用不证明此规格用于设置；需结合调用参数。"
+    },
+    {
+      "id": "SC0159",
+      "label": "ox.surface",
+      "mapping_kind": "direct-style-reference",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "2044395",
+      "owner_functions": "index-DCpFUyZ2.js#P3e",
+      "border-radius": "12px",
+      "other_declarations": "--ui-select-inner-padding:6px | --ui-select-list-gap:2px | --ui-select-row-min-height:40px | --ui-select-row-padding-block:6px | --ui-select-row-padding-inline:16px | --ui-select-row-gap:4px | --ui-menu-row-border-radius:8px | --ui-surface-hairline-width:.5px",
+      "notes": "组件代码直接引用该样式对象；最终层叠未验证。"
+    },
+    {
+      "id": "SC0160",
+      "label": "ox.filledWeakBorder",
+      "mapping_kind": "direct-style-reference",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "2044789",
+      "owner_functions": "index-DCpFUyZ2.js#iwt | index-DCpFUyZ2.js#P3e",
+      "other_declarations": "border-top-color:var(--sand-border-subtle) | border-inline-end-color:var(--sand-border-subtle) | border-bottom-color:var(--sand-border-subtle) | border-inline-start-color:var(--sand-border-subtle)",
+      "notes": "组件代码直接引用该样式对象；最终层叠未验证。"
+    },
+    {
+      "id": "SC0161",
+      "label": "ox.valueLabel",
+      "mapping_kind": "direct-style-reference",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "2044897",
+      "owner_functions": "index-DCpFUyZ2.js#iwt | index-DCpFUyZ2.js#P3e",
+      "display": "-webkit-box",
+      "other_declarations": "-webkit-box-orient:vertical | -webkit-line-clamp:1 | line-clamp:1 | text-wrap-mode:wrap | overflow-wrap:anywhere",
+      "notes": "组件代码直接引用该样式对象；最终层叠未验证。"
+    },
+    {
+      "id": "SC0162",
+      "label": "Kv.knob",
+      "mapping_kind": "direct-style-reference",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "2057405",
+      "owner_functions": "index-DCpFUyZ2.js#X3e",
+      "border-radius": "50%",
+      "border-width": ".5px",
+      "background-color": "var(--sand-text-on-color)",
+      "border-color": "var(--sand-border-weak)",
+      "transition-property": "transform",
+      "transition-duration": ".12s",
+      "transition-timing-function": "ease",
+      "other_declarations": "box-sizing:border-box | position:absolute | top:50% | inset-inline-start:2px | border-style:solid | box-shadow:0 1px 3px 0 var(--sand-shadow-control) | transform:translateY(-50%)",
+      "notes": "组件代码直接引用该样式对象；最终层叠未验证。"
+    },
+    {
+      "id": "SC0163",
+      "label": "Kv.knobSm",
+      "mapping_kind": "direct-style-reference",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "2057722",
+      "owner_functions": "index-DCpFUyZ2.js#X3e",
+      "width": "12px",
+      "height": "12px",
+      "notes": "组件代码直接引用该样式对象；最终层叠未验证。"
+    },
+    {
+      "id": "SC0164",
+      "label": "Kv.knobMd",
+      "mapping_kind": "direct-style-reference",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "2057783",
+      "owner_functions": "index-DCpFUyZ2.js#X3e",
+      "width": "16px",
+      "height": "16px",
+      "notes": "组件代码直接引用该样式对象；最终层叠未验证。"
+    },
+    {
+      "id": "SC0165",
+      "label": "Kv.knobSmChecked",
+      "mapping_kind": "direct-style-reference",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "2057851",
+      "owner_functions": "index-DCpFUyZ2.js#X3e",
+      "other_declarations": "transform:translate(calc(10px*var(--sand-inline-sign,1)),-50%)",
+      "notes": "组件代码直接引用该样式对象；最终层叠未验证。"
+    },
+    {
+      "id": "SC0166",
+      "label": "Kv.knobMdChecked",
+      "mapping_kind": "direct-style-reference",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "2057897",
+      "owner_functions": "index-DCpFUyZ2.js#X3e",
+      "other_declarations": "transform:translate(calc(12px*var(--sand-inline-sign,1)),-50%)",
+      "notes": "组件代码直接引用该样式对象；最终层叠未验证。"
+    },
+    {
+      "id": "SC0167",
+      "label": "ny.avatar",
+      "mapping_kind": "direct-style-reference",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "2243594",
+      "owner_functions": "index-DCpFUyZ2.js#c9t",
+      "border-radius": "9999px",
+      "color": "var(--sand-text-secondary)",
+      "background-color": "var(--sand-fill-neutral-subtle)",
+      "overflow": "hidden",
+      "display": "inline-flex",
+      "flex-shrink": "0",
+      "other_declarations": "box-sizing:border-box | align-items:center | justify-content:center | -webkit-user-select:none | user-select:none",
+      "notes": "组件代码直接引用该样式对象；最终层叠未验证。"
+    },
+    {
+      "id": "SC0193",
+      "label": "J.dialog",
+      "mapping_kind": "direct-style-reference",
+      "source_file": "surface-Dv5uDTRw.js",
+      "source_utf16_offset": "178",
+      "owner_functions": "surface-Dv5uDTRw.js#cs",
+      "width": "min(1000px,calc(100vw - 40px))",
+      "max-width": "calc(100vw - 32px)",
+      "padding": "0",
+      "background-color": "var(--sand-bg-base)",
+      "notes": "组件代码直接引用该样式对象；最终层叠未验证。"
+    },
+    {
+      "id": "SC0194",
+      "label": "J.navItem",
+      "mapping_kind": "direct-style-reference",
+      "source_file": "surface-Dv5uDTRw.js",
+      "source_utf16_offset": "283",
+      "owner_functions": "surface-Dv5uDTRw.js#cs",
+      "width": "100%",
+      "padding-top": "7px",
+      "padding-bottom": "7px",
+      "padding-inline-start": "9px",
+      "padding-inline-end": "9px",
+      "gap": "9px",
+      "border-radius": "8px",
+      "border-width": "0",
+      "font-size": "13px",
+      "color": "var(--cursor-text-primary)",
+      "display": "flex",
+      "transition-property": "background-color,color",
+      "transition-duration": ".12s,.12s",
+      "transition-timing-function": "ease,ease",
+      "other_declarations": "box-sizing:border-box | align-items:center | border-style:none | font-family:inherit | text-align:start | cursor:pointer | outline-style:none | outline-style:solid [selector:.sand-9v5kkp:focus-visible] | outline-width:0 | outline-width:2px [selector:.sand-784prv:focus-visible] | outline-color:transparent | outline-color:var(--cursor-icon-accent-primary) [selector:.sand-2d6ogt:focus-visible] | outline-offset:0 | outline-offset:-2px [selector:.sand-1bqaal:focus-visible]",
+      "notes": "组件代码直接引用该样式对象；最终层叠未验证。"
+    },
+    {
+      "id": "SC0195",
+      "label": "J.navItemActive",
+      "mapping_kind": "direct-style-reference",
+      "source_file": "surface-Dv5uDTRw.js",
+      "source_utf16_offset": "868",
+      "owner_functions": "surface-Dv5uDTRw.js#cs",
+      "color": "var(--cursor-text-primary)",
+      "background-color": "var(--sand-fill-ghost-selected)",
+      "notes": "组件代码直接引用该样式对象；最终层叠未验证。"
+    },
+    {
+      "id": "SC0210",
+      "label": "sand-settings-row",
+      "mapping_kind": "named-literal-branch",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "3536268",
+      "owner_functions": "index-DCpFUyZ2.js#$w",
+      "row-gap": "8px",
+      "column-gap": "24px",
+      "display": "flex",
+      "other_declarations": "box-sizing:border-box | flex-wrap:wrap | align-items:flex-start | justify-content:space-between | --sand-anchor-reveal:0 | --sand-anchor-reveal:1 [selector:.sand-jodmca:hover]",
+      "notes": "静态类组合的一个分支；条件与动态样式未运行验证。非 computed style。"
+    },
+    {
+      "id": "SC0211",
+      "label": "sand-settings-row",
+      "mapping_kind": "named-literal-branch",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "3536396",
+      "owner_functions": "index-DCpFUyZ2.js#$w",
+      "padding-top": "var(--cursor-spacing-3)",
+      "padding-bottom": "var(--cursor-spacing-3)",
+      "padding-inline-start": "var(--cursor-spacing-3-5)",
+      "padding-inline-end": "var(--cursor-spacing-3-5)",
+      "row-gap": "8px",
+      "column-gap": "var(--cursor-spacing-5)",
+      "display": "flex",
+      "other_declarations": "box-sizing:border-box | flex-wrap:wrap | justify-content:space-between | --sand-anchor-reveal:0 | --sand-anchor-reveal:1 [selector:.sand-jodmca:hover] | position:relative | align-items:center",
+      "notes": "静态类组合的一个分支；条件与动态样式未运行验证。非 computed style。"
+    },
+    {
+      "id": "SC0212",
+      "label": "sand-settings-row__divider",
+      "mapping_kind": "named-literal-branch",
+      "source_file": "index-DCpFUyZ2.js",
+      "source_utf16_offset": "3536781",
+      "owner_functions": "index-DCpFUyZ2.js#$w",
+      "height": ".5px",
+      "background-color": "var(--sand-border-default)",
+      "other_declarations": "position:absolute | top:0 | inset-inline-end:var(--cursor-spacing-3) | inset-inline-start:var(--cursor-spacing-3)",
+      "notes": "静态类组合的一个分支；条件与动态样式未运行验证。非 computed style。"
+    },
+    {
+      "id": "SC0220",
+      "label": "sand-settings-pane-header",
+      "mapping_kind": "named-literal-branch",
+      "source_file": "pane-header-DlPK_Nkr.js",
+      "source_utf16_offset": "823",
+      "owner_functions": "pane-header-DlPK_Nkr.js#y",
+      "padding-top": "32px",
+      "padding-bottom": "6px",
+      "padding-inline-start": "32px",
+      "padding-inline-end": "32px",
+      "gap": "2px",
+      "display": "flex",
+      "flex-grow": "0",
+      "flex-shrink": "0",
+      "other_declarations": "box-sizing:border-box | flex-basis:auto | align-items:center | justify-content:space-between",
+      "notes": "静态类组合的一个分支；条件与动态样式未运行验证。非 computed style。"
+    },
+    {
+      "id": "SC0223",
+      "label": "sand-settings-nav",
+      "mapping_kind": "named-literal-branch",
+      "source_file": "surface-Dv5uDTRw.js",
+      "source_utf16_offset": "1795",
+      "owner_functions": "surface-Dv5uDTRw.js#cs",
+      "width": "198px",
+      "padding-top": "16px",
+      "padding-bottom": "16px",
+      "padding-inline-start": "12px",
+      "padding-inline-end": "12px",
+      "gap": "2px",
+      "background-color": "var(--sand-bg-subtle)",
+      "display": "flex",
+      "flex-grow": "0",
+      "flex-shrink": "0",
+      "other_declarations": "box-sizing:border-box | flex-basis:auto | flex-direction:column | border-inline-end-width:.5px | border-inline-end-style:solid | border-inline-end-color:var(--cursor-stroke-tertiary)",
+      "notes": "静态类组合的一个分支；条件与动态样式未运行验证。非 computed style。"
+    }
+  ],
+  "motion": [
+    {
+      "id": "M01",
+      "title": "设置主窗口打开/关闭",
+      "settings_usage": "已证实设置调用",
+      "trigger": "设置 surface 挂载/open=true；关闭触发 onOpenChange→onClose",
+      "properties": "[\"animation-name\", \"transform\"]",
+      "from_to": "{\"animation-name\": \"none（surface/backdrop）\", \"transform\": \"translate(-50%,-50%) 固定定位\"}",
+      "duration": "transitionDuration=0 ms；无启用的入场/离场 keyframes",
+      "delay": "未显式设置；CSS 初始值为 0s（推导，未实测）",
+      "easing": "不适用",
+      "keyframes": "",
+      "spring": "此项未定义 spring",
+      "reduced_motion": "相关组件/命中规则中未发现专门 reduced-motion 覆盖；不能据此推断全局或运行态行为",
+      "interruption": "Gfe 切换 initial/open/close；open 分支 requestAnimationFrame 可被 cleanup 取消。父组件卸载时外层关闭生命周期未运行验证。",
+      "sources": [
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "_2t",
+          "start": 1858973,
+          "end": 1859610,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Sve",
+          "start": 1859616,
+          "end": 1859641,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Dte",
+          "start": 1858707,
+          "end": 1858857,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "PYe",
+          "start": 771061,
+          "end": 777489,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Gfe",
+          "start": 308619,
+          "end": 309007,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "surface-Dv5uDTRw.js",
+          "start": 5138,
+          "end": 5251,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "1c0d5e84b51b063054300c53e35c7802f0338024d6166535fc39c289a46759e5",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/surface-Dv5uDTRw.js"
+        }
+      ]
+    },
+    {
+      "id": "M02",
+      "title": "设置 presentation 包装与分区内容切换",
+      "settings_usage": "已证实设置调用；未定义面板位移动画",
+      "trigger": "选择 nav 项先清 notice，再调用 onSelectSection；activeSection/children 替换",
+      "properties": "[]",
+      "from_to": "{\"presentation\": \"S4n 仅 Context.Provider\"}",
+      "duration": "无专用动画定义",
+      "delay": "未显式设置；CSS 初始值为 0s（推导，未实测）",
+      "easing": "不适用",
+      "keyframes": "",
+      "spring": "此项未定义 spring",
+      "reduced_motion": "相关组件/命中规则中未发现专门 reduced-motion 覆盖；不能据此推断全局或运行态行为",
+      "interruption": "静态样式未定义专用中断逻辑；实际重入/反向插值未验证",
+      "sources": [
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "S4n",
+          "start": 3532520,
+          "end": 3532607,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "surface-Dv5uDTRw.js",
+          "start": 1259,
+          "end": 1278,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "1c0d5e84b51b063054300c53e35c7802f0338024d6166535fc39c289a46759e5",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/surface-Dv5uDTRw.js"
+        },
+        {
+          "file": "surface-Dv5uDTRw.js",
+          "start": 5341,
+          "end": 5380,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "1c0d5e84b51b063054300c53e35c7802f0338024d6166535fc39c289a46759e5",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/surface-Dv5uDTRw.js"
+        }
+      ]
+    },
+    {
+      "id": "M03",
+      "title": "设置导航项 hover/active/focus 颜色反馈",
+      "settings_usage": "已证实设置调用",
+      "trigger": "hover/activeSection 变化",
+      "properties": "[\"background-color\", \"color\"]",
+      "from_to": "默认/hover/选中颜色来自 J.navItem + ra.interactive + J.navItemActive；见 css_rules",
+      "duration": "120 ms（两属性）",
+      "delay": "未显式设置；CSS 初始值为 0s（推导，未实测）",
+      "easing": "ease,ease",
+      "keyframes": "",
+      "spring": "此项未定义 spring",
+      "reduced_motion": "相关组件/命中规则中未发现专门 reduced-motion 覆盖；不能据此推断全局或运行态行为",
+      "interruption": "静态样式未定义专用中断逻辑；实际重入/反向插值未验证",
+      "sources": [
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "ra",
+          "start": 2005376,
+          "end": 2006338,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "surface-Dv5uDTRw.js",
+          "start": 2284,
+          "end": 2331,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "1c0d5e84b51b063054300c53e35c7802f0338024d6166535fc39c289a46759e5",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/surface-Dv5uDTRw.js"
+        }
+      ]
+    },
+    {
+      "id": "M04",
+      "title": "设置右上关闭按钮颜色反馈",
+      "settings_usage": "已证实设置调用",
+      "trigger": "hover/focus/disabled 对应 CSS 状态",
+      "properties": "[\"color\", \"background-color\", \"border-color\"]",
+      "from_to": "由默认/伪类颜色 token 决定；无 scale 动画",
+      "duration": "--cursor-duration-normal = 150 ms",
+      "delay": "未显式设置；CSS 初始值为 0s（推导，未实测）",
+      "easing": "--cursor-easing-default = ease",
+      "keyframes": "",
+      "spring": "此项未定义 spring",
+      "reduced_motion": "相关组件/命中规则中未发现专门 reduced-motion 覆盖；不能据此推断全局或运行态行为",
+      "interruption": "静态样式未定义专用中断逻辑；实际重入/反向插值未验证",
+      "sources": [
+        {
+          "file": "surface-Dv5uDTRw.js",
+          "start": 3145,
+          "end": 3173,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "1c0d5e84b51b063054300c53e35c7802f0338024d6166535fc39c289a46759e5",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/surface-Dv5uDTRw.js"
+        }
+      ]
+    },
+    {
+      "id": "M05",
+      "title": "设置开关轨道与滑块",
+      "settings_usage": "已证实设置调用（md）",
+      "trigger": "onToggle(!isChecked)；checked/disabled 状态与 hover",
+      "properties": "[\"background-color\", \"transform\"]",
+      "from_to": "{\"track\": \"--sand-fill-control-track ↔ --sand-fill-control-checked；disabled/hover 对应专用 token\", \"knob_md\": \"translateY(-50%) ↔ translate(calc(12px*var(--sand-inline-sign,1)),-50%)\", \"knob_sm_library\": \"10px；本次设置调用均 size=md\"}",
+      "duration": "120 ms",
+      "delay": "未显式设置；CSS 初始值为 0s（推导，未实测）",
+      "easing": "ease",
+      "keyframes": "",
+      "spring": "此项未定义 spring",
+      "reduced_motion": "相关组件/命中规则中未发现专门 reduced-motion 覆盖；不能据此推断全局或运行态行为",
+      "interruption": "静态样式未定义专用中断逻辑；实际重入/反向插值未验证",
+      "sources": [
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "X3e",
+          "start": 2057931,
+          "end": 2060762,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Kv",
+          "start": 2057396,
+          "end": 2057930,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        }
+      ]
+    },
+    {
+      "id": "M06",
+      "title": "设置操作按钮颜色反馈与 pending",
+      "settings_usage": "已证实设置调用",
+      "trigger": "hover/disabled/pending props 变化",
+      "properties": "[\"background-color\", \"color\"]",
+      "from_to": "见 oo 中 neutral/accent/danger 与 disabled/pending ink 规则",
+      "duration": "120 ms",
+      "delay": "未显式设置；CSS 初始值为 0s（推导，未实测）",
+      "easing": "ease-out",
+      "keyframes": "",
+      "spring": "此项未定义 spring",
+      "reduced_motion": "相关组件/命中规则中未发现专门 reduced-motion 覆盖；不能据此推断全局或运行态行为",
+      "interruption": "静态样式未定义专用中断逻辑；实际重入/反向插值未验证",
+      "sources": [
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Ms",
+          "start": 2034431,
+          "end": 2036509,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "oo",
+          "start": 2031776,
+          "end": 2033889,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "rwt",
+          "start": 2043679,
+          "end": 2044259,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        }
+      ]
+    },
+    {
+      "id": "M07",
+      "title": "主题/通知等 Select 弹出层",
+      "settings_usage": "已证实设置调用 P3e→Sct→xct",
+      "trigger": "select-popup data-starting-style/data-ending-style 随打开关闭改变",
+      "properties": "[\"opacity\", \"transform\"]",
+      "from_to": "{\"opacity\": \"0 ↔ 1\", \"bottom\": \"translate3d(0,-2px,0) scale(.98) ↔ none\", \"top\": \"translate3d(0,2px,0) scale(.98) ↔ none\", \"left\": \"translate3d(2px,0,0) scale(.98) ↔ none\", \"right\": \"translate3d(-2px,0,0) scale(.98) ↔ none\", \"origin\": \"var(--transform-origin)\"}",
+      "duration": "--cursor-duration-fast = 100 ms；[data-instant] 为 0s",
+      "delay": "未显式设置；CSS 初始值为 0s（推导，未实测）",
+      "easing": "--cursor-easing-out-quint = cubic-bezier(.16,1,.3,1)",
+      "keyframes": "",
+      "spring": "此项未定义 spring",
+      "reduced_motion": "@media(prefers-reduced-motion:reduce) .ui-sagj69.ui-sagj69 将 transition-duration 设为 .01ms",
+      "interruption": "静态样式未定义专用中断逻辑；实际重入/反向插值未验证",
+      "sources": [
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "P3e",
+          "start": 2045038,
+          "end": 2045925,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Sct",
+          "start": 1286236,
+          "end": 1287721,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "xct",
+          "start": 1284213,
+          "end": 1285090,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "mb",
+          "start": 569673,
+          "end": 569684,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "tBe",
+          "start": 569387,
+          "end": 569672,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        }
+      ]
+    },
+    {
+      "id": "M08",
+      "title": "Select 触发按钮与箭头（非启用动画）",
+      "settings_usage": "静态已证实：默认 animated=false；未发现设置显式启用",
+      "trigger": "开关 select popup 后箭头颜色变化，hover/disabled 变化",
+      "properties": "[\"color\", \"background-color\", \"border-color\"]",
+      "from_to": "animated=true 才挂 fa.animated；设置默认不挂。q6 仅改变颜色，不定义旋转。",
+      "duration": "可选库定义 150 ms；本次默认未启用",
+      "delay": "未显式设置；CSS 初始值为 0s（推导，未实测）",
+      "easing": "可选库 ease",
+      "keyframes": "",
+      "spring": "此项未定义 spring",
+      "reduced_motion": "相关组件/命中规则中未发现专门 reduced-motion 覆盖；不能据此推断全局或运行态行为",
+      "interruption": "静态样式未定义专用中断逻辑；实际重入/反向插值未验证",
+      "sources": [
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Bye",
+          "start": 1282177,
+          "end": 1283305,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "fct",
+          "start": 1280737,
+          "end": 1281069,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "fa",
+          "start": 1276861,
+          "end": 1280238,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "q6",
+          "start": 1280556,
+          "end": 1280727,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "mct",
+          "start": 1281250,
+          "end": 1281371,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        }
+      ]
+    },
+    {
+      "id": "M09",
+      "title": "语言/时区可搜索弹出面板",
+      "settings_usage": "已证实设置调用 J9e→nk.Popup→Bnt→qnt",
+      "trigger": "搜索面板打开关闭；data-starting-style/data-ending-style",
+      "properties": "[\"opacity\", \"transform\"]",
+      "from_to": "同 M07：0↔1，按位置偏移 2px + scale .98↔none",
+      "duration": "100 ms；data-instant=0s",
+      "delay": "未显式设置；CSS 初始值为 0s（推导，未实测）",
+      "easing": "cubic-bezier(.16,1,.3,1)",
+      "keyframes": "",
+      "spring": "此项未定义 spring",
+      "reduced_motion": "命中 .ui-sagj69：reduce 时 .01ms",
+      "interruption": "静态样式未定义专用中断逻辑；实际重入/反向插值未验证",
+      "sources": [
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "J9e",
+          "start": 3568279,
+          "end": 3570734,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Bnt",
+          "start": 1070512,
+          "end": 1070837,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "qnt",
+          "start": 1070837,
+          "end": 1071572,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "mb",
+          "start": 569673,
+          "end": 569684,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "tBe",
+          "start": 569387,
+          "end": 569672,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        }
+      ]
+    },
+    {
+      "id": "M10",
+      "title": "团队/账号菜单弹出层（LegacyMenu）",
+      "settings_usage": "已证实 general-pane _s 调用 cn；本次未覆盖全部子菜单状态",
+      "trigger": "点击 trigger；菜单 open/close",
+      "properties": "[\"opacity\", \"transform\"]",
+      "from_to": "{\"closed\": \"opacity 0；按方向偏移 2px，scale .98\", \"open\": \"空字符串恢复默认 opacity/transform\", \"origin\": \"随 placement 算 anchor 边\"}",
+      "duration": "open=100 ms、close=100 ms；instantClose/instantTransitions 可覆盖，但该设置调用未传",
+      "delay": "点击无专门延迟；库 hover trigger 延迟75 ms，但本设置调用未证实使用 HoverTrigger",
+      "easing": "cubic-bezier(.16,1,.3,1)",
+      "keyframes": "",
+      "spring": "此项未定义 spring",
+      "reduced_motion": "相关组件/命中规则中未发现专门 reduced-motion 覆盖；不能据此推断全局或运行态行为",
+      "interruption": "Wfe/Gfe 根据状态重设样式；Gfe open 请求帧 cleanup 会取消；close 保留挂载直到时限，具体用户快速反向行为未运行验证。",
+      "sources": [
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "cn",
+          "start": 2022914,
+          "end": 2022971,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Mxt",
+          "start": 2022712,
+          "end": 2022810,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "GJ",
+          "start": 1163222,
+          "end": 1163877,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "D2e",
+          "start": 1097859,
+          "end": 1100676,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Ast",
+          "start": 1093167,
+          "end": 1093328,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "$J",
+          "start": 1092257,
+          "end": 1092288,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "QP",
+          "start": 1091100,
+          "end": 1091155,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Cst",
+          "start": 1093036,
+          "end": 1093091,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Sst",
+          "start": 1092720,
+          "end": 1093036,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "vst",
+          "start": 1092251,
+          "end": 1092256,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "bst",
+          "start": 1092243,
+          "end": 1092250,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "_st",
+          "start": 1093091,
+          "end": 1093167,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "xst",
+          "start": 1092289,
+          "end": 1092305,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "_2e",
+          "start": 1091156,
+          "end": 1091455,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Wfe",
+          "start": 309007,
+          "end": 309858,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        }
+      ]
+    },
+    {
+      "id": "M11",
+      "title": "嵌套确认/选择弹窗",
+      "settings_usage": "已证实设置组件使用 vt.Root→Yxt→Sve",
+      "trigger": "如 computer cookie选择/导入/维护提示，usage 操作确认；挂载/关闭",
+      "properties": "[\"animation-name\"]",
+      "from_to": "surface/backdrop animation-name:none",
+      "duration": "transitionDuration=0 ms",
+      "delay": "未显式设置；CSS 初始值为 0s（推导，未实测）",
+      "easing": "不适用",
+      "keyframes": "",
+      "spring": "此项未定义 spring",
+      "reduced_motion": "相关组件/命中规则中未发现专门 reduced-motion 覆盖；不能据此推断全局或运行态行为",
+      "interruption": "静态样式未定义专用中断逻辑；实际重入/反向插值未验证",
+      "sources": [
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "vt",
+          "start": 2044265,
+          "end": 2044382,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Yxt",
+          "start": 2039987,
+          "end": 2041090,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Sve",
+          "start": 1859616,
+          "end": 1859641,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "_2t",
+          "start": 1858973,
+          "end": 1859610,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Dte",
+          "start": 1858707,
+          "end": 1858857,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        }
+      ]
+    },
+    {
+      "id": "M12",
+      "title": "设置通知条出现/自动消失",
+      "settings_usage": "已证实 surface ns→Vwn→WSe",
+      "trigger": "boxActionError 更新；notice非空时条件渲染；dismiss按钮；超时",
+      "properties": "[]",
+      "from_to": "条件挂载 → 定时读状态后 null；没有淡入/淡出定义",
+      "duration": "成功显示3500 ms；错误显示6000 ms（生命周期时长，不是动画 duration）",
+      "delay": "成功3500 ms/错误6000 ms后自动消失",
+      "easing": "不适用",
+      "keyframes": "",
+      "spring": "此项未定义 spring",
+      "reduced_motion": "相关组件/命中规则中未发现专门 reduced-motion 覆盖；不能据此推断全局或运行态行为",
+      "interruption": "subscribeFor cleanup dispose 计时器并复位，notice 变更重新订阅；手动 dismiss 清 notice；分区切换清 notice。",
+      "sources": [
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Vwn",
+          "start": 2579182,
+          "end": 2579360,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "WSe",
+          "start": 2577311,
+          "end": 2579182,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "GSe",
+          "start": 2576902,
+          "end": 2577310,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "CIt",
+          "start": 2576699,
+          "end": 2576896,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "SIt",
+          "start": 2576508,
+          "end": 2576699,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "xIt",
+          "start": 2576387,
+          "end": 2576448,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "wIt",
+          "start": 2576449,
+          "end": 2576507,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        }
+      ]
+    },
+    {
+      "id": "M13",
+      "title": "设置滚动条 hover 显隐",
+      "settings_usage": "已证实 scroll-pane N→Nr scrollbarVisibility=hover",
+      "trigger": "根节点 pointer enter/leave、thumb hover/active/drag",
+      "properties": "[\"background-color\", \"opacity\"]",
+      "from_to": "{\"opacity\": \"0 ↔ 1；active 类/active伪类强制1\", \"background\": \"--cursor-stroke-tertiary ↔ --cursor-stroke-secondary\"}",
+      "duration": "两个属性均 --cursor-duration-normal = 150 ms",
+      "delay": "未显式设置；CSS 初始值为 0s（推导，未实测）",
+      "easing": "两个属性均 --cursor-easing-default = ease",
+      "keyframes": "",
+      "spring": "此项未定义 spring",
+      "reduced_motion": "@media reduce .ui-144st5w.ui-144st5w duration=.01ms,.01ms",
+      "interruption": "静态样式未定义专用中断逻辑；实际重入/反向插值未验证",
+      "sources": [
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "Nr",
+          "start": 210591,
+          "end": 217152,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "kX",
+          "start": 210481,
+          "end": 210572,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "yR",
+          "start": 209415,
+          "end": 210011,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "scroll-pane-CA21a6KI.js",
+          "start": 376,
+          "end": 385,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "16e1b72fcb3a2daa0b9144174e02940d988014b32f8cd7a8a91a322462ff5cfe",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/scroll-pane-CA21a6KI.js"
+        }
+      ]
+    },
+    {
+      "id": "M14",
+      "title": "设置锚点定位闪光",
+      "settings_usage": "已证实 $w 调用 W9e，G9e=bve(_H)",
+      "trigger": "外部设置 anchor 到达并找到行；scrollIntoView({block:\"center\"}) 后 remove/add class",
+      "properties": "[\"background-color\"]",
+      "from_to": "{\"0%,60%\": \"color-mix(in srgb,var(--sand-fill-accent) 12%,transparent)\", \"100%\": \"transparent\"}",
+      "duration": "1.6 s、1次",
+      "delay": "未显式设置；CSS 初始值为 0s（推导，未实测）",
+      "easing": "ease-out",
+      "keyframes": "[{\"file\": \"index-BrN-auUU.css\", \"offset\": 538337, \"selector\": \"0%,60%\", \"context\": [\"@keyframes sand-anchor-flash\"], \"declarations\": [{\"property\": \"background-color\", \"value\": \"color-mix(in srgb,var(--sand-fill-accent) 12%,transparent)\", \"important\": false}]}, {\"file\": \"index-BrN-auUU.css\", \"offset\": 538420, \"selector\": \"to\", \"context\": [\"@keyframes sand-anchor-flash\"], \"declarations\": [{\"property\": \"background-color\", \"value\": \"transparent\", \"important\": false}]}]",
+      "spring": "此项未定义 spring",
+      "reduced_motion": "相关组件/命中规则中未发现专门 reduced-motion 覆盖；不能据此推断全局或运行态行为",
+      "interruption": "通过移除类、读取offsetWidth、重新加类重启动画。arrival 只 claim 一次；claim 可用期8000 ms，不是动画时长。",
+      "sources": [
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "bve",
+          "start": 1770667,
+          "end": 1772109,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "jte",
+          "start": 1770643,
+          "end": 1770666,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "f0t",
+          "start": 1770635,
+          "end": 1770642,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "$w",
+          "start": 3535999,
+          "end": 3538759,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        }
+      ]
+    },
+    {
+      "id": "M15",
+      "title": "复制/设置链接按钮反馈",
+      "settings_usage": "已证实 $w→A3e/vxt→vg",
+      "trigger": "复制成功后图标 link/copy 切到 check",
+      "properties": "[\"opacity\"]",
+      "from_to": "复制状态图标直接替换；reveal 样式 opacity 变化",
+      "duration": "复制成功状态1200 ms；reveal opacity 120 ms",
+      "delay": "未显式设置；CSS 初始值为 0s（推导，未实测）",
+      "easing": "reveal ease-out",
+      "keyframes": "",
+      "spring": "此项未定义 spring",
+      "reduced_motion": "相关组件/命中规则中未发现专门 reduced-motion 覆盖；不能据此推断全局或运行态行为",
+      "interruption": "静态样式未定义专用中断逻辑；实际重入/反向插值未验证",
+      "sources": [
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "A3e",
+          "start": 2009537,
+          "end": 2009845,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "vxt",
+          "start": 2009845,
+          "end": 2010154,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "vg",
+          "start": 1940250,
+          "end": 1940589,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "m3t",
+          "start": 1940241,
+          "end": 1940249,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "tF",
+          "start": 634586,
+          "end": 634729,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "_3e",
+          "start": 2009415,
+          "end": 2009536,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "bs",
+          "start": 2007550,
+          "end": 2009409,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "of",
+          "start": 2006339,
+          "end": 2007411,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        }
+      ]
+    },
+    {
+      "id": "M16",
+      "title": "通用 spinner（未证实设置使用）",
+      "settings_usage": "库定义；不计入设置实际动画",
+      "trigger": "xf 组件挂载",
+      "properties": "[\"transform\"]",
+      "from_to": "见 sand-1wc8ddo-B 旋转 keyframes",
+      "duration": "700 ms / infinite",
+      "delay": "未显式设置；CSS 初始值为 0s（推导，未实测）",
+      "easing": "linear",
+      "keyframes": "[{\"file\": \"index-BrN-auUU.css\", \"offset\": 355556, \"selector\": \"0%\", \"context\": [\"@keyframes sand-1wc8ddo-B\"], \"declarations\": [{\"property\": \"transform\", \"value\": \"rotate(0)\", \"important\": false}]}, {\"file\": \"index-BrN-auUU.css\", \"offset\": 355579, \"selector\": \"to\", \"context\": [\"@keyframes sand-1wc8ddo-B\"], \"declarations\": [{\"property\": \"transform\", \"value\": \"rotate(360deg)\", \"important\": false}]}]",
+      "spring": "此项未定义 spring",
+      "reduced_motion": "reduce：animation-name:none，opacity:.7",
+      "interruption": "静态样式未定义专用中断逻辑；实际重入/反向插值未验证",
+      "sources": [
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "xf",
+          "start": 2081171,
+          "end": 2082000,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        }
+      ]
+    },
+    {
+      "id": "M17",
+      "title": "全屏弹窗库默认（排除）",
+      "settings_usage": "库默认；设置xxl未启用",
+      "trigger": "size=fullscreen 且提供 animationSource 才执行",
+      "properties": "[\"transform\", \"border-radius\", \"opacity\"]",
+      "from_to": "从源几何 translate+scale→目标，radius以缩放补偿；反向关闭",
+      "duration": "默认300 ms",
+      "delay": "未显式设置；CSS 初始值为 0s（推导，未实测）",
+      "easing": "cubic-bezier(.165,.84,.44,1)",
+      "keyframes": "",
+      "spring": "此项未定义 spring",
+      "reduced_motion": "相关组件/命中规则中未发现专门 reduced-motion 覆盖；不能据此推断全局或运行态行为",
+      "interruption": "静态样式未定义专用中断逻辑；实际重入/反向插值未验证",
+      "sources": [
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "PYe",
+          "start": 771061,
+          "end": 777489,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "kYe",
+          "start": 765100,
+          "end": 765107,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        },
+        {
+          "file": "index-DCpFUyZ2.js",
+          "symbol": "bYe",
+          "start": 765108,
+          "end": 765148,
+          "offsetUnit": "UTF-16 code units",
+          "sha256_file": "0f2c0d54ac208dbc32c77b28ba5d6551bed9d2cd5496665f08bf9869c41659fd",
+          "path": "/home/wy/Documents/Codex/2026-10-12/task/grok-audit-20261012/extracted/dist/renderer/assets/index-DCpFUyZ2.js"
+        }
+      ]
+    }
+  ],
+  "status": "historical-superseded",
+  "effective_spec": "desktop-visual-spec.md"
+}

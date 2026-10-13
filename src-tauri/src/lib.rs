@@ -650,6 +650,11 @@ pub fn ensure_macos_dev_bundle() {
     macos::ensure_dev_bundle();
 }
 
+/// Internal terminal owner, entered before initializing the desktop runtime.
+pub fn run_terminal_guard() -> i32 {
+    pty::run_guard()
+}
+
 #[cfg(test)]
 mod tests {
     use super::should_request_quit;

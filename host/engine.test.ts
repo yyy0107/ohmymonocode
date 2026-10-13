@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, rmSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, readdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -104,20 +104,43 @@ describe("headless session ownership", () => {
     turns[1].finish();
   });
 
-  it("waits for another active run on the same checkout, then dispatches exactly once", async () => {
+  it("runs conversations on the same checkout concurrently and dispatches each exactly once", async () => {
     const { engine, store, project, id, turns } = setup();
     const second = engine.command({ type: "create", commandId: "second", projectId: project.id, harness: "codex", model: "codex:test", runtimeMode: "supervised" }).sessionId;
     engine.command({ type: "send", commandId: "first-run", sessionId: id, text: "First" });
     await vi.waitFor(() => expect(turns).toHaveLength(1));
     engine.command({ type: "send", commandId: "second-run", sessionId: second, text: "Second" });
-    await new Promise(resolve => setTimeout(resolve, 150));
-    expect(turns).toHaveLength(1);
+    await vi.waitFor(() => expect(turns).toHaveLength(2));
     expect(store.session(second).status).toBe("running");
     turns[0].finish();
     await vi.waitFor(() => expect(turns).toHaveLength(2));
     expect(turns[1].input.sessionId).toBe(second);
     turns[1].finish();
     await vi.waitFor(() => expect(store.session(second).status).toBe("idle"));
+  });
+
+  it("persists resource wait reasons, cancels before dispatch, and starts a later request once", async () => {
+    const { engine, store, turns, id, directory } = setup("pi");
+    await engine.ready;
+    store.db.prepare("INSERT INTO checkout_resources VALUES ('exclusive', ?, 'integrating', ?)").run(directory, process.pid);
+    engine.command({ type: "send", commandId: "waiting", sessionId: id, text: "Wait" });
+    await vi.waitFor(() => expect(store.session(id).session.executionState).toMatchObject({ phase: "waiting-resource", reason: "integrating", blockers: [{ id: "exclusive" }] }));
+    expect(turns).toHaveLength(0);
+    engine.command({ type: "cancel", commandId: "cancel-wait", sessionId: id, runId: store.session(id).runId! });
+    await vi.waitFor(() => expect(store.session(id).status).toBe("idle"));
+    expect(store.session(id).session.executionState).toBeUndefined();
+    store.db.prepare("DELETE FROM checkout_resources WHERE id='exclusive'").run();
+    engine.command({ type: "send", commandId: "retry-wait", sessionId: id, text: "Retry" });
+    await vi.waitFor(() => expect(turns).toHaveLength(1));
+    expect(store.session(id).session.executionState?.phase).toBe("starting");
+    turns[0].input.onEvent({ type: "session.started" });
+    expect(store.session(id).session.executionState?.phase).toBe("awaiting-response");
+    turns[0].input.onEvent({ type: "reasoning.delta", text: "Thinking now" });
+    expect(engine.session(id)?.session.executionState?.phase).toBe("active");
+    turns[0].finish();
+    await vi.waitFor(() => expect(store.session(id).status).toBe("idle"));
+    expect(turns).toHaveLength(1);
+    expect(store.session(id).session.executionState).toBeUndefined();
   });
 
   it("reads Claude hooks from the execution Host for each new turn", async () => {
@@ -477,6 +500,7 @@ describe("headless session ownership", () => {
     const revision = store.session(id).revision;
     const generationSample = { outputTokens: 4, durationMs: 1_000, tokenSource: "text-estimate" as const, estimator: "text-heuristic-v1" as const, method: "stream-estimate" as const, scope: "last-text-segment" as const };
     turns[0].input.onEvent({ type: "turn.metrics", generationSample });
+    await vi.waitFor(() => expect(store.session(id).revision).toBeGreaterThan(revision));
     const delta = JSON.parse(JSON.stringify(store.sync(id, revision)));
     expect(delta.kind).toBe("delta");
     expect(delta.blocks.find((block: { id: string }) => block.id === "rate-turn").turnMetrics).toEqual({ generationSample });
@@ -1079,6 +1103,7 @@ describe("headless session ownership", () => {
         { type: "accepted" },
       ),
     );
+    const allHistory = vi.spyOn(store, "sessions").mockImplementation(() => { throw new Error("Recovery must not load all transcripts at once"); });
     const recovered = new HostEngine(store, { codex: provider });
     expect(store.session(id).status).toBe("interrupted");
     expect(store.session(id).session.busy).toBe(false);
@@ -1090,6 +1115,9 @@ describe("headless session ownership", () => {
       value.session.cwd,
     );
     await recovered.workflows.ready;
+    await recovered.ready;
+    expect(allHistory).not.toHaveBeenCalled();
+    allHistory.mockRestore();
     await recovered.close();
   });
 
@@ -1166,6 +1194,37 @@ describe("headless session ownership", () => {
     } finally {
       log.mockRestore();
     }
+  });
+
+  it.each(["pi", "omp", "codex"] as const)("batches %s text and telemetry while immediately persisting approvals and final output", async (harness) => {
+    const { engine, store, turns, id } = setup(harness);
+    await engine.ready;
+    engine.command({ type: "send", commandId: "telemetry-stream", sessionId: id, text: "Work" });
+    await vi.waitFor(() => expect(turns).toHaveLength(1));
+    const observer = vi.spyOn(engine.bots.defaultAssistant, "observe");
+    const started = store.session(id).revision;
+    for (let index = 0; index < 50; index++) {
+      turns[0].input.onEvent({ type: "message.delta", text: `chunk ${index} ` });
+      turns[0].input.onEvent({ type: "context", window: 128000, used: index });
+      turns[0].input.onEvent({ type: "turn.metrics", outputTokens: index });
+    }
+    expect(store.session(id).revision).toBe(started);
+    await vi.waitFor(() => expect(store.session(id).revision).toBe(started + 1));
+    expect(observer).not.toHaveBeenCalled();
+    expect(store.session(id).session.context).toEqual({ used: 49, window: 128000 });
+    expect(store.session(id).session.blocks[0].turnMetrics?.outputTokens).toBe(49);
+    turns[0].input.onEvent({ type: "message.delta", text: "before approval" });
+    turns[0].input.onEvent({ type: "approval.requested", requestId: 1, title: "Allow?" });
+    expect(store.session(id).revision).toBe(started + 2);
+    expect(observer).toHaveBeenCalled();
+    expect(store.session(id).session.blocks.some(block => block.text.includes("before approval"))).toBe(true);
+    turns[0].input.onEvent({ type: "message.delta", text: "final chunk" });
+    turns[0].input.onEvent({ type: "turn.metrics", outputTokens: 100 });
+    turns[0].finish();
+    await vi.waitFor(() => expect(store.session(id).status).toBe("idle"));
+    expect(store.session(id).session.blocks[0].turnMetrics?.outputTokens).toBe(100);
+    expect(store.session(id).session.blocks.some(block => block.text.includes("final chunk"))).toBe(true);
+    observer.mockRestore();
   });
 
   it("batches streamed output and syncs only changed blocks", async () => {
@@ -1397,6 +1456,97 @@ it.each(["running", "idle"] as const)("submits an expired Codex question as a du
 });
 
 describe("session checkpoints", () => {
+  const review = { files: [{ path: "notes.txt", relative: "notes.txt", status: "modified", additions: 1, deletions: 1, exact: true, undoable: true }] };
+
+  it("checks review status against 1500 histories without reading their transcripts", async () => {
+    const { engine, store, id } = setup();
+    await engine.ready;
+    const template = store.session(id);
+    store.transaction(() => {
+      for (let index = 0; index < 1500; index++)
+        store.save({ ...template, session: { ...template.session, id: `history-${index}` } }, { type: "seed" });
+    });
+    store.session(id);
+    vi.spyOn(engine.checkpoints, "status").mockResolvedValue(review);
+    const history = vi.spyOn(store, "sessions").mockImplementation(() => { throw new Error("Full history scan"); });
+    const queries = vi.spyOn(store.db, "prepare");
+    for (let index = 0; index < 3; index++)
+      expect(await engine.sessionCheckpoint(id, "status", undefined)).toEqual(review);
+    expect(history).not.toHaveBeenCalled();
+    expect(queries.mock.calls.filter(([sql]) => /SELECT snapshot FROM sessions/i.test(sql))).toHaveLength(0);
+    history.mockRestore();
+    queries.mockRestore();
+  });
+
+  it("shares in-flight status reads, releases failures and reevaluates locks after the read", async () => {
+    const { engine, store, project, id, turns } = setup();
+    await engine.ready;
+    let release!: (value: typeof review) => void;
+    const status = vi.spyOn(engine.checkpoints, "status").mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const first = engine.sessionCheckpoint(id, "status", undefined);
+    const second = engine.sessionCheckpoint(id, "status", undefined);
+    expect(status).toHaveBeenCalledTimes(1);
+    const other = engine.command({ type: "create", commandId: "review-other", projectId: project.id,
+      harness: "codex", model: "codex:test", runtimeMode: "supervised" }).sessionId;
+    engine.command({ type: "send", commandId: "review-running", sessionId: other, text: "Work" });
+    await vi.waitFor(() => expect(turns).toHaveLength(1));
+    // An unflushed live run still guards the checkout if stored metadata lags.
+    const running = store.session(other);
+    store.save({ ...running, revision: running.revision + 1, status: "idle" }, { type: "lagging-metadata" });
+    release(review);
+    for (const result of await Promise.all([first, second])) expect(result).toMatchObject({ undoLocked: true });
+    status.mockResolvedValue(review);
+    await expect(engine.sessionCheckpoint(id, "undo", undefined)).rejects.toThrow("another session is running");
+    store.save({ ...running, revision: running.revision + 2 }, { type: "metadata-caught-up" });
+    engine.command({ type: "cancel", commandId: "review-cancel", sessionId: other, runId: running.runId! });
+    await vi.waitFor(() => expect(store.session(other).lastCompletedRunId).toBe(running.runId));
+    expect(await engine.sessionCheckpoint(id, "status", undefined)).toEqual(review);
+    status.mockRejectedValueOnce(new Error("temporary read failure"));
+    const failures = await Promise.allSettled([engine.sessionCheckpoint(id, "status", undefined), engine.sessionCheckpoint(id, "status", undefined)]);
+    expect(failures.every(result => result.status === "rejected")).toBe(true);
+    expect(await engine.sessionCheckpoint(id, "status", undefined)).toEqual(review);
+  });
+
+  it("keeps overlapping checkout and undo protections without scanning history", async () => {
+    const { engine, store, id, directory } = setup();
+    await engine.ready;
+    const cwd = join(directory, "checkout");
+    const child = join(cwd, "child");
+    const unrelated = join(directory, "unrelated");
+    mkdirSync(child, { recursive: true });
+    mkdirSync(unrelated);
+    const alias = join(directory, "alias");
+    symlinkSync(cwd, alias, process.platform === "win32" ? "junction" : "dir");
+    const target = store.session(id);
+    store.save({ ...target, revision: target.revision + 1, session: { ...target.session, cwd } }, { type: "move" });
+    vi.spyOn(engine.checkpoints, "status").mockResolvedValue(review);
+    const undo = vi.spyOn(engine.checkpoints, "undo").mockImplementation(async () => {
+      expect(store.db.prepare("SELECT 1 FROM checkout_resources WHERE kind='integrating'").get()).toBeDefined();
+      return { files: [] };
+    });
+    let revision = 0;
+    const other = (path: string, status: "running" | "idle") => store.save({ ...target,
+      revision: ++revision, status, session: { ...target.session, id: "other", cwd: path } }, { type: "other" });
+    for (const path of [cwd, directory, child, alias]) {
+      other(path, "running");
+      expect(await engine.sessionCheckpoint(id, "status", undefined)).toMatchObject({ undoLocked: true });
+      await expect(engine.sessionCheckpoint(id, "undo", undefined)).rejects.toThrow("another session is running");
+    }
+    expect(undo).not.toHaveBeenCalled();
+    other(unrelated, "running");
+    expect(await engine.sessionCheckpoint(id, "status", undefined)).toEqual(review);
+    expect(await engine.sessionCheckpoint(id, "undo", undefined)).toEqual({ files: [] });
+    other(cwd, "idle");
+    expect(await engine.sessionCheckpoint(id, "status", undefined)).toEqual(review);
+    // An unlocked status is only a display hint: undo rechecks after a new run.
+    other(cwd, "running");
+    await expect(engine.sessionCheckpoint(id, "undo", undefined)).rejects.toThrow("another session is running");
+    other(cwd, "idle");
+    undo.mockRejectedValueOnce(new Error("changed outside this session"));
+    await expect(engine.sessionCheckpoint(id, "undo", undefined)).rejects.toThrow("changed outside this session");
+    expect(store.db.prepare("SELECT 1 FROM checkout_resources WHERE kind='integrating'").get()).toBeUndefined();
+  });
+
   it.each(["completed", "cancelled", "rejected", "error event"] as const)(
     "records Git turns after %s providers settle, including writes before edit events",
     async (outcome) => {

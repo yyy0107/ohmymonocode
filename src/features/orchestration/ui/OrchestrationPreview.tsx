@@ -1,3 +1,4 @@
+import { MenuHover } from "../../../shared/ui/MenuHover";
 import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
@@ -356,6 +357,7 @@ function AssignmentModel({
                   highlighted ? "bg-selection" : "hover:bg-content/3"
                 }`}
               >
+                <MenuHover />
                 <span className="min-w-0 flex-1 truncate">{option.label}</span>
                 {selectedOption ? (
                   <Check

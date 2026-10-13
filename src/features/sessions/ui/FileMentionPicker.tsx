@@ -1,10 +1,10 @@
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { StickyNote } from "../../../shared/ui/icons";
 import { useEffect, useRef, type MouseEvent as ReactMouseEvent } from "react";
-import type { RankedFile } from "../../files/model/fileIndex";
+import type { RankedFile } from "../../connections/files/model/fileIndex";
 import { isNoteMentionPath } from "../../notes";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
-import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
+import { FileTypeIcon } from "../../connections/files/ui/FileTypeIcon";
 import { MatchText } from "../../../shared/ui/MatchText";
 
 type Props = {
@@ -126,6 +126,7 @@ export function FileMentionPicker({
                   )}
                 </span>
                 <span
+                  data-file-label={!note || undefined}
                   className={`min-w-0 flex-1 truncate ${
                     highlighted ? "text-mention" : ""
                   }`}

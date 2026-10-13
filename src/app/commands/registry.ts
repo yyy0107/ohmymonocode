@@ -1,4 +1,4 @@
-import type { ExplorerMenuItem } from "../../features/files/ui/ExplorerMenu";
+import type { ExplorerMenuItem } from "../../features/connections/files/ui/ExplorerMenu";
 import { quickComposerShortcutLabel } from "../../features/quick-composer/model/quickComposerShortcut";
 import {
   KEYBINDINGS,

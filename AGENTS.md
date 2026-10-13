@@ -29,6 +29,23 @@ are not prerequisites for local work.
   it does not need to be restated in each feature request.
 
 
+## 动画
+
+- 编写 Motion 相关代码前，先阅读项目内的官方
+  [Motion skill](.agents/skills/motion/SKILL.md)，并通过 Motion MCP
+  (`https://mcp.motion.dev`) 或 `https://motion.dev/llms.txt` 查询并阅读当前文档，
+  不要凭记忆编写 API。Skill 是操作指引，不能替代实时文档。
+- 只使用免费、MIT 许可的 Motion；不引入 Motion+ 付费功能，跳过 `llms.txt`
+  及 MCP 结果中标记为 paid 的页面和功能。本项目规则优先于 skill 中的通用建议。
+- React 引入路径使用 `motion/react`，不使用旧的 `framer-motion`。
+- 列表增删和排序使用 `@formkit/auto-animate`；hover、按压和 loading 点使用 CSS。
+- 缓动曲线统一为 `[0.22, 1, 0.36, 1]`（CSS 为
+  `cubic-bezier(0.22, 1, 0.36, 1)`）；时长：消息 `0.18s`、弹出 `0.2s`、面板 `0.24s`。
+- 必须支持减少动态效果：Motion 使用 `useReducedMotion()` 或
+  `<MotionConfig reducedMotion="user">`；CSS 和列表动画同样遵循
+  `prefers-reduced-motion`，不要禁用 AutoAnimate 默认的减少动态效果支持。
+- 展开/折叠仍遵循上面的共享 `AnimatedCollapse` / `useCollapseMotion` 规则。
+
 ## Verification
 
 Keep verification proportional to the change and minimize unnecessary testing.

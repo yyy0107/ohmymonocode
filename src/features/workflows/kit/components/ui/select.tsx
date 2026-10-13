@@ -1,8 +1,10 @@
 "use client";
 
-import { MotionPresenceItem } from "./motion-presence";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
+import { useCollapseMotion } from "../../../../../shared/ui/AnimatedCollapse";
+import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../../../shared/ui/SurfaceVisibility";
 import {
+  duration,
   immediateTransition,
   popAnimate,
   popExit,
@@ -10,6 +12,7 @@ import {
   popTransition,
 } from "../../../../../shared/motion/tokens";
 import { useMotionPreference } from "../../../../../shared/motion/useMotionPreference";
+import { MenuHover } from "../../../../../shared/ui/MenuHover";
 import * as React from "react";
 import { Select as SelectPrimitive } from "radix-ui";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -65,7 +68,8 @@ function Select({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
   const [localOpen, setLocalOpen] = React.useState(defaultOpen);
-  const open = controlledOpen ?? localOpen;
+  const visible = useSurfaceVisibility();
+  const open = visible && (controlledOpen ?? localOpen);
   return (
     <SelectMotionContext.Provider value={open}>
       <SelectPrimitive.Root
@@ -138,53 +142,50 @@ function SelectContent({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   const open = React.useContext(SelectMotionContext);
+  const visible = useSurfaceVisibility();
   const reduced = useMotionPreference();
-  const presence = (
-    <AnimatePresence>
-      {open && (
-        <MotionPresenceItem key="content">
-          <SelectPrimitive.Content
-            forceMount
-            asChild
-            data-slot="select-content"
-            data-align-trigger={position === "item-aligned"}
-            className={cn(
-              // 可操作的 Select 必须高于 z-50 tooltip，避免提示遮住选项。
-              "relative z-[60] max-h-(--radix-select-content-available-height) min-w-32 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg border border-popover-border panel-menu p-1 text-foreground shadow-md             [app-region:no-drag]",
-              className,
-            )}
-            position={position}
-            align={align}
-            {...props}
-          >
-            <motion.div
-              initial={reduced ? false : popInitial}
-              animate={popAnimate}
-              exit={popExit}
-              transition={reduced ? immediateTransition : popTransition}
+  const lifetime = useCollapseMotion(open, duration.pop * 1000);
+  const mounted = visible && (open || lifetime.foldState !== "closed");
+  return (
+    <SelectPrimitive.Portal>
+      <SelectPrimitive.Content
+        {...props}
+        forceMount={mounted ? true : undefined}
+        asChild
+        data-slot="select-content"
+        data-fold-state={!open && mounted ? "closing" : lifetime.foldState}
+        data-align-trigger={position === "item-aligned"}
+        inert={!open}
+        aria-hidden={!open || undefined}
+        className={cn(
+          "relative z-[60] max-h-(--radix-select-content-available-height) min-w-32 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg border border-popover-border panel-menu p-1 text-foreground shadow-md [app-region:no-drag]",
+          className,
+        )}
+        position={position}
+        align={align}
+      >
+        <motion.div
+          initial={reduced || !open ? false : popInitial}
+          animate={open ? popAnimate : popExit}
+          transition={reduced ? immediateTransition : popTransition}
+          onAnimationComplete={lifetime.finish}
+          style={{ ...props.style, ...(!open ? { pointerEvents: "none" } : undefined) }}
+        >
+          <SurfaceVisibilityContext.Provider value={visible && open}>
+            <SelectScrollUpButton />
+            <SelectPrimitive.Viewport
+              data-menu-gutter
+              data-position={position}
+              className="flex flex-col gap-0.5 data-[position=popper]:w-full data-[position=popper]:min-w-(--radix-select-trigger-width)"
             >
-              <SelectScrollUpButton />
-              <SelectPrimitive.Viewport
-                data-position={position}
-                className={cn(
-                  // popper 模式下如果把 viewport 高度锁成 trigger 高度，
-                  // 会导致菜单可视区域被压成一行，无法完整展开选项。
-                  // 这里仅保留宽度对齐，交给内容容器的 max-height 控制可视高度。
-                  // Select 选项过去紧贴排列；在真正承载选项的 viewport 统一保留 2px。
-                  "flex flex-col gap-0.5 data-[position=popper]:w-full data-[position=popper]:min-w-(--radix-select-trigger-width)",
-                  position === "popper" && "",
-                )}
-              >
-                {children}
-              </SelectPrimitive.Viewport>
-              <SelectScrollDownButton />
-            </motion.div>
-          </SelectPrimitive.Content>
-        </MotionPresenceItem>
-      )}
-    </AnimatePresence>
+              {children}
+            </SelectPrimitive.Viewport>
+            <SelectScrollDownButton />
+          </SurfaceVisibilityContext.Provider>
+        </motion.div>
+      </SelectPrimitive.Content>
+    </SelectPrimitive.Portal>
   );
-  return <SelectPrimitive.Portal forceMount>{presence}</SelectPrimitive.Portal>;
 }
 
 function SelectLabel({
@@ -221,6 +222,7 @@ const SelectItem = React.forwardRef<
       )}
       {...props}
     >
+      {props.asChild ? null : <MenuHover />}
       {trailing ? (
         <span className="pointer-events-auto absolute right-2 flex items-center justify-center">
           {trailing}

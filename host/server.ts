@@ -10,7 +10,7 @@ import { execFile } from "node:child_process";
 import { realpath, stat } from "node:fs/promises";
 import { promisify } from "node:util";
 import { createHash, randomUUID } from "node:crypto";
-import { claimCheckoutResource, claimCheckoutWrite } from "./checkout-guards";
+import { claimCheckoutResource, claimCheckoutWrite, withCheckoutIntegration } from "./checkout-guards";
 import {
   HOST_PROTOCOL_VERSION,
   type HostModelCatalog,
@@ -235,11 +235,15 @@ export function createHostServer(
     if (typeof value !== "string" || !/^[A-Za-z0-9_:-]{1,200}$/.test(value)) throw new Error("Invalid editor resource identity");
     return `device:${createHash("sha256").update(token).digest("hex")}:${value}`;
   };
+  const mutateFiles = async <T>(_projectId: string, cwd: string, action: () => Promise<T>): Promise<T> => {
+    engine.assertWorkspaceWrite(cwd);
+    const release = claimCheckoutWrite(engine.store, `workspace:${randomUUID()}`, cwd);
+    try { return await action(); } finally { release(); }
+  };
   const mutateWorkspace = <T>(projectId: string, cwd: string, action: () => Promise<T>): Promise<T> =>
-    engine.withIdleProject(projectId, async () => {
+    engine.withIdleProject(projectId, () => {
       engine.assertWorkspaceWrite(cwd);
-      const release = claimCheckoutWrite(engine.store, `workspace:${randomUUID()}`, cwd);
-      try { return await action(); } finally { release(); }
+      return withCheckoutIntegration(engine.store, [cwd], action);
     });
   const server = createServer(
     { requestTimeout: 20_000, headersTimeout: 10_000, maxHeaderSize: 8192 },
@@ -644,7 +648,12 @@ export function createHostServer(
             );
             break;
           case "sessions.get": {
-            const value = engine.store.session(String(params.sessionId ?? ""));
+            const sessionId = String(params.sessionId ?? "");
+            if (Number.isSafeInteger(params.revision) && engine.store.sessionSummary(sessionId)?.revision === params.revision) {
+              result = null;
+              break;
+            }
+            const value = engine.store.session(sessionId);
             result = value.revision === params.revision ? null : value;
             break;
           }
@@ -935,7 +944,7 @@ export function createHostServer(
               String(params.projectId ?? ""),
             );
             const cwd = await resolveHostWorktreeAsync(project.cwd, params.cwd);
-            result = await mutateWorkspace(project.id, cwd, () => createHostPath(
+            result = await mutateFiles(project.id, cwd, () => createHostPath(
               cwd,
               params.parent,
               params.name,
@@ -949,7 +958,7 @@ export function createHostServer(
             );
             const cwd = await resolveHostWorktreeAsync(project.cwd, params.cwd);
             result =
-              (await mutateWorkspace(project.id, cwd, () => writeHostFile(
+              (await mutateFiles(project.id, cwd, () => writeHostFile(
                 cwd,
                 params.path,
                 params.expected,

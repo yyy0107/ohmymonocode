@@ -1,6 +1,7 @@
 import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { DetailsChevron } from "../../../shared/ui/DetailsChevron";
 import { DisclosureChevron } from "../../../shared/ui/DisclosureChevron";
+import type { SessionExecutionState } from "../model/session";
 import { formatGenerationRate, sanitizeGenerationSample } from "../model/generationSample";
 import { animate, AnimatePresence, motion, motionValue, useMotionValue, type AnimationPlaybackControlsWithThen } from "motion/react";
 import { duration, msgTransition, immediateTransition, springs } from "../../../shared/motion/tokens";
@@ -57,7 +58,7 @@ import { GeneratedImage } from "./GeneratedImage";
 import { MonocodeSparkles } from "./MonocodeSparkles";
 import { OrchestratorConstellation } from "./OrchestratorConstellation";
 import { PlanStepsBurst } from "./PlanStepsBurst";
-import { FilePreview } from "../../files/ui/FilePreview";
+import { FilePreview } from "../../connections/files/ui/FilePreview";
 import { PlanPreview } from "./PlanPreview";
 import { OrchestrationPreview } from "../../orchestration/ui/OrchestrationPreview";
 import { WorkflowRunCard, type WorkflowRunParent } from "../../workflows/ui/WorkflowRunCard";
@@ -230,6 +231,7 @@ type Props = {
   onQuestionFollowUp?: (answer: QuestionAnswer) => boolean | void | Promise<boolean | void>;
   /** Work the agent left running when it yielded; the turn waits on it. */
   backgroundTasks?: string[];
+  executionState?: SessionExecutionState;
   onApproval?: (requestId: number, decision: ApprovalDecision) => void;
   onAddToChat?: (text: string) => void;
   onSaveNote?: (text: string) => void | Promise<void>;
@@ -291,6 +293,7 @@ function AgentTranscriptComponent({
   pendingQuestionHistoryId,
   onQuestionFollowUp,
   backgroundTasks,
+  executionState,
   onApproval,
   onAddToChat,
   onSaveNote,
@@ -1130,7 +1133,7 @@ function AgentTranscriptComponent({
       {/* Contain wide rows inside the vertical scroller; code blocks and tables
           retain their own horizontal scrolling. Clip the content column so
           WebKit can keep scrolling the transcript vertically. */}
-      <div className="mx-auto flex w-full min-w-0 max-w-4xl flex-col gap-1 overflow-x-clip wrap-anywhere pb-8">
+      <div className="desktop-transcript-content mx-auto flex w-full min-w-0 max-w-4xl flex-col gap-1 overflow-x-clip wrap-anywhere pb-8">
         {firstVisibleTurn > 0 ? (
           <div className="flex justify-center px-4 @md:px-6 py-3">
             <button
@@ -1202,6 +1205,7 @@ function AgentTranscriptComponent({
                     : undefined
               }
               background={backgroundTasks}
+              executionState={executionState}
               modelName={turnModelName}
               clockHidden={clockInFooter}
             />
@@ -1243,6 +1247,7 @@ function AgentTranscriptComponent({
                 <InitialThinking
                   key={item.blocks[0].id}
                   live={visible && !settled}
+                  executionState={!settled ? executionState : undefined}
                 />
               ) : (
                 <ActivityPhases
@@ -1522,6 +1527,7 @@ function AgentTranscriptComponent({
                           : undefined
                       }
                       background={backgroundTasks}
+                      executionState={executionState}
                     />
                   )}
                 </AnimatedCollapse>
@@ -1592,12 +1598,27 @@ export const AgentTranscript = memo(
   (previous, next) => previous.visible === false && next.visible === false,
 );
 
+function executionLabel(state?: SessionExecutionState): string | undefined {
+  switch (state?.phase) {
+    case "waiting-resource": return state.reason === "computer" ? "Waiting for computer access…" : state.reason === "removing" ? "Waiting for worktree cleanup…" : "Waiting for workspace changes to finish…";
+    case "starting": return "Preparing to start…";
+    case "awaiting-response": return "Waiting for model response…";
+    case "settling": return "Finishing up…";
+    default: return undefined;
+  }
+}
+function executionDetails(state?: SessionExecutionState): string | undefined {
+  return state?.blockers?.map(b => `${b.id} · PID ${b.ownerPid} · ${b.path}`).join("\n");
+}
+
 /** Placeholder for private reasoning before the first assistant text arrives. */
 function InitialThinking({
+  executionState,
   live,
   embedded = false,
 }: {
   live: boolean;
+  executionState?: SessionExecutionState;
   embedded?: boolean;
 }) {
   const { t: uiT } = useTranslation();
@@ -1607,9 +1628,9 @@ function InitialThinking({
     >
       <ActivityPhaseIcon kind="think" />
       {live ? (
-        <Shimmer duration={1.6}>{uiT("Thinking…")}</Shimmer>
+        <Shimmer duration={1.6}>{uiT(executionLabel(executionState) ?? "Thinking…")}</Shimmer>
       ) : (
-        uiT("Thinking…")
+        uiT(executionLabel(executionState) ?? "Thinking…")
       )}
     </div>
   );
@@ -1623,6 +1644,7 @@ function InitialThinking({
  */
 function LiveFoldTitle({
   startedAt,
+  executionState,
   paused,
   waitingLabel,
   background,
@@ -1630,6 +1652,7 @@ function LiveFoldTitle({
   clockHidden = false,
 }: {
   startedAt?: number;
+  executionState?: SessionExecutionState;
   paused: boolean;
   waitingLabel?: string;
   background?: string[];
@@ -1637,7 +1660,9 @@ function LiveFoldTitle({
   /** The client shows an activity clock under the live turn. */
   clockHidden?: boolean;
 }) {
-  const elapsedMs = useElapsedFrom(startedAt, paused);
+  const { t: uiT } = useTranslation();
+  const phaseLabel = executionLabel(executionState);
+  const elapsedMs = useElapsedFrom(phaseLabel ? executionState?.since : executionState?.providerStartedAt ?? startedAt, paused);
   const elapsed = formatElapsed(elapsedMs);
   // The footer's clock tracks the current activity; the fold line keeps the
   // turn's total beside the model name.
@@ -1650,6 +1675,8 @@ function LiveFoldTitle({
   // keeps running and the line says what it is waiting on.
   const text = paused
     ? (waitingLabel ?? "Waiting for approval")
+    : phaseLabel
+      ? `${uiT(phaseLabel)}${elapsed ? ` · ${elapsed}` : ""}`
     : background?.length
       ? `${working} · ${backgroundLabel(background)}`
       : working;
@@ -1661,12 +1688,10 @@ function LiveFoldTitle({
       </Shimmer>
     </>
   );
-  return background?.length ? (
-    <span className="flex min-w-0" title={background.join("\n")}>
+  return (
+    <span className="flex min-w-0" title={executionDetails(executionState) ?? background?.join("\n")}>
       {label}
     </span>
-  ) : (
-    label
   );
 }
 
@@ -1680,6 +1705,7 @@ function LiveTurnFooter({
   turn,
   seed,
   startedAt,
+  executionState,
   waiting,
   background,
 }: {
@@ -1687,6 +1713,7 @@ function LiveTurnFooter({
   turn: Block[];
   seed: string;
   startedAt?: number;
+  executionState?: SessionExecutionState;
   waiting?: "approval" | "answers";
   background?: string[];
 }) {
@@ -1695,14 +1722,23 @@ function LiveTurnFooter({
   const paused = !!waiting;
   const now = useNow();
   const mascot = useProjectMascotAppearance(cwd);
+  const phaseLabel = !waiting ? executionLabel(executionState) : undefined;
   const status = liveStatus({
     turn,
     now,
-    startedAt,
+    startedAt: executionState?.providerStartedAt ?? startedAt,
     waiting,
     background: background?.length,
     seed,
   });
+  if (phaseLabel && executionState) {
+    status.phase = executionState.phase === "waiting-resource" ? "waiting" : "working";
+    status.clock = "round";
+    status.label = { literal: uiT(phaseLabel) };
+    status.clockStartedAt = executionState.since;
+    status.elapsed = formatElapsed(Math.max(0, now - executionState.since)) ?? undefined;
+    status.showClock = true;
+  }
   const label =
     "literal" in status.label
       ? status.label.literal
@@ -1711,6 +1747,7 @@ function LiveTurnFooter({
   return (
     <div
       className="transcript-live-footer flex min-w-0 items-center gap-2 px-4 pt-2 pb-1 font-sans text-sm @md:px-6"
+      title={executionDetails(executionState)}
       data-live-footer
       data-live-phase={status.phase}
       data-live-clock={status.showClock ? status.clock : undefined}
@@ -2285,6 +2322,7 @@ const TranscriptBlock = memo(function TranscriptBlock({
   return (
     <div
       data-selectable-agent-response={block.streaming ? undefined : block.id}
+      data-assistant-message
       className={`min-w-0 pb-1 text-content ${embedded ? "" : "px-4 @md:px-6"} ${underLine ? "pt-1" : "pt-3"}`}
     >
       <AgentMarkdown
@@ -2749,7 +2787,7 @@ const ActivityPhases = memo(function ActivityPhases({
 
   return (
     <div
-      className={`flex min-w-0 flex-col gap-1 ${padded ? "px-4 @md:px-6" : ""}`}
+      className={`desktop-activity-phases flex min-w-0 flex-col gap-1 ${padded ? "px-4 @md:px-6" : ""}`}
     >
       {phases.map((phase, index) => (
         <ActivityPhaseGroup

@@ -28,6 +28,7 @@ function Checkbox({ className, checkIconStrokeWidth, ...props }: CheckboxProps) 
             checkIconStrokeWidth !== undefined && "[&_path]:[vector-effect:non-scaling-stroke]",
           )}
           strokeWidth={checkIconStrokeWidth}
+          style={checkIconStrokeWidth !== undefined ? { strokeWidth: checkIconStrokeWidth } : undefined}
         />
         <Minus
           data-slot="checkbox-indeterminate-icon"

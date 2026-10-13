@@ -34,6 +34,7 @@ export function SearchableSelect({
   layer,
   variant = "field",
   searchable = true,
+  codeLabels = false,
   align = "start",
 }: {
   label: string;
@@ -47,6 +48,8 @@ export function SearchableSelect({
   layer?: number;
   variant?: "field" | "transparent" | "row" | "panel" | "pill";
   searchable?: boolean;
+  /** Render technical values with the desktop code font, including portal options. */
+  codeLabels?: boolean;
   align?: PopoverAlign;
 }) {
   const { t: uiT } = useTranslation();
@@ -218,6 +221,7 @@ export function SearchableSelect({
         }
       >
         <span
+          data-code-label={(codeLabels && !!selected) || undefined}
           className={`min-w-0 truncate leading-normal ${variant === "panel" ? "flex-1 text-right" : variant === "pill" || variant === "row" ? "" : "flex-1"} ${selected ? "text-content" : "text-content/40"}`}
         >
           {selected?.label ?? placeholder}
@@ -249,6 +253,7 @@ export function SearchableSelect({
             <input
               ref={search}
               role="combobox"
+              data-code-label={codeLabels || undefined}
               aria-label={searchPlaceholder}
               aria-expanded="true"
               aria-autocomplete="list"
@@ -307,7 +312,7 @@ export function SearchableSelect({
                       <Check className="size-3" strokeWidth={2} />
                     ) : null}
                   </span>
-                  <span className="min-w-0 flex-1 truncate leading-normal">
+                  <span data-code-label={codeLabels || undefined} className="min-w-0 flex-1 truncate leading-normal">
                     {option.label}
                   </span>
                 </button>

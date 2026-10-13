@@ -1,52 +1,74 @@
-/* Grok Bot 0.30 static definitions: S026–S036, S061–S067, SC*, M03–M15.
- * CSS px, not measured screen pixels. Dark is the existing Midnight adaptation.
- * Keep this scope on html: portals and native popup documents share the contract.
- */
+/* Measured desktop geometry. Mobile removes data-skin before applying its theme. */
 html[data-skin] {
-  --text-desktop-h1: 26px;
+  --text-desktop-h1: 24px;
   --text-desktop-h2: 22px;
-  --text-desktop-h3: 17px;
+  --text-desktop-h3: 15px;
   --text-desktop-body: 14px;
-  --text-desktop-ui: 13px;
-  --text-desktop-label: 12px;
-  --text-desktop-caption: 11px;
+  --text-desktop-ui: 14px;
+  --text-desktop-label: 13px;
+  --text-desktop-caption: 12px;
   --desktop-icon-xs: 20px;
   --desktop-icon-sm: 24px;
-  --desktop-icon-md: 28px;
-  --desktop-icon-lg: 32px;
+  --desktop-icon-md: 32px;
+  --desktop-icon-lg: 40px;
   --desktop-radius-field: 8px;
   --desktop-radius-card: 12px;
-  --desktop-radius-dialog: 14px;
-  --desktop-radius-bubble: 18px;
-  --desktop-radius-composer: 22px;
-  --desktop-border: 0.5px;
+  --desktop-radius-dialog: 12px;
+  --desktop-radius-tile: 10px;
+  --desktop-radius-bubble: 8px;
+  --desktop-radius-composer: 14px;
+  --desktop-border: 1px;
   --desktop-switch-width: 32px;
   --desktop-switch-height: 20px;
   --desktop-switch-thumb: 16px;
   --desktop-switch-travel: 12px;
-  --desktop-settings-nav: 198px;
-  --desktop-feedback: 120ms;
-  --desktop-feedback-normal: 150ms;
-  --desktop-popup-duration: 100ms;
-  --desktop-popup-ease: cubic-bezier(.16, 1, .3, 1);
-  --desktop-primary: #fcfcfc;
-  --desktop-on-primary: #070707;
-  --desktop-control-track: #fcfcfc26;
-  --desktop-control-checked: #fcfcfc;
-  --desktop-control-knob: #070707;
-  --desktop-control-disabled: #77777726;
+  --desktop-checkbox-size: 16px;
+  --desktop-checkbox-radius: 5px;
+  --desktop-settings-nav: 192px;
+  --desktop-sidebar-width: 288px;
+  --desktop-tile-gap: 12px;
+  --desktop-feedback: 60ms;
+  --desktop-feedback-normal: 120ms;
+  --desktop-popup-duration: 200ms;
+  --desktop-popup-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --desktop-primary: #f0efec;
+  --desktop-on-primary: #151515;
+  --desktop-control-track: #ffffff26;
+  --desktop-control-checked: #f0efec;
+  --desktop-control-knob: #151515;
+  --desktop-control-disabled: #89878126;
   --desktop-popup-x: 0px;
   --desktop-popup-y: 0px;
+  --desktop-menu-row: 32px;
+  --desktop-menu-font: 14px;
+  --desktop-menu-leading: 20px;
+  --desktop-menu-pad-y: 6px;
+  --desktop-menu-pad-x: 10px;
+  --desktop-menu-radius: 8px;
+  --desktop-menu-icon: 20px;
+  --desktop-menu-gap: 8px;
+  --desktop-menu-panel-radius: 12px;
+  --cds-fill-ghost-hover: rgb(255 255 255 / 7.5%);
+  --cds-fill-ghost-selected: rgb(255 255 255 / 15%);
+  --shadow-panel: inset 0 0 0 1px rgb(255 255 255 / 10%), 0 0 0 1px rgb(11 11 11 / 10%), 0 8px 24px #00000052, 0 2px 6px #0003;
+  --radius-composer: 14px;
+  --radius-sheet: 12px;
+  --radius-row: 8px;
+  --row-h: 32px;
+  --row-h-compact: 24px;
+  --glass-filter: none;
+  --shadow-sheet: 0 0 0 1px var(--color-hairline), 0 4px 18px #00000033;
 }
 
-/* settings-tokens.csv :root,.sand-1wuigm2. Root values are light evidence only. */
 html[data-skin].theme-light {
-  --desktop-primary: #070707;
-  --desktop-on-primary: #fcfcfc;
-  --desktop-control-track: #1414141a;
-  --desktop-control-checked: #070707;
-  --desktop-control-knob: #fcfcfc;
-  --desktop-control-disabled: #77777710;
-  --color-hover-fill: #77777717;
-  --color-surface-hover: #77777717;
+  --cds-fill-ghost-hover: rgb(11 11 11 / 5%);
+  --cds-fill-ghost-selected: rgb(11 11 11 / 10%);
+  --shadow-panel: inset 0 0 0 0 rgb(11 11 11 / 10%), 0 0 0 1px rgb(11 11 11 / 10%), 0 8px 24px #0000001f, 0 2px 6px #00000014;
+  --desktop-primary: #0b0b0b;
+  --desktop-on-primary: #fcfcfb;
+  --desktop-control-track: #0b0b0b1a;
+  --desktop-control-checked: #0b0b0b;
+  --desktop-control-knob: #ffffff;
+  --desktop-control-disabled: #8987811a;
+  --shadow-sheet: 0 0 0 1px var(--color-hairline), 0 1px 2px #0000000f, 0 2px 8px #00000014;
 }

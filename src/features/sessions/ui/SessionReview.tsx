@@ -8,16 +8,17 @@ import {
   undoSessionChanges,
   type CheckpointFile,
 } from "../model/checkpoint";
-import { invalidateProjectFiles } from "../../files/model/fileIndex";
-import { invalidateWatchedFiles } from "../../files/model/fileWatch";
+import { invalidateProjectFiles } from "../../connections/files/model/fileIndex";
+import { invalidateWatchedFiles } from "../../connections/files/model/fileWatch";
 import {
   basename,
   notifyGitChanged,
   subscribeGitChanged,
 } from "../../../platform/tauri/fs";
 import { formatInteger } from "../../../shared/lib/numbers";
-import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
+import { FileTypeIcon } from "../../connections/files/ui/FileTypeIcon";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
+import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 
 type Props = {
   sessionId: string;
@@ -39,6 +40,7 @@ export function SessionReview({
   undoLocked = false,
   onOpenDiff,
 }: Props) {
+  const visible = useSurfaceVisibility();
   const { t: uiT } = useTranslation();
   const [files, setFiles] = useState<CheckpointFile[]>([]);
   const [hostLocked, setHostLocked] = useState(false);
@@ -64,7 +66,7 @@ export function SessionReview({
       setLoading(false);
       return;
     }
-    if (!enabled || !cwd || cwd === "~") return;
+    if (!enabled || !visible || !cwd || cwd === "~") return;
     let stale = false;
     let loading = false;
     let pending = false;
@@ -139,7 +141,7 @@ export function SessionReview({
       unsubReview();
       unsubGit();
     };
-  }, [enabled, cwd, sessionId, busy, revision]);
+  }, [enabled, visible, cwd, sessionId, busy, revision]);
 
   useEffect(() => {
     if (files.length <= 3) setExpanded(false);

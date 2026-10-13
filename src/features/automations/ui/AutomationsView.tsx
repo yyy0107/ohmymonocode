@@ -1,3 +1,4 @@
+import { MenuHover } from "../../../shared/ui/MenuHover";
 import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { motion } from "motion/react";
 import { panelTransition, immediateTransition, motionGeometry } from "../../../shared/motion/tokens";
@@ -364,8 +365,8 @@ function AutomationsContent({
   const listLock = useLockOverscroll<HTMLDivElement>();
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 text-content">
-      <aside className="flex w-[280px] shrink-0 flex-col border-r border-stroke">
+    <div data-automation-columns className="flex min-h-0 min-w-0 flex-1 text-content">
+      <aside data-automation-list className="flex w-[280px] shrink-0 flex-col border-r border-stroke">
         <div className="desktop-toolbar flex h-9 shrink-0 items-center gap-1 border-b border-stroke px-2">
           <label className="relative flex h-7 min-w-0 flex-1 items-center">
             <Search className="pointer-events-none absolute left-2 size-3 shrink-0 text-content/40" />
@@ -433,7 +434,7 @@ function AutomationsContent({
         </div>
       </aside>
 
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <main data-automation-detail className="flex min-h-0 min-w-0 flex-1 flex-col">
         {error ? (
           <div className="m-4 flex shrink-0 items-start gap-2 rounded-lg border border-red-400/20 bg-red-400/8 px-3 py-2 text-[12px] text-red-300">
             <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
@@ -608,7 +609,7 @@ function AutomationPicker({
   return (
     <div
       ref={lockOverscroll}
-      className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-none"
+      className="automation-picker min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-none"
     >
       <div className="mx-auto w-full max-w-5xl px-8 pt-5 pb-10">
         <h1 className="desktop-page-heading text-[20px] font-semibold leading-tight text-content">
@@ -636,7 +637,7 @@ function AutomationPicker({
             );
           })}
         </div>
-        <div className="mt-4 grid grid-cols-1 gap-3 min-[780px]:grid-cols-2">
+        <div className="automation-template-grid mt-4 grid grid-cols-1 gap-3">
           <button
             type="button"
             onClick={onBlank}
@@ -1071,12 +1072,14 @@ function AutomationEditor({
                       <button
                         type="button"
                         role="menuitem"
+                        data-variant="destructive"
                         onClick={() => {
                           setMenuOpen(false);
                           onDelete();
                         }}
                         className="flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] text-red-300/90 hover:bg-red-500/15"
                       >
+                        <MenuHover />
                         <Trash2 className="size-3.5" />
                         {uiT("Delete automation")}
                       </button>
@@ -1246,6 +1249,7 @@ function AutomationEditor({
                                 : "text-content/70 hover:bg-content/3 hover:text-content"
                           }`}
                         >
+                          <MenuHover />
                           <TriggerMark
                             kind={option.value}
                             className="size-3.5 shrink-0"
@@ -1305,6 +1309,7 @@ function AutomationEditor({
                       onClick={() => selectTrigger(triggerCategory, event)}
                       className="flex h-9 w-full items-center rounded-lg px-2 text-left text-[13px] text-content/75 hover:bg-content/3 hover:text-content"
                     >
+                      <MenuHover />
                       {uiT(event.label)}
                     </button>
                   ))}

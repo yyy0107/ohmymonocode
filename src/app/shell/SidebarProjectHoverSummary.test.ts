@@ -148,6 +148,28 @@ it("passes counts for all main conversations without using the tree's five-row p
   expect(captured.projectList!.onProjectHoverOpen).toBeUndefined();
 });
 
+it("keeps the session tree while separating projectless chats from local and remote Code projects", () => {
+  const chat = "/home/me/Documents/ohmymonocode/2026-10-13/chat-120000-abcdef";
+  const remote = "remote://machine/projects/remote";
+  props.recents = [...props.recents!, { path: remote, openedAt: 3 }];
+  props.projectHistory = [row("local", A), row("remote", remote), row("chat", chat), row("draft", "~")];
+  props.desktopMode = "chat";
+  props.tab = "files";
+  act(() => render());
+  expect(container.querySelector('[data-desktop-sidebar="chat"]')).not.toBeNull();
+  expect(captured.projectList!.visibleProjectPaths?.size).toBe(0);
+  expect(captured.projectList!.showProjectSections).toBe(false);
+  expect(captured.projectList!.chatEntries?.map(({ id }) => id)).toEqual(expect.arrayContaining([`${chat}:chat`, "~:draft"]));
+  expect(container.querySelector('[role="tablist"]')).toBeNull();
+
+  props.desktopMode = "code";
+  act(() => render());
+  expect(captured.projectList!.visibleProjectPaths).toEqual(new Set([A, B, remote]));
+  expect(captured.projectList!.showProjectSections).toBe(true);
+  expect(captured.projectList!.chatEntries).toBeUndefined();
+  expect(props.recents).toHaveLength(3);
+});
+
 it("loads a collapsed local project once per in-flight hover and recognizes successful empty", async () => {
   const request = deferred();
   props.onLoadProject = vi.fn(() => request.promise);

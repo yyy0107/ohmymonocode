@@ -2,6 +2,7 @@ import { motion as motionElement } from "motion/react";
 import { panelTransition, immediateTransition } from "../../../shared/motion/tokens";
 import { reducedMotionQuery as motionPreferenceQuery } from "../../../shared/lib/reducedMotion";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
+import { MenuHover } from "../../../shared/ui/MenuHover";
 import {
   AnimatedCollapse,
   useCollapseMotion,
@@ -43,7 +44,7 @@ import {
   type ReactNode,
   type CSSProperties,
 } from "react";
-import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
+import { FileTypeIcon } from "../../connections/files/ui/FileTypeIcon";
 import {
   GitHistoryGraph,
   GraphResizeSash,
@@ -90,7 +91,7 @@ import {
   generateCommitMessage,
   generatePrContent,
 } from "../../../integrations/harness";
-import { invalidateWatchedFiles } from "../../files/model/fileWatch";
+import { invalidateWatchedFiles } from "../../connections/files/model/fileWatch";
 import { MOD } from "../../../platform/tauri/platform";
 import { applyProjectDiffStats } from "../hooks/useProjectDiffStats";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
@@ -235,7 +236,7 @@ export function GitChangesPanel({
           >
             <span className="flex min-w-0 items-center gap-1 text-[11px] text-content/50">
               <GitBranch className="size-3 shrink-0" />
-              <span className="min-w-0 truncate">{index.branch}</span>
+              <span data-code-label className="min-w-0 truncate">{index.branch}</span>
               {index.ahead > 0 ? (
                 <span className="shrink-0 tabular-nums text-content/40">
                   ↑{index.ahead}
@@ -267,28 +268,32 @@ export function GitChangesPanel({
                 role="menu"
                 aria-label={uiT("Branch actions")}
                 className="absolute top-full right-0 z-30 mt-1 min-w-36 rounded-md border border-content/10 panel-menu py-1 shadow-lg"
+                data-menu-density="compact"
               >
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={busy !== null || !canPull}
-                  title={
-                    canPull
-                      ? undefined
-                      : uiT(
-                          "This branch needs a remote and upstream before it can pull",
-                        )
-                  }
-                  onClick={() => void pull()}
-                  className="flex h-7 w-full items-center gap-2 px-3 text-left text-[12px] text-content hover:bg-content/6 disabled:opacity-40"
-                >
-                  {busy === "pull" ? (
-                    <Loader className="size-3.5 animate-spin" />
-                  ) : (
-                    <RefreshCw className="size-3.5" />
-                  )}
-                  {busy === "pull" ? uiT("Pulling…") : uiT("Pull")}
-                </button>
+                <div data-menu-gutter>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={busy !== null || !canPull}
+                    title={
+                      canPull
+                        ? undefined
+                        : uiT(
+                            "This branch needs a remote and upstream before it can pull",
+                          )
+                    }
+                    onClick={() => void pull()}
+                    className="flex h-7 w-full items-center gap-2 px-3 text-left text-[12px] text-content hover:bg-content/6 disabled:opacity-40"
+                  >
+                    <MenuHover />
+                    {busy === "pull" ? (
+                      <Loader className="size-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="size-3.5" />
+                    )}
+                    <span data-menu-title>{busy === "pull" ? uiT("Pulling…") : uiT("Pull")}</span>
+                  </button>
+                </div>
               </div>
             ) : null}
           </div>
@@ -746,6 +751,7 @@ function ChangedFiles({
       <div className="shrink-0 border-b border-stroke p-2">
         <div className="relative">
           <textarea
+            data-code-label
             ref={messageRef}
             rows={1}
             value={message}
@@ -837,40 +843,46 @@ function ChangedFiles({
               role="menu"
               aria-label={uiT("Commit options")}
               className="absolute top-full right-0 z-30 mt-1 min-w-48 rounded-md border border-content/10 panel-menu py-1 shadow-lg"
+              data-menu-density="compact"
             >
-              <button
-                type="button"
-                role="menuitem"
-                disabled={!canCommitPush}
-                onClick={() => void commit(true)}
-                className="flex h-7 w-full items-center px-3 text-left text-[12px] text-content hover:bg-content/6 disabled:opacity-40"
-              >
-                {uiT("Commit & Push")}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                disabled={!canCommitPushPr}
-                onClick={() => void commit(true, true)}
-                className="flex h-7 w-full items-center px-3 text-left text-[12px] text-content hover:bg-content/6 disabled:opacity-40"
-              >
-                {uiT("Commit, Push & Create PR")}
-              </button>
-              <div className="my-1 border-t border-content/10" />
-              <button
-                type="button"
-                role="menuitemcheckbox"
-                aria-checked={amend}
-                onClick={() => void toggleAmend()}
-                className="flex h-7 w-full items-center justify-between gap-2 px-3 text-left text-[12px] text-content hover:bg-content/6"
-              >
-                {uiT("Amend Last Commit")}
-                <span className="grid size-3.5 shrink-0 place-items-center">
-                  {amend ? (
-                    <Check className="size-3.5" strokeWidth={2} />
-                  ) : null}
-                </span>
-              </button>
+              <div data-menu-gutter>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={!canCommitPush}
+                  onClick={() => void commit(true)}
+                  className="flex h-7 w-full items-center px-3 text-left text-[12px] text-content hover:bg-content/6 disabled:opacity-40"
+                >
+                  <MenuHover />
+                  <span data-menu-title>{uiT("Commit & Push")}</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={!canCommitPushPr}
+                  onClick={() => void commit(true, true)}
+                  className="flex h-7 w-full items-center px-3 text-left text-[12px] text-content hover:bg-content/6 disabled:opacity-40"
+                >
+                  <MenuHover />
+                  <span data-menu-title>{uiT("Commit, Push & Create PR")}</span>
+                </button>
+                <div role="separator" className="my-1 border-t border-content/10" />
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={amend}
+                  onClick={() => void toggleAmend()}
+                  className="flex h-7 w-full items-center justify-between gap-2 px-3 text-left text-[12px] text-content hover:bg-content/6"
+                >
+                  <MenuHover />
+                  <span data-menu-title>{uiT("Amend Last Commit")}</span>
+                  <span className="grid size-3.5 shrink-0 place-items-center">
+                    {amend ? (
+                      <Check className="size-3.5" strokeWidth={2} />
+                    ) : null}
+                  </span>
+                </button>
+              </div>
             </div>
           ) : null}
         </div>
@@ -1420,7 +1432,7 @@ function ChangeDirRow({
               <ChevronRight className="size-3.5" />
             )}
           </span>
-          <span className="min-w-0 flex-1 truncate text-[13px] leading-label font-medium">
+          <span data-file-label className="min-w-0 flex-1 truncate text-[13px] leading-label font-medium">
             {dir.name}
           </span>
         </button>
@@ -1578,7 +1590,7 @@ function ChangeRow({
         >
           {tree ? <span className="size-4 shrink-0" /> : null}
           <FileTypeIcon name={name} isDir={false} size={16} />
-          <span className="min-w-0 flex-1 truncate leading-label">
+          <span data-file-label className="min-w-0 flex-1 truncate leading-label">
             <span className="text-[13px] font-medium">{name}</span>
             {dir ? (
               <span className="ml-1.5 text-[11px] text-content/40">{dir}</span>

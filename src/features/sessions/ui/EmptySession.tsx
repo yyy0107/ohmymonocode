@@ -3,6 +3,7 @@ import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { basename } from "../../../platform/tauri/fs";
 import { projectKey } from "../../../shared/lib/paths";
 import { looksLikeProject } from "../../projects/model/recents";
+import { isChatFolder } from "../../projects/model/chatFolderPath";
 import {
   loadTabGroupLabels,
   resolveTabGroupLabel,
@@ -36,7 +37,7 @@ export function EmptySession({
     () => true,
   );
   const getProjectLabel = () =>
-    looksLikeProject(cwd)
+    looksLikeProject(cwd) && !isChatFolder(cwd)
       ? resolveTabGroupLabel(
           projectKey(cwd),
           loadTabGroupLabels(),
@@ -55,16 +56,23 @@ export function EmptySession({
   return (
     <div
       ref={lockOverscroll}
-      className="relative flex h-full min-h-0 overflow-y-auto overscroll-none"
+      className="desktop-empty-session relative flex h-full min-h-0 overflow-y-auto overscroll-none"
     >
       {arcadeEnabled && !hasChatBackground ? (
         <TerminalGridBackground visible={visible} />
       ) : null}
       {composer ? (
-        // Same box as the docked composer (max-w-4xl, p-1.5), so the input
-        // keeps its width when the first message docks it.
-        <div className="pointer-events-none relative z-10 mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center px-1.5 py-12">
-          <div className="pointer-events-auto mb-4 px-2.5">
+        // Desktop geometry shares the docked composer width, so sending the
+        // first message does not change the input card’s horizontal position.
+        <div className="desktop-empty-content pointer-events-none relative z-10 mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center px-1.5 py-12">
+          <div className="desktop-empty-greeting pointer-events-auto mb-4 px-2.5">
+            <img
+              src="/monocode.png"
+              alt=""
+              aria-hidden
+              draggable={false}
+              className="desktop-greeting-mark hidden size-8 shrink-0 invert dark:invert-0"
+            />
             <h1
               data-empty-title
               className="desktop-page-heading truncate text-lg text-content"

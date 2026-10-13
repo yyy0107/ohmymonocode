@@ -4,6 +4,25 @@ import { existsSync, realpathSync } from "node:fs";
 import { dirname, basename, resolve } from "node:path";
 import type { HostStore } from "./store";
 
+const resourceListeners = new WeakMap<HostStore, Set<() => void>>();
+export function onCheckoutRelease(store: HostStore, listener: () => void): () => void {
+  let listeners = resourceListeners.get(store);
+  if (!listeners) resourceListeners.set(store, listeners = new Set());
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+export function notifyCheckoutRelease(store: HostStore): void {
+  for (const listener of resourceListeners.get(store) ?? []) listener();
+}
+
+/** Shared with the Rust registry through checkout-guards.conformance.json. */
+export function checkoutKindsConflict(request: string, held: string): boolean {
+  if (request === "computer" || held === "computer") return request === held;
+  if (request === "removing" || held === "removing") return true;
+  if (request === "resource" || held === "resource") return false;
+  return request === "integrating" || held === "integrating";
+}
+
 export function checkoutPath(path: string): string {
   let current = resolve(path);
   const missing: string[] = [];
@@ -165,9 +184,6 @@ function claimResource(
       throw new Error(
         "This working copy is receiving an accepted result. Retry saving after integration finishes.",
       );
-    if (kind === "writing" && checkoutResources(store).some((row) =>
-      row.kind === "executing" && !(row.owner_pid === process.pid && ownPrefix && row.id.startsWith(ownPrefix)) && checkoutPathsOverlap(key, row.path)))
-      throw new Error("This working copy is in use by another run. Retry when it finishes.");
     store.db
       .prepare(
         "INSERT INTO checkout_resources VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET path=excluded.path, kind=excluded.kind, owner_pid=excluded.owner_pid",
@@ -178,6 +194,7 @@ function claimResource(
     store.db
       .prepare("DELETE FROM checkout_resources WHERE id=? AND owner_pid=?")
       .run(id, ownerPid);
+    notifyCheckoutRelease(store);
   }) as CheckoutResourceRelease;
   release.transfer = (pid) => {
     if (!Number.isSafeInteger(pid) || pid <= 0 || pid > 0x7fffffff)
@@ -196,6 +213,10 @@ function claimResource(
   return release;
 }
 
+function occupiedMessage(message: string, rows: ReturnType<typeof checkoutResources>): string {
+  return `${message}\n${rows.map(row => `${row.id} · ${row.kind} · PID ${row.owner_pid} · ${row.path}`).join("\n")}`;
+}
+
 /** Open buffers can remain mounted; actual writes must finish before apply. */
 export async function withCheckoutIntegration<T>(
   store: HostStore,
@@ -207,17 +228,12 @@ export async function withCheckoutIntegration<T>(
   const context = checkoutOwner.getStore();
   const ownPrefix = context?.store === store ? checkoutExecutionPrefix(context.owner) : undefined;
   store.transaction(() => {
-    if (
-      checkoutResources(store).some(
-        (row) =>
-          row.kind !== "resource" &&
-          !(row.kind === "executing" && row.owner_pid === process.pid && ownPrefix && row.id.startsWith(ownPrefix)) &&
-          keys.some((key) => checkoutPathsOverlap(key, row.path)),
-      )
-    )
-      throw new Error(
-        "This working copy is being changed or removed. Retry accepting the result when the operation finishes.",
-      );
+    const blockers = checkoutResources(store).filter(row =>
+      checkoutKindsConflict("integrating", row.kind) &&
+      !(row.kind === "executing" && row.owner_pid === process.pid && ownPrefix && row.id.startsWith(ownPrefix)) &&
+      keys.some(key => checkoutPathsOverlap(key, row.path)));
+    if (blockers.length) throw new Error(occupiedMessage(
+      "This working copy is being changed or removed. Retry accepting the result when the operation finishes.", blockers));
     for (let index = 0; index < keys.length; index++)
       store.db
         .prepare(
@@ -232,6 +248,7 @@ export async function withCheckoutIntegration<T>(
       store.db
         .prepare("DELETE FROM checkout_resources WHERE id=? AND owner_pid=?")
         .run(id, process.pid);
+    notifyCheckoutRelease(store);
   }
 }
 
@@ -244,10 +261,9 @@ export async function withCheckoutRemoval<T>(
   const key = checkoutPath(path);
   const id = `remove:${randomUUID()}`;
   store.transaction(() => {
-    if (checkoutResources(store).some((row) => checkoutPathsOverlap(key, row.path)))
-      throw new Error(
-        "Close files and terminals using this worker checkout before cleanup. Its worktree was kept.",
-      );
+    const blockers = checkoutResources(store).filter(row => row.kind !== "computer" && checkoutPathsOverlap(key, row.path));
+    if (blockers.length) throw new Error(occupiedMessage(
+      "Close files and terminals using this worker checkout before cleanup. Its worktree was kept.", blockers));
     store.db
       .prepare("INSERT INTO checkout_resources VALUES (?, ?, 'removing', ?)")
       .run(id, key, process.pid);
@@ -258,5 +274,6 @@ export async function withCheckoutRemoval<T>(
     store.db
       .prepare("DELETE FROM checkout_resources WHERE id=? AND owner_pid=?")
       .run(id, process.pid);
+    notifyCheckoutRelease(store);
   }
 }

@@ -267,12 +267,55 @@ describe("Composer question focus", () => {
       expect(document.querySelector('[aria-label="Search MCP servers"]')).not.toBeNull();
     });
 
+  it("keeps desktop permission controls below the card without replacing the draft or picker", async () => {
+    const compact = false;
+    const onRuntimeModeChange = vi.fn();
+    const props = {
+      focused: true, harness: "claude" as const, model: "claude-sonnet",
+      runtimeMode: "supervised" as const, executionCwd: "/repo", compact,
+      initialDraft: "Preserve this draft", hideProjectPicker: true, hideBranchPicker: true,
+      onFocus: vi.fn(), onCwdChange: vi.fn(), onModelChange: vi.fn(), onRuntimeModeChange,
+      onSubmit: vi.fn(),
+    };
+    await act(async () => root.render(createElement(Composer, props)));
+    const field = container.querySelector("textarea")!;
+    const permission = container.querySelector<HTMLButtonElement>("[data-access-picker-trigger]")!;
+    expect(Boolean(permission.closest(".composer-input-shell"))).toBe(compact);
+    expect(Boolean(permission.closest(".composer-meta"))).toBe(!compact);
+    expect(container.querySelectorAll("[data-access-picker-trigger]")).toHaveLength(1);
+    await act(async () => permission.click());
+    expect(document.querySelector("[data-access-picker]")).not.toBeNull();
+    await act(async () => root.render(createElement(Composer, { ...props, busy: true })));
+    expect(container.querySelector("textarea")).toBe(field);
+    expect(field.value).toBe("Preserve this draft");
+    expect(container.querySelector("[data-access-picker-trigger]")).toBe(permission);
+  });
+
+  it("re-measures a retained draft when desktop mode changes its typography", async () => {
+    const rootElement = document.documentElement;
+    rootElement.dataset.desktopMode = "chat";
+    const height = vi.spyOn(HTMLTextAreaElement.prototype, "scrollHeight", "get")
+      .mockImplementation(() => rootElement.dataset.desktopMode === "chat" ? 53 : 20);
+    try {
+      await renderComposer(undefined, vi.fn(), false, 0, "Retained across modes");
+      const field = container.querySelector("textarea")!;
+      expect(field.style.height).toBe("53px");
+      await act(async () => { rootElement.dataset.desktopMode = "code"; });
+      expect(container.querySelector("textarea")).toBe(field);
+      expect(field.value).toBe("Retained across modes");
+      expect(field.style.height).toBe("20px");
+    } finally {
+      delete rootElement.dataset.desktopMode;
+      height.mockRestore();
+    }
+  });
+
   it.each([
     { compact: false, hidePickers: false },
     { compact: false, hidePickers: true },
     { compact: true, hidePickers: false },
     { compact: true, hidePickers: true },
-  ])("keeps context actions at the end of the workspace bar (compact=$compact, hidePickers=$hidePickers)", async ({ compact, hidePickers }) => {
+  ])("keeps context actions beside desktop models or in the compact workspace bar (compact=$compact, hidePickers=$hidePickers)", async ({ compact, hidePickers }) => {
     const onCompactContext = vi.fn();
     const props = {
       focused: true,
@@ -297,7 +340,8 @@ describe("Composer question focus", () => {
     expect(meters).toHaveLength(1);
     const meter = meters[0];
     const workspaceBar = container.querySelector(".composer-workspace-bar")!;
-    expect(workspaceBar.lastElementChild?.contains(meter)).toBe(true);
+    expect(workspaceBar.contains(meter)).toBe(compact);
+    expect(Boolean(meter.closest(".composer-meta"))).toBe(!compact);
     expect(meter.closest(".composer-footer")).toBeNull();
     await act(async () => meter.click());
     const compactAction = () => [...document.querySelectorAll<HTMLButtonElement>("button")].find((button) => !button.closest("[inert]") && button.textContent === "Compact now")!;
@@ -1682,7 +1726,7 @@ describe("Composer question focus", () => {
     ).not.toBeNull();
   });
 
-  it("toggles a draft between the current checkout and a new worktree", async () => {
+  it("defaults draft worktrees to main while keeping chosen sources and the current checkout", async () => {
     const onWorkspaceModeChange = vi.fn();
     const onWorktreeBaseChange = vi.fn();
     const props = {
@@ -1692,7 +1736,8 @@ describe("Composer question focus", () => {
       runtimeMode: "supervised" as const,
       cwd: "/repo",
       executionCwd: "/repo",
-      branch: "main",
+      branch: "mc/greeting",
+      initialDraft: "Keep this draft",
       hideProjectPicker: true,
       draftWorkspace: true,
       onFocus: vi.fn(),
@@ -1715,12 +1760,16 @@ describe("Composer question focus", () => {
       '[aria-label="Workspace Current checkout"]',
     )!;
     expect(
-      container.querySelector('[aria-label="Branch main"]'),
+      container.querySelector('[aria-label="Branch mc/greeting"]'),
     ).not.toBeNull();
+    await act(async () => container.querySelector<HTMLInputElement>(".composer-worktree-checkbox-input")!.click());
+    expect(onWorkspaceModeChange).toHaveBeenLastCalledWith("worktree", "main");
+    expect(container.querySelector("textarea")).toBe(textarea);
+    expect(textarea.value).toBe("Keep this draft");
     await act(async () => workspace.click());
     expect(document.body.textContent).toContain("Existing worktree…");
     expect(
-      container.querySelector('[aria-label="Branch main"]'),
+      container.querySelector('[aria-label="Branch mc/greeting"]'),
     ).not.toBeNull();
     await act(async () => workspace.click());
 
@@ -1742,6 +1791,7 @@ describe("Composer question focus", () => {
         createElement(Composer, { ...props, workspaceMode: "worktree" }),
       ),
     );
+    expect(onWorktreeBaseChange).toHaveBeenLastCalledWith("main");
     await act(async () =>
       textarea.dispatchEvent(
         new KeyboardEvent("keydown", {
@@ -1780,7 +1830,7 @@ describe("Composer question focus", () => {
     );
     expect(onWorkspaceModeChange).toHaveBeenLastCalledWith(
       "worktree",
-      "mc/greeting",
+      "main",
     );
 
     await act(async () =>
@@ -1793,7 +1843,13 @@ describe("Composer question focus", () => {
         }),
       ),
     );
-    expect(onWorktreeBaseChange).toHaveBeenLastCalledWith("mc/greeting");
+    expect(onWorktreeBaseChange).toHaveBeenLastCalledWith("main");
+    onWorktreeBaseChange.mockClear();
+    await act(async () => root.render(createElement(Composer, {
+      ...props, workspaceMode: "worktree", worktreeBase: "release",
+    })));
+    expect(container.querySelector('[aria-label="Create worktree from release"]')).not.toBeNull();
+    expect(onWorktreeBaseChange).not.toHaveBeenCalled();
   });
 
   it("names a started worktree by its folder while its branch can change", async () => {

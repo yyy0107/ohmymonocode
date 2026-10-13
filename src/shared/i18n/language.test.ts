@@ -118,3 +118,10 @@ describe("interface language", () => {
     );
   });
 });
+
+it("translates resource conflict explanations without translating occupant paths or identifiers", () => {
+  const details = "native:terminal · writing · PID 42 · /project/English";
+  const message = "This working copy is being changed or removed. Retry accepting the result when the operation finishes.";
+  expect(translate(`${message}\n${details}`, undefined, "zh-CN")).toBe(`此工作目录仍有写入或清理操作，请在以下占用结束后重试。\n${details}`);
+  expect(translate(`provider text\n${details}`, undefined, "zh-CN")).toBe(`provider text\n${details}`);
+});

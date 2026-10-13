@@ -14,8 +14,9 @@ import { basename, revealPath } from "../../../platform/tauri/fs";
 import { copyText } from "../../../platform/tauri/clipboard";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import { Popover } from "../../../shared/ui/Popover";
+import { MenuHover } from "../../../shared/ui/MenuHover";
 import {
-  ChevronDown,
+  ChevronRight,
   Copy,
   FolderOpen,
   Minus,
@@ -24,7 +25,7 @@ import {
 } from "../../../shared/ui/icons";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
-import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
+import { FileTypeIcon } from "../../connections/files/ui/FileTypeIcon";
 import type {
   ReviewDiffState,
   ReviewFile,
@@ -106,7 +107,7 @@ export const GitReviewChangeCard = memo(function GitReviewChangeCard({
 
   return (
     <section data-review-file={file.relative} className="min-w-0">
-      <header className="content-sticky sticky top-0 z-10">
+      <header className="review-file-header sticky top-0 z-10">
         <button
           ref={menuRef}
           type="button"
@@ -131,25 +132,27 @@ export const GitReviewChangeCard = memo(function GitReviewChangeCard({
             setMenu({ x: rect.left + 12, y: rect.bottom });
           }}
           title={file.relative}
-          className={`flex h-8 w-full min-w-0 items-center gap-3 px-3 text-left transition-colors hover:bg-surface-hover focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent motion-reduce:transition-none ${expanded ? "bg-surface-hover" : ""} ${focused ? "ring-1 ring-inset ring-accent/30" : ""}`}
+          className={`review-file-toggle flex h-8 w-full min-w-0 items-center gap-1 px-2 text-left transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent motion-reduce:transition-none ${focused ? "ring-1 ring-inset ring-accent/30" : ""}`}
         >
-          <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+          <RotatingIcon icon={ChevronRight} angle={expanded ? motionGeometry.disclosureAngle : 0} className="review-file-chevron size-4 shrink-0" />
+          <span className="review-file-icon flex size-4 shrink-0 items-center justify-center" data-markdown={/\.(md|markdown)$/i.test(name) || undefined}>
             <FileTypeIcon name={file.relative} isDir={false} />
-            <span className="truncate text-ui-base text-content">{name}</span>
+          </span>
+          <span data-file-label className="flex min-w-0 items-baseline gap-1 overflow-hidden">
+            <span className="review-file-name truncate">{name}</span>
             {dir ? (
-              <span className="min-w-0 truncate text-ui-base text-foreground-subtlest">
+              <span className="review-file-dir min-w-0 truncate">
                 {dir}
               </span>
             ) : null}
           </span>
-          <span className="flex shrink-0 items-center justify-end gap-3 pl-3">
-            <span className="whitespace-nowrap text-ui-base tabular-nums">
+          <span className="review-file-counts flex shrink-0 items-center justify-end pl-1">
+            <span className="flex gap-0.5 whitespace-nowrap tabular-nums">
               <span className="text-[var(--review-added)]">+{additions}</span>
-              <span className="ml-2 text-[var(--review-removed)]">
+              <span className="text-[var(--review-removed)]">
                 -{deletions}
               </span>
             </span>
-            <RotatingIcon icon={ChevronDown} angle={expanded ? motionGeometry.flipAngle : 0} className="size-4 shrink-0 text-foreground-subtle" />
           </span>
         </button>
       </header>
@@ -306,8 +309,9 @@ function MenuItem({
       onClick={onClick}
       className="flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-ui-base text-content outline-none hover:bg-menu-hover focus-visible:bg-menu-hover disabled:opacity-40"
     >
+      <MenuHover />
       {icon}
-      {children}
+      <span data-menu-title>{children}</span>
     </button>
   );
 }

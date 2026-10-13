@@ -116,6 +116,20 @@ async function renderRail(path: string) {
   );
 }
 
+it("filters visible project trees without pruning pins or persisted project order", async () => {
+  const paths = ["/work/alpha", "/work/beta"];
+  savePinnedProjects([paths[0]]);
+  saveProjectRailOrder(paths);
+  await act(async () => root.render(createElement(ProjectList, {
+    cwd: paths[0], recents: paths.map((path) => ({ path, openedAt: 1 })),
+    visibleProjectPaths: new Set(), showProjectSections: false,
+    onSelectProject: vi.fn(), onOpenProject: vi.fn(),
+  })));
+  expect(container.querySelector("[data-project-select]")).toBeNull();
+  expect(loadPinnedProjects()).toEqual([paths[0]]);
+  expect(loadProjectRailOrder()).toEqual(paths);
+});
+
 it.each([true, false])(
   "shows a local folder without remote decoration (registered: %s)",
   async (registered) => {

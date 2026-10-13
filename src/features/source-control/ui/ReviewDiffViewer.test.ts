@@ -18,6 +18,8 @@ const hover = vi.hoisted(() => ({
 }));
 vi.mock("@pierre/diffs/react", () => ({
   useWorkerPool: () => undefined,
+  Virtualizer: ({ children }: { children: React.ReactNode }) =>
+    createElement("div", { "data-virtualizer": "" }, children),
   FileDiff: (props: FileDiffProps<number>) =>
     createElement(
       "div",
@@ -182,4 +184,19 @@ it("passes Monocode chunk positions to the stage action", () => {
   expect(stage).toHaveBeenCalledWith(
     diff.unified!.lines.find((line) => line.kind === "add")!.pos,
   );
+});
+
+it("renders large patches instead of replacing them with a size notice", () => {
+  const large = prepareReviewDiff({
+    original: "", current: "new\n".repeat(2_000), binary: false, tooLarge: false,
+  });
+  act(() => root.render(createElement(ReviewDiffViewer, {
+    path: "/repo/large.ts", relative: "large.ts", diff: large, busy: false, onStageHunk: stage,
+  })));
+  expect(container.querySelector("[data-virtualizer] [data-pierre]")).not.toBeNull();
+  expect(container.textContent).not.toContain("too large");
+  const button = [...container.querySelectorAll<HTMLButtonElement>("button")]
+    .find((item) => item.textContent === "Stage hunk")!;
+  act(() => button.click());
+  expect(stage).toHaveBeenCalledWith(0);
 });

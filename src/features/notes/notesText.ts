@@ -1,6 +1,6 @@
 import { fuzzyMatch } from "../../shared/lib/fuzzy";
 import type { ProjectFile } from "../../platform/tauri/fs";
-import type { RankedFile } from "../files/model/fileIndex";
+import type { RankedFile } from "../connections/files/model/fileIndex";
 import { projectName } from "../../shared/lib/paths";
 import { looksLikeProject } from "../projects/model/recents";
 

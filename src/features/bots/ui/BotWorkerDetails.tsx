@@ -71,6 +71,7 @@ export function BotWorkerDetails({
           harness={snapshot.session.harness}
           model={snapshot.session.model}
           modelSettings={snapshot.session.modelSettings}
+          executionState={snapshot.session.executionState}
           managed
         />
       )}

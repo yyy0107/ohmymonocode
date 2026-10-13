@@ -125,6 +125,7 @@ export function CreateWorktreeDialog({
           {existing ? (
             <SearchableSelect
               variant="transparent"
+              codeLabels
               label={uiT("Existing branch")}
               value={name}
               disabled={busy}
@@ -137,6 +138,7 @@ export function CreateWorktreeDialog({
             />
           ) : (
             <input
+              data-code-label
               ref={input}
               aria-label={uiT("New branch name")}
               className={field}
@@ -154,6 +156,7 @@ export function CreateWorktreeDialog({
             <span>{uiT("Start from")}</span>
             <SearchableSelect
               variant="transparent"
+              codeLabels
               label={uiT("Start from")}
               value={base}
               disabled={busy}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Chunk } from "@codemirror/merge";
 import { Text } from "@codemirror/state";
-import { stageChunkText } from "../../files/editor/editorGit";
+import { stageChunkText } from "../../connections/files/editor/editorGit";
 import { LINE_DIFF_CONFIG, lineDiff } from "./lineDiff";
 import { buildUnifiedFile } from "./unifiedDiff";
 

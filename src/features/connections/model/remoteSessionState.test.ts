@@ -40,3 +40,14 @@ it("keeps a host transcript in normal session state under its local tab ID", () 
   });
   expect(shouldPersistSession(session)).toBe(false);
 });
+
+it("restores execution phases on reconnect and clears a stale phase from an older snapshot", () => {
+  const shell = newSession("pi", "/project");
+  shell.executionState = { runId: "old", phase: "waiting-resource", since: 1 };
+  const snapshot: HostSession = { projectId: "project", revision: 3, status: "running", updatedAt: 10,
+    session: { ...newSession("pi", "/project"), executionState: { runId: "new", phase: "awaiting-response", since: 5, providerStartedAt: 5 } } };
+  const project = { key: "/project", environmentId: "host", projectId: "project", cwd: "/project" };
+  expect(remoteSessionState(shell, snapshot, project).executionState).toEqual(snapshot.session.executionState);
+  delete snapshot.session.executionState;
+  expect(remoteSessionState(shell, snapshot, project).executionState).toBeUndefined();
+});

@@ -1,6 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
+    if std::env::args().nth(1).as_deref() == Some("--internal-terminal-guard") {
+        std::process::exit(monocode_lib::run_terminal_guard());
+    }
     if let Some(code) = monocode_lib::ssh_askpass::maybe_run() {
         std::process::exit(code);
     }

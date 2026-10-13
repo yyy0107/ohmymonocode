@@ -3,7 +3,7 @@ import type { ProviderAccountProvider } from "../../providers/model/providerAcco
 
 /**
  * Window-level actions a chat column's header offers, Claude Desktop style:
- * the overflow menu and the terminal / changes toggles. App owns the handlers;
+ * the overflow menu and the terminal / files toggles. App owns the handlers;
  * headers only read them, so the pane tree needs no extra props.
  */
 export type SessionHeaderActions = {
@@ -21,6 +21,9 @@ export type SessionHeaderActions = {
   terminalAvailable: boolean;
   terminalOpen: boolean;
   toggleTerminal: () => void;
+  /** The session whose working files are visible in the shared tools panel. */
+  filesSessionId?: string;
+  toggleFiles?: (sessionId: string) => void;
   changesOpen: boolean;
   toggleChanges: () => void;
 };

@@ -29,8 +29,10 @@ import {
   Clock as ClockIcon,
   CloudUpload as CloudUploadIcon,
   Code as CodeIcon,
+  CodeXml as CodeXmlIcon,
   Copy as CopyIcon,
   CornerDownRight as CornerDownRightIcon,
+  CornerDownLeft as CornerDownLeftIcon,
   Earth as EarthIcon,
   ExternalLink as ExternalLinkIcon,
   Eye as EyeIcon,
@@ -185,6 +187,7 @@ export const Bot = wrap(BotIcon, "Bot");
 export const AiIdea = wrap(LightbulbIcon, "AiIdea");
 export const CaseSensitive = wrap(CaseSensitiveIcon, "CaseSensitive");
 export const Chatting = wrap(MessagesSquareIcon, "Chatting");
+export const CodeXml = wrap(CodeXmlIcon, "CodeXml");
 export const Check = wrap(CheckIcon, "Check");
 export const CheckCheck = wrap(CheckCheckIcon, "CheckCheck");
 export const CheckCircle = wrap(CheckCircleIcon, "CheckCircle");
@@ -192,6 +195,7 @@ export const ChevronDown = wrap(ChevronDownIcon, "ChevronDown");
 export const ChevronLeft = wrap(ChevronLeftIcon, "ChevronLeft");
 export const ChevronRight = wrap(ChevronRightIcon, "ChevronRight");
 export const CornerDownRight = wrap(CornerDownRightIcon, "CornerDownRight");
+export const CornerDownLeft = wrap(CornerDownLeftIcon, "CornerDownLeft");
 export const ChevronUp = wrap(ChevronUpIcon, "ChevronUp");
 export const ChevronsUpDown = wrap(ChevronsUpDownIcon, "ChevronsUpDown");
 export const CircleAlert = wrap(CircleAlertIcon, "CircleAlert");

@@ -53,7 +53,7 @@ describe("desktop skin preference", () => {
 
   it("stamps data-skin and follows the skin's scheme", () => {
     const classNames = new Set<string>(["theme-light"]);
-    const dataset: { skin?: string } = {};
+    const dataset: { skin?: string; desktopVisual?: string } = {};
     const style: { colorScheme: string } = { colorScheme: "" };
     Object.defineProperty(globalThis, "document", {
       configurable: true,
@@ -73,6 +73,7 @@ describe("desktop skin preference", () => {
     });
     expect(applyDesktopSkin("meadow")).toBe("light");
     expect(dataset.skin).toBe("daylight");
+    expect(dataset.desktopVisual).toBe("claude-measured-v1");
     expect(classNames.has("theme-light")).toBe(true);
     expect(style.colorScheme).toBe("light");
 

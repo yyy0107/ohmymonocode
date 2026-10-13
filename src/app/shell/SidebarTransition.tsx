@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import { animate, motion, useMotionValue } from "motion/react";
 import { duration, ease, panelTransition, immediateTransition } from "../../shared/motion/tokens";
 import { useMotionPreference } from "../../shared/motion/useMotionPreference";
 import {
@@ -106,9 +106,12 @@ export function SidebarTransition({
   const reduced = useMotionPreference();
   const { foldState, finish } = useCollapseMotion(open, SIDEBAR_TRANSITION_MS);
   const hasOpened = useRef(open);
+  const animatedWidth = useMotionValue(open ? width : 0);
+  const wasDragging = useRef(false);
   if (open) hasOpened.current = true;
   const attach = useCallback(
     (pane: HTMLDivElement | null) => {
+      // Resize writes its own CSS variable; Motion alone owns the resting width.
       setPaneRef(pane);
     },
     [setPaneRef],
@@ -119,13 +122,31 @@ export function SidebarTransition({
     finishDrag();
   }, [open, finishDrag]);
 
+  useLayoutEffect(() => {
+    if (dragging) {
+      wasDragging.current = true;
+      animatedWidth.stop();
+      return;
+    }
+    if (wasDragging.current) {
+      animatedWidth.jump(width);
+      wasDragging.current = false;
+    }
+    const target = open ? width : 0;
+    if (reduced) {
+      animatedWidth.jump(target);
+      finish();
+      return;
+    }
+    const animation = animate(animatedWidth, target, panelTransition);
+    let current = true;
+    void animation.then(() => { if (current) finish(); });
+    return () => { current = false; animation.stop(); };
+  }, [open, width, dragging, reduced, animatedWidth, finish]);
+
   return (
     <motion.div
-      layout
       initial={false}
-      animate={{ width: open ? width : 0 }}
-      transition={dragging || reduced ? immediateTransition : panelTransition}
-      onAnimationComplete={finish}
       ref={attach}
       data-sidebar-transition
       data-fold-state={foldState}
@@ -134,7 +155,7 @@ export function SidebarTransition({
       aria-hidden={!open || undefined}
       inert={!open || undefined}
       className="animated-collapse-size sidebar-transition relative h-full min-h-0 shrink-0"
-      style={SIDEBAR_MOTION_STYLE}
+      style={{ ...SIDEBAR_MOTION_STYLE, width: animatedWidth }}
     >
       <motion.div
         initial={false} animate={{ x: open ? 0 : -SIDEBAR_RAIL_WIDTH }}

@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { sniffImageMime } from "../../files/model/filePreview";
+import { sniffImageMime } from "../../connections/files/model/filePreview";
 
 /**
  * Prefixes rehype-harden will keep on issue/PR markdown. The fetcher still

@@ -12,6 +12,7 @@ import {
 import { useProjectBranchesState } from "../../source-control/hooks/useProjectBranches";
 import { useProjectWorktrees } from "../../source-control/hooks/useProjectWorktrees";
 import type { Worktree } from "../../source-control/model/worktrees";
+import { resolveWorktreeBase } from "../../source-control/model/worktreeBase";
 import { MOD, SHIFT } from "../../../platform/tauri/platform";
 import { prettyCwd } from "../../../shared/lib/paths";
 import type { WorkspaceMode } from "../../sessions/model/session";
@@ -19,6 +20,7 @@ import {
   Check,
   ChevronRight,
   Folder,
+  FolderPlus,
   FolderTree,
   GitBranch,
   Loader,
@@ -26,7 +28,10 @@ import {
   Settings,
 } from "../../../shared/ui/icons";
 import { GitPickerTrigger } from "../../source-control/ui/GitPickerTrigger";
+import { BranchMenuScrollArea, branchMenuLayout } from "../../source-control/ui/branchMenu";
+import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
 import { Popover } from "../../../shared/ui/Popover";
+import { MenuHover } from "../../../shared/ui/MenuHover";
 import { LAYER } from "../../../shared/lib/layers";
 import {
   keybindingPressed,
@@ -73,6 +78,7 @@ export function WorkspacePicker({
   initialPicker,
   workingName,
   creating = false,
+  composerControls = false,
 }: {
   initialPicker?: "workspace" | "base";
   cwd: string;
@@ -89,7 +95,10 @@ export function WorkspacePicker({
   /** Folder name of the working copy when it is a worktree. */
   workingName?: string;
   creating?: boolean;
+  /** Extra draft controls whose desktop Code presentation is owned by the composer. */
+  composerControls?: boolean;
 }) {
+  const { t: uiT } = useTranslation();
   const [modeOpen, setModeOpen] = useState(false);
   const [baseOpen, setBaseOpen] = useState(false);
   const reportMode = useCallback((open: boolean) => setModeOpen(open), []);
@@ -102,8 +111,9 @@ export function WorkspacePicker({
     cwd,
     enabled && !!cwd && cwd !== "~",
   );
-  const resolvedBase = base || branches?.current || undefined;
+  const resolvedBase = resolveWorktreeBase(base, branches);
   const effectiveBase = resolvedBase || "HEAD";
+  const baseReady = !!branches || settled;
 
   return (
     <>
@@ -113,7 +123,8 @@ export function WorkspacePicker({
         mode={mode}
         workingName={workingName}
         creating={creating}
-        enabled={enabled && !!resolvedBase}
+        composerControls={composerControls}
+        enabled={enabled && baseReady && !!resolvedBase}
         onChange={(next) =>
           onModeChange(next, next === "worktree" ? effectiveBase : undefined)
         }
@@ -125,6 +136,8 @@ export function WorkspacePicker({
       />
       {mode === "worktree" ? (
         <WorktreeBasePicker
+          className={composerControls ? "composer-worktree-base" : undefined}
+          compactLabel={composerControls}
           initialOpen={initialPicker === "base"}
           branches={branches?.branches ?? []}
           selected={effectiveBase}
@@ -135,6 +148,21 @@ export function WorkspacePicker({
           onOpenChange={reportBase}
           popoverSide={popoverSide}
         />
+      ) : null}
+      {composerControls ? (
+        <label className="composer-worktree-checkbox hidden items-center gap-1">
+          <input
+            type="checkbox"
+            className="composer-worktree-checkbox-input"
+            checked={mode === "worktree"}
+            disabled={!enabled || !baseReady || !resolvedBase || creating}
+            onChange={(event) => {
+              const next = event.currentTarget.checked ? "worktree" : "current";
+              onModeChange(next, next === "worktree" ? effectiveBase : undefined);
+            }}
+          />
+          <span>{uiT("Worktree")}</span>
+        </label>
       ) : null}
     </>
   );
@@ -177,12 +205,14 @@ function WorkspaceModePicker({
   initialOpen = false,
   workingName,
   creating = false,
+  composerControls = false,
 }: {
   cwd: string;
   mode: WorkspaceMode;
   enabled: boolean;
   workingName?: string;
   creating?: boolean;
+  composerControls?: boolean;
   onChange: (mode: WorkspaceMode) => void;
   onSelectWorktree?: (tree: Worktree) => Promise<void>;
   onOpenSettings?: () => void;
@@ -292,9 +322,16 @@ function WorkspaceModePicker({
   );
   const Icon =
     creating || mode === "worktree" || workingName ? FolderTree : Folder;
+  const toggle = () => {
+    if (open) {
+      dismiss();
+      return;
+    }
+    setOpen(true);
+  };
 
   return (
-    <div ref={anchor} className="relative flex min-w-0 shrink-0">
+    <div ref={anchor} className="composer-workspace-mode-menu relative flex min-w-0 shrink-0">
       {!host ? (
         <button
           type="button"
@@ -312,17 +349,26 @@ function WorkspaceModePicker({
           aria-haspopup="dialog"
           aria-expanded={open}
           onMouseDown={(event) => event.preventDefault()}
-          onClick={() => {
-            if (open) {
-              dismiss();
-              return;
-            }
-            setOpen(true);
-          }}
-          className="-ml-1.5 flex h-6 min-w-0 max-w-48 items-center gap-1.5 rounded-md px-1.5 text-[12px] text-content/55 hover:bg-content/5 hover:text-content aria-expanded:bg-content/8 aria-expanded:text-content disabled:opacity-40 disabled:hover:bg-transparent active:scale-[0.97]"
+          onClick={toggle}
+          className="composer-workspace-mode-trigger -ml-1.5 flex h-6 min-w-0 max-w-48 items-center gap-1.5 rounded-md px-1.5 text-[12px] text-content/55 hover:bg-content/5 hover:text-content aria-expanded:bg-content/8 aria-expanded:text-content disabled:opacity-40 disabled:hover:bg-transparent active:scale-[0.97]"
         >
           <Icon className="size-3.5 shrink-0" />
           <span className="truncate">{label}</span>
+        </button>
+      ) : null}
+      {!host && composerControls ? (
+        <button
+          type="button"
+          disabled={!enabled || creating}
+          title={uiT("Workspace")}
+          aria-label={uiT("Workspace")}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={toggle}
+          className="composer-worktree-menu-trigger hidden items-center justify-center rounded-md text-content/55 hover:bg-content/5 hover:text-content aria-expanded:bg-content/8 aria-expanded:text-content disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <FolderPlus className="size-3.5 shrink-0" />
         </button>
       ) : null}
       <PresenceBoundary propagate>{open ? (
@@ -355,6 +401,8 @@ function WorkspaceModePicker({
             <button
               key={value}
               type="button"
+              data-menu-row="single"
+              data-highlighted={mode === value || undefined}
               aria-pressed={mode === value}
               onMouseDown={(event) => event.preventDefault()}
               onMouseEnter={closeWorktreeMenu}
@@ -366,8 +414,9 @@ function WorkspaceModePicker({
                 mode === value ? "bg-selection text-content" : "text-content/80"
               }`}
             >
+              <MenuHover />
               <RowIcon className="size-4 shrink-0 text-content/55" />
-              <span className="flex-1">{text}</span>
+              <span data-menu-title className="flex-1">{text}</span>
               {mode === value ? <Check className="size-3.5" /> : null}
             </button>
           ))}
@@ -375,6 +424,8 @@ function WorkspaceModePicker({
             <button
               ref={worktreeAnchor}
               type="button"
+              data-menu-row="single"
+              data-highlighted={worktreeMenu || undefined}
               aria-haspopup="menu"
               aria-expanded={worktreeMenu}
               onMouseDown={(event) => event.preventDefault()}
@@ -396,15 +447,17 @@ function WorkspaceModePicker({
                 worktreeMenu ? "bg-selection text-content" : ""
               }`}
             >
+              <MenuHover />
               <FolderTree className="size-4 shrink-0 text-content/55" />
-              <span className="flex-1">{uiT("Existing worktree…")}</span>
-              <ChevronRight className="size-3.5 shrink-0 text-content/45" />
+              <span data-menu-title className="flex-1">{uiT("Existing worktree…")}</span>
+              <ChevronRight data-menu-arrow className="size-3.5 shrink-0 text-content/45" />
             </button>
           ) : null}
           {onOpenSettings ? (
             <div className="h-9 border-t border-stroke">
               <button
                 type="button"
+                data-menu-row="single"
                 title={uiT("Open worktree settings")}
                 aria-label={uiT("Open worktree settings")}
                 onMouseDown={(event) => event.preventDefault()}
@@ -415,10 +468,11 @@ function WorkspaceModePicker({
                 }}
                 className="flex h-full w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] text-content/65 hover:bg-content/5 hover:text-content active:scale-[0.98]"
               >
+                <MenuHover />
                 <Settings
                   className="size-4 shrink-0 text-content/45"
                 />
-                <span className="flex-1">{uiT("Worktree settings")}</span>
+                <span data-menu-title className="flex-1">{uiT("Worktree settings")}</span>
               </button>
             </div>
           ) : null}
@@ -458,25 +512,27 @@ function WorkspaceModePicker({
                 key={tree.path}
                 type="button"
                 role="menuitem"
+                data-menu-row="description"
                 title={tree.path}
                 disabled={!!busyPath}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => void selectWorktree(tree)}
                 className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-content/80 hover:bg-content/5 hover:text-content disabled:opacity-40"
               >
+                <MenuHover />
                 {busyPath === tree.path ? (
                   <Loader className="size-4 shrink-0 animate-spin text-content/55" />
                 ) : (
                   <FolderTree className="size-4 shrink-0 text-content/55" />
                 )}
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px]">
+                  <span data-code-label data-menu-title className="block truncate text-[13px]">
                     {tree.branch ??
                       uiT("Detached {value0}", {
                         value0: String(tree.head.slice(0, 7)),
                       })}
                   </span>
-                  <span className="block truncate font-mono text-[10px] text-content/40">
+                  <span data-menu-description className="block truncate font-mono text-[10px] text-content/40">
                     {prettyCwd(tree.path)}
                   </span>
                 </span>
@@ -518,6 +574,8 @@ export function WorktreeBasePicker({
   onOpenChange,
   popoverSide = "top",
   initialOpen = false,
+  className,
+  compactLabel = false,
 }: {
   branches: BaseBranch[];
   selected: string;
@@ -528,8 +586,11 @@ export function WorktreeBasePicker({
   initialOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   popoverSide?: "top" | "bottom";
+  className?: string;
+  compactLabel?: boolean;
 }) {
   const { t: uiT } = useTranslation();
+  const { desktop, width, maxHeight } = branchMenuLayout();
   const [open, setOpen] = useState(initialOpen);
   useEffect(() => {
     onOpenChange?.(open);
@@ -539,6 +600,9 @@ export function WorktreeBasePicker({
   const [active, setActive] = useState(0);
   const anchor = useRef<HTMLDivElement>(null);
   const search = useRef<HTMLInputElement>(null);
+  const activeOption = useRef<HTMLButtonElement>(null);
+  const pointerHighlight = useRef(false);
+  const lockOverscroll = useLockOverscroll<HTMLDivElement>();
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const unique = new Map<string, BaseBranch>();
@@ -557,6 +621,29 @@ export function WorktreeBasePicker({
     setActive((index) => Math.max(0, Math.min(index, rows.length - 1)));
   }, [rows.length]);
   useEffect(() => {
+    if (!open || !desktop) return;
+    setActive(
+      query.trim()
+        ? 0
+        : Math.max(
+            0,
+            rows.findIndex((branch) => branchRef(branch) === selected),
+          ),
+    );
+  }, [open, desktop, query, rows, selected]);
+  useEffect(() => {
+    if (!open || !desktop) return;
+    if (pointerHighlight.current) {
+      pointerHighlight.current = false;
+      return;
+    }
+    // Popover places its frame before this runs, so the list has its final size.
+    const frame = requestAnimationFrame(() =>
+      activeOption.current?.scrollIntoView({ block: "nearest" }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [open, desktop, active, rows]);
+  useEffect(() => {
     if (!enabled) setOpen(false);
   }, [enabled]);
 
@@ -566,8 +653,66 @@ export function WorktreeBasePicker({
     onClose?.();
   };
 
+  const branchList = (
+    <div
+      ref={desktop ? undefined : lockOverscroll}
+      role="listbox"
+      aria-label={uiT("Base branches")}
+      className="branch-menu-list min-h-0 flex-1 overflow-y-auto p-1.5"
+    >
+      {rows.map((branch, index) => {
+        const ref = branchRef(branch);
+        const selectedRow = ref === selected;
+        const highlighted = index === active;
+        return (
+          <button
+            key={ref}
+            ref={highlighted ? activeOption : undefined}
+            type="button"
+            role="option"
+            aria-selected={selectedRow}
+            data-highlighted={highlighted ? "true" : undefined}
+            onMouseDown={(event) => event.preventDefault()}
+            onMouseEnter={() => {
+              if (index !== active) pointerHighlight.current = true;
+              setActive(index);
+            }}
+            onClick={() => {
+              onChange(ref);
+              dismiss();
+            }}
+            className={`branch-menu-option flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] hover:bg-content/5 ${
+              highlighted || selectedRow
+                ? "bg-selection text-content"
+                : "text-content/80"
+            }`}
+          >
+            {selectedRow ? (
+              <Check className="branch-menu-check size-3.5 shrink-0" />
+            ) : (
+              <GitBranch className="branch-menu-icon size-3.5 shrink-0 text-content/45" />
+            )}
+            <span
+              className={`branch-menu-name min-w-0 flex-1 truncate ${selectedRow ? "font-medium" : ""}`}
+            >
+              {ref}
+            </span>
+          </button>
+        );
+      })}
+      {rows.length === 0 ? (
+        <p className="px-2 py-3 text-[12px] text-content/45">
+          {uiT("No matching branches")}
+        </p>
+      ) : null}
+    </div>
+  );
+
   return (
-    <div ref={anchor} className="relative flex min-w-0 shrink-0">
+    <div
+      ref={anchor}
+      className={`relative flex min-w-0 shrink-0${className ? ` ${className}` : ""}`}
+    >
       <GitPickerTrigger
         disabled={!enabled}
         title={uiT("Create from {value0}", { value0: String(selected) })}
@@ -577,104 +722,77 @@ export function WorktreeBasePicker({
         aria-haspopup="dialog"
         aria-expanded={open}
         onMouseDown={(event) => event.preventDefault()}
-        onClick={() => setOpen((value) => !value)}
-        label={uiT("From {value0}", { value0: String(selected) })}
+        onClick={() => {
+          if (!open && desktop) setQuery("");
+          setOpen((value) => !value);
+        }}
+        label={
+          compactLabel
+            ? selected
+            : uiT("From {value0}", { value0: String(selected) })
+        }
         loading={loading}
       />
-      <PresenceBoundary propagate>{open ? (
-        <Popover
-          anchor={anchor}
-          side={popoverSide}
-          width={280}
-          minHeight={160}
-          maxHeight={280}
-          onDismiss={dismiss}
-          role="dialog"
-          aria-label={uiT("Worktree base branch")}
-          className="flex flex-col overflow-hidden"
-        >
-          <label className="flex shrink-0 items-center gap-2 border-b border-stroke px-2 py-2.5 text-content/50">
-            <Search className="size-3.5 shrink-0" />
-            <input
-              ref={search}
-              value={query}
-              placeholder={uiT("Search base branches…")}
-              aria-label={uiT("Search base branches")}
-              spellCheck={false}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setActive(0);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-                  event.preventDefault();
-                  setActive((index) =>
-                    Math.max(
-                      0,
-                      Math.min(
-                        rows.length - 1,
-                        index + (event.key === "ArrowDown" ? 1 : -1),
-                      ),
-                    ),
-                  );
-                }
-                if (event.key === "Enter" && rows[active]) {
-                  event.preventDefault();
-                  onChange(branchRef(rows[active]));
-                  dismiss();
-                }
-              }}
-              className="min-w-0 flex-1 bg-transparent text-[12px] text-content outline-none placeholder:text-content/40"
-            />
-          </label>
-          <div
-            role="listbox"
-            aria-label={uiT("Base branches")}
-            className="min-h-0 flex-1 overflow-y-auto p-1.5"
+      <PresenceBoundary propagate>
+        {open ? (
+          <Popover
+            anchor={anchor}
+            side={popoverSide}
+            width={width}
+            minHeight={desktop ? 0 : 160}
+            maxHeight={maxHeight}
+            onDismiss={dismiss}
+            role="dialog"
+            aria-label={uiT("Worktree base branch")}
+            data-menu-density={desktop ? "compact" : undefined}
+            className="branch-menu flex flex-col overflow-hidden"
           >
-            {rows.map((branch, index) => {
-              const ref = branchRef(branch);
-              const selectedRow = ref === selected;
-              const highlighted = index === active;
-              return (
-                <button
-                  key={ref}
-                  type="button"
-                  role="option"
-                  aria-selected={selectedRow}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onMouseEnter={() => setActive(index)}
-                  onClick={() => {
-                    onChange(ref);
+            <label className="branch-menu-search flex shrink-0 items-center gap-2 border-b border-stroke px-2 py-2.5 text-content/50">
+              <Search className="size-3.5 shrink-0" />
+              <input
+                ref={search}
+                value={query}
+                placeholder={
+                  desktop
+                    ? uiT("Search branches…")
+                    : uiT("Search base branches…")
+                }
+                aria-label={uiT("Search base branches")}
+                spellCheck={false}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setActive(0);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                    event.preventDefault();
+                    setActive((index) =>
+                      Math.max(
+                        0,
+                        Math.min(
+                          rows.length - 1,
+                          index + (event.key === "ArrowDown" ? 1 : -1),
+                        ),
+                      ),
+                    );
+                  }
+                  if (event.key === "Enter" && rows[active]) {
+                    event.preventDefault();
+                    onChange(branchRef(rows[active]));
                     dismiss();
-                  }}
-                  className={`flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] hover:bg-content/5 ${
-                    highlighted || selectedRow
-                      ? "bg-selection text-content"
-                      : "text-content/80"
-                  }`}
-                >
-                  {selectedRow ? (
-                    <Check className="size-3.5 shrink-0" />
-                  ) : (
-                    <GitBranch className="size-3.5 shrink-0 text-content/45" />
-                  )}
-                  <span
-                    className={`min-w-0 flex-1 truncate ${selectedRow ? "font-medium" : ""}`}
-                  >
-                    {ref}
-                  </span>
-                </button>
-              );
-            })}
-            {rows.length === 0 ? (
-              <p className="px-2 py-3 text-[12px] text-content/45">
-                {uiT("No matching branches")}
-              </p>
-            ) : null}
-          </div>
-        </Popover>
-      ) : null}</PresenceBoundary>
+                  }
+                }}
+                className="min-w-0 flex-1 bg-transparent text-[12px] text-content outline-none placeholder:text-content/40"
+              />
+            </label>
+            {desktop ? (
+              <BranchMenuScrollArea>{branchList}</BranchMenuScrollArea>
+            ) : (
+              branchList
+            )}
+          </Popover>
+        ) : null}
+      </PresenceBoundary>
     </div>
   );
 }

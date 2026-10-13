@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { panelTransition, immediateTransition, motionGeometry, motionDistance } from "../../../shared/motion/tokens";
 import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
 import { RotatingIcon } from "../../../shared/ui/RotatingIcon";
+import { MenuHover } from "../../../shared/ui/MenuHover";
 import { usePreferenceState } from "../../settings/model/usePreferenceState";
 import { translate } from "../../../shared/i18n/language";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
@@ -62,6 +63,7 @@ import { HARNESSES, HARNESS_TITLE, type HarnessId } from "../model/session";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
 import { HarnessIcon } from "./HarnessIcon";
 import { ComposerPopover } from "./ComposerPopover";
+import { ComposerMenuPanel } from "./ComposerMenuPanel";
 import type { PopoverAlign } from "../../../shared/lib/popover";
 import { MOD } from "../../../platform/tauri/platform";
 import { keybindingPressed } from "../../settings/model/settings";
@@ -101,8 +103,10 @@ const MODEL_MENU_WIDTH = 320;
 const SETTING_MENU_WIDTH = 210;
 const SELF = "[data-model-picker]";
 
-const MODEL_MENU_HEIGHT = 380;
-const MODEL_MENU_FRAME_HEIGHT = MODEL_MENU_HEIGHT + 2;
+export { composerMenuPanelWidth as composerModelMenuWidth } from "./ComposerMenuPanel";
+
+/** Long catalogs scroll, while short lists keep their intrinsic height. */
+const MODEL_MENU_MAX_HEIGHT = 380;
 
 const SETTING_ORDER = [
   "fast",
@@ -814,19 +818,17 @@ export function ModelPicker({
       ) : null}
 
       {!hideSettings ? (
-        <ComposerPopover
+        <ComposerMenuPanel
           ref={menu}
           open={open}
+          appearance={appearance}
           enabled={appearance === "composer"}
           anchor={button}
           side="top"
           align={align}
           width={MENU_WIDTH}
-          minHeight={
-            submenu?.kind === "models" ? MODEL_MENU_FRAME_HEIGHT : undefined
-          }
           maxHeight={
-            submenu?.kind === "models" ? MODEL_MENU_FRAME_HEIGHT : undefined
+            submenu?.kind === "models" ? MODEL_MENU_MAX_HEIGHT : undefined
           }
           autoFocus
           dismissOnEscape={false}
@@ -844,15 +846,6 @@ export function ModelPicker({
           onKeyDown={onMenuKey}
           data-model-picker
           data-view-motion={viewMotion ?? undefined}
-          style={
-            submenu?.kind === "models"
-              ? {
-                  height: MODEL_MENU_HEIGHT,
-                  minHeight: MODEL_MENU_HEIGHT,
-                  maxHeight: MODEL_MENU_HEIGHT,
-                }
-              : undefined
-          }
           className={`font-sans ${
             submenu?.kind === "models"
               ? "flex min-h-0 flex-col overflow-hidden"
@@ -911,22 +904,26 @@ export function ModelPicker({
                       type="button"
                       role="menuitemradio"
                       aria-checked={selected}
+                      data-menu-row="single"
+                      data-highlighted={highlighted || undefined}
                       onMouseDown={(event) => event.preventDefault()}
                       onMouseEnter={() => navigateSetting(index)}
                       onClick={() => setSetting(submenu.setting, option.value)}
-                      className={`flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] ${
+                      className={`relative isolate flex min-h-8 w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[14px] leading-5 ${
                         highlighted
                           ? "bg-selection text-content"
                           : "text-content hover:bg-content/3"
                       } ${tileTone ? "codex-effort-option" : ""}`}
                       data-effort-tone={tileTone}
                     >
+                      <MenuHover />
                       {tileTone ? <EffortTileShimmer /> : null}
-                      <span className="min-w-0 flex-1 truncate">
+                      <span data-menu-title className="min-w-0 flex-1 truncate">
                         {uiT(option.label)}
                       </span>
                       {selected ? (
                         <Check
+                          data-menu-check
                           className="size-3.5 shrink-0 text-content/50"
                           strokeWidth={2}
                         />
@@ -945,19 +942,22 @@ export function ModelPicker({
                       type="button"
                       role="menuitem"
                       aria-haspopup="menu"
+                      data-menu-row="single"
+                      data-highlighted={highlighted || undefined}
                       onMouseDown={(event) => event.preventDefault()}
                       onMouseEnter={() => setActive(index)}
                       onClick={() => {
                         setActive(index);
                         showEntrySubmenu(entry);
                       }}
-                      className={`flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] ${
+                      className={`relative isolate flex min-h-8 w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[14px] leading-5 ${
                         highlighted
                           ? "bg-selection text-content"
                           : "text-content hover:bg-content/3"
                       }`}
                     >
-                      <span className="min-w-0 flex-1">{uiT("Model")}</span>
+                      <MenuHover />
+                      <span data-menu-title className="min-w-0 flex-1">{uiT("Model")}</span>
                       <span className="flex min-w-0 max-w-36 items-center gap-1 text-content/55">
                         <HarnessIcon
                           harness={current.harness}
@@ -965,7 +965,7 @@ export function ModelPicker({
                         />
                         <span className="min-w-0 truncate">{current.name}</span>
                       </span>
-                      <ChevronRight className="size-3.5 shrink-0 text-content/45" />
+                      <ChevronRight data-menu-arrow className="size-4 shrink-0 text-content/45" />
                     </button>
                   );
                 }
@@ -980,6 +980,8 @@ export function ModelPicker({
                     role={isToggle ? "menuitemcheckbox" : "menuitem"}
                     aria-checked={isToggle ? value === "true" : undefined}
                     aria-haspopup={isToggle ? undefined : "menu"}
+                    data-menu-row="single"
+                    data-highlighted={highlighted || undefined}
                     title={setting.description}
                     onMouseDown={(event) => event.preventDefault()}
                     onMouseEnter={() => setActive(index)}
@@ -991,13 +993,14 @@ export function ModelPicker({
                         showEntrySubmenu(entry);
                       }
                     }}
-                    className={`flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] ${
+                    className={`relative isolate flex min-h-8 w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[14px] leading-5 ${
                       highlighted
                         ? "bg-selection text-content"
                         : "text-content hover:bg-content/3"
                     }`}
                   >
-                    <span className="min-w-0 flex-1">
+                    <MenuHover />
+                    <span data-menu-title className="min-w-0 flex-1">
                       {settingLabel(setting)}
                     </span>
                     {isToggle ? (
@@ -1014,7 +1017,7 @@ export function ModelPicker({
                         <span className="min-w-0 max-w-28 truncate text-content/55">
                           {settingValueLabel(setting, values)}
                         </span>
-                        <ChevronRight className="size-3.5 shrink-0 text-content/45" />
+                        <ChevronRight data-menu-arrow className="size-4 shrink-0 text-content/45" />
                       </>
                     )}
                   </button>
@@ -1022,11 +1025,12 @@ export function ModelPicker({
               })
             )}
           </motion.div></AnimatePresence>
-        </ComposerPopover>
+        </ComposerMenuPanel>
       ) : null}
 
-      <ComposerPopover
+      <ComposerMenuPanel
         open={recentMenu != null}
+        appearance={appearance}
         enabled={appearance === "composer"}
         anchor={button}
         side="top"
@@ -1053,6 +1057,8 @@ export function ModelPicker({
               type="button"
               role="menuitemradio"
               aria-checked={selected}
+              data-menu-row="description"
+              data-highlighted={highlighted || undefined}
               disabled={disabled}
               title={
                 disabled ? harnessUnavailableHint(item.harness) : undefined
@@ -1060,7 +1066,7 @@ export function ModelPicker({
               onMouseDown={(event) => event.preventDefault()}
               onMouseEnter={() => setRecentActive(index)}
               onClick={() => pickModel(item)}
-              className={`flex h-10 w-full items-center gap-2 rounded-lg px-2 text-left disabled:cursor-not-allowed ${
+              className={`relative isolate flex min-h-[50px] w-full items-center gap-2 rounded-lg px-2.5 pb-[7px] pt-1.5 text-left disabled:cursor-not-allowed ${
                 disabled
                   ? "text-content/30"
                   : highlighted
@@ -1068,18 +1074,20 @@ export function ModelPicker({
                     : "text-content hover:bg-content/3"
               }`}
             >
+              <MenuHover />
               <HarnessIcon harness={item.harness} className="size-4 shrink-0" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] leading-4">
+                <span data-menu-title className="block truncate text-[14px] leading-5">
                   {item.name}
                 </span>
-                <span className="block truncate text-[11px] leading-4 text-content/45">
+                <span data-menu-description className="block truncate text-[13px] leading-[17px] text-content/45">
                   {HARNESS_TITLE[item.harness]}
                   {item.provider ? ` · ${item.provider.name}` : ""}
                 </span>
               </span>
               {selected ? (
                 <Check
+                  data-menu-check
                   className="size-3.5 shrink-0 text-content/55"
                   strokeWidth={2}
                 />
@@ -1087,7 +1095,7 @@ export function ModelPicker({
             </button>
           );
         })}
-      </ComposerPopover>
+      </ComposerMenuPanel>
     </>
   );
 }
@@ -1350,20 +1358,24 @@ function SelectPill({
                     type="button"
                     role="menuitemradio"
                     aria-checked={selected}
+                    data-menu-row="single"
+                    data-highlighted={highlighted || undefined}
                     onMouseDown={(event) => event.preventDefault()}
                     onMouseEnter={() => setActive(index)}
                     onClick={() => pick(menuSetting, option.value)}
-                    className={`flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] text-content ${
+                    className={`relative isolate flex min-h-8 w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[14px] leading-5 text-content ${
                       highlighted ? "bg-selection" : "hover:bg-content/3"
                     } ${tileTone ? "codex-effort-option" : ""}`}
                     data-effort-tone={tileTone}
                   >
+                    <MenuHover />
                     {tileTone ? <EffortTileShimmer /> : null}
-                    <span className="min-w-0 flex-1 truncate">
+                    <span data-menu-title className="min-w-0 flex-1 truncate">
                       {uiT(option.label)}
                     </span>
                     {selected ? (
                       <Check
+                        data-menu-check
                         className="size-3.5 shrink-0 text-content/50"
                         strokeWidth={2}
                       />
@@ -1418,28 +1430,23 @@ function ModelFlyout({
 }) {
   const { t: uiT } = useTranslation();
   return (
-    <ComposerPopover
+    <ComposerMenuPanel
       open={open}
+      appearance={appearance}
       enabled={appearance === "composer"}
       anchor={anchor}
       side="top"
       align={align}
       width={MODEL_MENU_WIDTH}
-      minHeight={MODEL_MENU_FRAME_HEIGHT}
-      maxHeight={MODEL_MENU_FRAME_HEIGHT}
+      maxHeight={MODEL_MENU_MAX_HEIGHT}
       role="dialog"
       aria-label={uiT("Models")}
       onDismiss={onDismiss}
       data-model-picker
-      style={{
-        height: MODEL_MENU_HEIGHT,
-        minHeight: MODEL_MENU_HEIGHT,
-        maxHeight: MODEL_MENU_HEIGHT,
-      }}
       className="flex min-h-0 flex-col overflow-hidden font-sans"
     >
       <ModelBrowser {...browser} />
-    </ComposerPopover>
+    </ComposerMenuPanel>
   );
 }
 
@@ -1459,13 +1466,15 @@ function BackHeader({
       type="button"
       title={uiT("Back")}
       aria-label={uiT("Back")}
+      data-menu-row="single"
       onMouseDown={(event) => event.preventDefault()}
       onMouseEnter={onHover}
       onClick={onBack}
-      className="mb-1 flex h-8 w-full shrink-0 items-center gap-1.5 rounded-lg px-2 text-left text-[12px] text-content/55 hover:bg-content/3 hover:text-content"
+      className="relative isolate mb-1 flex min-h-8 w-full shrink-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[14px] leading-5 text-content/55 hover:bg-content/3 hover:text-content"
     >
-      <ChevronLeft className="size-3.5 shrink-0" />
-      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <MenuHover />
+      <ChevronLeft data-menu-arrow className="size-4 shrink-0" />
+      <span data-menu-title className="min-w-0 flex-1 truncate">{label}</span>
     </button>
   );
 }
@@ -1695,7 +1704,10 @@ function ModelBrowser({
                 return (
                   <div
                     key={item.id}
-                    className={`group flex h-8 items-center rounded-lg px-1 ${
+                    data-menu-row="single"
+                    data-highlighted={highlighted || undefined}
+                    data-disabled={disabled || undefined}
+                    className={`group relative isolate flex min-h-8 items-center gap-2 rounded-lg px-2.5 py-1.5 ${
                       disabled
                         ? "text-content/30"
                         : highlighted
@@ -1704,10 +1716,12 @@ function ModelBrowser({
                     }`}
                     onMouseEnter={() => onActive(index)}
                   >
+                    <MenuHover />
                     <button
                       ref={index === active ? activeRef : undefined}
                       type="button"
                       role="option"
+                      data-menu-option
                       aria-selected={selected}
                       aria-label={`${item.name}, ${provenance}`}
                       disabled={disabled}
@@ -1718,7 +1732,7 @@ function ModelBrowser({
                       }
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => onPick(item)}
-                      className={`flex min-w-0 flex-1 items-center gap-2 px-1.5 text-left text-[13px] disabled:cursor-not-allowed ${
+                      className={`flex min-w-0 flex-1 items-center gap-2 p-0 text-left text-[14px] leading-5 disabled:cursor-not-allowed ${
                         // Scrolling a group's first row into view also
                         // reveals its label instead of clipping it.
                         group.showLabel && position === 0
@@ -1726,7 +1740,7 @@ function ModelBrowser({
                           : ""
                       }`}
                     >
-                      <span className="min-w-0 flex-1 truncate">
+                      <span data-menu-title className="min-w-0 flex-1 truncate">
                         {item.name}
                       </span>
                     </button>
@@ -1737,6 +1751,7 @@ function ModelBrowser({
                     ) : null}
                     <button
                       type="button"
+                      data-menu-accessory
                       title={
                         favorited
                           ? uiT("Remove from favorites")
@@ -1752,7 +1767,7 @@ function ModelBrowser({
                         event.stopPropagation();
                         onToggleFavorite(item.id);
                       }}
-                      className={`grid size-6 shrink-0 place-items-center rounded-md transition-opacity ${
+                      className={`grid size-5 shrink-0 place-items-center rounded-md transition-opacity ${
                         favorited
                           ? "text-content/60"
                           : "text-content/35 opacity-0 group-hover:opacity-100 focus:opacity-100"
@@ -1766,9 +1781,11 @@ function ModelBrowser({
                     {selected ? (
                       <span
                         aria-hidden="true"
-                        className="grid size-6 shrink-0 place-items-center"
+                        data-menu-accessory
+                        className="grid size-5 shrink-0 place-items-center"
                       >
                         <Check
+                          data-menu-check
                           className="size-3.5 text-content/55"
                           strokeWidth={2}
                         />
