@@ -136,9 +136,9 @@ describe("model controls setting", () => {
     localStorage.removeItem(LEGACY_EFFORT_VISIBLE_KEY);
   });
 
-  it("keeps options in the model menu by default", () => {
-    expect(MODEL_CONTROLS_DEFAULT).toBe("menu");
-    expect(loadModelControls()).toBe("menu");
+  it("shows independent options beside the model picker by default", () => {
+    expect(MODEL_CONTROLS_DEFAULT).toBe("beside");
+    expect(loadModelControls()).toBe("beside");
   });
 
   it("persists the beside-picker preference", () => {
@@ -151,7 +151,7 @@ describe("model controls setting", () => {
 
   it("ignores unknown stored values", () => {
     localStorage.setItem(MODEL_CONTROLS_KEY, "everywhere");
-    expect(loadModelControls()).toBe("menu");
+    expect(loadModelControls()).toBe("beside");
   });
 
   it("migrates the previous effort-control toggle", () => {

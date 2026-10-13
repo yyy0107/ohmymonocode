@@ -1171,7 +1171,7 @@ describe("model picker", () => {
     expect(high.classList.contains("codex-effort-option")).toBe(false);
   });
 
-  it("keeps grouped effort and service tier controls open for consecutive changes", () => {
+  it("changes effort and service tier independently without overwriting the other setting", () => {
     setHarnessModels("codex", [
       {
         id: "codex:gpt-5.6-sol",
@@ -1216,50 +1216,45 @@ describe("model picker", () => {
     }
     act(() => root.render(createElement(Controls)));
 
-    expect(
-      container.querySelector('button[aria-label="Service Tier: Standard"]'),
-    ).toBeNull();
+    const tierPill = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Service Tier: Standard"]',
+    )!;
+    expect(tierPill).not.toBeNull();
     const effortPill = container.querySelector<HTMLButtonElement>(
       'button[aria-label="Reasoning: High"]',
     )!;
     act(() => effortPill.click());
 
     const menu = container.querySelector<HTMLElement>(
-      '[role="menu"][aria-label="Reasoning and Service Tier"]',
+      '[role="menu"][aria-label="Reasoning"]',
     )!;
-    expect(menu.querySelector('[role="separator"]')).not.toBeNull();
-    expect(
-      menu.querySelector('[role="group"][aria-label="Reasoning"]'),
-    ).not.toBeNull();
-    const serviceTierGroup = menu.querySelector<HTMLElement>(
-      '[role="group"][aria-label="Service Tier"]',
-    )!;
-    expect(serviceTierGroup.textContent).toContain("Standard");
-    expect(serviceTierGroup.textContent).toContain("Fast");
-
-    const fast = [...serviceTierGroup.querySelectorAll("button")].find(
-      (button) => button.textContent === "Fast",
-    )!;
-    act(() => fast.click());
-    expect(onSettingsChange).toHaveBeenCalledWith({
-      reasoningEffort: "high",
-      serviceTier: "fast",
-    });
-    expect(menu.isConnected).toBe(true);
-    expect(effortPill.getAttribute("aria-expanded")).toBe("true");
-    expect(fast.getAttribute("aria-checked")).toBe("true");
+    expect(menu.textContent).not.toContain("Standard");
+    expect(menu.textContent).not.toContain("Fast");
     const extraHigh = [...menu.querySelectorAll<HTMLButtonElement>("button")]
       .find((button) => button.textContent === "Extra High")!;
     act(() => extraHigh.click());
-    expect(onSettingsChange).toHaveBeenLastCalledWith({ reasoningEffort: "xhigh", serviceTier: "fast" });
+    expect(onSettingsChange).toHaveBeenLastCalledWith({ reasoningEffort: "xhigh", serviceTier: "default" });
     expect(extraHigh.getAttribute("aria-checked")).toBe("true");
     expect(onClose).not.toHaveBeenCalled();
     act(() => effortPill.click());
     expect(menu.isConnected).toBe(false);
     expect(onClose).toHaveBeenCalledOnce();
+    act(() => tierPill.click());
+    const tierMenu = container.querySelector<HTMLElement>(
+      '[role="menu"][aria-label="Service Tier"]',
+    )!;
+    expect(tierMenu.textContent).not.toContain("Extra High");
+    const fast = [...tierMenu.querySelectorAll("button")].find(
+      (button) => button.textContent === "Fast",
+    )!;
+    act(() => fast.click());
+    expect(onSettingsChange).toHaveBeenLastCalledWith({ reasoningEffort: "xhigh", serviceTier: "fast" });
+    expect(fast.getAttribute("aria-checked")).toBe("true");
+    expect(tierPill.textContent).toBe("Fast");
+    expect(effortPill.textContent).toBe("Extra High");
   });
 
-  it("groups fast mode inside the effort popover", () => {
+  it("keeps fast mode separate from the effort popover", () => {
     setHarnessModels("claude", [
       {
         id: "claude:opus-5",
@@ -1303,27 +1298,22 @@ describe("model picker", () => {
       ),
     );
 
-    expect(
-      container.querySelector('button[aria-label="Fast: Off"]'),
-    ).toBeNull();
+    const fastPill = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Fast: Off"]',
+    )!;
+    expect(fastPill).not.toBeNull();
     const effortPill = container.querySelector<HTMLButtonElement>(
       'button[aria-label="Effort: High"]',
     )!;
     act(() => effortPill.click());
 
     const menu = container.querySelector<HTMLElement>(
-      '[role="menu"][aria-label="Effort and Fast"]',
+      '[role="menu"][aria-label="Effort"]',
     )!;
-    const fastGroup = menu.querySelector<HTMLElement>(
-      '[role="group"][aria-label="Fast"]',
-    )!;
-    expect(fastGroup.textContent).toContain("Off");
-    expect(fastGroup.textContent).toContain("On");
-
-    const on = [...fastGroup.querySelectorAll("button")].find(
-      (button) => button.textContent === "On",
-    )!;
-    act(() => on.click());
+    expect(menu.textContent).not.toContain("Off");
+    expect(menu.textContent).not.toContain("On");
+    act(() => effortPill.click());
+    act(() => fastPill.click());
     expect(onSettingsChange).toHaveBeenCalledWith({
       effort: "high",
       fast: "true",

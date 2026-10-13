@@ -149,6 +149,7 @@ import { useTabGroupLogos } from "../../projects/hooks/useTabGroupLogos";
 import { useProjectBranchesState } from "../../source-control/hooks/useProjectBranches";
 import {
   COMPOSER_RUNNER_CHANGE_EVENT,
+  MODEL_CONTROLS_DEFAULT,
   loadComposerRunner,
   loadModelControls,
   loadNotesEnabled,
@@ -583,7 +584,7 @@ export function Composer({
   const modelControls = useSyncExternalStore(
     subscribeModelControls,
     loadModelControls,
-    () => "menu" as const,
+    () => MODEL_CONTROLS_DEFAULT,
   );
   const controlsBeside = modelControls === "beside";
   const [notes, setNotes] = useState<Note[]>(() => peekNotes() ?? []);

@@ -752,7 +752,7 @@ export function saveTabAnimationsEnabled(value: boolean) {
 
 export type ModelControls = "menu" | "beside";
 
-export const MODEL_CONTROLS_DEFAULT: ModelControls = "menu";
+export const MODEL_CONTROLS_DEFAULT: ModelControls = "beside";
 
 /** Fired on `window` when the composer model controls setting flips. */
 export const MODEL_CONTROLS_CHANGE_EVENT = "monocode:model-controls-change";
@@ -765,6 +765,7 @@ export function loadModelControls(): ModelControls {
       // Migrate the previous effort-control toggle: on means beside the picker.
       const legacy = preferenceStorage.getItem(COMPOSER_EFFORT_VISIBLE_KEY);
       if (legacy === "1" || legacy === "true") return "beside";
+      if (legacy === "0" || legacy === "false") return "menu";
     }
   } catch {
     // private mode / quota

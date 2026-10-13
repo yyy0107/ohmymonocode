@@ -1132,21 +1132,10 @@ export function ModelControlPills({
     [resolved, modelSettingOptions, model],
   );
   const pills = pillSettings(current);
-  const effort = pills.find(
-    (setting) => setting.kind === "select" && isEffortSetting(setting),
-  );
-  const groupedSettings = effort
-    ? pills.filter(
-        (setting) => setting.id === "fast" || setting.id === "serviceTier",
-      )
-    : [];
   if (pills.length === 0) return null;
   return (
     <>
       {pills.map((setting) => {
-        if (groupedSettings.some((grouped) => grouped.id === setting.id)) {
-          return null;
-        }
         return setting.kind === "toggle" ? (
           <TogglePill
             appearance={appearance}
@@ -1165,9 +1154,6 @@ export function ModelControlPills({
             onClose={onClose}
             harness={harness}
             align={align}
-            additionalSettings={
-              setting.id === effort?.id ? groupedSettings : undefined
-            }
           />
         );
       })}

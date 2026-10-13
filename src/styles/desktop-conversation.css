@@ -655,6 +655,40 @@ html[data-skin][data-desktop-mode="code"] .composer-popover.composer-menu-panel 
 html[data-skin] .composer-popover.composer-menu-panel[data-access-picker] button[role="option"] { align-items: center; }
 html[data-skin] .composer-popover.composer-menu-panel[data-access-picker] button[role="option"] > svg { margin-top: 0; }
 
+/* Adjacent model controls share a line box instead of centering only Latin caps. */
+html[data-skin][data-desktop-mode] [data-composer-layout="desktop"]
+  .composer-model-controls .model-picker-trigger-text {
+  padding-block: 0;
+  text-box: normal;
+}
+
+html[data-skin][data-desktop-mode] [data-composer-layout="desktop"]
+  .composer-model-controls > [data-model-picker-trigger] > [data-ui-icon="ChevronDown"],
+html[data-skin][data-desktop-mode] [data-composer-layout="desktop"]
+  .composer-model-controls > button[data-model-control] > svg {
+  display: none;
+}
+
+/* Keep trigger feedback above the desktop controls' resting backgrounds. */
+html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] :is(
+  .composer-environment-badge,
+  .composer-workspace-bar > div[aria-label]
+):hover {
+  border-radius: 6px;
+  background: var(--color-control);
+}
+html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] :is(
+  .composer-workspace-bar > div > button,
+  .composer-workspace-trigger,
+  .composer-worktree-menu-trigger,
+  .composer-meta [data-model-picker-trigger],
+  .composer-meta button[data-model-control],
+  .composer-meta [data-access-picker-trigger],
+  .composer-plus
+):not(:disabled, [aria-disabled="true"]):is(:hover, :focus-visible, [aria-expanded="true"]) {
+  background: var(--color-control);
+}
+
 @container (width < 480px) {
   html[data-skin][data-desktop-mode] .composer-meta {
     column-gap: 4px;
