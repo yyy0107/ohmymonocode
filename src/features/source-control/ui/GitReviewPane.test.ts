@@ -111,6 +111,7 @@ class TestResizeObserver {
         .filter((target) => target.isConnected)
         .map((target) => ({
           target,
+          contentRect: { width: 800, height: (target as HTMLElement).offsetHeight },
           borderBoxSize: [
             {
               inlineSize: 800,

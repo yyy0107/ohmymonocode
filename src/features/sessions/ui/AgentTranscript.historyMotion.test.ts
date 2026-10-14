@@ -58,7 +58,8 @@ it.each([false, true])("shows asynchronously loaded history immediately, then an
   render([...history, nextUser, fresh], true);
 
   const reply = container.querySelectorAll(".agent-markdown")[1]!;
-  expect(reply.textContent).toBe(fresh.text);
+  expect(reply.textContent!.length).toBeGreaterThan(0);
+  expect(reply.textContent!.length).toBeLessThan(fresh.text.length);
 });
 
 it("still animates an explicitly fresh reply in the first loaded snapshot", () => {
@@ -72,6 +73,7 @@ it("still animates an explicitly fresh reply in the first loaded snapshot", () =
   render(blocks, true, "new-user");
   const replies = container.querySelectorAll(".agent-markdown");
   expect(replies[0].textContent).toBe(blocks[1].text);
-  expect(replies[1].textContent).toBe(blocks[3].text);
+  expect(replies[1].textContent!.length).toBeGreaterThan(0);
+  expect(replies[1].textContent!.length).toBeLessThan(blocks[3].text.length);
   expect(replies[1].closest<HTMLElement>("[data-transcript-content-motion]")?.style.opacity).toBe("0");
 });

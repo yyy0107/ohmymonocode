@@ -144,7 +144,7 @@ it("keeps inactive terminal tabs laid out but inert when switching the shared st
   expect(lifetime.unmount).not.toHaveBeenCalled();
 });
 
-it("commits and releases an active resize before closing, cancelling queued paint", async () => {
+it("commits and releases an active resize before closing", async () => {
   vi.stubGlobal(
     "requestAnimationFrame",
     vi.fn(() => 42),
@@ -175,8 +175,8 @@ it("commits and releases an active resize before closing, cancelling queued pain
   expect(document.body.style.cursor).toBe("row-resize");
   await render(false);
   expect(props.onSizeCommit).toHaveBeenCalledExactlyOnceWith(240);
-  expect(props.onSizePaint).not.toHaveBeenCalled();
-  expect(cancel).toHaveBeenCalledWith(42);
+  expect(props.onSizePaint).toHaveBeenCalledExactlyOnceWith(240);
+  expect(cancel).not.toHaveBeenCalled();
   expect(sash.releasePointerCapture).toHaveBeenCalledWith(7);
   expect(document.body.style.cursor).not.toBe("row-resize");
 });
@@ -211,10 +211,11 @@ it("flushes the final pointer sample before committing, ignores other pointers a
   expect(props.onSizeCommit).not.toHaveBeenCalled();
   pointer("pointermove", 80);
   pointer("pointermove", 60);
-  expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
-  expect(props.onSizePaint).not.toHaveBeenCalled();
+  expect(requestAnimationFrame).not.toHaveBeenCalled();
+  expect(vi.mocked(props.onSizePaint).mock.calls).toEqual([[240], [260]]);
+  expect(props.onSizeCommit).not.toHaveBeenCalled();
   pointer("pointerup", 40);
-  expect(props.onSizePaint).toHaveBeenCalledExactlyOnceWith(280);
+  expect(vi.mocked(props.onSizePaint).mock.calls).toEqual([[240], [260], [280]]);
   expect(props.onSizeCommit).toHaveBeenCalledExactlyOnceWith(280);
   expect(vi.mocked(props.onSizePaint).mock.invocationCallOrder[0]).toBeLessThan(
     vi.mocked(props.onSizeCommit).mock.invocationCallOrder[0],

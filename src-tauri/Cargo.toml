@@ -59,6 +59,7 @@ raw-window-handle = "0.6"
 tauri-plugin-global-shortcut = "2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
+glib = "0.18"
 # Tray as a StatusNotifierItem: left click activates instead of opening the menu.
 ksni = "0.3"
 notify-rust = "4.18"

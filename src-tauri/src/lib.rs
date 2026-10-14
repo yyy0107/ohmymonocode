@@ -20,6 +20,8 @@ mod jira;
 mod legacy_orchestration;
 mod linear;
 mod link_preview;
+#[cfg(target_os = "linux")]
+mod linux_webview;
 mod local_host;
 #[cfg(target_os = "macos")]
 mod macos;
@@ -219,7 +221,14 @@ fn should_request_quit(code: Option<i32>) -> bool {
 pub fn run() {
     #[cfg(windows)]
     windows::initialize().expect("Failed to initialize Windows process safety");
-    let app = tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(target_os = "linux")]
+    let builder = builder.on_page_load(|webview, payload| {
+        if payload.event() == tauri::webview::PageLoadEvent::Started {
+            linux_webview::configure(webview);
+        }
+    });
+    let app = builder
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())

@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Block } from "../model/session";
 import { PromptOutline } from "./PromptOutline";
+import { beginPaneResize } from "../../../shared/lib/paneResize";
 
 let scope: HTMLDivElement;
 let scroller: HTMLDivElement;
@@ -107,6 +108,35 @@ function activeId() {
 }
 
 describe("PromptOutline measurement", () => {
+  it("defers queued and new geometry reads during resizing, then updates on release", () => {
+    const reads = mountOutline([
+      { id: "first", turn: [150, 400], prompt: [200, 240] },
+      { id: "second", turn: [300, 600], prompt: [320, 360] },
+    ]);
+    expect(activeId()).toBe("first");
+    const viewport = vi.mocked(scroller.getBoundingClientRect);
+    viewport.mockClear();
+    act(() => scroller.dispatchEvent(new Event("scroll")));
+    const endResize = beginPaneResize();
+    try {
+      // A frame queued before pointerdown must not measure mid-drag either.
+      flushFrame();
+      reads[0].turn.mockReturnValue(new DOMRect(0, -500, 600, 250));
+      act(() => {
+        scroller.dispatchEvent(new Event("scroll"));
+        scroller.dispatchEvent(new Event("scroll"));
+      });
+      flushFrame();
+      expect(viewport).not.toHaveBeenCalled();
+      expect(activeId()).toBe("first");
+    } finally {
+      endResize();
+    }
+    flushFrame();
+    expect(viewport).toHaveBeenCalledOnce();
+    expect(activeId()).toBe("second");
+  });
+
   it("uses the actual prompt band and stops at the first visible prompt in DOM order", () => {
     const reads = mountOutline([
       // Its reply fills the viewport, but the prompt itself is above it.

@@ -53,8 +53,8 @@ export function useDragResize({
   const [dragging, setDragging] = useState(false);
   const paneRef = useRef<HTMLElement | null>(null);
   const widthRef = useRef(width);
-  const stopDrag = useRef<(() => void) | null>(null);
-  const finishDrag = useCallback(() => stopDrag.current?.(), []);
+  const stopDrag = useRef<((commit: boolean) => void) | null>(null);
+  const finishDrag = useCallback(() => stopDrag.current?.(true), []);
 
   const apply = (next: number) => {
     widthRef.current = next;
@@ -94,42 +94,42 @@ export function useDragResize({
     const sign = direction === "left" || direction === "top" ? -1 : 1;
     const startPoint = point(event);
     const startW = widthRef.current;
+    const minimum = minRef.current;
+    const maximum = maxRef.current();
+    const sample = (ev: { clientX: number; clientY: number }) =>
+      clampTo(startW + (point(ev) - startPoint) * sign, minimum, maximum);
     handle.setPointerCapture(pointerId);
     const endPaneResize = beginPaneResize();
     setDragging(true);
     const restoreSelection = suppressTextSelection();
     const previousCursor = document.body.style.cursor;
     document.body.style.cursor = vertical ? "row-resize" : "col-resize";
+    const previousResizeCursor = document.documentElement.style.getPropertyValue("--resize-cursor");
+    document.documentElement.style.setProperty("--resize-cursor", vertical ? "row-resize" : "col-resize");
     document.documentElement.classList.add("is-resizing");
     let pending = startW;
-    let frame: number | null = null;
-
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return;
-      pending = clamp(
-        startW + (point(ev) - startPoint) * sign,
-      );
-      if (frame != null) return;
-      frame = requestAnimationFrame(() => {
-        frame = null;
-        if (widthRef.current !== pending) apply(pending);
-      });
+      pending = sample(ev);
+      if (widthRef.current !== pending) apply(pending);
     };
 
-    const stop = () => {
+    const stop = (shouldCommit: boolean) => {
       if (stopDrag.current !== stop) return;
       stopDrag.current = null;
-      if (frame != null) cancelAnimationFrame(frame);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-      window.removeEventListener("blur", stop);
-      handle.removeEventListener("lostpointercapture", stop);
-      // Flush the latest sample even when release/collapse beats the queued frame.
-      commit(pending);
+      window.removeEventListener("pointercancel", onCancel);
+      window.removeEventListener("blur", cancel);
+      window.removeEventListener("keydown", onKeyDown);
+      handle.removeEventListener("lostpointercapture", cancel);
+      if (shouldCommit) commit(pending);
+      else apply(startW);
       restoreSelection();
       document.body.style.cursor = previousCursor;
       document.documentElement.classList.remove("is-resizing");
+      if (previousResizeCursor) document.documentElement.style.setProperty("--resize-cursor", previousResizeCursor);
+      else document.documentElement.style.removeProperty("--resize-cursor");
       setDragging(false);
       endPaneResize();
       try {
@@ -141,23 +141,29 @@ export function useDragResize({
 
     const onUp = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return;
-      if (ev.type === "pointerup") {
-        pending = clamp(
-          startW + (point(ev) - startPoint) * sign,
-        );
-      }
-      stop();
+      pending = sample(ev);
+      stop(true);
+    };
+    const cancel = () => stop(false);
+    const onCancel = (ev: PointerEvent) => {
+      if (ev.pointerId === pointerId) cancel();
+    };
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.key !== "Escape") return;
+      ev.preventDefault();
+      cancel();
     };
 
     stopDrag.current = stop;
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
-    window.addEventListener("blur", stop);
-    handle.addEventListener("lostpointercapture", stop);
+    window.addEventListener("pointercancel", onCancel);
+    window.addEventListener("blur", cancel);
+    window.addEventListener("keydown", onKeyDown);
+    handle.addEventListener("lostpointercapture", cancel);
   };
 
-  useEffect(() => () => stopDrag.current?.(), []);
+  useEffect(() => () => stopDrag.current?.(false), []);
 
   const onDoubleClick = () => {
     commit(defaultRef.current);

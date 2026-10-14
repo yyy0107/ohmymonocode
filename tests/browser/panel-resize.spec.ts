@@ -2,12 +2,50 @@ import { expect, test, type Page } from "@playwright/test";
 
 type FixtureWindow = Window & {
   toolsFixture: {
+    setSidebarOpen(open: boolean): void;
     setTab(tab: string): void;
     selectFile(id: string): void;
     output(text: string): void;
     rpc: { command: string }[];
   };
 };
+
+test("conversation minimum follows available space without a size-query container", async ({ page }) => {
+  await page.goto("/tests/browser/desktop-tools.html?editor=terminal");
+  await expect(page.locator('[data-pane-id="tools-session"]')).toBeVisible();
+  await page.evaluate(() => (window as FixtureWindow).toolsFixture.setSidebarOpen(false));
+  for (const width of [1000, 360, 900]) {
+    await page.setViewportSize({ width, height: 800 });
+    await expect.poll(() => page.locator('[data-pane-tree-layout]').evaluate(el => {
+      const chat = el.querySelector('[data-pane-chat-edge]')!;
+      const minimum = parseFloat(getComputedStyle(el).getPropertyValue("--desktop-conversation-min-width"));
+      return Math.abs(parseFloat(getComputedStyle(chat).minWidth) - Math.min(el.clientWidth, minimum));
+    })).toBeLessThan(1);
+    await expect(page.locator('[data-pane-tree-layout]')).toHaveCSS("container-type", "normal");
+  }
+});
+
+test("dock keeps its live size across React updates and pointer release", async ({ page }) => {
+  await openTools(page);
+  const dock = page.locator('.project-terminal-card');
+  const before = (await dock.boundingBox())!.height;
+  const handle = page.getByRole('separator', { name: 'Resize terminal', exact: true });
+  const box = (await handle.boundingBox())!;
+  const x = box.x + 100, y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (const delta of [-30, -90, -45]) {
+    await page.mouse.move(x, y + delta);
+    await painted(page);
+    expect(Math.abs((await dock.boundingBox())!.height - before + delta)).toBeLessThan(1);
+  }
+  await page.evaluate(() => (window as FixtureWindow).toolsFixture.setSidebarOpen(false));
+  await painted(page);
+  expect(Math.abs((await dock.boundingBox())!.height - before - 45)).toBeLessThan(1);
+  await page.mouse.up();
+  await painted(page);
+  expect(Math.abs((await dock.boundingBox())!.height - before - 45)).toBeLessThan(1);
+});
 
 async function painted(page: Page) {
   await page.evaluate(() => new Promise<void>(resolve => {
@@ -22,14 +60,95 @@ async function resizing(page: Page) {
   });
 }
 
-async function openTools(page: Page) {
+async function openTools(page: Page, query = "") {
   await page.setViewportSize({ width: 2200, height: 1000 });
-  await page.goto("/tests/browser/desktop-tools.html?editor=source&explorer");
+  await page.goto(`/tests/browser/desktop-tools.html?editor=source&explorer${query}`);
   await expect(page.locator(".cm-editor").first()).toBeVisible();
   await expect(page.locator(".xterm")).toBeVisible();
   await expect.poll(() => resizing(page)).toBe(false);
   await painted(page);
 }
+
+for (const direction of ["right", "down"] as const) {
+  test(`${direction} split resizes live with the pointer through reversals`, async ({ page }) => {
+    await openTools(page, `&history=long&split=${direction}`);
+    const horizontal = direction === "right";
+    const extent = horizontal ? "width" : "height";
+    const position = horizontal ? "x" : "y";
+    const chat = page.locator('[data-pane-id="tools-session"]');
+    const editor = page.locator('[data-pane-id="tools-editor"]');
+    const content = editor.locator(".cm-editor").first();
+    const sash = page.locator('[data-pane-sash="tools-split:0"]');
+    const handle = sash.locator(".resize-handle");
+    const before = {
+      chat: (await chat.boundingBox())!,
+      editor: (await editor.boundingBox())!,
+      content: (await content.boundingBox())!,
+      sash: (await sash.boundingBox())!,
+    };
+    const box = (await handle.boundingBox())!;
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    for (const delta of [-30, -80, -120, -35, 15]) {
+      await page.mouse.move(x + (horizontal ? delta : 0), y + (horizontal ? 0 : delta));
+      await painted(page);
+      expect(await resizing(page)).toBe(true);
+      expect(Math.abs((await sash.boundingBox())![position] - before.sash[position] - delta)).toBeLessThan(1);
+      expect(Math.abs((await chat.boundingBox())![extent] - before.chat[extent] - delta)).toBeLessThan(1);
+      expect(Math.abs((await editor.boundingBox())![extent] - before.editor[extent] + delta)).toBeLessThan(1);
+      expect(Math.abs((await content.boundingBox())![extent] - before.content[extent] + delta)).toBeLessThan(1);
+    }
+    await page.mouse.up();
+    await expect.poll(() => resizing(page)).toBe(false);
+    await painted(page);
+    expect(Math.abs((await chat.boundingBox())![extent] - before.chat[extent] - 15)).toBeLessThan(1);
+  });
+}
+
+test("keeps split background geometry out of the transcript while preserving its background", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("monocode:project-chat-backgrounds", JSON.stringify({
+      "/fixture/monocode": { path: "/fixture/background.svg", effect: "gradient-blur", scope: "all" },
+    }));
+  });
+  await page.route("**/fixture/background.svg*", route => route.fulfill({
+    contentType: "image/svg+xml",
+    body: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" fill="teal"/></svg>',
+  }));
+  await openTools(page, "&history=long");
+  const checkBackground = async () => {
+    const geometry = await page.evaluate(() => {
+      const pane = document.querySelector('[data-pane-id="tools-session"]')!;
+      const background = pane.querySelector(".chat-pane-background")!;
+      const blur = background.querySelector(".gradient-blur-background")!;
+      const width = (element: Element, pseudo?: string) =>
+        parseFloat(getComputedStyle(element, pseudo).getPropertyValue("--chat-background-width"));
+      return {
+        pane: width(pane), background: width(background), pseudo: width(background, "::before"),
+        blur: width(blur), transcript: width(pane.querySelector(".agent-transcript")!),
+        text: width(pane.querySelector(".agent-markdown")!),
+      };
+    });
+    expect(geometry.pane).toBeGreaterThan(100);
+    expect(geometry.background).toBeCloseTo(geometry.pane, 3);
+    expect(geometry.pseudo).toBeCloseTo(geometry.pane, 3);
+    expect(geometry.blur).toBeCloseTo(geometry.pane, 3);
+    expect(geometry.transcript).toBe(100);
+    expect(geometry.text).toBe(100);
+    return geometry.pane;
+  };
+  const before = await checkBackground();
+  const handle = page.locator('[data-pane-sash="tools-split:0"] > .resize-handle');
+  const box = (await handle.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + 100);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 - 100, box.y + 100);
+  await painted(page);
+  expect(await checkBackground()).toBeGreaterThan(before);
+  await page.mouse.up();
+});
 
 test("keeps the split aligned with its sash when file content rerenders during a drag", async ({ page }) => {
   await openTools(page);
@@ -59,7 +178,7 @@ test("keeps the split aligned with its sash when file content rerenders during a
 });
 
 for (const kind of ["tools", "terminal", "explorer", "sidebar"] as const) {
-  test(`${kind} resize follows the pointer without repeated PTY resizing`, async ({ page }) => {
+  test(`${kind} resize follows the pointer and keeps terminal dimensions current`, async ({ page }) => {
     await openTools(page);
     if (kind === "tools") {
       await page.evaluate(() => (window as FixtureWindow).toolsFixture.setTab("changes"));
@@ -96,12 +215,12 @@ for (const kind of ["tools", "terminal", "explorer", "sidebar"] as const) {
       );
       await painted(page);
     }
-    expect(await count()).toBe(countBefore);
+    if (kind === "explorer") expect(await count()).toBe(countBefore);
+    else expect(await count()).toBeGreaterThan(countBefore);
     const moved = (await handle.boundingBox())!;
     expect(Math.abs((kind === "terminal" ? moved.y - box.y : moved.x - box.x))).toBeGreaterThan(70);
     await page.mouse.up();
     await expect.poll(() => resizing(page)).toBe(false);
-    if (kind !== "explorer") await expect.poll(count).toBe(countBefore + 1);
     await expect(terminal).toHaveAttribute("data-resize-retained", "true");
     if (kind === "sidebar") {
       const gap = await page.evaluate(() => {

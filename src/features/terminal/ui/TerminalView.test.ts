@@ -3,6 +3,7 @@ import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver"
 import { act, createElement, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
+import { beginPaneResize } from "../../../shared/lib/paneResize";
 
 const pty = vi.hoisted(() => ({
   spawnPty: vi.fn(async () => {}),
@@ -20,10 +21,10 @@ const xterm = vi.hoisted(() => ({
   paste: vi.fn(),
 }));
 const layout = vi.hoisted(() => ({
+  deduplicateTerminalDimensionStyles: vi.fn(),
   fitTerminal: vi.fn<() => { cols: number; rows: number } | null>(() => null),
   refreshTerminalMeasurements: vi.fn(),
   applyTerminalChrome: () => {},
-  resetGridStretch: () => {},
 }));
 vi.mock("../model/terminalLayout", () => layout);
 vi.mock("@xterm/xterm", () => ({
@@ -246,6 +247,45 @@ it("keeps glyph measurements and PTY dimensions stable when switching laid-out t
     expect(pty.spawnPty).toHaveBeenCalledTimes(2);
     expect(pty.killPty).not.toHaveBeenCalled();
   } finally {
+    await act(async () => root.unmount());
+    await lapseHandoff();
+    host.remove();
+  }
+});
+
+it("fits and notifies the PTY while a pane resize is still active", async () => {
+  const { host, root } = setup();
+  vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(800);
+  vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(480);
+  const frames: FrameRequestCallback[] = [];
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    frames.push(callback);
+    return frames.length;
+  });
+  vi.stubGlobal("cancelAnimationFrame", vi.fn());
+  layout.fitTerminal.mockReturnValue({ cols: 80, rows: 24 });
+  const view = (active: boolean) => createElement(TerminalView, {
+    id: "resize-focus", cwd: "/tmp", active,
+  });
+  let finish: (() => void) | undefined;
+  try {
+    await act(async () => root.render(view(true)));
+    await act(async () => frames.splice(0).forEach(callback => callback(0)));
+    const fits = layout.fitTerminal.mock.calls.length;
+    finish = beginPaneResize();
+    layout.fitTerminal.mockReturnValue({ cols: 100, rows: 24 });
+    await act(async () => root.render(view(false)));
+    await act(async () => root.render(view(true)));
+    expect(layout.fitTerminal).toHaveBeenCalledTimes(fits + 1);
+    expect(pty.resizePty).toHaveBeenLastCalledWith("resize-focus", 100, 24);
+    await act(async () => {
+      finish?.();
+      frames.splice(0).forEach(callback => callback(0));
+    });
+    expect(layout.fitTerminal).toHaveBeenCalledTimes(fits + 1);
+    expect(pty.resizePty).toHaveBeenLastCalledWith("resize-focus", 100, 24);
+  } finally {
+    finish?.();
     await act(async () => root.unmount());
     await lapseHandoff();
     host.remove();

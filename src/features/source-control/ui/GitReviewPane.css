@@ -1,7 +1,6 @@
 /* claude-ui-analysis: code-changes-open, font-styles and root-theme-variables.
    The code renderer has its own tokens because it lives in a shadow root. */
 .git-review-pane {
-  container: git-review / inline-size;
   --review-added: #32d74b;
   --review-removed: #ff2c56;
   --review-bg: #1a1a19;
@@ -108,8 +107,6 @@
 }
 
 /* Keep the comparison and actions visible when the review pane is narrow. */
-@container git-review (max-width: 36rem) {
-  .git-review-worktree {
-    display: none;
-  }
+.git-review-pane[data-inline-below~="36"] .git-review-worktree {
+  display: none;
 }

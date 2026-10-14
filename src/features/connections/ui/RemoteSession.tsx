@@ -1893,7 +1893,7 @@ function ConnectedRemoteSession({
         inspect: id => parentWorkers.inspect(id ? hostOrchestrationClient.shellId(source, id) : null),
         openDetails: parentWorkers.openDetails ? worker => parentWorkers.openDetails?.(hostWorker(worker)) : undefined,
       }}>
-      <div className="relative flex h-full min-h-0 flex-col">
+      <div data-pane-background-geometry className="relative flex h-full min-h-0 flex-col">
         {notice ? (
           <div
             role={error ? "alert" : "status"}
@@ -1917,7 +1917,7 @@ function ConnectedRemoteSession({
             ) : null}
           </div>
         ) : null}
-        <div className="min-h-0 flex-1">{render(overrides)}</div>
+        <div data-pane-background-geometry className="min-h-0 flex-1">{render(overrides)}</div>
       </div>
       </OrchestrationWorkers.Provider>
       </OrchestrationActions.Provider>

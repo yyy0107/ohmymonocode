@@ -118,7 +118,9 @@ function sameElement(
 
 function createContainer() {
   const node = document.createElement("div");
-  node.className = "contents";
+  // React delegates wheel events to this portal host. A positioned box lets
+  // WebKit use its bounds instead of walking the transcript on every resize.
+  node.className = "relative flex h-full min-h-0 min-w-0 flex-1 flex-col";
   return node;
 }
 

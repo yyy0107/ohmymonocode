@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { applyReducedMotion } from "../../../../shared/lib/reducedMotion";
 import { useSurfaceVisibility } from "../../../../shared/ui/SurfaceVisibility";
+import { beginPaneResize } from "../../../../shared/lib/paneResize";
 import { FileExplorerFrame } from "./FileExplorerFrame";
 
 vi.mock("../../../source-control/hooks/useGitFileStatuses", () => ({
@@ -151,4 +152,20 @@ it("adapts to the panel width without a maximize action and preserves the editor
   resizePanel(1000);
   expect(tree().inert).toBe(false);
   expect(preview()).toBe(editor);
+});
+
+
+it("caches responsive width during a drag and switches layout only after release", () => {
+  render(900);
+  click("a.ts");
+  expect(container.querySelector<HTMLElement>('[aria-label="Resize file tree"]')!.hidden).toBe(false);
+  const finish = beginPaneResize();
+  try {
+    resizePanel(600);
+    expect(container.querySelector<HTMLElement>('[aria-label="Resize file tree"]')!.hidden).toBe(false);
+  } finally {
+    act(() => finish());
+  }
+  expect(container.querySelector<HTMLElement>('[aria-label="Resize file tree"]')!.hidden).toBe(true);
+  expect(preview().dataset.visible).toBe("true");
 });

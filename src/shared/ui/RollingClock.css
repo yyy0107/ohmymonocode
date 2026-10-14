@@ -30,9 +30,17 @@
 
 .rolling-clock-current,
 .rolling-clock-glyph {
+  pointer-events: none;
+}
+
+.rolling-clock-current {
+  position: relative;
+  display: block;
+}
+
+.rolling-clock-glyph {
   position: absolute;
   inset: 0;
-  pointer-events: none;
 }
 
 .rolling-clock-glyph[data-exiting]::before {

@@ -150,7 +150,7 @@
 .mobile-composer textarea.mobile-composer-measure {
   white-space: pre-wrap;
 }
-.mobile-composer textarea:focus-visible {
+html[data-mobile-skin] .mobile-composer [data-ui="message-input-field"]:focus-visible {
   outline: none;
 }
 .mobile-composer textarea::placeholder {
@@ -284,7 +284,7 @@
   gap: 12px;
   /* Room for remove buttons hanging over the chip corners; this list scrolls,
      so anything outside its padding box is clipped. */
-  padding: 16px 16px 12px 0;
+  padding: 16px 16px 12px;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;

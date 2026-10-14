@@ -898,17 +898,29 @@ html.has-user-accent .mobile-app .mobile-desktop-transcript .user-message-bubble
   color: var(--color-m-ink-tertiary);
 }
 
-.mobile-app .mobile-desktop-transcript [data-transcript-turn-footer] button {
-  min-width: 44px;
-  min-height: 44px;
+.mobile-app .mobile-desktop-transcript [data-ui="response-action-group"],
+.mobile-app .mobile-desktop-transcript [data-ui="response-metadata"] {
+  gap: 8px;
+}
+
+.mobile-app .mobile-desktop-transcript [data-ui="response-metrics"] {
+  margin-left: 0;
+}
+
+.mobile-app .mobile-desktop-transcript [data-ui="response-actions"] [data-ui="response-action"],
+.mobile-app .mobile-desktop-transcript [data-ui="response-metrics-trigger"] {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 4px;
+}
+
+.mobile-app .mobile-desktop-transcript [data-ui="response-actions"] [data-ui="response-action"] {
   color: var(--color-m-ink-secondary);
 }
-
-.mobile-app .mobile-desktop-transcript [data-transcript-turn-footer] button svg {
-  width: 20px;
-  height: 20px;
-}
-
 
 /* Provider identity and status text come from shared transcript behavior. */
 html[data-mobile-skin] [data-ui="assistant-status"] {

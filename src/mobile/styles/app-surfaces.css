@@ -164,9 +164,6 @@ html[data-mobile-skin] .mobile-sheet-header-title strong {
 html[data-mobile-skin] .mobile-sheet-header-title small {
   font-size: var(--text-m-label);
 }
-html[data-mobile-skin] .mobile-sheet-header-button {
-  background: var(--color-m-raised);
-}
 html[data-mobile-skin] .mobile-file-sheet-header {
   border-bottom-color: var(--m-page-divider);
 }

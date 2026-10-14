@@ -30,6 +30,12 @@ const blocks: Block[] = [
   { id: "prompt", role: "user", text: "You're a tiny fairy who lives in a teapot. Describe your cozy home and your daily adventures in the kitchen!", startedAt: 1000, durationMs: 4000 },
   { id: "answer", role: "assistant", text: "*Tink tink!* Oh, hello there, big world! I'm Pippa, a teapot fairy, and welcome to my itty-bitty abode!\n\nMy home is a lovely old porcelain teapot with hand-painted bluebells. The spout is my front door, and I've hung tiny wind chimes made from lost earrings there. Inside, I've lined the walls with velvety rose petals for insulation.\n\nOh! I hear the kettle whistling — time to hide! Being a teapot fairy is always exciting, but it's important to keep the magic a secret. *Wink!*" },
 ];
+if (query.has("footer")) blocks.splice(0, blocks.length,
+  { id: "prompt", role: "user", text: "重新构建移动端，发布局域网", startedAt: 1000, durationMs: 55000,
+    turnModel: { harness: "codex", id: "gpt-6-astra", name: "GPT-6-Astra" },
+    turnMetrics: { inputTokens: 1200, outputTokens: 180 } },
+  { id: "answer", role: "assistant", text: "- [下载 APK](http://example.test/app.apk)\n\n可在应用内检查更新。" },
+);
 if (query.has("long")) blocks.push(
   { id: "long-prompt", role: "user", text: "检查这个长路径：" + "very-long-directory-name/".repeat(12), startedAt: 6000, durationMs: 1000 },
   { id: "long-answer", role: "assistant", text: "中文回复也应保持舒适的阅读节奏，长路径与代码在手机宽度内展示。\n\n```ts\nconst path = '" + "long-segment/".repeat(20) + "';\n```\n\n| 名称 | 内容 |\n| --- | --- |\n| 路径 | `" + "segment/".repeat(20) + "` |" },
@@ -55,8 +61,8 @@ function Fixture() {
           <BotMessages messages={blocks.map((block, index) => ({ id: block.id, kind: block.role === "user" ? "user" : "assistant", text: block.text, createdAt: 1000 + index, revision: index }))}
             mobile busy={false} canRead onOpen={noop} onRespond={noop} bindReply={() => ({})} />
         </div></div> :
-        <TranscriptPlatformContext.Provider value={mobileTranscriptPlatform}>
-          <MobileConversation blocks={blocks} harness="claude" hapticsActive={false} onSaveNote={noop} />
+        <TranscriptPlatformContext.Provider value={query.has("footer") ? { ...mobileTranscriptPlatform, liveClockInFooter: true } : mobileTranscriptPlatform}>
+          <MobileConversation blocks={blocks} harness="claude" hapticsActive={false} onSaveNote={query.has("footer") ? undefined : noop} />
         </TranscriptPlatformContext.Provider>}
       <MobileComposer value={draft} onChange={setDraft}
         configuration={{ harness: "claude", model: "claude-sonnet", modelSettings: {}, runtimeMode: "supervised" }}

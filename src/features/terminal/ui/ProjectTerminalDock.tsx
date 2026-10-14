@@ -125,12 +125,12 @@ export function ProjectTerminalDock({
     pointerId: number;
     target: HTMLDivElement;
     endPaneResize: () => void;
+    viewport: { width: number; height: number };
   } | null>(null);
   const sizeRef = useRef(dock.size);
   sizeRef.current = dock.size;
   const pending = useRef(dock.size);
   const painted = useRef(dock.size);
-  const frame = useRef<number | null>(null);
   const dockDrop = useTerminalDockDrop();
   const [moving, setMoving] = useState(false);
   const onMoveToPaneRef = useRef(onMoveToPane);
@@ -149,7 +149,6 @@ export function ProjectTerminalDock({
 
   useEffect(
     () => () => {
-      if (frame.current != null) cancelAnimationFrame(frame.current);
       drag.current?.endPaneResize();
     },
     [],
@@ -162,20 +161,12 @@ export function ProjectTerminalDock({
 
   const paint = (next: number) => {
     pending.current = next;
-    if (frame.current != null) return;
-    frame.current = requestAnimationFrame(() => {
-      frame.current = null;
-      if (painted.current === pending.current) return;
-      painted.current = pending.current;
-      onSizePaint(pending.current);
-    });
+    if (painted.current === next) return;
+    painted.current = next;
+    onSizePaint(next);
   };
 
   const commit = () => {
-    if (frame.current != null) {
-      cancelAnimationFrame(frame.current);
-      frame.current = null;
-    }
     // Land the final sample before App restores the collapse transitions.
     if (visible && painted.current !== pending.current) {
       painted.current = pending.current;
@@ -195,6 +186,7 @@ export function ProjectTerminalDock({
       pointerId: event.pointerId,
       target: event.currentTarget,
       endPaneResize: beginPaneResize(),
+      viewport: viewport(),
     };
     pending.current = sizeRef.current;
     painted.current = sizeRef.current;
@@ -207,7 +199,7 @@ export function ProjectTerminalDock({
     const delta = point - drag.current.start;
     const signed =
       dock.side === "bottom" || dock.side === "right" ? -delta : delta;
-    paint(clampDockSize(dock.side, drag.current.size + signed, viewport()));
+    paint(clampDockSize(dock.side, drag.current.size + signed, drag.current.viewport));
   };
 
   const finishResize = () => {

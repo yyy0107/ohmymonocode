@@ -1,5 +1,5 @@
 // Real mobile components with local data, used by Playwright in both motion modes.
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { MotionConfig } from "motion/react";
 import { defaultTransition } from "../../src/shared/motion/tokens";
@@ -18,6 +18,8 @@ const noop = () => {};
 const project = { id: "project", name: "Monocode", cwd: "/fixture" };
 function Fixture() {
   const [sheet, setSheet] = useState(false);
+  const [popup, setPopup] = useState<"anchor" | "dialog" | null>(null);
+  const anchor = useRef<HTMLButtonElement>(null);
   const [drawer, setDrawer] = useState(false);
   const [page, setPage] = useState(false);
   return <MotionConfig reducedMotion="user" transition={defaultTransition}>
@@ -28,6 +30,8 @@ function Fixture() {
           <p>Physical sheet and drawer springs. Route state is preserved during travel.</p>
           <div style={{display:"grid",gap:16}}>
             <button data-testid="sheet-open" onClick={()=>setSheet(true)}>Open sheet</button>
+            <button ref={anchor} data-testid="anchor-open" onClick={()=>setPopup("anchor")}>Open menu</button>
+            <button data-testid="dialog-open" onClick={()=>setPopup("dialog")}>Open dialog</button>
             <button data-testid="drawer-open" onClick={()=>setDrawer(true)}>Open drawer</button>
             <button data-testid="page-switch" onClick={()=>setPage(value=>!value)}>{page ? "Back" : "Forward"}</button>
           </div>
@@ -43,6 +47,11 @@ function Fixture() {
         <div style={{padding:20}}><h2>Retained sheet content</h2><p>Pull a short distance to spring back, or pass the existing threshold to close.</p>
         <input data-ui="input" aria-label="Retained sheet input" defaultValue="Draft stays mounted"/><p style={{height:120}}>Native content scrolling stays available.</p></div>
       </MobileSheet></MobileSheetPresence>
+      <MobileSheetPresence open={popup !== null}>
+        {popup && <MobileSheet title="Popup" placement={popup} anchor={anchor} onClose={()=>setPopup(null)}>
+          <button data-testid="popup-close" onClick={()=>setPopup(null)}>Close popup</button>
+        </MobileSheet>}
+      </MobileSheetPresence>
     </div>
   </MotionConfig>;
 }

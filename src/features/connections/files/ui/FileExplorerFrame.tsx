@@ -26,6 +26,7 @@ import {
   SurfaceVisibilityContext,
   useSurfaceVisibility,
 } from "../../../../shared/ui/SurfaceVisibility";
+import { isPaneResizing, onPaneResizeSettled } from "../../../../shared/lib/paneResize";
 import { useDragResize } from "../../../../shared/hooks/useDragResize";
 import { ResizeHandle } from "../../../../shared/ui/ResizeHandle";
 import { MOD } from "../../../../platform/tauri/platform";
@@ -85,16 +86,22 @@ export function FileExplorerFrame({
   useLayoutEffect(() => {
     const panel = panelRef.current;
     if (!panel) return;
+    let measuredWidth = panel.clientWidth;
     const measure = (width: number) => {
-      // Hidden retained panels should keep their last measured layout.
-      if (width > 0) setSplitLayout(width >= 720);
+      measuredWidth = width;
+      // Cache live geometry, but defer responsive React layout changes until release.
+      if (width > 0 && !isPaneResizing()) setSplitLayout(width >= 720);
     };
     measure(panel.clientWidth);
     const observer = new ResizeObserver(([entry]) => {
       if (entry) measure(entry.contentRect.width);
     });
     observer.observe(panel);
-    return () => observer.disconnect();
+    const unsubscribe = onPaneResizeSettled(() => measure(measuredWidth));
+    return () => {
+      observer.disconnect();
+      unsubscribe();
+    };
   }, []);
   const [treeOpen, setTreeOpen] = useState(true);
   const [browsing, setBrowsing] = useState(!hasDocument);

@@ -1905,7 +1905,7 @@ function TurnDuration({
         <TurnMetricsBadge metrics={metrics} />
       </span>
       {labelHidden ? null : (
-        <span className="flex min-w-0 items-center gap-2.5">
+        <span data-ui="response-metadata" className="flex min-w-0 items-center gap-2.5">
           {dot}
           {harness || modelName?.trim() ? (
             <>
@@ -1926,7 +1926,7 @@ function TurnDuration({
         </span>
       )}
       {completedAt != null ? (
-        <span className="flex shrink-0 items-center gap-2.5">
+        <span data-ui="response-metadata" className="flex shrink-0 items-center gap-2.5">
           {dot}
           <time
             dateTime={new Date(completedAt).toISOString()}
@@ -1973,6 +1973,7 @@ export function TurnMetricsBadge({ metrics }: { metrics?: TurnMetrics }) {
   return (
     <div
       ref={root}
+      data-ui="response-metrics"
       className="relative shrink-0 ml-[3px]"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -1980,6 +1981,7 @@ export function TurnMetricsBadge({ metrics }: { metrics?: TurnMetrics }) {
       onBlur={() => setHovered(false)}
     >
       <span
+        data-ui="response-metrics-trigger"
         role="img"
         tabIndex={0}
         aria-label={uiT("Turn metrics: {value0}", { value0: String(label) })}

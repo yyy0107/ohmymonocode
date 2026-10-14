@@ -1,124 +1,381 @@
-import type { Element, ElementContent, Root } from "hast";
-
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useSyncExternalStore,
+  useRef,
+  useState,
+  type ComponentProps,
+} from "react";
+import type { Element, Root } from "hast";
+import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
+import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import type { TextRevealSequence } from "./textRevealQueue";
 
-/** Compatibility helpers for transcript callers; provider text renders immediately. */
 export type TextRevealOptions = {
-  unit: "word" | "character";
-  /** Text already visible when this conversation was opened. */
   initialLength?: number;
-  /** Received history to show immediately after a retained conversation resumes. */
   settledLength?: number;
-  /** Wait until earlier mounted replies have caught up with their received text. */
   sequence?: TextRevealSequence;
 };
 
-/** UTF-16 boundaries of complete displayed characters, including emoji. */
-export function characterBoundaries(text: string): number[] {
-  const Segmenter = (
-    Intl as unknown as {
-      Segmenter?: new (
-        locale?: string,
-        options?: { granularity: string },
-      ) => {
-        segment: (text: string) => Iterable<{ index: number; segment: string }>;
-      };
-    }
-  ).Segmenter;
-  if (Segmenter)
-    return Array.from(
-      new Segmenter(undefined, { granularity: "grapheme" }).segment(text),
-      (part) => part.index + part.segment.length,
-    );
-  const characters: string[] = [];
-  for (const character of text) {
-    const previous = characters[characters.length - 1];
-    if (
-      previous &&
-      (/^[\p{Mark}\uFE0E\uFE0F\u200D\u{1F3FB}-\u{1F3FF}]$/u.test(character) ||
-        previous.endsWith("\u200D"))
-    )
-      characters[characters.length - 1] += character;
-    else characters.push(character);
+const TICK_MS = 25;
+const MAX_STEP = 32;
+const MIN_SPEED = 160;
+const MAX_SPEED = (MAX_STEP * 1000) / TICK_MS;
+const ACCELERATION = 1600;
+const FIRST_STEP = (MIN_SPEED * TICK_MS) / 1000;
+const FADE_MS = 200;
+
+const segmenter =
+  typeof Intl.Segmenter === "function"
+    ? new Intl.Segmenter(undefined, { granularity: "grapheme" })
+    : null;
+
+function* graphemes(
+  text: string,
+): Generator<{ index: number; segment: string }> {
+  if (segmenter) {
+    yield* segmenter.segment(text);
+    return;
   }
-  let offset = 0;
-  return characters.map((character) => (offset += character.length));
+  let segment = "";
+  let index = 0;
+  for (const character of text) {
+    if (
+      segment &&
+      !/^[\p{Mark}\uFE0E\uFE0F\u200D\u{1F3FB}-\u{1F3FF}]$/u.test(character) &&
+      !segment.endsWith("\u200D") &&
+      !(
+        /^\p{Regional_Indicator}$/u.test(segment) &&
+        /^\p{Regional_Indicator}$/u.test(character)
+      )
+    ) {
+      yield { index, segment };
+      index += segment.length;
+      segment = "";
+    }
+    segment += character;
+  }
+  if (segment) yield { index, segment };
 }
 
-/**
- * Where to stop revealing `text` for a reveal that has reached `at`: the end
- * of the word `at` falls in, so a word is never shown half written. A stream
- * still mid-word holds back at the last whole word; a finished one runs out.
- */
-export function revealEnd(
+export function revealBoundary(
   text: string,
-  at: number,
-  streaming: boolean,
+  start: number,
+  step = FIRST_STEP,
+  holdMarkers = true,
 ): number {
-  for (let i = Math.max(0, Math.ceil(at)); i < text.length; i++) {
-    if (isSpace(text.charCodeAt(i))) return i;
+  const ceiling = Math.min(
+    text.length,
+    start + Math.min(MAX_STEP, Math.max(1, Math.floor(step))),
+  );
+  let end = start;
+  for (const part of graphemes(text.slice(start))) {
+    const next = start + part.index + part.segment.length;
+    if (next > ceiling) {
+      // A single grapheme is indivisible, even an unusually long ZWJ sequence.
+      if (end === start) end = next;
+      break;
+    }
+    end = next;
+    if (end === ceiling) break;
   }
-  if (!streaming) return text.length;
-  let end = text.length;
-  while (end > 0 && !isSpace(text.charCodeAt(end - 1))) end--;
+  const line = text.lastIndexOf("\n", end - 1) + 1;
+  if (
+    holdMarkers &&
+    /^ {0,3}(?:#{1,6}|>|[-+*]|\d+[.)]|`{1,}|~{1,})\s*$/.test(
+      text.slice(line, end),
+    )
+  ) {
+    if (line > start) return line;
+    // Never scan ahead to a newline: that could release an arbitrarily long line.
+    if (end === text.length) return start;
+  }
   return end;
 }
 
-function isSpace(code: number): boolean {
-  return code === 32 || code === 10 || code === 9 || code === 13;
+const subscribeVisibility = (listener: () => void) => {
+  document.addEventListener("visibilitychange", listener);
+  return () => document.removeEventListener("visibilitychange", listener);
+};
+const pageVisible = () => !document.hidden;
+const serverVisible = () => true;
+
+export function usePacedText(
+  text: string,
+  streaming: boolean,
+  options?: TextRevealOptions,
+) {
+  const reduced = useMotionPreference();
+  const visible = useSyncExternalStore(
+    subscribeVisibility,
+    pageVisible,
+    serverVisible,
+  );
+  const surfaceVisible = useSurfaceVisibility();
+  const immediate = reduced || !visible || !surfaceVisible;
+  const [state, setState] = useState(() => {
+    const history = Math.min(text.length, options?.initialLength ?? 0);
+    const length =
+      immediate || !streaming
+        ? text.length
+        : history || revealBoundary(text, 0);
+    return {
+      source: text,
+      length,
+      prime: immediate || !streaming ? length : history,
+      streaming,
+      paced: streaming,
+    };
+  });
+  let current = state;
+  const settled = Math.min(text.length, options?.settledLength ?? 0);
+  if (
+    state.source !== text ||
+    state.streaming !== streaming ||
+    (immediate && state.length < text.length) ||
+    settled > state.length
+  ) {
+    const replaced = !text.startsWith(state.source);
+    const staticText = !streaming && !state.paced;
+    const catchUp = immediate || staticText;
+    const length = catchUp
+      ? text.length
+      : replaced
+        ? Math.min(state.length, text.length)
+        : Math.max(state.length, settled);
+    current = {
+      source: text,
+      length,
+      prime: catchUp ? length : Math.max(state.prime, settled),
+      streaming,
+      paced: state.paced || streaming,
+    };
+    setState(current);
+  }
+  const latest = useRef(current);
+  latest.current = current;
+  const wake = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => {
+    if (immediate) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let speed = MIN_SPEED;
+    let credit = 0;
+    let last = performance.now();
+    let prime = latest.current.prime;
+    const schedule = () => {
+      if (
+        timer !== undefined ||
+        latest.current.length >= latest.current.source.length
+      )
+        return;
+      const now = performance.now();
+      if (now - last > 150 || prime !== latest.current.prime) {
+        speed = MIN_SPEED;
+        credit = 0;
+        prime = latest.current.prime;
+      }
+      last = now;
+      timer = setTimeout(tick, TICK_MS);
+    };
+    const tick = () => {
+      timer = undefined;
+      const value = latest.current;
+      const backlog = value.source.length - value.length;
+      if (backlog <= 0 || document.hidden) return;
+      // Discard stalled-frame time instead of accumulating catch-up credit.
+      const elapsed = Math.min(TICK_MS, Math.max(0, performance.now() - last));
+      const target = Math.max(MIN_SPEED, Math.min(MAX_SPEED, backlog / 0.55));
+      const change = (ACCELERATION * elapsed) / 1000;
+      speed += Math.max(-change, Math.min(change, target - speed));
+      credit = Math.min(MAX_STEP, credit + (speed * elapsed) / 1000);
+      const length = revealBoundary(
+        value.source,
+        value.length,
+        credit,
+        value.streaming,
+      );
+      if (length <= value.length) return;
+      credit = Math.max(0, credit - (length - value.length));
+      setState({ ...value, length });
+      // The next timeout is armed by the layout effect after this batch commits.
+    };
+    wake.current = schedule;
+    schedule();
+    return () => {
+      clearTimeout(timer);
+      wake.current = undefined;
+    };
+  }, [immediate]);
+  useLayoutEffect(() => {
+    wake.current?.();
+  });
+  const revealing = current.length < text.length && !immediate;
+  const sequence = options?.sequence;
+  useLayoutEffect(() => {
+    sequence?.setPending(revealing);
+  }, [sequence, revealing]);
+  useEffect(() => () => sequence?.setPending(false), [sequence]);
+  return {
+    text: text.slice(0, current.length),
+    revealing,
+    primeLength: current.prime,
+    reduced,
+  };
 }
 
-/** Provider text is rendered as received; sequencing no longer gates words. */
-export function usePacedText(text: string, _streaming: boolean, _options?: TextRevealOptions) {
-  return { text, revealing: false };
+type FadeChunk = { from: number; to: number; start: number; end: number };
+type FadeRun = { text: string; plain: number; chunks: FadeChunk[] };
+
+export class WordFadeManager {
+  private runs = new Map<string, FadeRun>();
+  private horizon = 0;
+  private text = "";
+  primeLength = 0;
+  enabled = false;
+
+  sync(
+    text: string,
+    enabled: boolean,
+    primeLength: number,
+    now = performance.now(),
+  ) {
+    if (!text.startsWith(this.text)) {
+      this.runs.clear();
+      this.horizon = now;
+      this.primeLength = text.length;
+    } else this.primeLength = Math.max(this.primeLength, primeLength);
+    this.text = text;
+    this.enabled = enabled;
+  }
+
+  reveal(
+    id: string,
+    text: string,
+    offset: number,
+    now = performance.now(),
+  ): FadeRun {
+    let run = this.runs.get(id);
+    if (!run || !text.startsWith(run.text)) {
+      run = { text: "", plain: 0, chunks: [] };
+      this.runs.set(id, run);
+    }
+    if (!this.enabled || offset + text.length <= this.primeLength) {
+      run.plain = text.length;
+      run.chunks = [];
+    } else if (text.length > run.text.length) {
+      let from = run.text.length;
+      // Small phrase groups also work for Chinese and long unbroken words.
+      let size = 0;
+      for (const part of graphemes(text.slice(from))) {
+        size += part.segment.length;
+        if (size < 16 && from + size < text.length && !/\s/.test(part.segment))
+          continue;
+        const to = from + size;
+        if (offset + to <= this.primeLength) {
+          run.plain = to;
+          run.chunks = [];
+        } else {
+          this.horizon = Math.min(
+            Math.max(now, this.horizon) + size * 2.5,
+            now + 600,
+          );
+          run.chunks.push({
+            from,
+            to,
+            start: this.horizon,
+            end: this.horizon + FADE_MS,
+          });
+        }
+        from = to;
+        size = 0;
+      }
+    }
+    run.text = text;
+    while (run.chunks.length && run.chunks[0].end <= now) {
+      run.plain = run.chunks.shift()!.to;
+    }
+    return run;
+  }
 }
-export function useWordFading(_active: boolean): boolean { return false; }
 
-/*
- * Text here is either not prose (code, math, drawings) or read whole by the
- * component that renders it (links).
- */
-const UNFADED_TAGS = new Set(["a", "code", "pre", "svg", "math", "kbd"]);
+export const WordFadeContext = createContext<{
+  manager: WordFadeManager;
+  offset: number;
+} | null>(null);
 
-/**
- * Wraps every word in a span that fades in as it is added to the page. The
- * plugin keeps no state: a word already on screen keeps its element however
- * often its block re-renders, so it never fades twice, and a word the reveal
- * has just let out is a new element, so it does. That holds because every
- * word gets a span — the JSX keys count spans, and a word without one would
- * shift the keys of every word after it and fade them again.
- */
+export function MarkdownSpan({
+  node: _node,
+  children,
+  ...props
+}: ComponentProps<"span"> & { node?: unknown; "data-stream-text"?: number }) {
+  const start = props["data-stream-text"];
+  if (start !== undefined && typeof children === "string")
+    return <FadingText start={Number(start)} text={children} />;
+  return <span {...props}>{children}</span>;
+}
+
+function FadingText({ start, text }: { start: number; text: string }) {
+  const context = useContext(WordFadeContext);
+  const [, refresh] = useState(0);
+  const offset = (context?.offset ?? 0) + start;
+  const now = performance.now();
+  const run = context?.manager.reveal(String(offset), text, offset, now);
+  const end = run?.chunks.at(-1)?.end;
+  useEffect(() => {
+    if (end === undefined) return;
+    const timer = setTimeout(
+      () => refresh((n) => n + 1),
+      Math.max(0, end - performance.now()) + 1,
+    );
+    return () => clearTimeout(timer);
+  }, [end]);
+  if (!run?.chunks.length) return text;
+  return (
+    <>
+      {text.slice(0, run.plain)}
+      {run.chunks.map((chunk) => (
+        <FadeSpan
+          key={chunk.from}
+          start={chunk.start}
+          text={text.slice(chunk.from, chunk.to)}
+        />
+      ))}
+    </>
+  );
+}
+
+function FadeSpan({ start, text }: { start: number; text: string }) {
+  const [delay] = useState(() => start - performance.now());
+  return (
+    <span data-word-fade="" style={{ animationDelay: `${delay}ms` }}>
+      {text}
+    </span>
+  );
+}
+
+const UNFADED_TAGS = new Set(["code", "pre", "svg", "math", "kbd"]);
+
 export function rehypeWordFade() {
   return (tree: Root) => {
-    const wrap = (value: string): ElementContent[] =>
-      value
-        .split(/(\s+)/)
-        .filter(Boolean)
-        .map((part) =>
-          isSpace(part.charCodeAt(0))
-            ? { type: "text", value: part }
-            : {
-                type: "element",
-                tagName: "span",
-                properties: { dataWordFade: "" },
-                children: [{ type: "text", value: part }],
-              },
-        );
-
     const walk = (parent: Root | Element) => {
-      const children: Array<Root["children"][number]> = [];
-      for (const child of parent.children) {
-        if (child.type === "text") children.push(...wrap(child.value));
-        else {
-          if (child.type === "element" && !UNFADED_TAGS.has(child.tagName)) {
-            walk(child);
-          }
-          children.push(child);
+      parent.children = parent.children.map((child) => {
+        if (child.type === "text" && child.value.trim()) {
+          return {
+            type: "element" as const,
+            tagName: "span",
+            properties: {
+              "data-stream-text": child.position?.start.offset ?? 0,
+            },
+            children: [child],
+          };
         }
-      }
-      parent.children = children as typeof parent.children;
+        if (child.type === "element" && !UNFADED_TAGS.has(child.tagName))
+          walk(child);
+        return child;
+      });
     };
-
     walk(tree);
   };
 }

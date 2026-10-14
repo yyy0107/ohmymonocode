@@ -18,8 +18,8 @@ import type { SidebarProps } from "../../src/app/shell/Sidebar.types";
 import { PaneTree } from "../../src/features/workspace/ui/PaneTree";
 import { newSession } from "../../src/features/sessions/model/session";
 import { TranscriptPool, TranscriptPoolOutlet } from "../../src/features/sessions/ui/TranscriptPool";
-import type { EditorPane, FilePaneTab, LayoutNode } from "../../src/features/workspace/model/layout";
-import { setSplitRatio } from "../../src/features/workspace/model/layout";
+import type { EditorPane, FilePaneTab, LayoutNode, PaneEdge } from "../../src/features/workspace/model/layout";
+import { movePane, setSplitRatio } from "../../src/features/workspace/model/layout";
 import type { ProjectTerminalDock } from "../../src/features/projects/model/projectTerminal";
 import type { FsEntry, GitDiffIndex, GitFileDiff, GitHistory } from "../../src/platform/tauri/fs";
 import { SurfaceVisibilityContext } from "../../src/shared/ui/SurfaceVisibility";
@@ -28,11 +28,33 @@ import { applyDesktopSkin } from "../../src/shared/theme/desktopSkin";
 import { saveExpanded } from "../../src/features/connections/files/model/fileTree";
 import "../../src/styles/index.css";
 
+import { Terminal } from "@xterm/xterm";
+const fixtureTerminals = new WeakMap<Element, Terminal>();
+const originalOpen = Terminal.prototype.open;
+Terminal.prototype.open = function (parent) {
+  originalOpen.call(this, parent);
+  if (this.element) fixtureTerminals.set(this.element, this);
+};
+function readTerminal(paneId = "tools-editor") {
+  const element = document.querySelector(`[data-pane-id="${CSS.escape(paneId)}"] .xterm`);
+  const term = element ? fixtureTerminals.get(element) : undefined;
+  if (!term) return { lines: [] as string[], cols: 0, rows: 0 };
+  const buffer = term.buffer.active;
+  return { cols: term.cols, rows: term.rows, lines: Array.from({ length: term.rows }, (_, row) => buffer.getLine(buffer.viewportY + row)?.translateToString(true) ?? "") };
+}
+
 const query = new URLSearchParams(location.search);
 const cwd = "/fixture/monocode";
 const sourcePath = `${cwd}/src/workspace.ts`;
-const original = "export const workspace = {\n  panelGap: 8,\n  composerRadius: 12,\n};\n";
-const current = "export const workspace = {\n  panelGap: 12,\n  composerRadius: 14,\n  preserveSessions: true,\n};\n";
+const reviewLines = Array.from({ length: 90 }, (_, index) =>
+  `export const setting${index} = "${"Review resizing preserves syntax, line numbers and annotations. ".repeat(5)}";`,
+);
+const original = query.has("reviewResize")
+  ? reviewLines.join("\n") + "\n"
+  : "export const workspace = {\n  panelGap: 8,\n  composerRadius: 12,\n};\n";
+const current = query.has("reviewResize")
+  ? reviewLines.map((line, index) => index === 8 || index === 70 ? line.replace("preserves", "retains") : line).join("\n") + "\n"
+  : "export const workspace = {\n  panelGap: 12,\n  composerRadius: 14,\n  preserveSessions: true,\n};\n";
 const noop = () => {};
 setUiLanguage(query.get("lang") === "zh-CN" ? "zh-CN" : "en");
 document.documentElement.classList.toggle("theme-light", query.get("theme") !== "dark");
@@ -104,7 +126,7 @@ Object.assign(window, { isTauri: query.get("native") === "1", __TAURI_EVENT_PLUG
     if (command === "git_history") return history;
     if (command === "git_pr_status") return null;
     if (command === "git_branches") return { current: "main", detached: false, branches: [{ name: "main", current: true, remote: null }] };
-    if (command === "git_worktrees") return { defaultRoot: cwd, worktrees: [{ path: cwd, branch: "main", head: "a1b2c3d", isMain: true, locked: false, prunable: false, missing: false, dirty: true, unpushed: 0, sessionIds: [] }] };
+    if (command === "git_worktrees") return { defaultRoot: cwd, worktrees: [{ path: cwd, branch: "main", head: "a1b2c3d", isMain: !query.has("reviewResize"), locked: false, prunable: false, missing: false, dirty: true, unpushed: 0, sessionIds: [] }] };
     if (command === "session_checkpoint_status") return { files: [], undoLocked: false, workspaceShared: false };
     if (command === "chat_folders_list" || command === "list_skills" || command === "list_project_files") return [];
     if (command === "system_fonts") return { sans: [], mono: [] };
@@ -127,8 +149,12 @@ const source: FilePaneTab = { id: "tools-source", path: sourcePath, cwd };
 const review: FilePaneTab = { id: "tools-review", path: sourcePath, cwd, review: true, changes: true, changeKind: "unstaged" };
 const initialPane: EditorPane = { id: "tools-editor", files: [source, review], activeFileId: query.get("editor") === "source" ? source.id : review.id };
 if (query.has("explorer")) initialPane.files.unshift({ id: "tools-explorer", path: cwd, cwd, explorer: true });
+if (query.get("editor") === "terminal") {
+  initialPane.files.push({ id: "tools-pane-pty", path: "monocode", cwd, terminal: true });
+  initialPane.activeFileId = "tools-pane-pty";
+}
 const initialDock: ProjectTerminalDock = { projectPath: cwd, side: "bottom", size: 220, open: true, pane: { id: "tools-terminal-pane", files: [{ id: "tools-pty", path: "monocode", cwd, terminal: true }], activeFileId: "tools-pty" } };
-const initialLayout: LayoutNode = { type: "split", id: "tools-split", dir: "right", children: [{ type: "leaf", id: session.id }, { type: "leaf", id: initialPane.id }], sizes: [0.54, 0.46] };
+const initialLayout: LayoutNode = { type: "split", id: "tools-split", dir: query.get("split") === "down" ? "down" : "right", children: [{ type: "leaf", id: session.id }, { type: "leaf", id: initialPane.id }], sizes: [0.54, 0.46] };
 
 function DesktopToolsFixture() {
   const [layout, setLayout] = useState(initialLayout);
@@ -140,7 +166,7 @@ function DesktopToolsFixture() {
   const [pool] = useState(() => new TranscriptPool());
   const [focusedId, setFocusedId] = useState(session.id);
   useEffect(() => {
-    Object.assign(window, { toolsFixture: { setTab, setSidebarOpen, setTerminalOpen: (open: boolean) => setDock(value => ({ ...value, open })), selectFile: (activeFileId: string) => setPane(value => ({ ...value, activeFileId })), rpc, output: (text: string) => output("tools-pty", text) } });
+    Object.assign(window, { toolsFixture: { readTerminal, setTab, setSidebarOpen, setTerminalOpen: (open: boolean) => setDock(value => ({ ...value, open })), selectFile: (activeFileId: string) => setPane(value => ({ ...value, activeFileId })), rpc, output: (text: string, id = "tools-pty") => output(id, text) } });
   }, []);
   const activity = { cwd, recents: [{ path: cwd, openedAt: 1791891000000 }], onSearch: noop, onOpenInbox: noop, onOpenNotes: noop, onOpenAutomations: noop, onOpenWorkflows: noop, onOpenSettings: noop, notesEnabled: true };
   const openFile = (path: string) => setPane(value => ({ ...value, activeFileId: source.id, files: value.files.map(file => file.id === source.id ? { ...file, path } : file) }));
@@ -153,7 +179,7 @@ function DesktopToolsFixture() {
     onSteerQueuedMessage: noop, onResumeQueue: noop, onUsageLimitResume: noop,
     onUsageLimitResumeAtReset: noop, onUsageLimitDismiss: noop, onApproval: noop,
     onQuestionReply: noop, onOpenSessionFile: noop, onOpenPlan: noop, onUpdatePlan: noop,
-    onBuildPlan: noop, onMovePane: noop, onCloseFile: noop, onCloseOtherFiles: noop,
+    onBuildPlan: noop, onMovePane: (from: string, to: string, edge: PaneEdge) => setLayout(value => movePane(value, from, to, edge)), onCloseFile: noop, onCloseOtherFiles: noop,
     onReorderFiles: noop, onFileDirtyChange: noop, onFileErrorCountChange: noop,
     onRatio: (splitId: string, index: number, ratio: number) => setLayout(value => setSplitRatio(value, splitId, index, ratio)),
   };

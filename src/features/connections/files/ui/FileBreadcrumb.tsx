@@ -26,13 +26,18 @@ export function FileBreadcrumb({ path, cwd, onOpenFile, children }: {
       const labels = ruler.querySelectorAll<HTMLElement>("[data-breadcrumb-label]");
       const separator = ruler.querySelector<HTMLElement>("[data-breadcrumb-separator]")!;
       const ellipsis = ruler.querySelector<HTMLElement>("[data-breadcrumb-ellipsis]")!;
-      setLayout(fitFileBreadcrumb(
+      const next = fitFileBreadcrumb(
         segments.map((segment, i) => ({ label: segment.label, width: labels[i].getBoundingClientRect().width })),
         container.clientWidth,
         separator.getBoundingClientRect().width,
         ellipsis.getBoundingClientRect().width,
         parseFloat(getComputedStyle(container).columnGap) || 0,
-      ));
+      );
+      setLayout(previous =>
+        previous.headCount === next.headCount &&
+        previous.tailStart === next.tailStart &&
+        previous.showEllipsis === next.showEllipsis ? previous : next,
+      );
     };
     fit();
     const observer = new ResizeObserver(fit);

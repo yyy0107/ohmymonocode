@@ -105,12 +105,12 @@ export function TranscriptFind({
 
   return (
     <div
-      className={`pointer-events-none absolute top-2 z-40 ${side === "left" ? "left-3" : "right-3"}`}
+      className={`pointer-events-none absolute inset-x-3 top-2 z-40 flex ${side === "left" ? "justify-start" : "justify-end"}`}
     >
       <div
         role="search"
         aria-label={uiT("Find in conversation")}
-        className="pointer-events-auto flex w-[min(360px,calc(100cqw-24px))] items-center gap-1 rounded-lg border border-content/10 bg-content/5 p-1 shadow-lg backdrop-blur-xl"
+        className="pointer-events-auto flex w-[360px] max-w-full items-center gap-1 rounded-lg border border-content/10 bg-content/5 p-1 shadow-lg backdrop-blur-xl"
       >
         <Search
           className="ml-1 size-3.5 shrink-0 text-content/50"

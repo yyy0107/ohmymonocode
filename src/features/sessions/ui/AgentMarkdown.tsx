@@ -62,8 +62,14 @@ import { isNoteImagePath } from "../../notes/noteImagesText";
 import { IS_MAC, IS_WIN } from "../../../platform/tauri/platform";
 import { InboxMedia } from "../../inbox/ui/InboxMedia";
 import { rehypeHardBreaks } from "./hardBreaks";
-import { rehypeWordFade, usePacedText, useWordFading } from "./wordFade";
-import { isFenceBlock, parseStreamingMarkdown } from "./streamingMarkdown";
+import {
+  MarkdownSpan,
+  WordFadeContext,
+  WordFadeManager,
+  rehypeWordFade,
+  usePacedText,
+} from "./wordFade";
+import { StreamingMarkdownParser } from "./streamingMarkdown";
 import { HighlightedCodeBlock } from "./HighlightedCodeBlock";
 
 const MERMAID_BASE_CONFIG = {
@@ -112,17 +118,6 @@ const INBOX_MEDIA_REHYPE_PLUGINS: PluggableList = [
   ],
 ];
 
-// A reply that streams renders its words as spans that fade in as they land.
-const FADING_MARKDOWN_REHYPE_PLUGINS: PluggableList = [
-  ...MARKDOWN_REHYPE_PLUGINS,
-  rehypeWordFade,
-];
-
-const FADING_INBOX_MEDIA_REHYPE_PLUGINS: PluggableList = [
-  ...INBOX_MEDIA_REHYPE_PLUGINS,
-  rehypeWordFade,
-];
-
 type FileLinkMenu = {
   x: number;
   y: number;
@@ -141,7 +136,10 @@ const FileOpenContext = createContext<{
 }>({});
 
 const RemoteMediaContext = createContext(false);
-const MarkdownFadeContext = createContext(false);
+const MarkdownFadeContext = createContext<{
+  manager: WordFadeManager;
+  parser: StreamingMarkdownParser;
+} | null>(null);
 
 const REVEAL_LABEL = IS_MAC
   ? "Reveal in Finder"
@@ -554,6 +552,7 @@ const MARKDOWN_COMPONENTS = {
   a: MarkdownLink,
   code: MarkdownCode,
   img: MarkdownImage,
+  span: MarkdownSpan,
 } satisfies Components;
 
 /**
@@ -565,13 +564,16 @@ const MARKDOWN_COMPONENTS = {
  * comes from the block inside it.
  */
 function DirectionalBlock({ dir, ...props }: BlockProps) {
-  const fading = useContext(MarkdownFadeContext);
-  // Streamdown retains a parsed prose tree after the fade plugin changes.
-  // Remount prose to remove its word spans, but keep literal fences mounted:
-  // rebuilding all their highlighted tokens at fade-end causes a long frame.
-  const fence = isFenceBlock(props.content);
+  const fade = useContext(MarkdownFadeContext);
+  const offset = fade?.parser.offsets[props.index] ?? 0;
+  const scope = useMemo(
+    () => fade ? { manager: fade.manager, offset } : null,
+    [fade, offset],
+  );
   const block = (
-    <Block key={fence ? "code" : fading ? "fade" : "plain"} {...props} />
+    <WordFadeContext.Provider value={scope}>
+      <Block {...props} />
+    </WordFadeContext.Provider>
   );
   return dir ? (
     <div dir={dir} className="agent-markdown-block">
@@ -634,25 +636,15 @@ export const AgentMarkdown = memo(function AgentMarkdown({
   const remoteMedia = !!allowRemoteMedia;
   const reveal = textReveal?.(streamingKey);
   const paced = usePacedText(text, !!streaming, reveal);
-  const fading = useWordFading(
-    reveal?.unit !== "character" && (!!streaming || paced.revealing),
-  );
-  // Spans stay while words are fading so a word already on screen keeps its
-  // element. Dropping one mid-fade would remount it and fade it again. Once
-  // the fade is over they come off, or a finished reply would keep a span per
-  // word for as long as this transcript stays mounted.
-  const baseRehypePlugins = fading
-    ? remoteMedia
-      ? FADING_INBOX_MEDIA_REHYPE_PLUGINS
-      : FADING_MARKDOWN_REHYPE_PLUGINS
-    : remoteMedia
-      ? INBOX_MEDIA_REHYPE_PLUGINS
-      : MARKDOWN_REHYPE_PLUGINS;
-  // Hard breaks go last, so nothing after them undoes them, and after the word
-  // fade, whose word spans would otherwise hide the newlines from them.
+  const [fade] = useState(() => ({
+    manager: new WordFadeManager(),
+    parser: new StreamingMarkdownParser(),
+  }));
+  fade.manager.sync(paced.text, (!!streaming || paced.revealing) && !paced.reduced, paced.primeLength);
+  const baseRehypePlugins = remoteMedia
+    ? INBOX_MEDIA_REHYPE_PLUGINS : MARKDOWN_REHYPE_PLUGINS;
   const rehypePlugins = useMemo(
-    () =>
-      hardBreaks ? [...baseRehypePlugins, rehypeHardBreaks] : baseRehypePlugins,
+    () => [...baseRehypePlugins, ...(hardBreaks ? [rehypeHardBreaks] : []), rehypeWordFade],
     [baseRehypePlugins, hardBreaks],
   );
 
@@ -696,7 +688,7 @@ export const AgentMarkdown = memo(function AgentMarkdown({
   if (!localFiles && text.length > 96_000) return (
     <div className={className}>
       <p className="mobile-detail-note">{uiT("Large message shown as plain text for smooth scrolling.")}</p>
-      <ReadonlyTextView text={text} stateKey={`message:${text.slice(0, 120)}`} onCopy={copyText} />
+      <ReadonlyTextView text={paced.text} stateKey={`message:${text.slice(0, 120)}`} onCopy={copyText} />
     </div>
   );
 
@@ -704,16 +696,16 @@ export const AgentMarkdown = memo(function AgentMarkdown({
     <RemoteMediaContext.Provider value={remoteMedia}>
       <FileOpenContext.Provider value={fileOpen}>
         <>
-          <MarkdownFadeContext.Provider value={fading}>
+          <MarkdownFadeContext.Provider value={fade}>
             <Streamdown
               BlockComponent={DirectionalBlock}
-              className={`agent-markdown min-w-0 font-sans text-ui-base leading-[1.75] tracking-wide ${fading ? "word-fading" : ""} ${className ?? ""}`}
+              className={`agent-markdown min-w-0 font-sans text-ui-base leading-[1.75] tracking-wide ${className ?? ""}`}
               components={MARKDOWN_COMPONENTS}
               controls={false}
               dir="auto"
               isAnimating={!!streaming || paced.revealing}
               parseIncompleteMarkdown={false}
-              parseMarkdownIntoBlocksFn={parseStreamingMarkdown}
+              parseMarkdownIntoBlocksFn={fade.parser.parse}
               plugins={MARKDOWN_PLUGINS}
               remarkPlugins={remarkPlugins}
               rehypePlugins={rehypePlugins}

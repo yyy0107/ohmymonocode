@@ -35,7 +35,6 @@ import { MobileSkillList } from "./MobileSkillList";
 import {
   RUNTIME_MODES,
   RUNTIME_MODE_LABEL,
-  RUNTIME_MODE_HINT,
   type Attachment,
 } from "../features/sessions/model/session";
 import type {
@@ -833,7 +832,6 @@ function MobileComposerView({ vm }: { vm: MobileComposerViewModel }) {
               />
               <span className="mobile-sheet-row-text">
                 <strong>{t(RUNTIME_MODE_LABEL[mode])}</strong>
-                <small>{t(RUNTIME_MODE_HINT[mode])}</small>
               </span>
               {props.configuration.runtimeMode === mode && (
                 <Check size={20} />

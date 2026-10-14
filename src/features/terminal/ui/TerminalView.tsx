@@ -16,6 +16,8 @@ import {
 } from "../../../platform/tauri/pty";
 import { isOscColorQuery, oscColorReply } from "../model/terminalChrome";
 import { guardTerminalComposition } from "../model/terminalComposition";
+import { createTerminalFitScheduler } from "../model/terminalFitScheduler";
+import { createTerminalResize } from "../model/terminalResize";
 import {
   isMacTerminalClearShortcut,
   macTerminalShortcutData,
@@ -30,16 +32,12 @@ import { isLightScheme, SCHEME_CHANGE_EVENT } from "../../settings/model/appeara
 import {
   applyTerminalChrome,
   fitTerminal,
+  deduplicateTerminalDimensionStyles,
   refreshTerminalMeasurements,
-  resetGridStretch,
   type TerminalFitMode,
 } from "../model/terminalLayout";
 import { IS_MAC } from "../../../platform/tauri/platform";
 import "@xterm/xterm/css/xterm.css";
-import {
-  isPaneResizing,
-  onPaneResizeSettled,
-} from "../../../shared/lib/paneResize";
 
 type Props = {
   id: string;
@@ -209,6 +207,7 @@ const liveTerminals = new Map<string, LiveTerminal & { parked?: number }>();
 function claimTerminal(id: string, cwd: string, host: HTMLElement): LiveTerminal {
   const existing = liveTerminals.get(id);
   if (existing) {
+    deduplicateTerminalDimensionStyles(existing.term);
     if (existing.parked !== undefined) clearTimeout(existing.parked);
     existing.parked = undefined;
     return existing;
@@ -225,6 +224,7 @@ function createLiveTerminal(
 ): LiveTerminal & { parked?: number } {
   // xterm renders into its own node, which moves between views' hosts.
   const node = document.createElement("div");
+  node.className = "monocode-terminal-renderer";
   node.style.width = "100%";
   node.style.height = "100%";
   const term = new Terminal({
@@ -244,6 +244,7 @@ function createLiveTerminal(
   // zero width. Hidden tabs are measured again when their host becomes visible.
   initialHost.appendChild(node);
   term.open(node);
+  deduplicateTerminalDimensionStyles(term);
   const stopCompositionGuard = guardTerminalComposition(term.textarea);
   let closed = false;
   let outer: HTMLElement | null = null;
@@ -367,11 +368,12 @@ function createLiveTerminal(
     return term.buffer.active.type !== "alternate";
   });
 
-  let lastCols = 0;
-  let lastRows = 0;
-  let raf = 0;
   let tuiMode = false;
   let needsMeasurement = true;
+  const resize = createTerminalResize(async (cols, rows) => {
+    await starting;
+    if (!closed) await resizePty(id, cols, rows);
+  });
 
   const fitMode = (): TerminalFitMode =>
     term.buffer.active.type === "alternate" ? "tui" : "shell";
@@ -381,15 +383,14 @@ function createLiveTerminal(
     if (next === tuiMode) return;
     tuiMode = next;
     if (outer) applyTerminalChrome(term, outer, next);
-    if (!next) resetGridStretch(term);
-    lastCols = 0;
-    lastRows = 0;
     schedule();
   };
 
   const applySize = () => {
     if (closed || !host) return;
-    if (!host.isConnected || host.clientWidth < 8 || host.clientHeight < 8) {
+    const width = host.clientWidth;
+    const height = host.clientHeight;
+    if (!host.isConnected || width < 8 || height < 8) {
       needsMeasurement = true;
       return;
     }
@@ -399,32 +400,15 @@ function createLiveTerminal(
     }
     const next = fitTerminal(term, host, fitMode());
     if (!next) return;
-    const { cols, rows } = next;
-    if (cols === lastCols && rows === lastRows) return;
-    lastCols = cols;
-    lastRows = rows;
-    void starting
-      .then(() => (closed ? undefined : resizePty(id, cols, rows)))
-      .catch(() => {
-        lastCols = 0;
-        lastRows = 0;
-      });
+    resize.request(next.cols, next.rows);
   };
 
-  const schedule = () => {
-    // Fitting re-wraps the scrollback and resizes the PTY, so a split drag
-    // fits once when it ends rather than on every frame.
-    if (raf || isPaneResizing()) return;
-    raf = requestAnimationFrame(() => {
-      raf = 0;
-      if (!isPaneResizing()) applySize();
-    });
-  };
-  const stopSettled = onPaneResizeSettled(schedule);
+  const fitScheduler = createTerminalFitScheduler(applySize, initialHost.ownerDocument.defaultView ?? window);
+  const schedule = fitScheduler.schedule;
 
   live.applySize = applySize;
   const renderSub = term.onRender(() => {
-    if (!live.spawned) applySize();
+    if (!live.spawned) schedule();
   });
   const bufferSub = term.buffer.onBufferChange(syncAltScreenMode);
   const observer = new ResizeObserver(schedule);
@@ -449,16 +433,14 @@ function createLiveTerminal(
     schedule();
   };
   document.fonts?.addEventListener("loadingdone", onFontsLoaded);
-  let frame = 0;
 
   const dispose = () => {
     if (liveTerminals.get(id) === live) liveTerminals.delete(id);
     closed = true;
-    cancelAnimationFrame(frame);
-    if (raf) cancelAnimationFrame(raf);
+    resize.dispose();
+    fitScheduler.dispose();
     observer.disconnect();
     fontObserver.disconnect();
-    stopSettled();
     document.fonts?.removeEventListener("loadingdone", onFontsLoaded);
     stopCompositionGuard();
     window.removeEventListener(SCHEME_CHANGE_EVENT, onSchemeChange);
@@ -496,10 +478,7 @@ function createLiveTerminal(
     observer.observe(nextHost);
     needsMeasurement = true;
     // A new host may have a different size; refit once it has laid out.
-    lastCols = 0;
-    lastRows = 0;
-    cancelAnimationFrame(frame);
-    frame = requestAnimationFrame(() => applySize());
+    schedule();
     owner = {};
     return owner;
   };
@@ -507,6 +486,7 @@ function createLiveTerminal(
   live.release = (released) => {
     if (owner !== released) return;
     owner = null;
+    fitScheduler.cancel();
     observer.disconnect();
     outer?.classList.remove("monocode-terminal--alt-screen");
     outer = null;

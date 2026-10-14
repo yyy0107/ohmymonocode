@@ -10,6 +10,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "../../sessions/model/session";
 import { PaneTree } from "./PaneTree";
+import * as paneResize from "../../../shared/lib/paneResize";
 
 const paneRenders = vi.hoisted(() => ({
   session: vi.fn(),
@@ -268,10 +269,13 @@ describe("workspace split resize handles", () => {
       expect(separator.getAttribute("aria-orientation")).toBe(
         dir === "right" ? "vertical" : "horizontal",
       );
+      const grid = container.querySelector<HTMLElement>("[data-pane-tree-layout]")!;
+      const measure = vi.spyOn(grid, "getBoundingClientRect");
       pointer(handle, "pointerdown", 600, 500);
       expect(capture.has(1)).toBe(true);
-      pointer(handle, "pointermove", 750, 620);
-      act(() => pendingFrame?.(0));
+      pointer(window, "pointermove", 750, 620);
+      expect(measure).toHaveBeenCalledOnce();
+      expect(onRatio).not.toHaveBeenCalled();
       expect(separator.getAttribute("aria-valuenow")).toBe("65");
       pointer(handle, "pointerup", 750, 620);
       expect(onRatio).toHaveBeenCalledExactlyOnceWith("split", 0, 0.65);
@@ -306,7 +310,7 @@ describe("workspace split resize handles", () => {
     },
   );
 
-  it("restores the original ratio on Escape and cancels pending paint", () => {
+  it("restores the original ratio on Escape", () => {
     const { onRatio, separator, handle, capture } = render("right");
     pointer(handle, "pointerdown", 600, 500);
     pointer(handle, "pointermove", 750, 500);
@@ -322,7 +326,7 @@ describe("workspace split resize handles", () => {
     expect(capture.has(1)).toBe(false);
   });
 
-  it("coalesces a diff/assistant horizontal split and lands the release sample without rendering its panes", () => {
+  it("immediately paints a diff/assistant horizontal split and lands the release sample without rendering its panes", () => {
     const { handle, separator, onRatio } = render("down", {
       editorPanes: ["first", "second"].map((id, index) => ({
         id,
@@ -334,8 +338,8 @@ describe("workspace split resize handles", () => {
     });
     pointer(handle, "pointerdown", 600, 500);
     pointer(handle, "pointermove", 600, 560);
-    pointer(handle, "pointermove", 600, 620);
-    expect(separator.getAttribute("aria-valuenow")).toBe("50");
+    pointer(window, "pointermove", 600, 620);
+    expect(separator.getAttribute("aria-valuenow")).toBe("65");
     expect(onRatio).not.toHaveBeenCalled();
     act(() => pendingFrame?.(0));
     expect(separator.getAttribute("aria-valuenow")).toBe("65");
@@ -440,4 +444,49 @@ describe("workspace split resize handles", () => {
     expect(onRatio).not.toHaveBeenCalled();
   });
 
+});
+
+it("defers tool reflow during a dock resize and fits the final measured width on release", () => {
+  let resizing = false;
+  let settled = () => {};
+  // Drive the external dock's lifecycle independently of the fixture's Motion
+  // animations, whose animation frames are intentionally paused in this file.
+  vi.spyOn(paneResize, "isPaneResizing").mockImplementation(() => resizing);
+  vi.spyOn(paneResize, "onPaneResizeSettled").mockImplementation(callback => {
+    settled = callback;
+    return () => { settled = () => {}; };
+  });
+  const observations: { target: Element; callback: ResizeObserverCallback }[] = [];
+  vi.stubGlobal("ResizeObserver", class {
+    constructor(private callback: ResizeObserverCallback) {}
+    observe(target: Element) { observations.push({ target, callback: this.callback }); }
+    unobserve() {}
+    disconnect() {}
+  });
+  const onFitLayout = vi.fn();
+  render("right", {
+    sessions: [{ id: "first", title: "Chat", cwd: "/project", blocks: [] } as unknown as Session],
+    layout: { type: "split", id: "split", dir: "right", sizes: [0.5, 0.25, 0.25], children: [
+      { type: "leaf", id: "first" }, { type: "leaf", id: "second" }, { type: "leaf", id: "third" },
+    ] },
+    onFitLayout,
+  });
+  const measure = (width: number) => act(() => {
+    for (const observation of observations.filter(item => item.target.hasAttribute("data-pane-tree-layout"))) {
+      observation.callback([
+        { target: observation.target, contentRect: { width } } as ResizeObserverEntry,
+      ], {} as ResizeObserver);
+    }
+  });
+  expect(observations.filter(item => item.target.hasAttribute("data-pane-tree-layout"))).toHaveLength(1);
+  measure(1200);
+  expect(onFitLayout).not.toHaveBeenCalled();
+  resizing = true;
+  try {
+    measure(800);
+    measure(700);
+    expect(onFitLayout).not.toHaveBeenCalled();
+  } finally { resizing = false; act(settled); }
+  expect(onFitLayout).toHaveBeenCalledOnce();
+  expect(onFitLayout.mock.calls[0][1].children[1].dir).toBe("down");
 });

@@ -3,7 +3,7 @@
    Settings → Glass writes data-mobile-glass and the --m-material-* values on
    <html>; the tokens live on :root because shared popovers portal outside the
    app. No rims, bevels or refraction: surfaces read as flat skin colour. */
-.mobile-header[data-floating="true"] > :not([data-capsule="false"]),
+.mobile-header[data-floating="true"] > .mobile-header-search,
 .mobile-composer,
 .mobile-jump,
 .mobile-queue-pill,
@@ -34,7 +34,7 @@ html .popover-backdrop.popover-backdrop {
   border-width: 1px;
   border-color: transparent;
 }
-.mobile-header[data-floating="true"] > :not([data-capsule="false"]),
+.mobile-header[data-floating="true"] > .mobile-header-search,
 .mobile-composer {
   border-radius: var(--mobile-capsule-radius, 999px);
 }

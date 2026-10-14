@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 // Opt in on a controlled host: MARKDOWN_PERFORMANCE=1 npm run test:browser -- markdown-performance
 const checkFrameTimes = process.env.MARKDOWN_PERFORMANCE === "1";
 
-for (const reveal of ["character", "word"] as const) {
+for (const reveal of ["transcript", "standalone"] as const) {
   test(`streaming a large Markdown fence keeps animations responsive (${reveal})`, async ({
     page,
   }, testInfo) => {
@@ -15,7 +15,7 @@ for (const reveal of ["character", "word"] as const) {
     const workerUrls: string[] = [];
     page.on("worker", (worker) => workerUrls.push(worker.url()));
     await page.goto(
-      `/tests/browser/markdown-performance.html${reveal === "word" ? "?wordFade" : ""}`,
+      `/tests/browser/markdown-performance.html${reveal === "standalone" ? "?wordFade" : ""}`,
     );
     await expect(page.locator(".agent-markdown")).toContainText(["Ready."]);
     await page.evaluate(() => document.fonts.ready);
@@ -53,8 +53,7 @@ for (const reveal of ["character", "word"] as const) {
         window as unknown as { markdownSource: string }
       ).markdownSource.trimEnd(),
     );
-    // Character reveal has no word-fading class. Wait for its tail and the
-    // final asynchronous worker highlight before sampling or checking copies.
+    // Wait for the final asynchronous worker highlight before checking copies.
     await expect
       .poll(
         () =>
@@ -68,8 +67,10 @@ for (const reveal of ["character", "word"] as const) {
         { timeout: 60_000 },
       )
       .toBe(expected);
+    if (reveal === "transcript")
+      await expect(page.locator('[data-selectable-agent-response="reply"]')).toBeAttached();
     // Include the final highlight and the removal of the lingering word fades.
-    await expect(page.locator(".word-fading")).toHaveCount(0, {
+    await expect(page.locator("[data-word-fade]")).toHaveCount(0, {
       timeout: 60_000,
     });
     await expect(code.locator("span span").first()).toBeVisible();
@@ -104,7 +105,7 @@ for (const reveal of ["character", "word"] as const) {
         expect(metrics.max).toBeLessThan(90);
       }
     }
-    expect(sawWordFade).toBe(reveal === "word");
+    expect(sawWordFade).toBe(true);
     expect(workerUrls.some((url) => url.includes("codeHighlight.worker"))).toBe(
       true,
     );
@@ -120,6 +121,11 @@ for (const reveal of ["character", "word"] as const) {
         },
       });
     });
+    if (reveal === "transcript") {
+      await page.locator(".agent-transcript").hover();
+      await page.mouse.wheel(0, -400);
+      await expect(page.locator(".agent-transcript")).toHaveAttribute("data-follow-latest", "false");
+    }
     await page.getByRole("button", { name: "Copy code", exact: true }).click();
     expect(
       await page.evaluate(() =>
@@ -188,3 +194,84 @@ test("fallback fences preserve blank lines and line numbering in both themes", a
     }
   }
 });
+
+for (const mobile of [false, true]) {
+  test(`paced prose settles without replay or remount (mobile=${mobile})`, async ({ page }) => {
+    if (mobile) await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/tests/browser/markdown-performance.html");
+    await expect(page.locator(".agent-markdown")).toHaveText("Ready.");
+    const source = "第一段包含 **强调内容**，后面的文字按词组淡入。".repeat(4) + "\n\nSecond paragraph with [a link](https://example.com).\n\nThird paragraph.\n\nTail";
+    const update = (text: string, streaming: boolean) => page.evaluate(({ text, streaming }) => {
+      (window as unknown as { showMarkdownExample(text: string, streaming: boolean): void }).showMarkdownExample(text, streaming);
+    }, { text, streaming });
+    // Reset the mounted reply, then deliver a fresh burst.
+    await update("", true);
+    await update(source, true);
+    const markdown = page.locator(".agent-markdown");
+    await expect(page.locator("[data-word-fade]").first()).toBeAttached();
+    await expect(markdown).toContainText("Tail");
+    await expect(page.locator("[data-word-fade]")).toHaveCount(0);
+    const first = await markdown.locator("p").first().elementHandle();
+    await update(source + " with more new words arriving here.", true);
+    await expect(page.locator("[data-word-fade]").first()).toBeAttached();
+    expect(await first!.evaluate(node => node.isConnected)).toBe(true);
+    expect(await markdown.locator("p").first().locator("[data-word-fade]").count()).toBe(0);
+    await update(source + " with more new words arriving here. Done.", false);
+    await expect(markdown).toContainText("Done.");
+    await expect(page.locator("[data-word-fade]")).toHaveCount(0);
+    expect(await first!.evaluate(node => node.isConnected)).toBe(true);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await update("", true);
+    await update(source, true);
+    await expect(markdown).toContainText("Tail");
+    await expect(page.locator("[data-word-fade]")).toHaveCount(0);
+  });
+}
+
+for (const mobile of [false, true]) {
+  test(`live bursts and completion have bounded DOM increments (mobile=${mobile})`, async ({ page }, testInfo) => {
+    if (mobile) await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/tests/browser/markdown-performance.html");
+    await expect(page.locator(".agent-markdown")).toHaveText("Ready.");
+    await page.evaluate(() => {
+      (window as unknown as { showMarkdownExample(text: string, streaming: boolean): void }).showMarkdownExample("", true);
+    });
+    const markdown = page.locator(".agent-markdown");
+    await expect(markdown).toHaveCount(0);
+    await page.evaluate(() => {
+      const node = document.querySelector("#root")!;
+      const samples: { at: number; length: number }[] = [{ at: performance.now(), length: 0 }];
+      const observer = new MutationObserver(() => {
+        const length = node.querySelector(".agent-markdown")?.textContent?.length ?? 0;
+        if (length !== samples.at(-1)!.length) samples.push({ at: performance.now(), length });
+      });
+      observer.observe(node, { subtree: true, childList: true, characterData: true });
+      Object.assign(window, { finishPacingSamples: () => { observer.disconnect(); return samples; } });
+      const update = (window as unknown as { showMarkdownExample(text: string, streaming: boolean): void }).showMarkdownExample;
+      update("文".repeat(800), true);
+      setTimeout(() => update("文".repeat(3200), true), 200);
+      setTimeout(() => update("文".repeat(4000), false), 450);
+    });
+    await expect(markdown).toHaveText("文".repeat(4000), { timeout: 15000 });
+    const samples = await page.evaluate(() => (window as unknown as {
+      finishPacingSamples(): { at: number; length: number }[];
+    }).finishPacingSamples());
+    const increments = samples.slice(1).map((sample, index) => ({
+      chars: sample.length - samples[index].length,
+      elapsed: sample.at - samples[index].at,
+    }));
+    await testInfo.attach("display-speed", {
+      body: JSON.stringify({ samples, increments }), contentType: "application/json",
+    });
+    expect(increments.length).toBeGreaterThan(125);
+    for (const increment of increments) {
+      expect(increment.chars).toBeGreaterThan(0);
+      expect(increment.chars).toBeLessThanOrEqual(32);
+    }
+    // Check the acceleration ramp in the actual DOM, allowing one character of
+    // timer/rounding variance beyond the deterministic clock test's bound.
+    for (let i = 1; i < Math.min(12, increments.length); i++)
+      expect(increments[i].chars - increments[i - 1].chars).toBeLessThanOrEqual(3);
+    await expect(page.locator("[data-word-fade]")).toHaveCount(0);
+  });
+}

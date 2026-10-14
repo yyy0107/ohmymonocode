@@ -61,6 +61,7 @@ html ::-webkit-scrollbar-corner {
   background-size: cover;
   background-repeat: no-repeat;
   opacity: 0;
+  transition-property: opacity;
   pointer-events: none;
 }
 
@@ -153,6 +154,7 @@ html ::-webkit-scrollbar-corner {
   height: var(--chat-background-height, 100%);
   z-index: -1;
   opacity: 0;
+  transition-property: opacity;
 }
 
 /* Keep the active transcript clear of the wide blurred haze used by the empty hero. */
@@ -1470,6 +1472,20 @@ html:not(.theme-light) .markdown-code-token {
   }
 }
 
+/* Desktop transcript boxes classify their width at the existing 28rem
+   breakpoint. Moving dividers no longer invalidate a CSS size-query subtree. */
+:where([data-transcript-inline-size][data-inline-at-least~="28"]) .transcript-turn {
+  --transcript-rail-left: 31px;
+}
+
+:where([data-transcript-inline-size][data-inline-at-least~="28"]) .\@md\:px-6 {
+  padding-inline: calc(var(--spacing) * 6);
+}
+
+:where([data-transcript-inline-size][data-inline-at-least~="28"]) .\@md\:pr-6 {
+  padding-right: calc(var(--spacing) * 6);
+}
+
 .zen-fold-drop,
 .zen-fold-rail {
   position: relative;
@@ -1706,13 +1722,14 @@ html:not(.theme-light) .markdown-code-token {
   min-height: 0;
 }
 
-/*
- * A streamed word fading in as the paced reveal lets it out (wordFade.tsx).
- * Opacity only: a word that moved would jostle the line it is set on. The
- * fade plays as a word's span is added, and words already on screen keep
- * theirs while the reply is coming in. The spans come off once the fade
- * ends, so a finished reply hidden and shown again never replays.
- */
+@keyframes streaming-text-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.agent-markdown [data-word-fade] {
+  animation: streaming-text-fade 200ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
 
 @keyframes zen-thinking-pulse {
   0%,
@@ -1741,7 +1758,7 @@ html:not(.theme-light) .markdown-code-token {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .agent-markdown.word-fading [data-word-fade],
+  .agent-markdown [data-word-fade],
   .zen-phase-step[data-entering],
   .zen-phase-step[data-entering]::before,
   .zen-phase-step[data-entering]::after,
@@ -1979,17 +1996,62 @@ html.translucent-panels
   color: color-mix(in srgb, var(--color-content) 55%, transparent);
 }
 
-/* Each new phase of the live status line eases in from below. */
+.mascot-active {
+  animation: mascot-hop var(--mascot-beat, 460ms) infinite;
+}
+
+.mascot-rest {
+  animation: mascot-rest var(--mascot-beat, 460ms) infinite;
+}
+
+.mascot-talk {
+  animation: mascot-talk var(--mascot-beat, 460ms) infinite;
+}
+
+@keyframes mascot-hop {
+  0%,
+  49.99% {
+    transform: translateY(0);
+  }
+  50%,
+  100% {
+    transform: translateY(-1px);
+  }
+}
+
+@keyframes mascot-rest {
+  0%,
+  49.99% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes mascot-talk {
+  0%,
+  49.99% {
+    opacity: 0;
+  }
+  50%,
+  100% {
+    opacity: 1;
+  }
+}
 
 /* With reduced motion, shimmer, the two-frame mascots (sidebar projects,
    workflow faces, the composer runner) and the live turn's clock hold still on
    their resting frame. */
 @media (prefers-reduced-motion: reduce) {
   .shimmer-text,
-  .transcript-live-footer .transcript-live-status {
+  .transcript-live-footer .transcript-live-status,
+  .mascot-active,
+  .mascot-rest {
     animation: none;
   }
-   {
+  .mascot-talk {
     animation: none;
     opacity: 0;
   }

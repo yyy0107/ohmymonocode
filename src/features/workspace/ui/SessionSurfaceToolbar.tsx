@@ -140,7 +140,7 @@ export function SessionSurfaceToolbar({
         leading={
           <>
             {reserveWindowNavigationSpace ? <WindowNavigationSpace /> : null}
-            <div className="group/tab relative flex h-full min-w-20 max-w-56 shrink-0 items-center">
+            <div className="relative flex h-full min-w-20 max-w-56 shrink-0 items-center">
               <button
                 type="button"
                 role="tab"
@@ -182,7 +182,7 @@ export function SessionSurfaceToolbar({
                     event.stopPropagation();
                     onClosePane();
                   }}
-                  className="pointer-events-none absolute right-1 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded text-content/50 opacity-0 hover:bg-content/6 hover:text-content group-hover/tab:pointer-events-auto group-hover/tab:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
+                  className="absolute right-1 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded text-content/50 hover:bg-content/6 hover:text-content"
                 >
                   <X className="size-3" />
                 </button>

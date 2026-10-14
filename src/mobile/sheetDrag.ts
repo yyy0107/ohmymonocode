@@ -1,6 +1,6 @@
-import { useEffect, useRef, type RefObject, type PointerEvent as ReactPointerEvent } from "react";
+import { useLayoutEffect, useRef, type RefObject, type PointerEvent as ReactPointerEvent } from "react";
 import { animate, frame, cancelFrame, useDragControls, useMotionValue, useTransform, type AnimationPlaybackControls, type PanInfo } from "motion/react";
-import { duration, motionGeometry, springs } from "../shared/motion/tokens";
+import { duration, motionGeometry, popTransition, springs } from "../shared/motion/tokens";
 import { useMotionPreference } from "../shared/motion/useMotionPreference";
 
 /** Pull distance, as a share of the sheet height, that dismisses on release. */
@@ -37,7 +37,7 @@ export function settleDetent(
   return top < halfTop / 2 ? "full" : "half";
 }
 
-/** The gesture decisions stay pure; Motion owns visual travel and spring lifetime. */
+/** The gesture decisions stay pure; Motion owns visual travel and lifetime. */
 export function useSheetDrag(
   sheet: RefObject<HTMLElement | null>,
   enabled: boolean,
@@ -58,6 +58,7 @@ export function useSheetDrag(
   const current = useRef({ onClose, onDismissStart, enabled, reduced, onMotionComplete });
   current.current = { onClose, onDismissStart, enabled, reduced, onMotionComplete };
   const release = useRef<AnimationPlaybackControls | undefined>(undefined);
+  const initialized = useRef<HTMLElement | null>(null);
   const geometry = useRef({ height: 0, halfHeight: 0, halfTop: 0, detent: "half" as SheetDetent, fitExpanded: false, contentExpanded: false, closing: false });
   const stopWatching = useRef<(() => void) | undefined>(undefined);
   const prepareContent = () => {
@@ -107,29 +108,38 @@ export function useSheetDrag(
       stopWatching.current = undefined;
     };
   };
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = sheet.current;
     if (!element || !enabled) return;
     const state = geometry.current;
     state.closing = false;
-    state.detent = "half";
-    state.fitExpanded = false;
-    state.contentExpanded = false;
-    delete element.dataset.expanded;
-    element.style.removeProperty("--mobile-sheet-content-offset");
-    state.height = element.offsetHeight;
-    state.halfHeight = detents ? Math.round(window.innerHeight * SHEET_HALF_SHARE) : state.height;
-    state.halfTop = detents ? Math.max(0, state.height - state.halfHeight) : 0;
-    if (detents) element.dataset.detent = state.detent;
-    sheetHeight.set(Math.max(1, state.height));
-    lowestTop.set(state.halfTop);
-    if (reduced) { y.set(state.halfTop); onMotionComplete?.(); }
-    else {
+    if (initialized.current !== element) {
+      initialized.current = element;
+      state.detent = "half";
+      state.fitExpanded = false;
+      state.contentExpanded = false;
+      delete element.dataset.expanded;
+      element.style.removeProperty("--mobile-sheet-content-offset");
+      state.height = element.offsetHeight;
+      state.halfHeight = detents ? Math.round(window.innerHeight * SHEET_HALF_SHARE) : state.height;
+      state.halfTop = detents ? Math.max(0, state.height - state.halfHeight) : 0;
+      if (detents) element.dataset.detent = state.detent;
+      sheetHeight.set(Math.max(1, state.height));
+      lowestTop.set(state.halfTop);
       y.set(state.height + motionGeometry.sheetExitGap);
-      release.current = animate(y, state.halfTop, { ...springs.sheet, onComplete: () => current.current.onMotionComplete?.() });
+      element.style.transform = `translateY(${state.height + motionGeometry.sheetExitGap}px)`;
+    }
+    const target = state.detent === "full" ? 0 : state.halfTop;
+    if (reduced) {
+      y.set(target);
+      element.style.transform = target ? `translateY(${target}px)` : "none";
+      current.current.onMotionComplete?.();
+    }
+    else {
+      release.current = animate(y, target, { ...popTransition, onComplete: () => current.current.onMotionComplete?.() });
     }
     return () => { stopWatching.current?.(); controls.cancel(); release.current?.stop(); };
-  }, [sheet, enabled, detents, controls, y, sheetHeight, lowestTop]);
+  }, [sheet, enabled, detents, controls, y, sheetHeight, lowestTop, reduced]);
   const start = (event: ReactPointerEvent<HTMLElement>) => {
     const element = sheet.current;
     const target = event.target;
@@ -204,7 +214,10 @@ export function useSheetDrag(
       }
     };
     if (current.current.reduced) { y.set(target); finish(); }
-    else release.current = animate(y, target, { ...springs.sheet, velocity: info.velocity.y, onComplete: finish });
+    else release.current = animate(y, target, {
+      ...(settled === "dismiss" ? popTransition : { ...springs.sheet, velocity: info.velocity.y }),
+      onComplete: finish,
+    });
   };
   return { y, opacity, start, controls, onDrag, onDragEnd };
 }

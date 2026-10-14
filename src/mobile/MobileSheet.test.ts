@@ -101,8 +101,9 @@ it.each(["bottom", "anchor", "dialog"] as const)("settles a reduced-motion %s sh
   const sheet = node.querySelector<HTMLElement>(".mobile-sheet")!;
   const backdrop = node.querySelector<HTMLElement>(".mobile-sheet-backdrop")!;
   expect(backdrop.dataset.foldState).toBe("open");
-  expect(backdrop.style.opacity).toBe("1");
-  expect(sheet.style.transform).toBe("none");
+  expect(backdrop.style.opacity).toBe("");
+  if (placement !== "anchor") expect(node.querySelector<HTMLElement>(".mobile-sheet-scrim")!.style.opacity).toBe("1");
+  expect(sheet.style.transform).toBe(placement === "bottom" ? "none" : "scale(1)");
   if (placement !== "bottom") expect(sheet.style.opacity).toBe("1");
   show(false);
   expect(node.querySelector(".mobile-sheet")).toBeNull();
@@ -320,7 +321,7 @@ describe("mobile popover position", async () => {
     render(undefined, true);
     expect(node.querySelector(".mobile-sheet")).toBe(sheet);
     await progress();
-    expect(sheet.style.transform).toBe("none");
+    expect(sheet.style.transform).toBe("scale(1)");
     expect(sheet.style.opacity).toBe("1");
     expect(sheet.closest<HTMLElement>(".mobile-sheet-backdrop")?.dataset.foldState).toBe("open");
   });
@@ -385,10 +386,10 @@ it("uses the shorter remaining native transition when a composer reverses", asyn
     detail: { height: 0, viewport: 800, duration: 240, easing: "linear" },
   })));
   await frame(0);
-  const initial = sheet.style.transform;
+  const initial = sheet.style.translate;
   await progress(80);
-  expect(sheet.style.transform).not.toBe(initial);
-  expect(sheet.style.transform).toBe("none");
+  expect(sheet.style.translate).not.toBe(initial);
+  expect(sheet.style.translate).toBe("0px 0px");
 });
 
 it("reverses keyboard travel from the visible popup and stops following it when closed", async () => {
@@ -403,7 +404,7 @@ it("reverses keyboard travel from the visible popup and stops following it when 
   vi.spyOn(sheet, "getBoundingClientRect").mockReturnValue(new DOMRect(80, 234, 220, 228));
   keyboard(0);
   await frame(0);
-  expect(sheet.style.transform).toContain("translateY(-18px)");
+  expect(sheet.style.translate).toBe("0px -18px");
   render(undefined, false);
   await progress();
   expect(node.querySelector(".mobile-sheet")).toBeNull();

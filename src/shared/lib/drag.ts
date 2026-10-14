@@ -72,18 +72,20 @@ export function createDragGhost(
   source: HTMLElement,
   startX: number,
   startY: number,
+  options: { className?: string; preserveContent?: boolean } = {},
 ) {
   const rect = source.getBoundingClientRect();
   const offsetX = startX - rect.left;
   const offsetY = startY - rect.top;
   const ghost = document.createElement("div");
-  ghost.className = "drag-ghost";
+  ghost.className = `drag-ghost ${options.className ?? ""}`.trim();
   ghost.style.zIndex = String(LAYER.dragLabel);
   ghost.inert = true;
   ghost.setAttribute("aria-hidden", "true");
   const card = source.cloneNode(true) as HTMLElement;
   // The copy must not be found as the real card, or steal focus or labels.
-  for (const node of [card, ...card.querySelectorAll<HTMLElement>("*")]) {
+  const copies = [card, ...card.querySelectorAll<HTMLElement>("*")];
+  for (const node of copies) {
     node.removeAttribute("id");
     node.removeAttribute("tabindex");
     for (const name of node.getAttributeNames()) {
@@ -91,7 +93,8 @@ export function createDragGhost(
         name.startsWith("data-session-") ||
         name.startsWith("data-project-") ||
         name.startsWith("data-sidebar-") ||
-        name.startsWith("aria-")
+        name.startsWith("aria-") ||
+        (options.preserveContent && (name === "data-pane-id" || name === "data-pane-sash"))
       )
         node.removeAttribute(name);
     }
@@ -102,9 +105,26 @@ export function createDragGhost(
   card.style.height = `${rect.height}px`;
   card.style.font = getComputedStyle(source).font;
   card.style.transition = "none";
+  if (options.preserveContent) {
+    card.style.left = "0";
+    card.style.top = "0";
+    card.style.position = "fixed";
+    card.style.gridArea = "auto";
+  }
   let animation: AnimationPlaybackControls | undefined;
   ghost.append(card);
   document.body.append(ghost);
+  if (options.preserveContent) {
+    const originals = [source, ...source.querySelectorAll<HTMLElement>("*")];
+    originals.forEach((original, index) => {
+      const copy = copies[index];
+      copy.scrollTop = original.scrollTop;
+      copy.scrollLeft = original.scrollLeft;
+      if (original instanceof HTMLCanvasElement && copy instanceof HTMLCanvasElement && original.width && original.height) {
+        copy.getContext("2d")?.drawImage(original, 0, 0);
+      }
+    });
+  }
   return {
     move(x: number, y: number) {
       animation?.stop();

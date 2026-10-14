@@ -44,12 +44,13 @@ function Fixture() {
     Object.assign(window, {
       showActivity: (blocks: Block[]) => setActivity(blocks),
       markdownSource: prompt,
-      showMarkdownExample: (text: string) =>
-        setReply({ id: "reply", role: "assistant", text }),
+      showMarkdownExample: (text: string, streaming = false) =>
+        setReply({ id: "reply", role: "assistant", text, streaming }),
       startMarkdownStream: () => {
+        setReply({ id: "reply", role: "assistant", text: "", streaming: true });
         let end = 0;
         timer = window.setInterval(() => {
-          end = Math.min(response.length, end + 800);
+          end = Math.min(response.length, end + (end === 0 ? 30 : 800));
           setReply({
             id: "reply",
             role: "assistant",
@@ -62,8 +63,7 @@ function Fixture() {
     });
     return () => window.clearInterval(timer);
   }, []);
-  // Transcript clients use character reveal. Standalone Markdown readers use
-  // word fading; exercise the fence's identity across fade teardown too.
+  // Exercise both transcript history seeding and standalone Markdown rendering.
   if (wordFade)
     return <AgentMarkdown text={reply.text} streaming={reply.streaming} />;
   return (

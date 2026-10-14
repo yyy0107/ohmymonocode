@@ -1,8 +1,7 @@
 /**
- * Split dividers and panel folds resize panes on every animation frame.
- * Surfaces whose resize is expensive (a terminal re-wraps its scrollback and
- * resizes the PTY) can wait for the motion to end instead of following every
- * intermediate size.
+ * Split dividers resize panes on pointer events; panel folds resize on animation frames.
+ * Decorative surfaces can wait for motion to end. Interactive content such
+ * as terminal grids follows the live dimensions instead.
  */
 let active = 0;
 const settledListeners = new Set<() => void>();

@@ -93,6 +93,34 @@ describe("MobileSheet drag", () => {
     return { sheet, onClose };
   }
 
+  it("opens and closes within the popup duration and reverses without resetting its position", async () => {
+    const exited = vi.fn();
+    const show = (open: boolean) => act(() => root.render(createElement(MobileSheet, {
+      title: "Details", open, onClose: () => {}, onExited: exited, children: "Content",
+    })));
+    show(true);
+    const sheet = node.querySelector<HTMLElement>(".mobile-sheet")!;
+    expect(offset(sheet)).toBe(524);
+    for (let i = 0; i < 16; i++) await step();
+    expect(offset(sheet)).toBe(0);
+    show(false);
+    for (let i = 0; i < 4; i++) await step();
+    const closingOffset = offset(sheet);
+    expect(closingOffset).toBeGreaterThan(0);
+    expect(closingOffset).toBeLessThan(524);
+    show(true);
+    await step();
+    expect(node.querySelector(".mobile-sheet")).toBe(sheet);
+    expect(offset(sheet)).toBeLessThanOrEqual(closingOffset);
+    for (let i = 0; i < 16; i++) await step();
+    expect(offset(sheet)).toBe(0);
+    expect(exited).not.toHaveBeenCalled();
+    show(false);
+    for (let i = 0; i < 16; i++) await step();
+    expect(node.querySelector(".mobile-sheet")).toBeNull();
+    expect(exited).toHaveBeenCalledOnce();
+  });
+
   it("follows the pointer and closes after a long pull", async () => {
     const { sheet, onClose } = await open();
     expect(await pull(sheet, 100, 320)).toBe(220);

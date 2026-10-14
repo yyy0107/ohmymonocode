@@ -417,7 +417,7 @@ html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] {
 
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-surface {
   position: relative;
-  container: composer-toolbar / inline-size;
+  contain: inline-size;
   background: transparent;
   box-shadow: none;
   border-radius: 0;
@@ -465,8 +465,6 @@ html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-at
 }
 
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-footer {
-  container-type: normal;
-  container-name: none;
   justify-content: space-between;
   align-items: flex-end;
   gap: 8px;
@@ -743,17 +741,26 @@ html[data-skin][data-desktop-mode="chat"] .user-message-bubble :is(pre[data-sele
   line-height: 22px;
 }
 
+[data-pane-background-geometry],
+.desktop-session-pane.chat-pane-background,
+.desktop-session-pane.chat-pane-background::before,
+.desktop-session-pane.chat-pane-background > .gradient-blur-background {
+  --chat-background-left: inherit;
+  --chat-background-top: inherit;
+  --chat-background-width: inherit;
+  --chat-background-height: inherit;
+}
+
 /* Keep the conversation readable while sibling tools cover its excess width.
    Grid tracks still shrink to zero for maximize/full-view transitions. */
 html[data-skin][data-desktop-mode] [data-pane-tree-layout][data-chat-overlap] {
-  container-type: inline-size;
   isolation: isolate;
   overflow: clip;
 }
 
 html[data-skin][data-desktop-mode] [data-chat-overlap] > [data-pane-chat-edge][aria-hidden="false"] {
   width: 100%;
-  min-width: min(var(--desktop-conversation-min-width), 100cqw);
+  min-width: var(--pane-chat-min-width, var(--desktop-conversation-min-width));
   justify-self: start;
   z-index: 0;
 }
@@ -771,6 +778,28 @@ html[data-skin][data-desktop-mode="code"] .pane-card {
   border-radius: var(--desktop-radius-card);
   background: var(--color-card);
   border: var(--desktop-border) solid var(--color-composer-ring);
+}
+
+html[data-skin][data-desktop-mode] [data-pane-floating] {
+  pointer-events: none;
+}
+
+html[data-skin][data-desktop-mode] [data-pane-floating] > [data-pane-background-geometry] {
+  visibility: hidden;
+}
+
+html[data-skin][data-desktop-mode] .pane-insertion-line {
+  position: absolute;
+  z-index: 30;
+  pointer-events: none;
+  border-radius: 2px;
+  background: var(--color-accent);
+}
+
+html[data-skin][data-desktop-mode] .pane-drag-ghost > .drag-ghost-card {
+  border-radius: var(--desktop-radius-card);
+  overflow: hidden;
+  background: var(--color-card);
 }
 
 /* A single conversation stays borderless even beside file or terminal cards. */
@@ -1167,10 +1196,8 @@ html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] :is(
   background: var(--color-control);
 }
 
-@container (width < 480px) {
-  html[data-skin][data-desktop-mode] .composer-meta {
-    column-gap: 4px;
-  }
+html[data-skin][data-desktop-mode] .composer-surface[data-inline-below~="480"] .composer-meta {
+  column-gap: 4px;
 }
 
 @media (max-width: 900px) {

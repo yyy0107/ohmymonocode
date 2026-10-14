@@ -17,6 +17,30 @@
   initial-value: 0px;
 }
 
+@property --chat-background-left {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+
+@property --chat-background-top {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+
+@property --chat-background-width {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+
+@property --chat-background-height {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+
 html[data-skin] {
   --text-desktop-h1: var(--text-heading-xl);
   --text-desktop-h2: 22px;

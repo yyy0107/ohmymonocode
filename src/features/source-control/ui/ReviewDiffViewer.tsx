@@ -1,12 +1,13 @@
 import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 // Adapted from ZCode (Apache-2.0).
-import { Fragment, memo, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { FileDiffOptions } from "@pierre/diffs";
 import { FileDiff, Virtualizer, useWorkerPool } from "@pierre/diffs/react";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { useColorScheme } from "../../../shared/hooks/useColorScheme";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { REVIEW_THEMES } from "./reviewThemes";
+import { createReviewSeparatorLayout } from "./reviewSeparatorLayout";
 import { MessageSquarePlus, Plus } from "../../../shared/ui/icons";
 import {
   reviewCommentLine,
@@ -74,6 +75,15 @@ export const ReviewDiffViewer = memo(function ReviewDiffViewer({
   const themeType = useColorScheme();
   const workerPool = useWorkerPool();
   const visible = useSurfaceVisibility();
+  const separatorLayout = useRef<ReturnType<typeof createReviewSeparatorLayout> | null>(null);
+  const onPostRender = useCallback((container: HTMLElement) => {
+    separatorLayout.current ??= createReviewSeparatorLayout();
+    separatorLayout.current.update(container);
+  }, []);
+  useEffect(() => () => {
+    separatorLayout.current?.dispose();
+    separatorLayout.current = null;
+  }, []);
   const [comment, setComment] = useState<DiffCommentComposerTarget | null>(
     null,
   );
@@ -96,6 +106,7 @@ export const ReviewDiffViewer = memo(function ReviewDiffViewer({
       maxLineDiffLength: 1000,
       tokenizeMaxLineLength: 1000,
       overflow: "wrap",
+      onPostRender,
       // The viewer's shadow root does not inherit the global scrollbar rules.
       unsafeCSS: `
         [data-diff] {
@@ -105,6 +116,20 @@ export const ReviewDiffViewer = memo(function ReviewDiffViewer({
         }
         [data-overflow="wrap"] {
           --diffs-code-grid: var(--diffs-grid-number-column-width) minmax(0, 1fr);
+        }
+        [data-overflow="wrap"] [data-unified][data-container-size] {
+          container-type: normal;
+        }
+        [data-overflow="wrap"] [data-unified] [data-separator="line-info"] [data-separator-wrapper] {
+          width: 100%;
+        }
+        /* Pierre measures these for sticky annotations in scroll mode. In
+           wrap mode they are unused; keep its inline width updates from
+           invalidating inherited styles on every syntax token during resize. */
+        [data-overflow="wrap"] [data-code] {
+          --diffs-column-content-width: initial !important;
+          --diffs-column-width: initial !important;
+          --diffs-column-number-width: initial !important;
         }
         [data-overflow="wrap"] [data-line] {
           min-height: 1lh;
@@ -143,6 +168,11 @@ export const ReviewDiffViewer = memo(function ReviewDiffViewer({
           scrollbar-width: auto;
           scrollbar-color: auto;
         }
+        /* Wrapped code scrolls with the review list. Avoid an extra scroll
+           container (and its resize work) for each rendered file. */
+        [data-overflow="wrap"] [data-code] {
+          overflow: clip;
+        }
         [data-code]::-webkit-scrollbar {
           width: 0;
           height: var(--diffs-scrollbar-gutter-override);
@@ -171,7 +201,7 @@ export const ReviewDiffViewer = memo(function ReviewDiffViewer({
       preferredHighlighter: "shiki-wasm",
       enableGutterUtility: visible,
     }),
-    [themeType, visible, fileDiff?.isPartial, virtualized],
+    [themeType, visible, fileDiff?.isPartial, virtualized, onPostRender],
   );
   const annotations = useMemo(
     () =>

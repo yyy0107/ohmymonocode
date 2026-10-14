@@ -21,6 +21,7 @@ import {
   notifyGitChanged,
 } from "../../../platform/tauri/fs";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
+import { useInlineBreakpoints } from "../../../shared/hooks/useInlineBreakpoints";
 import { isEqualOrInside } from "../../../shared/lib/paths";
 import {
   AlertCircle,
@@ -62,6 +63,7 @@ const COLLAPSED_ROW_HEIGHT = 32;
 const MAX_PLACEHOLDER_HEIGHT = 640;
 /** Covers the open animation plus the first diff loads after Expand all. */
 const BULK_EXPAND_MS = 1000;
+const REVIEW_WIDTH_BREAKPOINTS = [36] as const;
 
 export function GitReviewPane({
   cwd,
@@ -71,6 +73,7 @@ export function GitReviewPane({
   focusPath,
 }: GitReviewPaneProps) {
   const { t } = useTranslation();
+  const measureWidth = useInlineBreakpoints(REVIEW_WIDTH_BREAKPOINTS, "rem");
   const { data: worktrees } = useProjectWorktrees(cwd);
   // A linked worktree can live inside the main checkout; match the deepest root.
   const worktree = useMemo(
@@ -115,8 +118,9 @@ export function GitReviewPane({
             estimateReviewBodyHeight(file, getDiff(file.relative))
         : COLLAPSED_ROW_HEIGHT;
     },
-    // Expanded diffs are tall and costly; a few rows of overscan is plenty.
-    overscan: expanded.size ? 2 : 6,
+    // Expanded rows can contain entire files. Keep one neighbour ready for
+    // scrolling without rewrapping two offscreen files on each side.
+    overscan: expanded.size ? 1 : 6,
     measureElement: (
       element: HTMLDivElement,
       entry: ResizeObserverEntry | undefined,
@@ -300,6 +304,7 @@ export function GitReviewPane({
   return (
     <ReviewDiffsWorkerPool>
       <section
+        ref={measureWidth}
         className="git-review-pane content-surface flex h-full min-h-0 min-w-0 flex-col"
         data-git-review-pane
       >

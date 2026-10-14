@@ -27,6 +27,7 @@ import {
 } from "../model/promptOutline";
 import type { Block } from "../model/session";
 import { Popover } from "../../../shared/ui/Popover";
+import { isPaneResizing, onPaneResizeSettled } from "../../../shared/lib/paneResize";
 
 const OPEN_DELAY_MS = 25;
 const SCROLL_INSET_PX = 8;
@@ -119,10 +120,12 @@ export function PromptOutline({
   }, [scope]);
 
   const schedule = useCallback(() => {
-    if (frame.current != null) return;
+    // The navigation can settle after the sash; measuring here forces layout
+    // before the browser has finished applying the live pane dimensions.
+    if (isPaneResizing() || frame.current != null) return;
     frame.current = window.requestAnimationFrame(() => {
       frame.current = null;
-      measure();
+      if (!isPaneResizing()) measure();
     });
   }, [measure]);
 
@@ -136,8 +139,10 @@ export function PromptOutline({
     // Content growth moves the anchors without a scroll event.
     if (scroller.firstElementChild)
       observer.observe(scroller.firstElementChild);
+    const stopResizeSettled = onPaneResizeSettled(schedule);
     schedule();
     return () => {
+      stopResizeSettled();
       scroller.removeEventListener("scroll", schedule);
       observer.disconnect();
       if (frame.current != null) {

@@ -1,8 +1,3 @@
-.mobile-header[data-floating="true"] > [data-ui="icon-button"] {
-  width: var(--m-hit);
-  height: var(--m-hit);
-  border-radius: 50%;
-}
 .mobile-header[data-floating="true"] > [data-ui="icon-button"]:first-child,
 .mobile-header[data-floating="true"] > .mobile-header-logo {
   inset-inline-start: 16px;
@@ -74,7 +69,7 @@
     animation: none;
   }
 }
-/* Status and session actions share one capsule on the trailing side. */
+/* Status and session actions sit together on the trailing side. */
 .mobile-app .mobile-header[data-floating="true"] > .mobile-header-actions {
   inset-inline-end: 16px;
   display: flex;
@@ -88,11 +83,6 @@
   box-shadow: none;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
-}
-.mobile-header-actions > [data-ui="icon-button"] {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
 }
 .mobile-app .mobile-header[data-floating="true"]:has(> .mobile-header-actions)
   > .mobile-header-title {
@@ -303,16 +293,15 @@
   top: 5px;
 }
 
-.mobile-app .mobile-header[data-floating="true"] > [data-ui="icon-button"],
-.mobile-app .mobile-header-actions > [data-ui="icon-button"] {
+.mobile-app .mobile-header [data-ui="icon-button"] {
   width: 44px;
   height: 44px;
   border: 0;
-  border-radius: 50%;
-  background: var(--m-navigation-control);
-  box-shadow: var(--m-navigation-shadow);
-  -webkit-backdrop-filter: var(--m-material-filter);
-  backdrop-filter: var(--m-material-filter);
+  border-radius: var(--radius-m-xl);
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .mobile-app .mobile-header [data-ui="icon-button"] > svg {

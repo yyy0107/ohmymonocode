@@ -2448,6 +2448,7 @@ dependencies = [
  "base64 0.22.1",
  "block2",
  "fontdb",
+ "glib",
  "ksni",
  "libc",
  "monocode-process-tree",

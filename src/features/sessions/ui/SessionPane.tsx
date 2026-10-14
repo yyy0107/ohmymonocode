@@ -1,3 +1,4 @@
+import { useInlineBreakpoints } from "../../../shared/hooks/useInlineBreakpoints";
 import { AnimatePresence } from "motion/react";
 import { desktopModeForCwd } from "../../../app/model/desktopMode";
 import { sessionComposerConfiguration } from "../model/composerConfiguration";
@@ -250,6 +251,8 @@ export type SessionPaneProps = {
   /** History received by the first Host sync after opening or returning to a tab. */
   transcriptHistory?: readonly Block[];
 };
+
+const TRANSCRIPT_BREAKPOINTS = [28] as const;
 
 type Props = SessionPaneProps & {
   /** The session runtime is on another machine. */
@@ -505,6 +508,11 @@ const LocalSessionPane = memo(function LocalSessionPane({
   }, []);
   const jumpToBottomRef = useRef<(() => void) | null>(null);
   const transcriptScope = useRef<HTMLDivElement>(null);
+  const transcriptWidthRef = useInlineBreakpoints(TRANSCRIPT_BREAKPOINTS, "rem");
+  const setTranscriptScope = useCallback((node: HTMLDivElement | null) => {
+    transcriptScope.current = node;
+    transcriptWidthRef(node);
+  }, [transcriptWidthRef]);
   // Workspace commands already route remote:// paths to their owning Host.
   const statusGitCwd = sessionWorkCwd(session);
   const completedTools = session.blocks.reduce((count, block) => count + Number(
@@ -950,11 +958,12 @@ const LocalSessionPane = memo(function LocalSessionPane({
           </button>
         </div>
       ) : null}
-      <div className="desktop-conversation-body @container relative flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="desktop-conversation-body relative flex min-h-0 min-w-0 flex-1 flex-col">
         <div
-          ref={transcriptScope}
+          ref={setTranscriptScope}
+          data-transcript-inline-size
           data-transcript-viewport={!isEmpty && !remoteSessionLoading || undefined}
-          className="@container relative min-h-0 flex-1"
+          className="relative min-h-0 flex-1"
         >
           <AnimatePresence>{visible && focused && !session.inboxAsk ? (
             <LinkedWorkItemUpdateNotice

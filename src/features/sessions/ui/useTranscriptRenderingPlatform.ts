@@ -11,7 +11,7 @@ import { TextRevealQueue } from "./textRevealQueue";
 import { TranscriptPlatformContext } from "./TranscriptPlatform";
 import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 
-/** Shared character reveal: seed loaded history, pace new replies and chunks. */
+/** Seed loaded history and pace only new output on every transcript client. */
 export function useTranscriptRenderingPlatform(
   entries: readonly { id: string; text: string }[],
   {
@@ -72,7 +72,7 @@ export function useTranscriptRenderingPlatform(
   }
   const revealText = useCallback(
     (id?: string) => {
-      if (!id) return { unit: "character" as const };
+      if (!id) return {};
       const settledLength = Math.max(
         settledLengths.current.get(id) ?? 0,
         historyLengths.get(id) ?? 0,
@@ -81,7 +81,6 @@ export function useTranscriptRenderingPlatform(
       // Reopening a previously presented reply must not replay it.
       seenLengths.current.set(id, currentLengths.current.get(id) ?? 0);
       return {
-        unit: "character" as const,
         initialLength,
         settledLength,
         sequence: queue.forEntry(id),

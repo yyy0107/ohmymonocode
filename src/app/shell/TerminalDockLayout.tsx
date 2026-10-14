@@ -64,27 +64,31 @@ export function TerminalDockLayout({
   const open = !!currentDock?.open;
   const { foldState, finish } = useCollapseMotion(open, DOCK_FOLD_MS);
   const folding = foldState === "opening" || foldState === "closing";
-  // Every terminal on screen changes size while the tracks move; refit once
-  // when they settle instead of re-wrapping and resizing PTYs each frame.
   useEffect(() => (folding ? beginPaneResize() : undefined), [folding]);
   const paintSize = useCallback((size: number) => {
     const dock = currentDockRef.current;
     const element = grid.current;
     if (!dock || !element) return;
-    controls.stop();
+    if (dragSize.current == null) controls.stop();
     dragSize.current = size;
     element.style.transitionProperty = "none";
     applyDockGridStyle(element, dock.side, size);
+  }, [controls]);
+  const syncDragSize = useCallback((size: number) => {
+    const dock = currentDockRef.current;
+    if (!dock) return;
     const painted = dockGridStyle(dock.side, size);
     controls.set({ gridTemplateRows: String(painted.gridTemplateRows), gridTemplateColumns: String(painted.gridTemplateColumns) });
   }, [controls]);
   const commitSize = useCallback(
     (size: number) => {
+      // Synchronize Motion once, before React commits the final layout.
+      syncDragSize(size);
       dragSize.current = null;
       grid.current?.style.removeProperty("transition-property");
       onSizeCommit(size);
     },
-    [onSizeCommit],
+    [onSizeCommit, syncDragSize],
   );
   useLayoutEffect(() => {
     if (!open) dragSize.current = null;
@@ -96,6 +100,11 @@ export function TerminalDockLayout({
     element.style.gridTemplateAreas = String(target.gridTemplateAreas ?? "");
     void controls.start({ gridTemplateRows: String(target.gridTemplateRows), gridTemplateColumns: String(target.gridTemplateColumns), transition: reduced ? immediateTransition : panelTransition });
   }, [currentDock, open, lastDockSide, controls, reduced]);
+  // Unrelated React updates must not restore Motion's pre-drag dimensions.
+  // Keep this off the pointer-move path, which only writes DOM styles.
+  useLayoutEffect(() => {
+    if (dragSize.current != null) syncDragSize(dragSize.current);
+  });
 
   return (
     <motion.div

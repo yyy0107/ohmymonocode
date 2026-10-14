@@ -1,3 +1,4 @@
+import { useInlineBreakpoints } from "../../../shared/hooks/useInlineBreakpoints";
 import { MessageInput } from "../../../shared/ui/messaging/MessageInput";
 import { animate, motion, useMotionValue } from "motion/react";
 import { panelTransition, immediateTransition, springs, motionGeometry } from "../../../shared/motion/tokens";
@@ -221,6 +222,8 @@ import {
   type McpSettingsSnapshot,
 } from "../../settings/model/mcpSettingsCache";
 import type { LastTurnRecall } from "../model/editLastTurn";
+
+const COMPOSER_BREAKPOINTS = [220, 280, 360, 480] as const;
 
 type Props = {
   enabled?: boolean;
@@ -457,6 +460,8 @@ export function Composer({
   const { t: uiT } = useTranslation();
   const ref = useRef<HTMLTextAreaElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
+  const surfaceWidthRef = useInlineBreakpoints(COMPOSER_BREAKPOINTS, "px", !compact);
+  const toolbarWidthRef = useInlineBreakpoints(COMPOSER_BREAKPOINTS, "px", compact);
   const plusRef = useRef<HTMLDivElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
   // Attachments left unsent when this session's Composer last unmounted.
@@ -2227,6 +2232,7 @@ export function Composer({
 
   const footerControls = (
     <div
+      ref={toolbarWidthRef}
       className="composer-toolbar flex min-w-0 flex-1 items-center gap-1"
       onWheel={(e) => {
         if (
@@ -2450,6 +2456,7 @@ export function Composer({
           </div>
         ) : null}
         <div
+          ref={surfaceWidthRef}
           className={`composer-surface ${hideTopBar ? "" : "composer-surface-with-workspace"}`}
         >
           <MessageInput

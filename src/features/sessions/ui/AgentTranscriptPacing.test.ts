@@ -59,7 +59,12 @@ function render(blocks: Block[], busy = true, visible = true) {
   );
 }
 
-it("shows each received chunk immediately without moving streaming prose", () => {
+function advanceText(ms: number) {
+  for (let elapsed = 0; elapsed < ms; elapsed += 25)
+    act(() => vi.advanceTimersByTime(25));
+}
+
+it("paces received chunks without moving streaming prose", () => {
   const animate = vi.spyOn(Element.prototype, "animate");
   const entrances = () => animate.mock.contexts.filter(node =>
     node.hasAttribute("data-transcript-content-motion"));
@@ -81,11 +86,12 @@ it("shows each received chunk immediately without moving streaming prose", () =>
   render([...history, reply(text)]);
   expect(entrances()).toHaveLength(0);
   expect(received().closest("[data-transcript-content-motion]")).toBeNull();
-  expect(received().textContent).toBe(text);
+  expect(received().textContent!.length).toBeGreaterThan(0);
+  expect(received().textContent!.length).toBeLessThan(text.length);
 
   render([...history, reply(text + text, false)], false);
-  expect(received().textContent).toBe(text + text);
-  act(() => vi.advanceTimersByTime(2000));
+  expect(received().textContent!.length).toBeLessThan((text + text).length);
+  advanceText(3000);
   expect(received().textContent).toBe(text + text);
   expect(received().closest("[data-transcript-content-motion]")).toBeNull();
   expect(entrances()).toHaveLength(0);
@@ -103,7 +109,7 @@ it("shows new desktop output immediately without sliding when motion is reduced"
     node.hasAttribute("data-transcript-content-motion"))).toHaveLength(0);
 });
 
-it("shows background and fresh output immediately", () => {
+it("flushes background output and resumes pacing fresh output", () => {
   const animate = vi.spyOn(Element.prototype, "animate");
   const entrances = () => animate.mock.contexts.filter(node =>
     node.hasAttribute("data-transcript-content-motion")).length;
@@ -113,7 +119,7 @@ it("shows background and fresh output immediately", () => {
   render([user, reply("")]);
   render([user, reply(text)]);
   act(() => vi.advanceTimersByTime(100));
-  expect(container.querySelector(".agent-markdown")!.textContent).toBe(text);
+  expect(container.querySelector(".agent-markdown")!.textContent!.length).toBeLessThan(text.length);
 
   render([user, reply(text)], true, false);
   expect(container.querySelector(".agent-markdown")!.textContent).toBe(text);
@@ -127,6 +133,8 @@ it("shows background and fresh output immediately", () => {
   expect(entrances()).toBe(beforeReturn);
 
   render([user, reply(background + text), next]);
+  expect(container.querySelector(".agent-markdown")!.textContent).toBe(background);
+  advanceText(2000);
   expect(container.querySelector(".agent-markdown")!.textContent).toBe(background + text);
 });
 
@@ -224,7 +232,7 @@ it("keeps a closing phase inert until motion ends and supports rapid reopening",
   expect(body.querySelector(".zen-phase-step")).toBeNull();
 });
 
-it("shows Chinese chunks immediately and keeps response actions tied to streaming status", () => {
+it("paces Chinese chunks and waits for the visible tail before showing response actions", () => {
   const user: Block = {
     id: "user",
     role: "user",
@@ -236,12 +244,15 @@ it("shows Chinese chunks immediately and keeps response actions tied to streamin
     "手机端和桌面端现在都会逐字展示中文输出，已经显示的文字不会随着后续消息重新播放。";
   render([user, { id: "reply", role: "assistant", text: "", streaming: true }]);
   render([user, { id: "reply", role: "assistant", text, streaming: true }]);
-  expect(container.querySelector(".agent-markdown")?.textContent).toBe(text);
+  expect(container.querySelector(".agent-markdown")?.textContent!.length).toBeLessThan(text.length);
   expect(actions()).toBeNull();
   render(
     [user, { id: "reply", role: "assistant", text, streaming: false }],
     false,
   );
+  expect(container.querySelector(".agent-markdown")?.textContent!.length).toBeLessThan(text.length);
+  expect(actions()).toBeNull();
+  advanceText(1000);
   expect(container.querySelector(".agent-markdown")?.textContent).toBe(text);
   expect(actions()).not.toBeNull();
   render(

@@ -234,7 +234,7 @@
   min-height: 0;
   overflow: hidden;
 }
-.mobile-sheet-pages .mobile-page-layer {
+html[data-mobile-skin] .mobile-sheet-pages .mobile-page-layer {
   background: transparent;
 }
 .mobile-sheet-page-scroll {
@@ -264,6 +264,8 @@
 .mobile-error [data-ui="icon-button"],
 .mobile-composer-attachments button:not(.attachment-chip-remove),
 .mobile-desktop-transcript .user-message-actions button,
+.mobile-desktop-transcript [data-ui="response-actions"] [data-ui="response-action"],
+.mobile-desktop-transcript [data-ui="response-metrics-trigger"],
 .mobile-shared-question [data-question-collapse],
 .mobile-settings-row .mobile-select-trigger {
   position: relative;
@@ -274,6 +276,8 @@
 .mobile-error [data-ui="icon-button"]::after,
 .mobile-composer-attachments button::after,
 .mobile-desktop-transcript .user-message-actions button::after,
+.mobile-desktop-transcript [data-ui="response-actions"] [data-ui="response-action"]::after,
+.mobile-desktop-transcript [data-ui="response-metrics-trigger"]::after,
 :is(.mobile-app, .mobile-sheet, .mobile-modal, [data-popover-side]) .markdown-code-copy::after,
 .mobile-shared-question [data-question-collapse]::after,
 .mobile-settings-row .mobile-select-trigger::after {

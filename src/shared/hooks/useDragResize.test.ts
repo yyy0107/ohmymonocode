@@ -11,13 +11,14 @@ let resize: ReturnType<typeof useDragResize>;
 let onCommit: ReturnType<typeof vi.fn>;
 let pendingFrame: FrameRequestCallback | undefined;
 let renders: number;
+const maximum = vi.fn(() => 560);
 
 function Probe({ value, direction }: { value?: number; direction?: "left" | "right" | "top" | "bottom" } = {}) {
   renders += 1;
   resize = useDragResize({
     direction,
     min: 260,
-    max: () => 560,
+    max: maximum,
     defaultWidth: 260,
     initial: 260,
     value,
@@ -63,6 +64,7 @@ function pointer(type: string, clientX: number) {
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   renders = 0;
+  maximum.mockClear();
   pendingFrame = undefined;
   vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => {
     pendingFrame = callback;
@@ -141,18 +143,20 @@ describe("pane drag resizing", () => {
     expect(onCommit).toHaveBeenCalledExactlyOnceWith(410);
   });
 
-  it("coalesces width writes per frame without rendering and commits only on release", () => {
+  it("writes each move immediately without rendering and commits only on release", () => {
     startDrag();
     const beforeMoves = renders;
+    maximum.mockClear();
     act(() => {
       window.dispatchEvent(
         new PointerEvent("pointermove", { pointerId: 1, clientX: 390 }),
       );
       window.dispatchEvent(new PointerEvent("pointermove", { pointerId: 1, clientX: 420 }));
-      expect(pane().style.width).toBe("260px");
+      expect(pane().style.width).toBe("420px");
       expect(resize.width).toBe(260);
     });
-    expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
+    expect(requestAnimationFrame).not.toHaveBeenCalled();
+    expect(maximum).not.toHaveBeenCalled();
     act(() => pendingFrame?.(0));
     expect(pane().style.width).toBe("420px");
     expect(renders).toBe(beforeMoves);
@@ -163,13 +167,27 @@ describe("pane drag resizing", () => {
     expect(onCommit).toHaveBeenCalledExactlyOnceWith(420);
   });
 
+  it.each(["Escape", "pointercancel"])("rolls back on %s without persisting the preview", (reason) => {
+    startDrag();
+    pointer("pointermove", 410);
+    expect(pane().style.width).toBe("410px");
+    if (reason === "Escape") act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: reason })));
+    else pointer(reason, 410);
+    expect(pane().style.width).toBe("260px");
+    expect(resize.width).toBe(260);
+    expect(resize.dragging).toBe(false);
+    expect(onCommit).not.toHaveBeenCalled();
+    pointer("pointerup", 500);
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
   it("keeps finishDrag stable and finishes at the last valid width", () => {
     const finishDrag = resize.finishDrag;
     document.body.style.cursor = "crosshair";
     startDrag();
     expect(resize.finishDrag).toBe(finishDrag);
     pointer("pointermove", 800);
-    expect(pane().style.width).toBe("260px");
+    expect(pane().style.width).toBe("560px");
     expect(document.body.style.cursor).toBe("col-resize");
     expect(document.documentElement.classList.contains("is-resizing")).toBe(true);
     const blockedSelection = new Event("selectstart", { cancelable: true });
@@ -226,7 +244,8 @@ describe("pane drag resizing", () => {
     startDrag();
     pointer("pointermove", 300);
     act(() => handle().dispatchEvent(new PointerEvent("lostpointercapture", { pointerId: 1 })));
-    expect(onCommit).toHaveBeenLastCalledWith(470);
+    expect(onCommit).toHaveBeenCalledExactlyOnceWith(430);
+    expect(pane().style.width).toBe("430px");
     expect(resize.dragging).toBe(false);
     expect(pendingFrame).toBeUndefined();
   });

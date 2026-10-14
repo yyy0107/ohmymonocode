@@ -1,5 +1,5 @@
 import { fitToolLayout } from "../model/fitToolLayout";
-import { beginPaneResize } from "../../../shared/lib/paneResize";
+import { beginPaneResize, isPaneResizing, onPaneResizeSettled } from "../../../shared/lib/paneResize";
 import { motion, useAnimationControls, type TargetAndTransition } from "motion/react";
 import { panelTransition, immediateTransition, motionDistance } from "../../../shared/motion/tokens";
 import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
@@ -17,7 +17,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { createPortal } from "react-dom";
-import { setGrabbing, suppressTextSelection } from "../../../shared/lib/drag";
+import { createDragGhost, setGrabbing, suppressTextSelection } from "../../../shared/lib/drag";
 import { ResizeHandle } from "../../../shared/ui/ResizeHandle";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { Maximize2 } from "../../../shared/ui/icons";
@@ -41,6 +41,8 @@ import {
   isTerminalTab,
   layoutLeaves,
   layoutSashes,
+  movePane,
+  paneEdgeFromPoint,
   setSplitRatio,
   type EditorPane,
   type LayoutLeaf,
@@ -227,6 +229,8 @@ type PaneDrag = {
   fromId: string;
   overId: string | null;
   edge: PaneEdge;
+  offsets: Map<string, string>;
+  insertion: CSSProperties | null;
 };
 
 const DRAG_THRESHOLD = 5;
@@ -332,6 +336,8 @@ function PaneTreeComponent({
   layoutRef.current = layout;
   const draft = useRef<LayoutNode | null>(null);
   const [paneDrag, setPaneDrag] = useState<PaneDrag | null>(null);
+  const stopPaneDrag = useRef<(() => void) | null>(null);
+  useLayoutEffect(() => () => stopPaneDrag.current?.(), [layout, visible]);
   // A card can temporarily fill the chat area; the rest stay mounted.
   const [maximizedId, setMaximizedId] = useState<string | null>(null);
   const externalDrop = useExternalPaneDrop(visible);
@@ -523,24 +529,45 @@ function PaneTreeComponent({
   const fittedSize = useRef("");
   useLayoutEffect(() => {
     const container = treeRef.current;
-    if (!container || !visible || !ownerSession || requestedUnified || maximized || !fitCallback.current) return;
+    if (!container || !visible || !ownerSession || unified) return;
+    let measuredWidth = container.clientWidth;
+    const chatMinimum = parseFloat(getComputedStyle(container).getPropertyValue("--desktop-conversation-min-width")) || 420;
+    const capChatWidth = () => {
+      if (measuredWidth <= 0) return;
+      // A size-query container here makes WebKit reevaluate the entire chat
+      // on every pixel. This cap changes only below the conversation minimum.
+      const minimum = `${Math.min(measuredWidth, chatMinimum)}px`;
+      for (const pane of container.querySelectorAll<HTMLElement>(":scope > [data-pane-chat-edge]")) {
+        if (pane.style.getPropertyValue("--pane-chat-min-width") !== minimum) {
+          pane.style.setProperty("--pane-chat-min-width", minimum);
+        }
+      }
+    };
     const fit = () => {
-      const width = container.clientWidth;
-      if (width <= 0 || draft.current) return;
+      // Dock and sibling-panel drags also resize this container. Cache their
+      // measurements, but only normalize the React layout after release.
+      if (isPaneResizing() || draft.current || stopPaneDrag.current) return;
+      if (requestedUnified || maximized || !fitCallback.current) return;
+      const width = measuredWidth;
+      if (width <= 0) return;
       // Sash edits keep the user's ratios; refit only for new panes or a new available width.
       const key = `${Math.round(width)}:${ownerSession.id}:${layoutLeaves(layout).map(pane => pane.id).sort().join(",")}`;
       if (key === fittedSize.current) return;
       fittedSize.current = key;
-      const styles = getComputedStyle(container);
-      const chatMinimum = parseFloat(styles.getPropertyValue("--desktop-conversation-min-width")) || 420;
       const next = fitToolLayout(layout, ownerSession.id, width, chatMinimum);
       if (next !== layout) fitCallback.current?.(layout, next);
     };
+    capChatWidth();
     fit();
-    const observer = new ResizeObserver(fit);
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) measuredWidth = entry.contentRect.width;
+      capChatWidth();
+      fit();
+    });
     observer.observe(container);
-    return () => observer.disconnect();
-  }, [layout, visible, ownerSession?.id, requestedUnified, maximized]);
+    const unsubscribe = onPaneResizeSettled(fit);
+    return () => { observer.disconnect(); unsubscribe(); };
+  }, [layout, visible, ownerSession?.id, unified, requestedUnified, maximized]);
 
   // The card that was maximized before full view was requested, if any.
   const fullViewTarget = useRef<string | undefined>(undefined);
@@ -613,12 +640,12 @@ function PaneTreeComponent({
       transition: reduced || unified || !!draft.current ? immediateTransition : panelTransition,
     });
   }, [gridColumns, gridRows, gridControls, reduced, unified]);
-  const paintLayout = (tree: LayoutNode) => {
+  const paintLayout = (tree: LayoutNode, syncMotion = false) => {
     const container = treeRef.current;
     const { grid, selectedId, unified } = resizeConfig.current;
     if (container) {
       const surface = paintPaneLayout(container, tree, grid, selectedId, unified);
-      if (surface) {
+      if (surface && syncMotion) {
         gridControls.stop();
         gridControls.set({
           gridTemplateColumns: String(surface.style.gridTemplateColumns),
@@ -631,9 +658,10 @@ function PaneTreeComponent({
     }
   };
   // A stream may render React during a drag. Reapply the preview before paint
-  // without publishing frame-by-frame geometry into the component tree.
+  // and synchronize Motion's stored styles only on this cold path, so its next
+  // render cannot restore the pre-drag tracks. Pointer moves only write DOM.
   useLayoutEffect(() => {
-    if (draft.current) paintLayout(draft.current);
+    if (draft.current) paintLayout(draft.current, true);
   });
 
   useLayoutEffect(() => {
@@ -664,12 +692,30 @@ function PaneTreeComponent({
   const startPaneDrag = useCallback(
     (fromId: string, event: ReactPointerEvent<HTMLElement>) => {
       if (event.button !== 0) return;
-      const handle = event.currentTarget;
+      stopPaneDrag.current?.();
+      const container = treeRef.current;
+      const source = Array.from(container?.children ?? []).find(
+        (element): element is HTMLElement =>
+          element instanceof HTMLElement && element.dataset.paneId === fromId,
+      );
+      if (!container || !source) return;
+      // Pane headers can move or change during preview; capture on their stable parent.
+      const handle = container;
       const pointerId = event.pointerId;
       const startX = event.clientX;
       const startY = event.clientY;
+      const base = layoutRef.current;
+      const baseLeaves = layoutLeaves(base);
+      const bounds = container.getBoundingClientRect();
+      // Keep hit regions stable while same-direction moves translate the panes.
+      const targets = Array.from(container.children)
+        .filter((element): element is HTMLElement => element instanceof HTMLElement && !!element.dataset.paneId)
+        .map((element) => ({ id: element.dataset.paneId!, rect: element.getBoundingClientRect() }));
       let active = false;
-
+      let ended = false;
+      let ghost: ReturnType<typeof createDragGhost> | undefined;
+      let releaseResize: (() => void) | undefined;
+      let current: PaneDrag | null = null;
       let lastX = startX;
       let lastY = startY;
       handle.setPointerCapture(pointerId);
@@ -684,76 +730,109 @@ function PaneTreeComponent({
         const inside = x >= rect.left && x <= rect.right && y <= rect.bottom;
         return inside && y >= rect.bottom - TERMINAL_DOCK_BAND ? "band" : null;
       };
-
-      const onMove = (ev: PointerEvent) => {
-        lastX = ev.clientX;
-        lastY = ev.clientY;
-        if (!active) {
-          if (
-            Math.hypot(ev.clientX - startX, ev.clientY - startY) <
-            DRAG_THRESHOLD
-          ) {
-            return;
+      const update = (x: number, y: number) => {
+        lastX = x;
+        lastY = y;
+        ghost?.move(x, y);
+        const toDock = dockTarget(x, y);
+        setTerminalDockDrop(toDock);
+        const target = targets.find(({ rect }) => x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom);
+        const over = toDock ? null : target
+          ? { id: target.id, edge: paneEdgeFromPoint(x, y, target.rect) }
+          : paneDropFromPoint(x, y);
+        const overId = over?.id ?? null;
+        const edge = over?.edge ?? "left";
+        if (current && current.overId === overId && current.edge === edge) return;
+        const candidate = over && over.id !== fromId
+          ? movePane(base, fromId, over.id, edge) : base;
+        const nextRects = new Map(layoutLeaves(candidate).map(leaf => [leaf.id, leaf.rect]));
+        const changesSize = baseLeaves.some(({ id, rect }) => {
+          const next = nextRects.get(id)!;
+          return Math.abs(rect.w - next.w) > 1e-7 || Math.abs(rect.h - next.h) > 1e-7;
+        });
+        const offsets = new Map<string, string>();
+        if (!changesSize) {
+          for (const { id, rect } of baseLeaves) {
+            const next = nextRects.get(id)!;
+            offsets.set(id, `${(next.x - rect.x) * bounds.width}px ${(next.y - rect.y) * bounds.height}px`);
           }
+        }
+        const next = nextRects.get(fromId)!;
+        const horizontal = edge === "top" || edge === "bottom";
+        const insertion: CSSProperties | null = !changesSize ? null : horizontal
+          ? {
+              left: `${next.x * 100}%`,
+              top: edge === "top" ? `${next.y * 100}%` : `calc(${(next.y + next.h) * 100}% - 3px)`,
+              width: `${next.w * 100}%`,
+              height: 3,
+            }
+          : {
+              left: edge === "left" ? `${next.x * 100}%` : `calc(${(next.x + next.w) * 100}% - 3px)`,
+              top: `${next.y * 100}%`,
+              width: 3,
+              height: `${next.h * 100}%`,
+            };
+        current = { fromId, overId, edge, offsets, insertion };
+        setPaneDrag(current);
+      };
+      const onMove = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return;
+        if (!active) {
+          if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) return;
           active = true;
+          ghost = createDragGhost(source, startX, startY, { className: "pane-drag-ghost", preserveContent: true });
+          releaseResize = beginPaneResize();
           setGrabbing(true);
           onFocusRef.current(fromId);
-          setPaneDrag({ fromId, overId: null, edge: "left" });
         }
-        const toDock = dockTarget(ev.clientX, ev.clientY);
-        setTerminalDockDrop(toDock);
-        if (toDock) {
-          setPaneDrag({ fromId, overId: null, edge: "left" });
-          return;
-        }
-        const over = paneDropFromPoint(ev.clientX, ev.clientY);
-        if (!over || over.id === fromId) {
-          setPaneDrag({
-            fromId,
-            overId: over?.id === fromId ? fromId : null,
-            edge: over?.edge ?? "left",
-          });
-          return;
-        }
-        setPaneDrag({ fromId, overId: over.id, edge: over.edge });
+        update(ev.clientX, ev.clientY);
       };
-
-      const onUp = () => finish(true);
+      const onUp = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return;
+        if (active) update(ev.clientX, ev.clientY);
+        finish(true);
+      };
+      const onCancel = (ev: PointerEvent) => {
+        if (ev.pointerId === pointerId) finish(false);
+      };
+      const onBlur = () => finish(false);
       const onKey = (ev: KeyboardEvent) => {
         if (ev.key !== "Escape") return;
         ev.preventDefault();
         finish(false);
       };
-
       function finish(commit: boolean) {
+        if (ended) return;
+        ended = true;
+        stopPaneDrag.current = null;
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
-        window.removeEventListener("pointercancel", onUp);
+        window.removeEventListener("pointercancel", onCancel);
         window.removeEventListener("keydown", onKey);
+        window.removeEventListener("blur", onBlur);
+        handle.removeEventListener("lostpointercapture", onCancel);
         restoreSelection();
         setGrabbing(false);
+        ghost?.dispose();
         setPaneDrag(null);
         setTerminalDockDrop(null);
-        try {
-          handle.releasePointerCapture(pointerId);
-        } catch {
-          /* already released */
+        try { handle.releasePointerCapture(pointerId); } catch { /* already released */ }
+        if (active && commit) {
+          if (dockTarget(lastX, lastY)) onMovePaneToDockRef.current?.(fromId);
+          else if (current?.overId && current.overId !== fromId) {
+            onMovePaneRef.current(fromId, current.overId, current.edge);
+          }
         }
-        if (!active || !commit) return;
-        if (dockTarget(lastX, lastY)) {
-          onMovePaneToDockRef.current?.(fromId);
-          return;
-        }
-        const over = paneDropFromPoint(lastX, lastY);
-        if (over && over.id !== fromId) {
-          onMovePaneRef.current(fromId, over.id, over.edge);
-        }
+        // Let React commit the final geometry before terminals fit their PTYs.
+        requestAnimationFrame(() => releaseResize?.());
       }
-
+      stopPaneDrag.current = () => finish(false);
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
-      window.addEventListener("pointercancel", onUp);
+      window.addEventListener("pointercancel", onCancel);
       window.addEventListener("keydown", onKey);
+      window.addEventListener("blur", onBlur);
+      handle.addEventListener("lostpointercapture", onCancel);
     },
     [],
   );
@@ -841,7 +920,6 @@ function PaneTreeComponent({
     <div className="relative flex h-full min-h-0 min-w-0 flex-col">
       {promoteHeader ? createPortal(ownerHeader, sessionHeaderHost) : ownerHeader}
       <motion.div
-        layout
         initial={false}
         animate={gridControls}
         transition={reduced || unified || !!draft.current ? immediateTransition : panelTransition}
@@ -849,6 +927,7 @@ function PaneTreeComponent({
         onAnimationComplete={finishGridMotion}
         ref={treeRef}
         data-pane-tree-layout
+        data-pane-moving={paneDrag ? "" : undefined}
         data-chat-overlap={ownerSession && !unified ? "" : undefined}
         data-surface-mode={unified ? "unified" : "split"}
         data-pane-cards={paneCards ? "" : undefined}
@@ -886,6 +965,7 @@ function PaneTreeComponent({
               expanded={expanded}
               visible={visible}
               dragging={dragging}
+              floating={paneDrag?.fromId === leaf.id}
               // The new pane focuses its composer or editor while it is still
               // offscreen, and focus scrolls this clip box to reveal it, which
               // fights the slide. Scroll events land before paint, so undoing
@@ -895,8 +975,10 @@ function PaneTreeComponent({
                 event.currentTarget.scrollLeft = 0;
                 event.currentTarget.scrollTop = 0;
               }}
-              style={
-                surfaceGrid
+              style={{
+                translate: paneDrag?.offsets.get(leaf.id),
+                transition: paneDrag && !reduced ? "translate 0.24s cubic-bezier(0.22, 1, 0.36, 1)" : undefined,
+                ...(surfaceGrid
                   ? {
                       ...surfaceGrid.placements.get(leaf.id),
                       ...backgroundStyle,
@@ -912,13 +994,14 @@ function PaneTreeComponent({
                         width: `${leaf.rect.w * 100}%`,
                         height: `${leaf.rect.h * 100}%`,
                         ...backgroundStyle,
-                      }
-              }
+                      }),
+              }}
             >
-              {drop && drop.overId === leaf.id && drop.fromId !== leaf.id ? (
+              {!paneDrag && drop && drop.overId === leaf.id && drop.fromId !== leaf.id ? (
                 <PaneDropHint edge={drop.edge} />
               ) : null}
               <motion.div
+                data-pane-background-geometry
                 initial={enteringPanes.current.has(leaf.id) && !reduced ? paneEntrance(enteringPanes.current.get(leaf.id)!) : false}
                 animate={{ x: 0, y: 0, opacity: 1 }}
                 transition={reduced ? immediateTransition : panelTransition}
@@ -1074,14 +1157,24 @@ function PaneTreeComponent({
             </SessionSurfacePane>
           );
         })}
+        {paneDrag?.insertion ? (
+          <div className="pane-insertion-line" data-pane-insertion={paneDrag.edge} style={paneDrag.insertion} aria-hidden="true" />
+        ) : null}
         {!unified &&
           sashes.map((sash) => (
             <Sash
               key={`${sash.splitId}:${sash.index}`}
               sash={sash}
               layout={layout}
-              visible={visible && parentVisible && !maximized}
+              visible={visible && parentVisible && !maximized && !paneDrag}
               containerRef={treeRef}
+              onStart={() => {
+                gridControls.stop();
+                draft.current = layoutRef.current;
+                releaseGridMotion.current?.();
+                releaseGridMotion.current = undefined;
+                gridMoving.current = false;
+              }}
               onPreview={(ratio) => {
                 draft.current = setSplitRatio(
                   layoutRef.current,
@@ -1092,11 +1185,12 @@ function PaneTreeComponent({
                 paintLayout(draft.current);
               }}
               onCommit={(ratio) => {
+                if (draft.current) paintLayout(draft.current, true);
                 onRatio(sash.splitId, sash.index, ratio);
               }}
               onCancel={() => {
                 draft.current = null;
-                paintLayout(layoutRef.current);
+                paintLayout(layoutRef.current, true);
               }}
             />
           ))}
@@ -1160,6 +1254,7 @@ function PaneCardFrame({
   // changed wrapper would remount the chat, editors and running terminals.
   return (
     <div
+      data-pane-background-geometry
       data-pane-card-frame={card ? "" : undefined}
       data-focused={card ? focused : undefined}
       className={card ? "pane-card" : "contents"}
@@ -1265,6 +1360,7 @@ function Sash({
   layout,
   visible,
   containerRef,
+  onStart,
   onPreview,
   onCommit,
   onCancel,
@@ -1273,6 +1369,7 @@ function Sash({
   layout: LayoutNode;
   visible: boolean;
   containerRef: { current: HTMLDivElement | null };
+  onStart: () => void;
   onPreview: (ratio: number) => void;
   onCommit: (ratio: number) => void;
   onCancel: () => void;
@@ -1285,8 +1382,8 @@ function Sash({
     .reduce((sum, size) => sum + size, 0);
   const group = sash.group;
   const stopDrag = useRef<((commit: boolean) => void) | null>(null);
-  const callbacks = useRef({ onPreview, onCommit, onCancel });
-  callbacks.current = { onPreview, onCommit, onCancel };
+  const callbacks = useRef({ onStart, onPreview, onCommit, onCancel });
+  callbacks.current = { onStart, onPreview, onCommit, onCancel };
   useLayoutEffect(() => () => stopDrag.current?.(false), [layout, visible]);
 
   return (
@@ -1319,6 +1416,10 @@ function Sash({
           setDragging(true);
           const previousTransition = parent.style.transitionProperty;
           parent.style.transitionProperty = "none";
+          const previousResizeCursor = document.documentElement.style.getPropertyValue("--resize-cursor");
+          document.documentElement.style.setProperty("--resize-cursor", row ? "col-resize" : "row-resize");
+          document.documentElement.classList.add("is-resizing");
+          callbacks.current.onStart();
           const endPaneResize = beginPaneResize();
           const rect = parent.getBoundingClientRect();
           const restoreSelection = suppressTextSelection();
@@ -1328,7 +1429,6 @@ function Sash({
           const span = row ? group.w * rect.width : group.h * rect.height;
           let nextBoundary = boundary;
           let moved = false;
-          let frame: number | null = null;
 
           const sample = (ev: PointerEvent) => {
             if (span <= 0) return false;
@@ -1342,33 +1442,26 @@ function Sash({
           const move = (ev: PointerEvent) => {
             if (ev.pointerId !== e.pointerId) return;
             if (!sample(ev)) return;
-            if (frame != null) return;
-            frame = requestAnimationFrame(() => {
-              frame = null;
-              callbacks.current.onPreview(nextBoundary);
-            });
+            callbacks.current.onPreview(nextBoundary);
           };
           const finish = (commit: boolean) => {
             if (stopDrag.current !== finish) return;
             stopDrag.current = null;
-            if (frame != null) {
-              cancelAnimationFrame(frame);
-              frame = null;
-            }
-            handle.removeEventListener("pointermove", move);
-            handle.removeEventListener("pointerup", up);
-            handle.removeEventListener("pointercancel", cancel);
+            window.removeEventListener("pointermove", move);
+            window.removeEventListener("pointerup", up);
+            window.removeEventListener("pointercancel", cancel);
             handle.removeEventListener("lostpointercapture", lostCapture);
             window.removeEventListener("keydown", keydown);
             window.removeEventListener("blur", lostCapture);
-            if (moved) {
-              // Flush the release sample with transitions still disabled.
-              if (commit) {
-                callbacks.current.onPreview(nextBoundary);
-                callbacks.current.onCommit(nextBoundary);
-              } else callbacks.current.onCancel();
-            }
+            // Flush the release sample with transitions still disabled.
+            if (moved && commit) {
+              callbacks.current.onPreview(nextBoundary);
+              callbacks.current.onCommit(nextBoundary);
+            } else callbacks.current.onCancel();
             parent.style.transitionProperty = previousTransition;
+            document.documentElement.classList.remove("is-resizing");
+            if (previousResizeCursor) document.documentElement.style.setProperty("--resize-cursor", previousResizeCursor);
+            else document.documentElement.style.removeProperty("--resize-cursor");
             endPaneResize();
             if (handle.hasPointerCapture(e.pointerId)) {
               handle.releasePointerCapture(e.pointerId);
@@ -1392,9 +1485,9 @@ function Sash({
             finish(false);
           };
           stopDrag.current = finish;
-          handle.addEventListener("pointermove", move);
-          handle.addEventListener("pointerup", up);
-          handle.addEventListener("pointercancel", cancel);
+          window.addEventListener("pointermove", move);
+          window.addEventListener("pointerup", up);
+          window.addEventListener("pointercancel", cancel);
           handle.addEventListener("lostpointercapture", lostCapture);
           window.addEventListener("keydown", keydown);
           window.addEventListener("blur", lostCapture);

@@ -10,9 +10,9 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { AnimatePresence, animate as animateMotion, frame, cancelFrame, motion, useMotionValue, useScroll, useTransform, type AnimationPlaybackControls } from "motion/react";
+import { animate as animateMotion, frame, cancelFrame, motion, useMotionValue, useScroll, useTransform, type AnimationPlaybackControls } from "motion/react";
 import { useMotionPreference } from "../shared/motion/useMotionPreference";
-import { immediateTransition, motionGeometry, popTransition, springs } from "../shared/motion/tokens";
+import { immediateTransition, motionGeometry, popTransition } from "../shared/motion/tokens";
 import { createPortal } from "react-dom";
 import { MobileOverlayHostContext, MobileOverlayLevelContext } from "./MobileOverlayHost";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "../shared/ui/SurfaceVisibility";
@@ -160,6 +160,7 @@ export function MobileSheet({
   const reduced = useMotionPreference();
   const anchorX = useMotionValue(0);
   const anchorY = useMotionValue(0);
+  const anchorTranslate = useTransform(() => `${anchorX.get()}px ${anchorY.get()}px`);
   const { scrollX, scrollY } = useScroll();
   const visible = useSurfaceVisibility();
   const overlayHost = useContext(MobileOverlayHostContext);
@@ -207,10 +208,11 @@ export function MobileSheet({
   const overlayOpacity = useMotionValue(0);
   const draggedOpacity = useTransform(() => overlayOpacity.get() * drag.opacity.get());
   useLayoutEffect(() => {
+    if (placement !== "bottom") return;
     if (reduced) { overlayOpacity.set(active ? 1 : 0); return; }
     const animation = animateMotion(overlayOpacity, active ? 1 : 0, popTransition);
     return () => animation.stop();
-  }, [active, reduced, overlayOpacity]);
+  }, [active, placement, reduced, overlayOpacity]);
   useLayoutEffect(() => {
     if (!active || placement !== "anchor") return;
     const element = dialog.current;
@@ -448,7 +450,7 @@ export function MobileSheet({
     const element = dialog.current;
     if (!element) return;
     const animation = animateMotion(drag.y, element.offsetHeight + motionGeometry.sheetExitGap,
-      reduced ? { ...immediateTransition, onComplete: finish } : { ...springs.sheet, onComplete: finish });
+      reduced ? { ...immediateTransition, onComplete: finish } : { ...popTransition, onComplete: finish });
     return () => animation.stop();
   }, [active, placement, dragClosing, drag.y, reduced, finish]);
   useEffect(() => {
@@ -516,12 +518,10 @@ export function MobileSheet({
   if (!visible || (!active && foldState === "closed")) return null;
   const content = (
     <SurfaceVisibilityContext.Provider value={active}>
-    <AnimatePresence>
-    <motion.div
-      transition={reduced ? immediateTransition : popTransition}
+    <div
       ref={backdrop}
       className="mobile-sheet-backdrop"
-      style={{ zIndex: overlayLevel, opacity: placement === "bottom" ? draggedOpacity : overlayOpacity }}
+      style={{ zIndex: overlayLevel }}
       data-placement={placement}
       data-fold-state={foldState}
       inert={!active}
@@ -534,9 +534,18 @@ export function MobileSheet({
       }
       onClick={active ? onClose : undefined}
     >
+      {placement !== "anchor" && <motion.div
+        className="mobile-sheet-scrim"
+        aria-hidden="true"
+        initial={reduced ? false : { opacity: 0 }}
+        animate={placement === "bottom" ? undefined : { opacity: active ? 1 : 0 }}
+        transition={reduced ? immediateTransition : popTransition}
+        style={placement === "bottom" ? { opacity: draggedOpacity } : undefined}
+      />}
       <motion.section
-        initial={placement === "bottom" ? false : { scale: motionGeometry.popScale, opacity: 0 }}
-        animate={placement === "bottom" ? undefined : { scale: active ? 1 : motionGeometry.popScale, opacity: active ? 1 : 0 }}
+        initial={placement === "bottom" || reduced ? false : { transform: `scale(${motionGeometry.popScale})`, opacity: 0 }}
+        animate={placement === "bottom" ? undefined
+          : { transform: active || reduced ? "scale(1)" : `scale(${motionGeometry.popScale})`, opacity: active ? 1 : 0 }}
         transition={reduced ? immediateTransition : popTransition}
         onAnimationComplete={placement === "bottom" ? undefined : finish}
         drag={placement === "bottom" ? "y" : false}
@@ -552,8 +561,8 @@ export function MobileSheet({
         data-surface={surface}
         style={{
           ...(placement === "anchor" ? (position ?? { visibility: "hidden" as const }) : placement === "dialog" ? { width } : {}),
-          x: placement === "anchor" ? anchorX : undefined,
-          y: placement === "bottom" ? drag.y : placement === "anchor" ? anchorY : undefined,
+          translate: placement === "anchor" ? anchorTranslate : undefined,
+          y: placement === "bottom" ? drag.y : undefined,
         }}
         role="dialog"
         aria-modal={preserveFocus ? undefined : true}
@@ -586,8 +595,7 @@ export function MobileSheet({
           {typeof children === "function" ? children() : children}
         </div>
       </motion.section>
-    </motion.div>
-    </AnimatePresence>
+    </div>
     </SurfaceVisibilityContext.Provider>
   );
   return overlayHost ? createPortal(content, overlayHost) : content;

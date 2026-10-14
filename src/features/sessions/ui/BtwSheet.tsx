@@ -658,7 +658,7 @@ export function BtwSheet({
                   <div
                     key={tab.id}
                     data-selected={selected}
-                    className="surface-tab group/tab flex h-7 max-w-[15rem] shrink-0 items-center"
+                    className="surface-tab flex h-7 max-w-[15rem] shrink-0 items-center"
                   >
                     <button
                       type="button"
@@ -685,7 +685,7 @@ export function BtwSheet({
                       }
                       title={tab.thread ? uiT("Delete") : uiT("Discard")}
                       onClick={() => btw.closeTab(tab)}
-                      className="pointer-events-none mr-1 grid size-5 shrink-0 place-items-center rounded text-content/40 opacity-0 hover:bg-content/6 hover:text-content group-hover/tab:pointer-events-auto group-hover/tab:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent"
+                      className="mr-1 grid size-5 shrink-0 place-items-center rounded text-content/40 hover:bg-content/6 hover:text-content focus-visible:outline-2 focus-visible:outline-accent"
                     >
                       <X className="size-3" />
                     </button>
