@@ -51,11 +51,17 @@ function useWide(scope: RefObject<HTMLElement | null>): boolean {
   useEffect(() => {
     const element = scope.current;
     if (!element || typeof ResizeObserver === "undefined") return;
-    const update = () =>
-      setWide(element.getBoundingClientRect().width >= AUTO_EXPAND_WIDTH);
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(element);
+    let previous = element.getBoundingClientRect().width >= AUTO_EXPAND_WIDTH;
+    setWide(previous);
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return;
+      const width = entry.borderBoxSize?.[0]?.inlineSize ?? entry.contentRect.width;
+      const next = width >= AUTO_EXPAND_WIDTH;
+      if (next === previous) return;
+      previous = next;
+      setWide(next);
+    });
+    observer.observe(element, { box: "border-box" });
     return () => observer.disconnect();
   }, [scope]);
   return wide;

@@ -6,6 +6,7 @@ import { MobileApp } from "./MobileApp";
 import { setUiLanguage } from "../shared/i18n/language";
 import type { Block, QueuedMessage } from "../features/sessions/model/session";
 import { saveFollowUpBehavior } from "../features/settings/model/settings";
+import type { PendingCommand } from "./client";
 
 const project = vi.hoisted(() => ({ id: "project", name: "Project", cwd: "/project" }));
 const state = vi.hoisted(() => ({
@@ -47,7 +48,7 @@ const host = vi.hoisted(() => ({
   subscribeConnectionStatus: () => () => {},
   restore: vi.fn(async () => true),
   verify: vi.fn(async () => {}),
-  pending: vi.fn(async () => undefined),
+  pending: vi.fn(async (): Promise<PendingCommand | undefined> => undefined),
   savedConnections: vi.fn(async () => []),
   switchTo: vi.fn(async () => undefined),
   projects: vi.fn(async () => [project]),
@@ -74,6 +75,7 @@ let root: Root, node: HTMLDivElement;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.clearAllMocks();
+  host.pending.mockResolvedValue(undefined);
   localStorage.clear();
   setUiLanguage("en");
   state.status = "idle";
@@ -128,6 +130,31 @@ const queueText = () => node.querySelector(".mobile-message-queue")?.textContent
 const bubbles = () => [...node.querySelectorAll(".user-message-bubble")].map((bubble) => bubble.textContent);
 
 describe("mobile sending bubble", () => {
+  it("only offers request recovery after sending fails, with one notice for the error", async () => {
+    vi.useFakeTimers();
+    try {
+      await openConversationAndSend("Hello there");
+      host.pending.mockResolvedValue({
+        endpoint: host.connection.endpoint,
+        environmentId: host.connection.environmentId,
+        command: { type: "send", commandId: "pending-send", sessionId: "session", text: "Hello there" },
+      });
+      // A normal session poll sees the durable journal while the send is active.
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+      expect(node.querySelector(".mobile-pending")).toBeNull();
+      expect(sendingRows()).toHaveLength(1);
+
+      await act(async () => deferred.reject!(new Error("timeout")));
+      const notices = node.querySelector(".mobile-notices")!;
+      expect(notices.children).toHaveLength(1);
+      expect(notices.textContent).toContain("Request confirmation has not been received.");
+      expect(notices.textContent?.match(/timeout/g)).toHaveLength(1);
+      expect(notices.querySelector('button')?.textContent).toBe("Retry");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("shows the message as sending at once and replaces it with the recorded copy", async () => {
     await openConversationAndSend("Hello there");
     expect(host.dispatch).toHaveBeenCalledTimes(1);

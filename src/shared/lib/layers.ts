@@ -19,4 +19,6 @@ export const LAYER = {
   dragLabel: 96,
   /** Toasts, which outrank whatever they interrupt. */
   toast: 100,
+  /** Transparent cursor surface during a captured divider gesture. */
+  resizeCursor: 101,
 } as const;

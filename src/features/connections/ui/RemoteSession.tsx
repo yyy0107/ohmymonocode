@@ -1,3 +1,4 @@
+import { RemoteSnapshotReporter } from "../model/remoteSnapshotReporter";
 import { sessionComposerConfiguration } from "../../sessions/model/composerConfiguration";
 import { requestedProviderAccountId, supportsProviderAccounts } from "../../providers/model/providerAccounts";
 import { MessageQueue } from "../../sessions/ui/MessageQueue";
@@ -459,11 +460,19 @@ function ConnectedRemoteSession({
   useEffect(() => {
     if (hostSession) rememberRemotePendingWorktree(shell.id);
   }, [hostSession?.id, shell.id]);
-  // The tab's header and account controls read the App's shell, so every
-  // snapshot shown here (cached, polled, pushed or hydrated) reaches it too.
+  // Headers and account controls need immediate metadata. The pane owns live
+  // text; its workspace copy can coalesce prose without delaying this transcript.
+  const snapshotReporter = useMemo(
+    () => new RemoteSnapshotReporter((value) => {
+      if (boundSession.current === value.session.id && deletingSession.current !== value.session.id)
+        onSnapshot?.(shell.id, value);
+    }),
+    [shell.id, onSnapshot],
+  );
   useEffect(() => {
-    if (snapshot && hostSession) onSnapshot?.(shell.id, snapshot);
-  }, [snapshot, hostSession, shell.id, onSnapshot]);
+    snapshotReporter.update(hostSession ? snapshot : undefined);
+  }, [snapshot, hostSession, snapshotReporter]);
+  useEffect(() => () => snapshotReporter.dispose(), [snapshotReporter]);
   const executionCwd = hostSession?.cwd ?? selectedCwd;
   const { branches } = useProjectBranchesState(
     project.local ? executionCwd : remotePath(machine.environmentId, executionCwd),
@@ -588,9 +597,11 @@ function ConnectedRemoteSession({
             ? snapshotRef.current
             : undefined;
         // Text first: image previews download after the transcript is shown.
-        const next = sessionId
+        let next = sessionId
           ? known
-            ? await loadRemoteSessionText(machine.id, sessionId, known)
+            ? await loadRemoteSessionText(machine.id, sessionId, known,
+                visible && !document.hidden && (known.session.busy || known.orchestration?.status === "active") &&
+                  cachedDescriptors.get(hostKey)?.capabilities.includes("sessions.sync.wait.v1") ? 1_000 : undefined)
             : await pendingSnapshot(
                 snapshotKey(machine.id, sessionId),
                 () => loadRemoteSessionText(machine.id, sessionId),
@@ -599,6 +610,10 @@ function ConnectedRemoteSession({
         if (stale()) return;
         if (next && next.projectId !== project.projectId)
           throw new Error("This session belongs to a different host project");
+        // Preview downloads can finish while this text request is in flight.
+        // Merge against the current snapshot, not only the one sent to sync,
+        // or an older response removes a displayed image and downloads it again.
+        if (next) next = reuseRemoteAttachmentPreviews(next, snapshotRef.current);
         setOnline(true);
         reportRemoteMachineStatus(machine.id, true);
         // A catalog request that failed while offline is retried on recovery.
@@ -642,11 +657,11 @@ function ConnectedRemoteSession({
           () => void poll(),
           failed
             ? Math.min(10_000, 750 * 2 ** Math.min(failed, 4))
-            : active
-              ? 750
-              : visible
-                ? 3_000
-                : 10_000,
+            : !visible || document.hidden
+              ? 10_000
+              : active
+                ? cachedDescriptors.get(hostKey)?.capabilities.includes("sessions.sync.wait.v1") ? 50 : 100
+                : 3_000,
         );
     };
     // Hiding a tab only slows its polling. Revalidating it at once would add a

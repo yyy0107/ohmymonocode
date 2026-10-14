@@ -577,32 +577,19 @@ html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] .comp
 
 html[data-skin][data-desktop-mode] .desktop-empty-content {
   max-width: calc(var(--desktop-conversation-width) + var(--desktop-conversation-inset) * 2);
-  padding: 0 var(--desktop-conversation-inset) 13vh;
-  gap: 28px;
+  padding: 0 var(--desktop-conversation-inset) 8px;
+  justify-content: flex-end;
+  gap: 24px;
 }
 
 html[data-skin][data-desktop-mode] .desktop-empty-greeting {
+  flex: 1 1 auto;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 16px;
   margin: 0;
   padding: 0;
-}
-
-html[data-skin][data-desktop-mode="chat"] .desktop-greeting-mark {
-  display: block;
-}
-
-html[data-skin][data-desktop-mode="chat"] [data-empty-title] {
-  overflow: visible;
-  font-family: var(--font-serif, "IBM Plex Serif", Georgia, serif);
-  font-size: calc(clamp(1.5rem, calc(1.15rem + 1vw), 2rem) * var(--font-scale, 1));
-  font-weight: var(--font-weight-normal);
-  line-height: 1.2;
-  text-align: center;
-  white-space: normal;
-  text-wrap: balance;
 }
 
 /* Keep the reading boundaries fixed while the transcript scrolls underneath. */
@@ -702,13 +689,6 @@ html[data-skin][data-desktop-mode] .transcript-turn {
   }
 }
 
-html[data-skin][data-desktop-mode="chat"] [data-assistant-message] .agent-markdown {
-  font-family: var(--font-serif, "IBM Plex Serif", Georgia, serif);
-  font-size: 16px;
-  line-height: 1.6;
-  letter-spacing: 0;
-}
-
 html[data-skin][data-desktop-mode] .user-message-row {
   padding-right: 0;
   padding-left: 0;
@@ -721,6 +701,10 @@ html[data-skin][data-desktop-mode] .user-message-hover-zone {
 
 html[data-skin][data-desktop-mode] .user-message-bubble {
   max-width: 100%;
+  padding: 12px 16px 12px 12px;
+  border-radius: var(--desktop-radius-bubble);
+  font-size: 16px;
+  line-height: 22px;
 }
 
 html[data-skin][data-desktop-mode] .user-message-bubble:not([data-draft="true"]) {
@@ -728,17 +712,6 @@ html[data-skin][data-desktop-mode] .user-message-bubble:not([data-draft="true"])
   border-radius: var(--desktop-radius-bubble);
   background: var(--color-bubble-user);
   color: var(--color-bubble-user-ink);
-}
-
-html[data-skin][data-desktop-mode="chat"] .user-message-bubble {
-  padding: 12px 16px 12px 12px;
-  font-size: 16px;
-  line-height: 22px;
-}
-
-html[data-skin][data-desktop-mode="chat"] .user-message-bubble :is(pre[data-selectable-agent-response], .user-message-with-link) {
-  font-size: 16px;
-  line-height: 22px;
 }
 
 [data-pane-background-geometry],
@@ -772,8 +745,8 @@ html[data-skin][data-desktop-mode] [data-chat-overlap] > [data-pane-id]:not([dat
   z-index: 1;
 }
 
-/* Code retains real split/resize/PTY geometry; only frame insets change. */
-html[data-skin][data-desktop-mode="code"] .pane-card {
+/* Both modes share card frames, headers and transcript presentation. */
+html[data-skin][data-desktop-mode] .pane-card {
   border-radius: var(--desktop-radius-card);
   background: var(--color-card);
   border: var(--desktop-border) solid var(--color-composer-ring);
@@ -802,29 +775,19 @@ html[data-skin][data-desktop-mode] .pane-drag-ghost > .drag-ghost-card {
 }
 
 /* A single conversation stays borderless even beside file or terminal cards. */
-html[data-skin][data-desktop-mode="code"] [data-pane-chat-edge] > div > [data-pane-card-frame] {
+html[data-skin][data-desktop-mode] [data-pane-chat-edge] > div > [data-pane-card-frame] {
   border: 0;
 }
 
-html[data-skin][data-desktop-mode="code"] [data-workspace-tab] > .pane-card,
-html[data-skin][data-desktop-mode="code"] [data-fixture-main-card] {
+html[data-skin][data-desktop-mode] [data-workspace-tab] > .pane-card,
+html[data-skin][data-desktop-mode] [data-fixture-main-card] {
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
 }
 
-html[data-skin][data-desktop-mode="chat"] .pane-card {
-  border-color: transparent;
-  border-radius: 0;
-  background: var(--color-app);
-}
-
-html[data-skin][data-desktop-mode="chat"] [data-session-surface-tabs][data-session-empty="true"] {
-  display: none;
-}
-
-html[data-skin][data-desktop-mode="code"] [data-session-surface-tabs] {
+html[data-skin][data-desktop-mode] [data-session-surface-tabs] {
   background: var(--color-app);
 }
 
@@ -856,22 +819,14 @@ html[data-skin][data-desktop-mode] [data-session-surface-tabs] :is([data-session
   border-radius: 6px;
 }
 
-html[data-skin][data-desktop-mode="code"] [data-assistant-message] .agent-markdown {
+html[data-skin][data-desktop-mode] [data-assistant-message] .agent-markdown {
   font-family: var(--font-sans);
   font-size: 16px;
   line-height: 1.6;
   letter-spacing: 0;
 }
 
-html[data-skin][data-desktop-mode="code"] .user-message-bubble,
-html[data-skin][data-desktop-mode="code"] .user-message-bubble:not([data-draft="true"]) {
-  padding: 12px 16px 12px 12px;
-  border-radius: var(--desktop-radius-bubble);
-  font-size: 16px;
-  line-height: 22px;
-}
-
-html[data-skin][data-desktop-mode="code"] .user-message-bubble :is(pre[data-selectable-agent-response], .user-message-with-link) {
+html[data-skin][data-desktop-mode] .user-message-bubble :is(pre[data-selectable-agent-response], .user-message-with-link) {
   font-size: 16px;
   line-height: 22px;
 }
@@ -913,7 +868,7 @@ html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] :is(.
   min-height: 22px;
   max-height: 160px;
   padding: 0;
-  font-size: 16px;
+  font-size: var(--text-desktop-label);
   line-height: 22px;
 }
 
@@ -1095,16 +1050,6 @@ html[data-skin][data-desktop-mode="code"] [data-composer-layout="desktop"] .comp
   min-width: 20px;
 }
 
-html[data-skin][data-desktop-mode="code"] .desktop-empty-content {
-  justify-content: flex-end;
-  padding-bottom: 8px;
-  gap: 24px;
-}
-
-html[data-skin][data-desktop-mode="code"] .desktop-empty-greeting {
-  flex: 1 1 auto;
-}
-
 /* The action row sits 2px below its grid track; align it with sibling cards. */
 html[data-skin][data-desktop-mode="code"] [data-pane-chat-edge] > div > [data-pane-card-frame] :is(.desktop-composer-dock, .desktop-empty-content) {
   padding-bottom: 2px;
@@ -1200,7 +1145,7 @@ html[data-skin][data-desktop-mode] .composer-surface[data-inline-below~="480"] .
 }
 
 @media (max-width: 900px) {
-  html[data-skin][data-desktop-mode="chat"] {
+  html[data-skin][data-desktop-mode] {
     --desktop-conversation-inset: 16px;
   }
 }

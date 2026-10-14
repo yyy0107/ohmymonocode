@@ -60,6 +60,7 @@ export class HostStore {
   // Sessions holding queued messages. The summary does not carry the queue, so
   // this set lets background scans skip transcripts without parsing them.
   private queuedSessions?: Set<string>;
+  private revisionWaiters = new Map<string, Set<(error?: Error) => void>>();
 
   constructor(path: string) {
     this.databasePath = path;
@@ -295,6 +296,30 @@ export class HostStore {
       .sort((a, b) => sessionRecencyAt(b) - sessionRecencyAt(a));
   }
 
+  waitForRevision(id: string, revision: number, waitMs: number, signal?: AbortSignal): Promise<void> {
+    if (signal?.aborted || this.sessionSummary(id)?.revision !== revision) return Promise.resolve();
+    return new Promise<void>((resolve, reject) => {
+      const waiters = this.revisionWaiters.get(id) ?? new Set<(error?: Error) => void>();
+      const finish = (error?: Error) => {
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", abort);
+        waiters.delete(finish);
+        if (!waiters.size) this.revisionWaiters.delete(id);
+        if (error) reject(error);
+        else resolve();
+      };
+      const abort = () => finish();
+      const timer = setTimeout(finish, Math.min(1_000, Math.max(0, waitMs)));
+      this.revisionWaiters.set(id, waiters);
+      waiters.add(finish);
+      signal?.addEventListener("abort", abort, { once: true });
+    });
+  }
+
+  private notifyRevision(id: string): void {
+    for (const finish of this.revisionWaiters.get(id) ?? []) finish();
+  }
+
   sync(id: string, revision?: number): SessionSync {
     // Polling more conversations than the transcript LRU can hold must not
     // continually evict and reparse them just to return "unchanged".
@@ -386,6 +411,7 @@ export class HostStore {
     if (value.session.queuedMessages?.length) this.queuedSessions?.add(value.session.id);
     else this.queuedSessions?.delete(value.session.id);
     this.onSessionSave?.(previous, value, event);
+    this.participateInTransaction({ afterCommit: () => this.notifyRevision(value.session.id) });
     return this.remember(value);
   }
 
@@ -427,6 +453,7 @@ export class HostStore {
       this.cache.delete(id);
       this.assistantSessions.delete(id);
       this.queuedSessions?.delete(id);
+      this.participateInTransaction({ afterCommit: () => this.notifyRevision(id) });
     });
   }
 
@@ -592,6 +619,8 @@ export class HostStore {
     return createHash("sha256").update(token).digest("hex");
   }
   close(): void {
+    for (const waiters of this.revisionWaiters.values())
+      for (const finish of waiters) finish(new Error("Host store closed"));
     this.db.close();
   }
 }

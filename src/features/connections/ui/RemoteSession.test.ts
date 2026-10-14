@@ -17,6 +17,7 @@ import { preloadRemoteSession, RemoteSession } from "./RemoteSession";
 import { rememberRemoteSession, remoteSessionFor } from "../model/connections";
 import "../model/remoteCommands";
 import { OrchestrationPreview } from "../../orchestration/ui/OrchestrationPreview";
+import { GeneratedImage } from "../../sessions/ui/GeneratedImage";
 import { loadRemoteOutbox } from "../model/remoteOutbox";
 import { sessionCheckpointStatus } from "../../sessions/model/checkpoint";
 import type {
@@ -81,6 +82,10 @@ vi.mock("../../sessions/ui/AgentTranscript", () => ({
           "li",
           { key: block.id, "data-block-id": block.id },
           block.text,
+          block.role === "image" && block.image ? createElement(GeneratedImage, {
+            image: block.image,
+            attachment: block.attachments?.find((file) => file.kind === "image"),
+          }) : null,
           block.question && onQuestionFollowUp ? createElement("button", {
             "aria-label": "Answer historical question",
             onClick: () => onQuestionFollowUp({ blockId: block.id,
@@ -155,6 +160,9 @@ let checkpointRequests: Record<string, unknown>[];
 let commands: HostCommand[];
 let projectKey: string;
 let syncDelay: Promise<void> | undefined;
+let finishPendingSyncs: () => void;
+let syncCleanup: Promise<void>;
+let syncWaitCapability: boolean;
 let dispatchDelay: Promise<void> | undefined;
 let branchFailure: string | undefined;
 let branchActionFailure: string | undefined;
@@ -173,6 +181,8 @@ beforeEach(async () => {
   commands = [];
   host = undefined;
   syncDelay = undefined;
+  syncCleanup = new Promise<void>((resolve) => { finishPendingSyncs = resolve; });
+  syncWaitCapability = false;
   dispatchDelay = undefined;
   branchFailure = undefined;
   branchActionFailure = undefined;
@@ -212,7 +222,7 @@ beforeEach(async () => {
         environmentId: "env",
         name: "home",
         providers,
-        capabilities: ["attachments.upload", "sessions.plan", "sessions.draft", ...(orchestrationCapability ? ["sessions.orchestration"] : []), ...(handoffCapability ? ["sessions.handoff"] : []), ...(checkpointCapability ? ["sessions.checkpoint"] : [])],
+        capabilities: ["attachments.upload", "sessions.plan", "sessions.draft", ...(syncWaitCapability ? ["sessions.sync.wait.v1"] : []), ...(orchestrationCapability ? ["sessions.orchestration"] : []), ...(handoffCapability ? ["sessions.handoff"] : []), ...(checkpointCapability ? ["sessions.checkpoint"] : [])],
       };
     if (method === "models.list") {
       if (catalog instanceof Error) throw catalog.message;
@@ -297,7 +307,7 @@ beforeEach(async () => {
       return { id: params.sessionId, title: params.title };
     }
     if (method === "sessions.sync") {
-      if (syncDelay) await syncDelay;
+      if (syncDelay) await Promise.race([syncDelay, syncCleanup]);
       return { kind: "snapshot", value: host };
     }
     if (method === "attachments.upload")
@@ -323,8 +333,8 @@ beforeEach(async () => {
   document.body.append(container);
   root = createRoot(container);
 });
-afterEach(() => {
-  act(() => root.unmount());
+afterEach(async () => {
+  await act(async () => { root.unmount(); finishPendingSyncs(); });
   container.remove();
   document.body.innerHTML = "";
   vi.unstubAllGlobals();
@@ -966,6 +976,47 @@ it("shows a conversation before its image previews finish downloading", async ()
   expect(hostCalls("attachments.read")).toHaveLength(1);
   release();
   await settle();
+});
+
+it("retains a generated image downloaded while an older text sync is pending", async () => {
+  hostConversation("image-sync-race", [{
+    id: "generated", role: "image", text: "",
+    image: { path: "/host/generated.png", name: "generated.png", mimeType: "image/png", size: 3 },
+    attachments: [{ id: "generated-file", name: "generated.png", kind: "image", mimeType: "image/png", size: 3 }],
+  }]);
+  const original = vi.mocked(invoke).getMockImplementation()!;
+  let releaseImage!: () => void;
+  const downloading = new Promise<void>((resolve) => { releaseImage = resolve; });
+  vi.mocked(invoke).mockImplementation(async (command, input) => {
+    if ((input as { method?: string } | undefined)?.method === "attachments.read") {
+      // Only the original download succeeds. A redundant retry must not mask
+      // the loss of bytes that were already displayed.
+      if (hostCalls("attachments.read").length > 1) throw new Error("offline");
+      await downloading;
+      return { data: btoa("png"), offset: 3, size: 3 };
+    }
+    return original(command, input);
+  });
+  await render();
+  let releaseSync!: () => void;
+  syncDelay = new Promise<void>((resolve) => { releaseSync = resolve; });
+  await render(shell(), { visible: false });
+  await render();
+  expect(hostCalls("sessions.sync", "image-sync-race")).toHaveLength(2);
+  releaseImage();
+  await settle();
+  const image = container.querySelector('img[alt="generated.png"]');
+  expect(image?.getAttribute("src")).toBe("data:image/png;base64,cG5n");
+  host = { ...host!, revision: 2, session: { ...host!.session,
+    blocks: [...host!.session.blocks, { id: "reply-after-image", role: "assistant", text: "Newer reply" }],
+  } };
+  releaseSync();
+  syncDelay = undefined;
+  await settle();
+  expect(container.textContent).toContain("Newer reply");
+  expect(container.querySelector('img[alt="generated.png"]')).toBe(image);
+  expect(container.textContent).not.toContain("Could not open generated image.");
+  expect(hostCalls("attachments.read")).toHaveLength(1);
 });
 
 it("shows an unavailable branch when Git lookup fails", async () => {
@@ -1870,4 +1921,32 @@ it("dismisses a Host usage limit locally and resumes it with a continue turn", a
   await act(async () => resume.click());
   await settle();
   expect(commands.at(-1)).toMatchObject({ type: "send", text: "Continue from where you left off." });
+});
+
+it.each([false, true])("syncs foreground streams promptly and shares an in-flight read across visibility changes (wait capability: %s)", async (supported) => {
+  syncWaitCapability = supported;
+  hostConversation(`stream-poll-${supported}`, [{ id: "reply", role: "assistant", text: "Streaming", streaming: true }]);
+  host = { ...host!, status: "running", session: { ...host!.session, busy: true } };
+  await render();
+  let release!: () => void;
+  syncDelay = new Promise<void>(resolve => { release = resolve; });
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 160)); });
+  const requests = hostCalls("sessions.sync", host.session.id);
+  expect(requests).toHaveLength(2);
+  expect((requests[1][1] as { params: { waitMs?: number } }).params.waitMs).toBe(supported ? 1_000 : undefined);
+  await render(shell(), { visible: false });
+  await render();
+  expect(hostCalls("sessions.sync", host.session.id)).toHaveLength(2);
+  host = { ...host, status: "idle", session: { ...host.session, busy: false } };
+  await act(async () => { release(); syncDelay = undefined; });
+  await settle();
+  expect(hostCalls("sessions.sync", host.session.id)).toHaveLength(2);
+});
+
+it("keeps a running background conversation on the slow polling cadence", async () => {
+  hostConversation("background-stream-poll", [{ id: "reply", role: "assistant", text: "Streaming", streaming: true }]);
+  host = { ...host!, status: "running", session: { ...host!.session, busy: true } };
+  await render(shell(), { visible: false });
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 180)); });
+  expect(hostCalls("sessions.sync", host.session.id)).toHaveLength(1);
 });

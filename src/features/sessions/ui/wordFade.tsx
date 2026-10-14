@@ -26,6 +26,7 @@ const MAX_SPEED = (MAX_STEP * 1000) / TICK_MS;
 const ACCELERATION = 1600;
 const FIRST_STEP = (MIN_SPEED * TICK_MS) / 1000;
 const FADE_MS = 200;
+const FINISH_MS = 180;
 
 const segmenter =
   typeof Intl.Segmenter === "function"
@@ -65,10 +66,11 @@ export function revealBoundary(
   start: number,
   step = FIRST_STEP,
   holdMarkers = true,
+  maxStep = MAX_STEP,
 ): number {
   const ceiling = Math.min(
     text.length,
-    start + Math.min(MAX_STEP, Math.max(1, Math.floor(step))),
+    start + Math.min(maxStep, Math.max(1, Math.floor(step))),
   );
   let end = start;
   for (const part of graphemes(text.slice(start))) {
@@ -164,19 +166,26 @@ export function usePacedText(
     let credit = 0;
     let last = performance.now();
     let prime = latest.current.prime;
+    let idle = true;
+    let finishSource: string | undefined;
+    let finishAt = 0;
     const schedule = () => {
-      if (
-        timer !== undefined ||
-        latest.current.length >= latest.current.source.length
-      )
-        return;
+      const value = latest.current;
+      if (value.length >= value.source.length) { idle = true; return; }
       const now = performance.now();
-      if (now - last > 150 || prime !== latest.current.prime) {
+      if (value.streaming) finishSource = undefined;
+      else if (finishSource !== value.source) {
+        finishSource = value.source;
+        finishAt = now + FINISH_MS;
+      }
+      if (timer !== undefined) return;
+      if (idle || prime !== value.prime) {
         speed = MIN_SPEED;
         credit = 0;
-        prime = latest.current.prime;
+        prime = value.prime;
+        last = now;
       }
-      last = now;
+      idle = false;
       timer = setTimeout(tick, TICK_MS);
     };
     const tick = () => {
@@ -184,19 +193,26 @@ export function usePacedText(
       const value = latest.current;
       const backlog = value.source.length - value.length;
       if (backlog <= 0 || document.hidden) return;
-      // Discard stalled-frame time instead of accumulating catch-up credit.
-      const elapsed = Math.min(TICK_MS, Math.max(0, performance.now() - last));
-      const target = Math.max(MIN_SPEED, Math.min(MAX_SPEED, backlog / 0.55));
+      const now = performance.now();
+      // Include React's commit time, but bound recovery from a suspended page.
+      const elapsed = Math.min(100, Math.max(0, now - last));
+      const remaining = Math.max(TICK_MS, finishAt - last);
+      last = now;
+      const target = Math.max(MIN_SPEED, Math.min(MAX_SPEED, backlog / 0.2));
       const change = (ACCELERATION * elapsed) / 1000;
       speed += Math.max(-change, Math.min(change, target - speed));
-      credit = Math.min(MAX_STEP, credit + (speed * elapsed) / 1000);
+      const maxStep = value.streaming ? Math.max(MAX_STEP, Math.ceil(MAX_SPEED * elapsed / 1000)) : backlog;
+      credit = value.streaming
+        ? Math.min(maxStep, credit + (speed * elapsed) / 1000)
+        : now >= finishAt ? backlog : Math.ceil(backlog * elapsed / remaining);
       const length = revealBoundary(
         value.source,
         value.length,
         credit,
         value.streaming,
+        maxStep,
       );
-      if (length <= value.length) return;
+      if (length <= value.length) { idle = true; return; }
       credit = Math.max(0, credit - (length - value.length));
       setState({ ...value, length });
       // The next timeout is armed by the layout effect after this batch commits.

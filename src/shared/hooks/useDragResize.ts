@@ -5,8 +5,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { suppressTextSelection } from "../lib/drag";
-import { beginPaneResize } from "../lib/paneResize";
+import { beginResizeInteraction } from "../lib/resizeInteraction";
 
 type Options = {
   min: number;
@@ -99,14 +98,8 @@ export function useDragResize({
     const sample = (ev: { clientX: number; clientY: number }) =>
       clampTo(startW + (point(ev) - startPoint) * sign, minimum, maximum);
     handle.setPointerCapture(pointerId);
-    const endPaneResize = beginPaneResize();
+    const endInteraction = beginResizeInteraction(vertical ? "row-resize" : "col-resize");
     setDragging(true);
-    const restoreSelection = suppressTextSelection();
-    const previousCursor = document.body.style.cursor;
-    document.body.style.cursor = vertical ? "row-resize" : "col-resize";
-    const previousResizeCursor = document.documentElement.style.getPropertyValue("--resize-cursor");
-    document.documentElement.style.setProperty("--resize-cursor", vertical ? "row-resize" : "col-resize");
-    document.documentElement.classList.add("is-resizing");
     let pending = startW;
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return;
@@ -125,13 +118,8 @@ export function useDragResize({
       handle.removeEventListener("lostpointercapture", cancel);
       if (shouldCommit) commit(pending);
       else apply(startW);
-      restoreSelection();
-      document.body.style.cursor = previousCursor;
-      document.documentElement.classList.remove("is-resizing");
-      if (previousResizeCursor) document.documentElement.style.setProperty("--resize-cursor", previousResizeCursor);
-      else document.documentElement.style.removeProperty("--resize-cursor");
       setDragging(false);
-      endPaneResize();
+      endInteraction();
       try {
         handle.releasePointerCapture(pointerId);
       } catch {

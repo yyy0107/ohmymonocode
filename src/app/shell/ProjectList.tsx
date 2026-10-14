@@ -389,9 +389,22 @@ export function ProjectList({
         if (active) mask = updateScrollMask(element, mask);
       });
     };
+    const heights = new Map<Element, number>();
     const observer = typeof ResizeObserver === "undefined"
       ? undefined
-      : new ResizeObserver(schedule);
+      : new ResizeObserver((entries) => {
+          let changed = false;
+          for (const entry of entries) {
+            const height = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+            if (heights.get(entry.target) === height) continue;
+            heights.set(entry.target, height);
+            changed = true;
+          }
+          // Horizontal dragging doesn't change a vertical scroll fade. Reading
+          // scrollHeight on the next frame would force layout after the next
+          // pointer move. Wrapped content still updates via its section height.
+          if (changed) schedule();
+        });
     observer?.observe(element);
     const observed = new Set<Element>();
     const observeChildren = () => {
@@ -400,6 +413,7 @@ export function ProjectList({
         if (children.has(child)) continue;
         observer?.unobserve(child);
         observed.delete(child);
+        heights.delete(child);
       }
       for (const child of children) {
         if (observed.has(child)) continue;

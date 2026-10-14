@@ -79,6 +79,8 @@ test("review divider follows pointer reversals, commits and cancels with termina
   await page.mouse.move(startX, y);
   await page.mouse.down();
   await expect(handle).toHaveAttribute("data-dragging", "true");
+  await expect(page.locator('[data-resize-cursor="col-resize"]')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.classList.contains("is-reordering"))).toBe(false);
   for (const delta of [-100, 80, -60]) {
     await page.mouse.move(startX + delta, y);
     await expect.poll(async () => Math.abs((await sash.boundingBox())!.x - original.x - delta)).toBeLessThan(1);
@@ -87,6 +89,7 @@ test("review divider follows pointer reversals, commits and cancels with termina
   }
   await page.mouse.up();
   await expect(handle).not.toHaveAttribute("data-dragging");
+  await expect(page.locator("[data-resize-cursor]")).toHaveCount(0);
   expect(Math.abs((await sash.boundingBox())!.x - original.x + 60)).toBeLessThan(1);
   // A second gesture must work and Escape must restore the committed size.
   await page.mouse.down();
@@ -96,6 +99,7 @@ test("review divider follows pointer reversals, commits and cancels with termina
   await page.mouse.up();
   await expect.poll(async () => Math.abs((await sash.boundingBox())!.x - original.x + 60)).toBeLessThan(1);
   await expect(handle).not.toHaveAttribute("data-dragging");
+  await expect(page.locator("[data-resize-cursor]")).toHaveCount(0);
   await expect(terminal).toHaveAttribute("data-resize-retained", "true");
   await expect.poll(() => host.locator("[data-line]").allTextContents()).toEqual(text);
   expect(await page.evaluate(() => document.documentElement.classList.contains("is-resizing"))).toBe(false);

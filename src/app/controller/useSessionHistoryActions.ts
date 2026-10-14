@@ -5,16 +5,9 @@ import { releaseOrchestrationWorker } from "../../features/orchestration/model/o
 import type { ProjectTerminalDock } from "../../features/projects/model/projectTerminal";
 import type { RecentProject } from "../../features/projects/model/recents";
 import { rememberProject } from "../../features/projects/model/recents";
-import { rememberLoadedSession } from "../../features/sessions/data/sessionCache";
-import {
-  mergeHistorySummary,
-  mergeProjectHistorySummary,
-  summaryFromSession,
-} from "../../features/sessions/data/sessionHistory";
+import { summaryFromSession } from "../../features/sessions/data/sessionHistory";
 import {
   flushSessionWrites,
-  getSession,
-  persistFingerprint,
   persistManualSessionTitle,
   setSessionArchived,
   setSessionLinkedWorkItem,
@@ -62,31 +55,42 @@ import { isEqualOrInside, pathKey } from "../../shared/lib/paths";
 import { bindResumedSessions } from "../model/appLifecycle";
 import { confirmDiscardUnsaved } from "../model/confirmDiscardUnsaved";
 import { filesInWorkspaceTabs } from "../model/workspaceSelectors";
+import type { WorkspaceSessionData } from "../model/workspaceSessionData";
 import type { LinkedWorkItemPanelState } from "./workspaceTypes";
 
 type Options = {
+  sessionData: Pick<
+    WorkspaceSessionData,
+    | "beginRemoval"
+    | "cancelSave"
+    | "endRemoval"
+    | "evict"
+    | "forget"
+    | "invalidate"
+    | "isRemoving"
+    | "load"
+    | "mergeSummary"
+    | "persist"
+    | "refreshHistory"
+    | "resetPersistence"
+    | "retain"
+    | "snapshot"
+    | "updateRetained"
+    | "updateSummaries"
+    | "updateSummary"
+  >;
   sessionsRef: RefObject<Session[]>;
-  history: SessionSummary[];
   sidebarCwd: string;
   titleCoordinator: RefObject<SessionTitleCoordinator | null>;
-  invalidateLoadedSession: (sessionId: string) => void;
   setSessions: Dispatch<SetStateAction<Session[]>>;
-  loadedSessionCache: RefObject<Map<string, Session>>;
-  refreshHistory: (cwd: string, force?: boolean) => Promise<void>;
-  lastPersisted: RefObject<Map<string, string>>;
-  persistSession: (session: Session | undefined) => void;
   tabsRef: RefObject<WorkspaceTab[]>;
   projectTerminalsRef: RefObject<ProjectTerminalDock[]>;
   removingWorktreePaths: RefObject<Set<string>>;
   switchingWorktrees: RefObject<Map<string, string>>;
-  removingSessionIds: RefObject<Set<string>>;
-  pendingPersist: RefObject<Map<string, Session>>;
   stopSessionForRemoval: (sessionId: string) => Promise<Session | undefined>;
   projectCwdRef: RefObject<string>;
   setProjectCwd: Dispatch<SetStateAction<string>>;
   setRecents: Dispatch<SetStateAction<RecentProject[]>>;
-  setHistory: Dispatch<SetStateAction<SessionSummary[]>>;
-  setStoredLinkedSessions: Dispatch<SetStateAction<SessionSummary[]>>;
   deleteConfirmationPending: RefObject<boolean>;
   setSessionDeleteDialog: Dispatch<
     SetStateAction<
@@ -101,7 +105,6 @@ type Options = {
   tabCloseScope: "project";
   activeTabIdRef: RefObject<string>;
   dirtyFilesRef: RefObject<Set<string>>;
-  sessionLoads: RefObject<Map<string, Promise<Session | null>>>;
   setDirtyFiles: Dispatch<SetStateAction<Set<string>>>;
   setTabs: Dispatch<SetStateAction<WorkspaceTab[]>>;
   activateTab: (
@@ -130,34 +133,24 @@ type Options = {
 };
 
 export function useSessionHistoryActions({
+  sessionData,
   sessionsRef,
-  history,
   sidebarCwd,
   titleCoordinator,
-  invalidateLoadedSession,
   setSessions,
-  loadedSessionCache,
-  refreshHistory,
-  lastPersisted,
-  persistSession,
   tabsRef,
   projectTerminalsRef,
   removingWorktreePaths,
   switchingWorktrees,
-  removingSessionIds,
-  pendingPersist,
   stopSessionForRemoval,
   projectCwdRef,
   setProjectCwd,
   setRecents,
-  setHistory,
-  setStoredLinkedSessions,
   deleteConfirmationPending,
   setSessionDeleteDialog,
   tabCloseScope,
   activeTabIdRef,
   dirtyFilesRef,
-  sessionLoads,
   setDirtyFiles,
   setTabs,
   activateTab,
@@ -168,16 +161,18 @@ export function useSessionHistoryActions({
   whatsNewVersionRef,
   setLinkedWorkItemPanels,
 }: Options) {
+  const { refreshHistory } = sessionData;
   const onRenameHistorySession = useCallback(
     async (sessionId: string, displayTitle: string) => {
       const editedCwd =
         sessionsRef.current.find((session) => session.id === sessionId)?.cwd ??
-        history.find((entry) => entry.id === sessionId)?.cwd ??
+        sessionData.snapshot().history.find((entry) => entry.id === sessionId)
+          ?.cwd ??
         sidebarCwd;
       const trimmed = displayTitle.trim();
       if (!trimmed) return;
       titleCoordinator.current!.cancel(sessionId);
-      invalidateLoadedSession(sessionId);
+      sessionData.invalidate(sessionId);
 
       const open = sessionsRef.current.find(
         (session) => session.id === sessionId,
@@ -188,10 +183,10 @@ export function useSessionHistoryActions({
         setSessions((prev) =>
           prev.map((session) => (session.id === sessionId ? updated : session)),
         );
-        loadedSessionCache.current.delete(sessionId);
+        sessionData.evict(sessionId);
         await persistManualSessionTitle(updated, title).catch(() => undefined);
       } else {
-        const restored = await getSession(sessionId).catch(() => null);
+        const restored = await sessionData.load(sessionId);
         if (!restored) {
           void refreshHistory(editedCwd, true);
           return;
@@ -206,21 +201,14 @@ export function useSessionHistoryActions({
         await persistManualSessionTitle(updated, updated.title).catch(
           () => undefined,
         );
-        const saved = await upsertSession(updated).catch(() => null);
+        const saved = await sessionData.persist(updated);
         if (saved) {
-          rememberLoadedSession(loadedSessionCache.current, updated);
-          lastPersisted.current.set(sessionId, persistFingerprint(updated));
+          sessionData.retain(updated);
         }
       }
       void refreshHistory(editedCwd, true);
     },
-    [
-      history,
-      invalidateLoadedSession,
-      persistSession,
-      refreshHistory,
-      sidebarCwd,
-    ],
+    [sidebarCwd, sessionData],
   );
 
   const checkOpenWorktreeFiles = useCallback((path: string) => {
@@ -273,8 +261,7 @@ export function useSessionHistoryActions({
         if (
           ids.some(
             (id) =>
-              removingSessionIds.current.has(id) ||
-              switchingWorktrees.current.has(id),
+              sessionData.isRemoving(id) || switchingWorktrees.current.has(id),
           )
         ) {
           throw new Error(
@@ -282,10 +269,8 @@ export function useSessionHistoryActions({
           );
         }
         for (const id of ids) {
-          removingSessionIds.current.add(id);
+          sessionData.beginRemoval(id);
           lockedIds.add(id);
-          pendingPersist.current.delete(id);
-          invalidateLoadedSession(id);
         }
         for (const id of ids) {
           await stopSessionForRemoval(id);
@@ -319,9 +304,8 @@ export function useSessionHistoryActions({
           setRecents(rememberProject(removed.projectCwd));
         }
         for (const id of affected) {
-          invalidateLoadedSession(id);
-          pendingPersist.current.delete(id);
-          lastPersisted.current.delete(id);
+          sessionData.invalidate(id);
+          sessionData.resetPersistence(id);
         }
         sessionsRef.current = sessionsRef.current.map((session) =>
           affected.has(session.id)
@@ -333,8 +317,7 @@ export function useSessionHistoryActions({
           affected.has(entry.id)
             ? detachSessionWorktree(entry, removed.projectCwd, path)
             : entry;
-        setHistory((current) => current.map(patchSummary));
-        setStoredLinkedSessions((current) => current.map(patchSummary));
+        sessionData.updateSummaries(patchSummary);
         for (const id of affected) notifyReviewChanged(id);
       } catch (error) {
         // Removal may fail after idle agent processes were stopped. Rebind
@@ -359,14 +342,14 @@ export function useSessionHistoryActions({
         throw error;
       } finally {
         removingWorktreePaths.current.delete(path);
-        for (const id of lockedIds) removingSessionIds.current.delete(id);
+        for (const id of lockedIds) sessionData.endRemoval(id);
       }
     },
     [
       checkOpenWorktreeFiles,
-      invalidateLoadedSession,
       onCheckWorktreeRemoval,
       stopSessionForRemoval,
+      sessionData,
     ],
   );
 
@@ -377,7 +360,7 @@ export function useSessionHistoryActions({
       skipDeleteConfirm = false,
     ): Promise<boolean> => {
       if (
-        removingSessionIds.current.has(sessionId) ||
+        sessionData.isRemoving(sessionId) ||
         switchingWorktrees.current.has(sessionId) ||
         deleteConfirmationPending.current
       )
@@ -385,12 +368,14 @@ export function useSessionHistoryActions({
       const open = sessionsRef.current.find(
         (session) => session.id === sessionId,
       );
-      const summary = history.find((entry) => entry.id === sessionId);
+      const summary = sessionData
+        .snapshot()
+        .history.find((entry) => entry.id === sessionId);
       const seed = open ?? summary;
       const label = seed
         ? sessionDisplayTitle(seed.title, seed.harness)
         : "this session";
-      removingSessionIds.current.add(sessionId);
+      sessionData.beginRemoval(sessionId);
       let deleteWorktreePath: string | undefined;
       if (mode === "delete" && !skipDeleteConfirm) {
         deleteConfirmationPending.current = true;
@@ -423,14 +408,14 @@ export function useSessionHistoryActions({
           });
           deleteConfirmationPending.current = false;
           if (!choice.confirmed) {
-            removingSessionIds.current.delete(sessionId);
+            sessionData.endRemoval(sessionId);
             return false;
           }
           if (choice.deleteWorktree) deleteWorktreePath = unusedWorktree;
         }
       }
-      invalidateLoadedSession(sessionId);
-      pendingPersist.current.delete(sessionId);
+      sessionData.invalidate(sessionId);
+      sessionData.cancelSave(sessionId);
       try {
         const remover = createSessionRemover({
           mode,
@@ -465,36 +450,19 @@ export function useSessionHistoryActions({
                 );
                 sessionsRef.current = released;
                 setSessions(released);
-                for (const [id, cached] of loadedSessionCache.current) {
-                  if (
-                    releaseOrchestrationWorker(cached, change.leadId) !== cached
-                  )
-                    invalidateLoadedSession(id);
-                }
-                // Pending reads may still carry the deleted lead's ownership.
-                for (const id of sessionLoads.current.keys()) {
-                  invalidateLoadedSession(id);
-                }
-                for (const [id, pending] of pendingPersist.current) {
-                  pendingPersist.current.set(
-                    id,
-                    releaseOrchestrationWorker(pending, change.leadId),
-                  );
-                }
+                sessionData.updateRetained((session) =>
+                  releaseOrchestrationWorker(session, change.leadId),
+                );
                 const releaseSummary = (entry: SessionSummary) =>
                   entry.orchestrationLeadId === change.leadId
                     ? { ...entry, orchestrationLeadId: undefined }
                     : entry;
-                setHistory((current) => current.map(releaseSummary));
-                setStoredLinkedSessions((current) =>
-                  current.map(releaseSummary),
-                );
+                sessionData.updateSummaries(releaseSummary);
                 return;
               }
 
               const { removal } = change;
-              lastPersisted.current.delete(sessionId);
-              pendingPersist.current.delete(sessionId);
+              sessionData.resetPersistence(sessionId);
               const closingFiles = filesInWorkspaceTabs(removal.closedTabs);
               setDirtyFiles((current) => {
                 const next = new Set(current);
@@ -518,27 +486,17 @@ export function useSessionHistoryActions({
               );
               if (change.mode === "archive") {
                 if (change.session && shouldPersistSession(change.session)) {
-                  rememberLoadedSession(
-                    loadedSessionCache.current,
-                    change.session,
-                  );
+                  sessionData.retain(change.session);
                 }
                 const archived =
                   change.savedSummary ??
                   summary ??
                   (change.session && summaryFromSession(change.session));
                 if (archived) {
-                  setHistory((current) =>
-                    mergeHistorySummary(current, {
-                      ...archived,
-                      archived: true,
-                    }),
-                  );
+                  sessionData.mergeSummary({ ...archived, archived: true });
                 }
               } else {
-                setHistory((current) =>
-                  current.filter((entry) => entry.id !== sessionId),
-                );
+                sessionData.forget(sessionId);
                 void refreshHistory(seed?.cwd ?? sidebarCwd, true);
               }
             },
@@ -583,32 +541,29 @@ export function useSessionHistoryActions({
         });
         return false;
       } finally {
-        removingSessionIds.current.delete(sessionId);
+        sessionData.endRemoval(sessionId);
       }
     },
     [
       activateTab,
-      history,
-      invalidateLoadedSession,
-      refreshHistory,
       sidebarCwd,
       stopSessionForRemoval,
       tabCloseScope,
       onRemoveWorktree,
+      sessionData,
     ],
   );
 
   const onArchiveHistorySession = useCallback(
     async (sessionId: string, archived: boolean) => {
       if (archived) return onRemoveHistorySession(sessionId, "archive");
-      if (removingSessionIds.current.has(sessionId)) return false;
+      if (sessionData.isRemoving(sessionId)) return false;
       try {
         await setSessionArchived(sessionId, false);
-        setHistory((current) =>
-          current.map((entry) =>
-            entry.id === sessionId ? { ...entry, archived: false } : entry,
-          ),
-        );
+        sessionData.updateSummary(sessionId, (entry) => ({
+          ...entry,
+          archived: false,
+        }));
         return true;
       } catch (error) {
         void message(
@@ -621,7 +576,7 @@ export function useSessionHistoryActions({
         return false;
       }
     },
-    [onRemoveHistorySession],
+    [onRemoveHistorySession, sessionData],
   );
 
   const onArchiveFocusedSession = useCallback(
@@ -652,57 +607,43 @@ export function useSessionHistoryActions({
       const open = sessionsRef.current.find(
         (session) => session.id === sessionId,
       );
-      setHistory((current) => {
-        const existing = current.find((entry) => entry.id === sessionId);
-        if (existing) {
-          return mergeProjectHistorySummary(current, { ...existing, pinned });
-        }
-        if (!open) return current;
-        return mergeProjectHistorySummary(current, {
-          ...summaryFromSession(open),
-          pinned,
-        });
-      });
+      sessionData.updateSummary(
+        sessionId,
+        (entry) => ({ ...entry, pinned }),
+        open ? summaryFromSession(open) : undefined,
+      );
       if (open && shouldPersistSession(open)) {
         await upsertSession(open).catch(() => undefined);
       }
       await setSessionPinned(sessionId, pinned).catch(() => undefined);
     },
-    [],
+    [sessionData],
   );
 
   const onSetHistorySessionLinkedWorkItem = useCallback(
     (sessionId: string, linkedWorkItem: LinkedWorkItem | undefined) => {
       const editedCwd =
         sessionsRef.current.find((session) => session.id === sessionId)?.cwd ??
-        history.find((entry) => entry.id === sessionId)?.cwd ??
+        sessionData.snapshot().history.find((entry) => entry.id === sessionId)
+          ?.cwd ??
         sidebarCwd;
       const previousLinkedWorkItem =
         sessionsRef.current.find((session) => session.id === sessionId)
           ?.linkedWorkItem ??
-        history.find((session) => session.id === sessionId)?.linkedWorkItem;
-      invalidateLoadedSession(sessionId);
-      loadedSessionCache.current.delete(sessionId);
+        sessionData
+          .snapshot()
+          .history.find((session) => session.id === sessionId)?.linkedWorkItem;
+      sessionData.invalidate(sessionId);
 
       const nextSessions = sessionsRef.current.map((session) =>
         session.id === sessionId ? { ...session, linkedWorkItem } : session,
       );
       sessionsRef.current = nextSessions;
       setSessions(nextSessions);
-      setHistory((current) =>
-        current.map((session) =>
-          session.id === sessionId ? { ...session, linkedWorkItem } : session,
-        ),
-      );
-      setStoredLinkedSessions((current) =>
-        linkedWorkItem
-          ? current.map((session) =>
-              session.id === sessionId
-                ? { ...session, linkedWorkItem }
-                : session,
-            )
-          : current.filter((session) => session.id !== sessionId),
-      );
+      sessionData.updateSummary(sessionId, (session) => ({
+        ...session,
+        linkedWorkItem,
+      }));
       setLinkedWorkItemPanels((current) => {
         if (!current.has(sessionId)) return current;
         const next = new Map(current);
@@ -720,25 +661,10 @@ export function useSessionHistoryActions({
           );
           sessionsRef.current = rolledBackSessions;
           setSessions(rolledBackSessions);
-          setHistory((current) =>
-            current.map((session) =>
-              session.id === sessionId &&
-              session.linkedWorkItem === linkedWorkItem
-                ? { ...session, linkedWorkItem: previousLinkedWorkItem }
-                : session,
-            ),
-          );
-          setStoredLinkedSessions((current) =>
-            previousLinkedWorkItem
-              ? current.map((session) =>
-                  session.id === sessionId
-                    ? {
-                        ...session,
-                        linkedWorkItem: previousLinkedWorkItem,
-                      }
-                    : session,
-                )
-              : current.filter((session) => session.id !== sessionId),
+          sessionData.updateSummary(sessionId, (session) =>
+            session.linkedWorkItem === linkedWorkItem
+              ? { ...session, linkedWorkItem: previousLinkedWorkItem }
+              : session,
           );
           void refreshHistory(editedCwd, true);
           void message(
@@ -748,7 +674,7 @@ export function useSessionHistoryActions({
         },
       );
     },
-    [history, invalidateLoadedSession, refreshHistory, sidebarCwd],
+    [history, sessionData, refreshHistory, sidebarCwd],
   );
 
   const onArchiveHistorySessions = useCallback(

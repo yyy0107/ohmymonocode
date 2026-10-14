@@ -24,7 +24,7 @@ import {
 } from "../../../shared/ui/SurfaceVisibility";
 import { GitGraphDialog } from "./GitGraphDialog";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
-import { suppressTextSelection } from "../../../shared/lib/drag";
+import { beginResizeInteraction } from "../../../shared/lib/resizeInteraction";
 import { ResizeHandle } from "../../../shared/ui/ResizeHandle";
 import { HoverSummary, useHoverSummary } from "../../../shared/ui/HoverSummary";
 import {
@@ -558,21 +558,12 @@ export function GraphResizeSash({
     event.stopPropagation();
     const handle = event.currentTarget;
     const pointerId = event.pointerId;
+    // Measure before the interaction changes styles.
+    const maximum = maxRef.current();
     handle.setPointerCapture(pointerId);
+    const endInteraction = beginResizeInteraction("row-resize");
     drag.current = { start: event.clientY, size: paintedRef.current };
     setDragging(true);
-    const restoreSelection = suppressTextSelection();
-    const previousCursor = document.body.style.cursor;
-    document.body.style.cursor = "row-resize";
-    const resizeStyle = document.documentElement.style;
-    const previousResizeCursor =
-      resizeStyle.getPropertyValue("--resize-cursor");
-    const previousResizePriority =
-      resizeStyle.getPropertyPriority("--resize-cursor");
-    resizeStyle.setProperty("--resize-cursor", "row-resize");
-    document.documentElement.classList.add("is-resizing");
-    // This reads the pane's clientHeight. Read once before any preview writes.
-    const maximum = maxRef.current();
     let pending = paintedRef.current;
     let frame: number | null = null;
     const sample = (ev: PointerEvent) => {
@@ -612,18 +603,7 @@ export function GraphResizeSash({
       window.removeEventListener("blur", stop);
       handle.removeEventListener("lostpointercapture", stop);
       paint();
-      restoreSelection();
-      document.body.style.cursor = previousCursor;
-      if (previousResizeCursor) {
-        resizeStyle.setProperty(
-          "--resize-cursor",
-          previousResizeCursor,
-          previousResizePriority,
-        );
-      } else {
-        resizeStyle.removeProperty("--resize-cursor");
-      }
-      document.documentElement.classList.remove("is-resizing");
+      endInteraction();
       setDragging(false);
       drag.current = null;
       try {

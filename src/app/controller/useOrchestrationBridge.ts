@@ -58,26 +58,25 @@ import { isHarnessAvailable } from "../../integrations/harness/core/availability
 import { pathKey } from "../../shared/lib/paths";
 import { submitWithSettlement } from "../model/managedSubmission";
 import { type SubmissionAcceptance } from "../model/submissionAcceptance";
+import type { WorkspaceSessionData } from "../model/workspaceSessionData";
 import type { Submit } from "./workspaceTypes";
 
 type Options = {
+  sessionData: Pick<WorkspaceSessionData, "updateSummaries">;
   sessionsRef: RefObject<Session[]>;
   setSessions: Dispatch<SetStateAction<Session[]>>;
   onStop: (sessionId: string, managed?: boolean) => void;
   checkOpenWorktreeFiles: (path: string) => void;
-  setHistory: Dispatch<SetStateAction<SessionSummary[]>>;
-  setStoredLinkedSessions: Dispatch<SetStateAction<SessionSummary[]>>;
   submitSession: Submit;
   flushHarnessEvents: () => void;
 };
 
 export function useOrchestrationBridge({
+  sessionData,
   sessionsRef,
   setSessions,
   onStop,
   checkOpenWorktreeFiles,
-  setHistory,
-  setStoredLinkedSessions,
   submitSession,
   flushHarnessEvents,
 }: Options) {
@@ -334,8 +333,7 @@ export function useOrchestrationBridge({
             affected.has(entry.id)
               ? detachSessionWorktree(entry, removed.projectCwd, path)
               : entry;
-          setHistory((current) => current.map(detachSummary));
-          setStoredLinkedSessions((current) => current.map(detachSummary));
+          sessionData.updateSummaries(detachSummary);
           if (session)
             await Promise.allSettled(
               sessionChildHarnesses(session).map((harness) =>

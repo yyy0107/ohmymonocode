@@ -7,7 +7,6 @@ import {
   type SetStateAction,
 } from "react";
 import type { OrchestrationReadRun } from "../../features/orchestration/model/orchestrationClient";
-import { rememberLoadedSession } from "../../features/sessions/data/sessionCache";
 import { shouldPersistSession } from "../../features/sessions/data/sessionStore";
 import { sessionChildHarnesses } from "../../features/sessions/model/handoff";
 import type { Session } from "../../features/sessions/model/session";
@@ -16,6 +15,7 @@ import {
   type WorkspaceTab,
 } from "../../features/workspace/model/layout";
 import { forgetHarnessSession } from "../../integrations/harness/core/registry";
+import type { WorkspaceSessionData } from "../model/workspaceSessionData";
 
 const SESSION_DETACH_DELAY_MS = 250;
 
@@ -27,10 +27,8 @@ export function useIdleSessionDetach({
   orchestrationRuns,
   liveAgentsEnabled,
   unseenFinishedIds,
-  openingSessionIds,
-  loadedSessionCache,
+  sessionData,
   skipForgetSessionIds,
-  persistSession,
   setSessions,
 }: {
   sessions: Session[];
@@ -40,10 +38,11 @@ export function useIdleSessionDetach({
   orchestrationRuns: readonly OrchestrationReadRun[];
   liveAgentsEnabled: boolean;
   unseenFinishedIds: ReadonlySet<string>;
-  openingSessionIds: RefObject<Set<string>>;
-  loadedSessionCache: RefObject<Map<string, Session>>;
+  sessionData: Pick<
+    WorkspaceSessionData,
+    "activate" | "isOpening" | "retain" | "persist"
+  >;
   skipForgetSessionIds: RefObject<Set<string>>;
-  persistSession: (session: Session | undefined) => void;
   setSessions: Dispatch<SetStateAction<Session[]>>;
 }) {
   // Dropping a session re-renders the whole app, so it waits until a switch
@@ -88,24 +87,23 @@ export function useIdleSessionDetach({
         visibleIds.add(session.id);
     }
     for (const sessionId of visibleIds) {
-      openingSessionIds.current.delete(sessionId);
-      loadedSessionCache.current.delete(sessionId);
+      sessionData.activate(sessionId);
     }
     const keepUnseen = liveAgentsEnabled;
     const idleDetached = sessions.filter(
       (session) =>
         !visibleIds.has(session.id) &&
         !session.busy &&
-        !openingSessionIds.current.has(session.id) &&
+        !sessionData.isOpening(session.id) &&
         !(keepUnseen && unseenFinishedRef.current.has(session.id)),
     );
     if (idleDetached.length === 0) return;
     for (const session of idleDetached) {
       if (skipForgetSessionIds.current.has(session.id)) continue;
       if (shouldPersistSession(session)) {
-        rememberLoadedSession(loadedSessionCache.current, session);
+        sessionData.retain(session);
       }
-      persistSession(session);
+      void sessionData.persist(session);
       for (const harness of sessionChildHarnesses(session)) {
         void forgetHarnessSession(harness, session.id);
       }
@@ -115,20 +113,12 @@ export function useIdleSessionDetach({
         (session) =>
           visibleIds.has(session.id) ||
           session.busy ||
-          openingSessionIds.current.has(session.id) ||
+          sessionData.isOpening(session.id) ||
           (keepUnseen && unseenFinishedRef.current.has(session.id)) ||
           skipForgetSessionIds.current.has(session.id),
       ),
     );
-  }, [
-    sessionsRef,
-    tabsRef,
-    openingSessionIds,
-    loadedSessionCache,
-    skipForgetSessionIds,
-    persistSession,
-    setSessions,
-  ]);
+  }, [sessionsRef, tabsRef, sessionData, skipForgetSessionIds, setSessions]);
 
   useEffect(() => {
     if (detachTimer.current != null) return;

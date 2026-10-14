@@ -304,7 +304,7 @@ html[data-mobile-skin] .mobile-sheet-pages .mobile-page-layer {
 .mobile-drawer-more,
 .mobile-drawer-more-toggle,
 button.mobile-drawer-group-status,
-.mobile-pending button,
+.mobile-pending [data-ui="button"],
 .mobile-pairing-methods button,
 .mobile-qr-overlay [data-ui="button"],
 .mobile-shared-question [data-question-secondary] {

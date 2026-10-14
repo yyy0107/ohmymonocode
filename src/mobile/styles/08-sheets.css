@@ -587,7 +587,15 @@
 .mobile-error span,
 .mobile-pending span {
   flex: 1;
+  min-width: 0;
+  line-height: 1.5;
   overflow-wrap: anywhere;
+}
+.mobile-notice-detail {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--mobile-font-sm);
+  color: var(--color-m-ink-secondary);
 }
 .mobile-error [data-ui="icon-button"] {
   color: inherit;
@@ -596,12 +604,6 @@
 .mobile-pending {
   background: color-mix(in srgb, var(--color-m-warning) 12%, var(--color-m-card));
   color: var(--color-m-warning);
-}
-.mobile-pending button {
-  min-height: var(--m-control);
-  padding: 6px 14px;
-  border: 1px solid currentColor;
-  border-radius: 999px;
 }
 .mobile-form-error {
   color: var(--color-m-danger);

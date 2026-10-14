@@ -198,7 +198,3 @@ html[data-skin][data-desktop-mode] {
   --desktop-conversation-width: 720px;
   --desktop-conversation-inset: 24px;
 }
-html[data-skin][data-desktop-mode="chat"] {
-  --desktop-conversation-width: 792px;
-  --desktop-conversation-inset: 24px;
-}

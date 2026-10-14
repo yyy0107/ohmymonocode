@@ -294,6 +294,13 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
     view,
     worktreeCreation,
   } = vm;
+  const noticeError = !addingConnection && !homeUnavailable
+    ? error || hostError || sharedStateError || pollError ||
+      (hostStatus.state === "failed" ? hostStatus.detail || t("Connection failed") : "")
+    : "";
+  // A journal entry also exists during a healthy send. Only offer recovery
+  // after the active request settles; its sending bubble already shows progress.
+  const showPendingNotice = !!pending && connected && !busy;
   return (
     <MobileOverlayHostContext.Provider value={overlayHost}>
     <div
@@ -469,18 +476,10 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
         ) : null}
       </header>
 
-      <div className="mobile-notices">
-      {(error || hostError || sharedStateError || pollError || hostStatus.state === "failed") &&
-        !addingConnection && !homeUnavailable && (
+      <div className="mobile-notices" inert={drawerOpen || pageOverlayOpen || hostPickerOpen}>
+      {noticeError && !showPendingNotice && (
           <div className="mobile-error" role="alert">
-            <span>
-              {error ||
-                hostError ||
-                sharedStateError ||
-                pollError ||
-                hostStatus.detail ||
-                t("Connection failed")}
-            </span>
+            <span>{noticeError}</span>
             {client.connection && (
               <IconButton
                 label={t("Reconnect")}
@@ -492,17 +491,20 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
             )}
           </div>
         )}
-      {pending && connected && (
+      {showPendingNotice && (
         <div className="mobile-pending" role="status">
-          <span>{t("A request is awaiting confirmation.")}</span>
-          <button disabled={busy} onClick={() => void dispatch()}>
+          <span>
+            {t("Request confirmation has not been received.")}
+            {noticeError && <small className="mobile-notice-detail">{noticeError}</small>}
+          </span>
+          <Button variant="secondary" onClick={() => void dispatch()}>
             {t("Retry")}
-          </button>
+          </Button>
         </div>
       )}
       {/* Floats with the other notices: every navigation saves the location,
           so an in-flow banner shifted the whole page while that write settled. */}
-      <SharedStateStatus pending={mobileWorkspacePending} pendingDelayMs={1500} />
+      {!noticeError && !showPendingNotice && <SharedStateStatus pending={mobileWorkspacePending} pendingDelayMs={1500} />}
       </div>
 
       <MobilePageTransition key={`pages:${client.connection?.endpoint}`} route={route}

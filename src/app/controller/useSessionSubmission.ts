@@ -147,6 +147,7 @@ import {
   type SubmissionAcceptance,
 } from "../model/submissionAcceptance";
 import { currentWorkspace } from "../model/workspaceSelectors";
+import type { WorkspaceSessionData } from "../model/workspaceSessionData";
 import type { Submit, SubmitOptions } from "./workspaceTypes";
 
 async function createChatFolder(): Promise<string> {
@@ -159,11 +160,11 @@ async function createChatFolder(): Promise<string> {
 }
 
 type Options = {
+  sessionData: Pick<WorkspaceSessionData, "isRemoving">;
   sessionsRef: RefObject<Session[]>;
   editedResends: EditedResendCoordinator;
   flushHarnessEvents: () => void;
   enqueueHarnessEvent: (sessionId: string, event: HarnessEvent) => void;
-  removingSessionIds: RefObject<Set<string>>;
   switchingWorktrees: RefObject<Map<string, string>>;
   isWorkspaceSwitching: (sessionId: string) => boolean;
   removingWorktreePaths: RefObject<Set<string>>;
@@ -182,11 +183,11 @@ type Options = {
 };
 
 export function useSessionSubmission({
+  sessionData,
   sessionsRef,
   editedResends,
   flushHarnessEvents,
   enqueueHarnessEvent,
-  removingSessionIds,
   switchingWorktrees,
   isWorkspaceSwitching,
   removingWorktreePaths,
@@ -238,7 +239,7 @@ export function useSessionSubmission({
           target.busy ||
           target.pendingSwitch ||
           isPreparingHandoff(target) ||
-          removingSessionIds.current.has(sessionId)
+          sessionData.isRemoving(sessionId)
         ) {
           options.onSettled?.({
             status: "failed",
@@ -249,7 +250,7 @@ export function useSessionSubmission({
         }
       }
       if (
-        removingSessionIds.current.has(sessionId) ||
+        sessionData.isRemoving(sessionId) ||
         switchingWorktrees.current.has(sessionId) ||
         isWorkspaceSwitching(sessionId)
       )
@@ -1515,6 +1516,7 @@ export function useSessionSubmission({
       dismissNoticesForContinuedSession,
       enqueueHarnessEvent,
       flushHarnessEvents,
+      sessionData,
     ],
   );
 

@@ -114,6 +114,32 @@ const capsule = () =>
 const card = () => host.querySelector<HTMLElement>("[data-subagent-card]");
 
 describe("session status capsule", () => {
+  it("uses observed widths across the auto-expand breakpoint without remeasuring layout", () => {
+    let resize: ResizeObserverCallback | undefined;
+    vi.stubGlobal("ResizeObserver", class {
+      constructor(private callback: ResizeObserverCallback) {}
+      observe(target: Element) { if (target === host) resize = this.callback; }
+      disconnect() {}
+    });
+    const measure = vi.spyOn(host, "getBoundingClientRect");
+    render();
+    measure.mockClear();
+    const state = () => host.querySelector("[data-session-status]")?.getAttribute("data-state");
+    const emit = (width: number) => act(() => resize!([
+      { target: host, borderBoxSize: [{ inlineSize: width, blockSize: 800 }] } as unknown as ResizeObserverEntry,
+    ], {} as ResizeObserver));
+    expect(state()).toBe("collapsed");
+    for (const width of [1100, 1279]) emit(width);
+    expect(state()).toBe("collapsed");
+    emit(1280);
+    expect(state()).toBe("expanded");
+    emit(1400);
+    emit(1279);
+    expect(state()).toBe("collapsed");
+    expect(measure).not.toHaveBeenCalled();
+    measure.mockRestore();
+  });
+
   it("counts subagents and safely folds and reopens their list", () => {
     vi.useFakeTimers();
     const { openAgent } = render([agent, { ...agent, id: "second" }]);

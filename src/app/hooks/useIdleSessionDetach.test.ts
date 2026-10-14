@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { rememberLoadedSession } from "../../features/sessions/data/sessionCache";
 import {
   act,
   createElement,
@@ -23,10 +24,10 @@ import {
   type Session,
 } from "../../features/sessions/model/session";
 import {
-  newTab,
-  newSubagentTab,
-  openEditorTab,
   closeLeaf,
+  newSubagentTab,
+  newTab,
+  openEditorTab,
   type WorkspaceTab,
 } from "../../features/workspace/model/layout";
 import { useIdleSessionDetach } from "./useIdleSessionDetach";
@@ -144,8 +145,18 @@ function mountWorkspace(initial: Partial<WorkspaceState> = {}) {
   const loadedSessionCache = { current: new Map<string, Session>() };
   const skipForgetSessionIds = { current: new Set<string>() };
   const persistSession = vi.fn((session: Session | undefined) => {
-    if (session) void upsertSession(session);
+    return session ? upsertSession(session) : Promise.resolve(null);
   });
+  const sessionData = {
+    activate: (id: string) => {
+      openingSessionIds.current.delete(id);
+      loadedSessionCache.current.delete(id);
+    },
+    isOpening: (id: string) => openingSessionIds.current.has(id),
+    retain: (session: Session) =>
+      rememberLoadedSession(loadedSessionCache.current, session),
+    persist: persistSession,
+  };
   let snapshot!: {
     sessions: Session[];
     unseenFinishedIds: Set<string>;
@@ -167,10 +178,8 @@ function mountWorkspace(initial: Partial<WorkspaceState> = {}) {
       sessionsRef,
       tabsRef,
       unseenFinishedIds,
-      openingSessionIds,
-      loadedSessionCache,
+      sessionData,
       skipForgetSessionIds,
-      persistSession,
       setSessions,
     });
     snapshot = { sessions, unseenFinishedIds, setSessions };
@@ -213,9 +222,14 @@ async function advance(milliseconds = 250) {
 
 describe("orchestration worker detachment", () => {
   it("retains a closed parent's records until its last subagent tab closes", async () => {
-    const tab = openEditorTab(newTab("parent"), newSubagentTab("Reviewer", "/repo", {
-      parentSessionId: "parent", path: ["child"], harness: "claude",
-    }));
+    const tab = openEditorTab(
+      newTab("parent"),
+      newSubagentTab("Reviewer", "/repo", {
+        parentSessionId: "parent",
+        path: ["child"],
+        harness: "claude",
+      }),
+    );
     const workspace = mountWorkspace({
       sessions: [chat("parent")],
       tabs: [closeLeaf(tab, "parent")!],
@@ -224,7 +238,9 @@ describe("orchestration worker detachment", () => {
       liveAgentsEnabled: false,
     });
     await advance();
-    expect(workspace.snapshot().sessions.map((session) => session.id)).toEqual(["parent"]);
+    expect(workspace.snapshot().sessions.map((session) => session.id)).toEqual([
+      "parent",
+    ]);
     expect(mocks.forgetHarnessSession).not.toHaveBeenCalled();
     workspace.update({ tabs: [] });
     await advance();

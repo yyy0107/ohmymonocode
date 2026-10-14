@@ -913,13 +913,6 @@ html.theme-light .explorer-file-drag-preview {
   z-index: 21;
 }
 
-html.is-resizing,
-html.is-resizing * {
-  cursor: var(--resize-cursor, col-resize) !important;
-  -webkit-user-select: none !important;
-  user-select: none !important;
-}
-
 .composer-toolbar {
   overflow-x: auto;
   overflow-y: hidden;

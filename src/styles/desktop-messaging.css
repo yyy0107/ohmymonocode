@@ -182,69 +182,6 @@ html[data-skin][data-desktop-mode="chat"] [data-composer-layout="desktop"] .comp
   padding: 12px 16px 0;
 }
 
-/* Message and response typography. User text and provider labels stay intact. */
-html[data-skin][data-desktop-mode="chat"] .user-message-row {
-  padding-left: 0;
-  padding-bottom: 24px;
-}
-
-html[data-skin][data-desktop-mode="chat"] .user-message-bubble:not([data-draft="true"]) {
-  max-width: min(640px, 100%);
-  padding: 12px 16px 12px 12px;
-  border-radius: 12px;
-  background: var(--color-bubble-user);
-  color: var(--color-bubble-user-ink);
-  font-size: 16px;
-  line-height: 23px;
-}
-
-html[data-skin][data-desktop-mode="chat"] .user-message-bubble :is(pre[data-selectable-agent-response], .user-message-with-link) {
-  font-size: 16px;
-  line-height: 23px;
-}
-
-html[data-skin][data-desktop-mode="chat"] [data-assistant-message] {
-  padding-inline: 16px;
-}
-
-html[data-skin][data-desktop-mode="chat"] [data-assistant-message] .agent-markdown {
-  font-family: var(--font-serif);
-  font-size: 16px;
-  font-weight: var(--font-weight-normal);
-  line-height: 1.6;
-}
-
-html[data-skin][data-desktop-mode="chat"] [data-live-footer] {
-  min-height: 36px;
-  padding: 8px 0 0;
-  gap: 12px;
-  color: var(--color-ink-secondary);
-}
-
-html[data-skin][data-desktop-mode="chat"] [data-ui="assistant-status-icon"] {
-  width: 28px;
-  height: 28px;
-  color: var(--messaging-spark);
-}
-
-html[data-skin][data-desktop-mode="chat"] .transcript-live-status {
-  font-family: var(--font-serif);
-  font-size: 14px;
-  font-style: italic;
-  line-height: 21px;
-  letter-spacing: -.005em;
-}
-
-@media (max-width: 800px) {
-  html[data-skin][data-desktop-mode="chat"] {
-    --desktop-conversation-inset: 16px;
-  }
-
-  html[data-skin][data-desktop-mode="chat"] [data-session-surface-tabs] [data-surface-tab-strip] {
-    padding-inline: 8px;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   html[data-skin][data-desktop-mode="chat"] [data-ui="message-input"] {
     transition: none;

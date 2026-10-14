@@ -156,19 +156,3 @@ html[data-skin] {
   --messaging-spark: #d97757;
   --messaging-skeleton: rgb(115 114 108 / 50%);
 }
-html[data-skin="daylight"][data-desktop-mode="chat"] {
-  --color-app: #f9f9f7;
-  --color-panel: #f9f9f7;
-  --color-card: #ffffff;
-  --color-composer: #ffffff;
-  --color-raised: #f0efec;
-  --color-raised-hover: #e7e6e1;
-  --color-control: #f0efec;
-  --color-ink: #141413;
-  --color-ink-secondary: #4d4c48;
-  --color-ink-tertiary: #7b7974;
-  --color-bubble-user: #f0efec;
-  --color-bubble-user-ink: #141413;
-  --messaging-border: rgb(31 30 29 / 30%);
-  --messaging-divider: rgb(31 30 29 / 15%);
-}

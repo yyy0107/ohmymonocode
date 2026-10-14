@@ -504,7 +504,12 @@ function scrollMaskFixture(normalizeMaskCssom = false) {
     observe(element: Element) { this.targets.add(element); this.everObserved.add(element); }
     unobserve(element: Element) { this.targets.delete(element); }
     disconnect() { this.disconnected = true; this.targets.clear(); }
-    emit() { this.callback([], this as unknown as ResizeObserver); }
+    emit(width = 300) {
+      this.callback([...this.targets].map(target => ({
+        target,
+        contentRect: { width, height: target === element ? dimensions.clientHeight : dimensions.scrollHeight },
+      } as ResizeObserverEntry)), this as unknown as ResizeObserver);
+    }
   }
   vi.stubGlobal("ResizeObserver", FakeResizeObserver);
   const mutations: FakeMutationObserver[] = [];
@@ -610,6 +615,26 @@ it("coalesces scroll and resize mask updates and skips unchanged gradient writes
   fixture.observers()[0].emit();
   fixture.flush();
   expect(fixture.element().style.maskImage).toContain("black 20px, black calc(100% - 20px)");
+});
+
+it("ignores width-only resizes but refreshes fades when wrapped sections grow", async () => {
+  const fixture = scrollMaskFixture();
+  await fixture.render(true);
+  const observer = fixture.observers()[0];
+  observer.emit(360);
+  fixture.flush();
+  fixture.read.mockClear();
+  for (const width of [320, 400, 280, 360]) observer.emit(width);
+  expect(fixture.frames.size).toBe(0);
+  expect(fixture.read).not.toHaveBeenCalled();
+  fixture.dimensions.scrollTop = 200;
+  fixture.element().dispatchEvent(new Event("scroll"));
+  fixture.flush();
+  expect(fixture.element().style.maskImage).toContain("black calc(100% - 0px)");
+  fixture.dimensions.scrollHeight = 400;
+  observer.emit(280);
+  fixture.flush();
+  expect(fixture.element().style.maskImage).toContain("black calc(100% - 32px)");
 });
 
 it("skips unchanged mask writes when CSSOM canonicalizes the assigned gradient", async () => {

@@ -341,6 +341,7 @@ export function createHostServer(
                 "connections.list",
                 "connections.patch",
                 "sessions",
+                "sessions.sync.wait.v1",
                 "projects.browse",
                 "projects.createChat",
                 "models.list",
@@ -626,17 +627,34 @@ export function createHostServer(
           case "sessions.sync": {
             const sessionId = String(params.sessionId ?? "");
             engine.nativeSessions.touch(sessionId);
+            const revision = Number.isSafeInteger(params.revision) ? Number(params.revision) : undefined;
+            let serverWaitMs = 0;
+            if (revision !== undefined && typeof params.waitMs === "number" && Number.isFinite(params.waitMs) && params.waitMs > 0) {
+              const abort = new AbortController();
+              const disconnect = () => abort.abort();
+              response.once("close", disconnect);
+              const startedWaiting = performance.now();
+              try {
+                if (response.destroyed) abort.abort();
+                await engine.store.waitForRevision(sessionId, revision, params.waitMs, abort.signal);
+              } finally {
+                response.off("close", disconnect);
+                serverWaitMs = performance.now() - startedWaiting;
+              }
+              if (response.destroyed) return;
+              if (!engine.store.authenticated(token)) throw new Error("Device credential is invalid or revoked");
+              if (engine.store.isAssistantSession(sessionId)) throw new Error("Assistant brain is private");
+            }
             result = {
               ...transfers.respond(
                 sessionId,
                 engine.store.sync(
                   sessionId,
-                  Number.isSafeInteger(params.revision)
-                    ? Number(params.revision)
-                    : undefined,
+                  revision,
                 ),
               ),
               serverTime: Date.now(),
+              ...(serverWaitMs ? { serverWaitMs } : {}),
             };
             break;
           }

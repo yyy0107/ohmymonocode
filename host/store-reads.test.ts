@@ -188,3 +188,53 @@ describe("host store reads", () => {
     expect(store.isAssistantSession("plain")).toBe(false);
   });
 });
+
+describe("revision waits", () => {
+  afterEach(() => vi.useRealTimers());
+  const seed = () => {
+    store = new HostStore(":memory:");
+    const project = store.addProject("/project", "Project");
+    return store.save(snapshot(project.id, "waiting"), { type: "seed" });
+  };
+
+  it("wakes after a matching commit, never on another session or a rolled-back write", async () => {
+    const value = seed();
+    const ready = vi.fn();
+    const pending = store!.waitForRevision("waiting", 1, 1_000).then(ready);
+    store!.save(snapshot(value.projectId, "other"), { type: "seed" });
+    expect(() => store!.transaction(() => {
+      store!.save({ ...value, revision: 2 }, { type: "tentative" });
+      throw new Error("rollback");
+    })).toThrow("rollback");
+    await Promise.resolve();
+    expect(ready).not.toHaveBeenCalled();
+    store!.save({ ...value, revision: 2 }, { type: "reply" });
+    await pending;
+    expect(store!.sync("waiting", 1)).toMatchObject({ kind: "delta", value: { revision: 2 } });
+    await expect(store!.waitForRevision("waiting", 1, 1_000)).resolves.toBeUndefined();
+  });
+
+  it("cleans up timeout, abort, deletion and shutdown without retaining timers", async () => {
+    vi.useFakeTimers();
+    seed();
+    const timeout = store!.waitForRevision("waiting", 1, 50);
+    await vi.advanceTimersByTimeAsync(50);
+    await timeout;
+    const controller = new AbortController();
+    const aborted = store!.waitForRevision("waiting", 1, 1_000, controller.signal);
+    controller.abort();
+    await aborted;
+    expect(vi.getTimerCount()).toBe(0);
+    const deleted = store!.waitForRevision("waiting", 1, 1_000);
+    store!.deleteSession("waiting");
+    await deleted;
+    expect(vi.getTimerCount()).toBe(0);
+    const project = store!.addProject("/project", "Project");
+    store!.save(snapshot(project.id, "second"), { type: "seed" });
+    const closed = expect(store!.waitForRevision("second", 1, 1_000)).rejects.toThrow("closed");
+    store!.close();
+    store = undefined;
+    await closed;
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});

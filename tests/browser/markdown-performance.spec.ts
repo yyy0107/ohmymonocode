@@ -229,7 +229,7 @@ for (const mobile of [false, true]) {
 }
 
 for (const mobile of [false, true]) {
-  test(`live bursts and completion have bounded DOM increments (mobile=${mobile})`, async ({ page }, testInfo) => {
+  test(`live bursts stay bounded and completion catches up promptly (mobile=${mobile})`, async ({ page }, testInfo) => {
     if (mobile) await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/tests/browser/markdown-performance.html");
     await expect(page.locator(".agent-markdown")).toHaveText("Ready.");
@@ -246,32 +246,49 @@ for (const mobile of [false, true]) {
         if (length !== samples.at(-1)!.length) samples.push({ at: performance.now(), length });
       });
       observer.observe(node, { subtree: true, childList: true, characterData: true });
-      Object.assign(window, { finishPacingSamples: () => { observer.disconnect(); return samples; } });
+      let completedAt = 0;
+      Object.assign(window, { finishPacingSamples: () => { observer.disconnect(); return { samples, completedAt }; } });
       const update = (window as unknown as { showMarkdownExample(text: string, streaming: boolean): void }).showMarkdownExample;
       update("文".repeat(800), true);
       setTimeout(() => update("文".repeat(3200), true), 200);
-      setTimeout(() => update("文".repeat(4000), false), 450);
+      setTimeout(() => { completedAt = performance.now(); update("文".repeat(4000), false); }, 450);
     });
     await expect(markdown).toHaveText("文".repeat(4000), { timeout: 15000 });
-    const samples = await page.evaluate(() => (window as unknown as {
-      finishPacingSamples(): { at: number; length: number }[];
+    const { samples, completedAt } = await page.evaluate(() => (window as unknown as {
+      finishPacingSamples(): { samples: { at: number; length: number }[]; completedAt: number };
     }).finishPacingSamples());
     const increments = samples.slice(1).map((sample, index) => ({
+      at: sample.at,
       chars: sample.length - samples[index].length,
       elapsed: sample.at - samples[index].at,
     }));
     await testInfo.attach("display-speed", {
       body: JSON.stringify({ samples, increments }), contentType: "application/json",
     });
-    expect(increments.length).toBeGreaterThan(125);
-    for (const increment of increments) {
+    const live = increments.filter(increment => increment.at < completedAt);
+    expect(live.length).toBeGreaterThan(3);
+    for (const increment of live) {
       expect(increment.chars).toBeGreaterThan(0);
-      expect(increment.chars).toBeLessThanOrEqual(32);
+      expect(increment.chars).toBeLessThanOrEqual(128);
     }
-    // Check the acceleration ramp in the actual DOM, allowing one character of
-    // timer/rounding variance beyond the deterministic clock test's bound.
-    for (let i = 1; i < Math.min(12, increments.length); i++)
-      expect(increments[i].chars - increments[i - 1].chars).toBeLessThanOrEqual(3);
+    expect(samples.at(-1)!.at - completedAt).toBeLessThan(1_000);
     await expect(page.locator("[data-word-fade]")).toHaveCount(0);
   });
 }
+
+test("a completed streamed reply catches up without losing Unicode or inline formatting", async ({ page }) => {
+  await page.goto("/tests/browser/markdown-performance.html?wordFade");
+  await expect(page.locator(".agent-markdown")).toContainText("Ready.");
+  const body = "中文 e\u0301 👩‍💻 streamed prose. ".repeat(160);
+  const text = `${body}\n\n[Read source](https://example.com/source)`;
+  await page.evaluate((text) => {
+    (window as unknown as { showMarkdownExample(text: string, streaming: boolean): void }).showMarkdownExample(text, true);
+  }, text);
+  await expect(page.locator(".agent-markdown")).toContainText("中文");
+  await page.evaluate((text) => {
+    (window as unknown as { showMarkdownExample(text: string, streaming: boolean): void }).showMarkdownExample(text, false);
+  }, text);
+  await expect(page.locator(".agent-markdown")).toHaveText(`${body.trimEnd()}Read source`, { timeout: 1_000 });
+  await expect(page.getByRole("link", { name: "Read source" })).toHaveAttribute("href", "https://example.com/source");
+  await expect(page.locator("[data-word-fade]")).toHaveCount(0);
+});

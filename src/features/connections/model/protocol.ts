@@ -239,6 +239,8 @@ export type SessionSyncChunk = { data: string };
 export type SessionSyncResponse = (SessionSync | SessionSyncTransfer) & {
   /** Host wall clock at response time, including unchanged and chunked syncs. */
   serverTime?: number;
+  /** Time spent waiting for a revision, excluded from network clock estimation. */
+  serverWaitMs?: number;
 };
 
 const CLOCK_OFFSET_TOLERANCE_MS = 1_000;
@@ -248,8 +250,10 @@ export function sessionClockOffset(
   sentAt: number,
   receivedAt: number,
 ): number | undefined {
+  const waited = typeof response.serverWaitMs === "number" && Number.isFinite(response.serverWaitMs)
+    ? Math.max(0, Math.min(receivedAt - sentAt, response.serverWaitMs)) : 0;
   return typeof response.serverTime === "number" && Number.isFinite(response.serverTime)
-    ? response.serverTime - (sentAt + receivedAt) / 2
+    ? response.serverTime - (sentAt + receivedAt + waited) / 2
     : undefined;
 }
 

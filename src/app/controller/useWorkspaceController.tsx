@@ -180,6 +180,7 @@ import {
   type PageDestination,
 } from "../hooks/usePageNavigation";
 import { useWorkspaceNavigation } from "../hooks/useWorkspaceNavigation";
+import { useWorkspaceSessionData } from "../hooks/useWorkspaceSessionData";
 import { contentTabTarget } from "../model/appViewNavigation";
 import {
   desktopModeForCwd,
@@ -195,11 +196,9 @@ import {
   tabHasSessionResources,
 } from "../model/emptySessionCleanup";
 import { HarnessEventQueue } from "../model/harnessFlush";
-import { createProjectHistoryLoader } from "../model/projectHistoryLoader";
 import { releaseNotesForVersion } from "../model/releaseNotes";
 import { nudgeWorkspace } from "../model/sessionEditTracking";
 import {
-  lastUserBlockId,
   providerSignInRequestKey,
   sameSettings,
 } from "../model/sessionTransforms";
@@ -281,7 +280,6 @@ import {
   supportsProviderAccounts,
   type ProviderAccountProvider,
 } from "../../features/providers/model/providerAccounts";
-import { installNativeSessionSync } from "../../features/sessions/data/nativeSessions";
 import { applyAddToChatRequest } from "../../features/sessions/model/addChatToWorkspace";
 import { planTitle } from "../../features/sessions/model/plan";
 import {
@@ -337,14 +335,8 @@ import {
   probeNotificationPermission,
   setWindowFocused,
 } from "../../features/notifications/model/notifications";
-import { rememberLoadedSession } from "../../features/sessions/data/sessionCache";
 import {
   deleteSession,
-  getSession,
-  listLinkedSessions,
-  listSessionsByProject,
-  persistFingerprint,
-  rebaseProjectSessions,
   replaceInFlightSessions,
   saveWorkspaceSnapshot,
   shouldPersistSession,
@@ -453,8 +445,6 @@ import {
 import {
   allProjectHistoryWithLiveSessions,
   historyWithLiveSessions,
-  mergeProjectHistorySummary,
-  replaceProjectHistory,
   sidebarLiveSessions,
   summaryFromSession,
 } from "../../features/sessions/data/sessionHistory";
@@ -500,10 +490,6 @@ const DIALOG_APP_VIEWS: ReadonlySet<AppViewKind> = new Set<AppViewKind>([
   "settings",
   "search",
 ]);
-
-/** Quiet period before session saves, and the longest a dirty session waits. */
-const PERSIST_DEBOUNCE_MS = 650;
-const PERSIST_MAX_WAIT_MS = 5_000;
 
 // Register capabilities before composer hooks choose their discovery strategy.
 registerBuiltinHarnesses();
@@ -715,75 +701,31 @@ export function useWorkspaceController({
   const [fileErrorCounts, setFileErrorCounts] = useState<Map<string, number>>(
     () => new Map(),
   );
-  const [history, setHistory] = useState<SessionSummary[]>(() => bootHistory);
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
+  const {
+    data: sessionData,
+    history,
+    storedLinkedSessions,
+    loadedProjects,
+    failedProjectPaths,
+  } = useWorkspaceSessionData({
+    sessionsRef,
+    setSessions,
+    history: bootHistory,
+    historyCwd: bootHistoryCwd,
+    restoredSessions: windowTransfer?.sessions ?? resumed?.sessions,
+    isSwitching: (id) => switchingWorktrees.current.has(id),
+    onImported: (cwd) => setRecents(rememberImportedProject(cwd)),
+  });
+  const { persist: persistSession, refreshHistory } = sessionData;
   const [, refreshRemoteTabTitles] = useState(0);
   useEffect(() => {
     const updated = () => refreshRemoteTabTitles((value) => value + 1);
     window.addEventListener(REMOTE_HISTORY_UPDATED, updated);
     return () => window.removeEventListener(REMOTE_HISTORY_UPDATED, updated);
   }, []);
-  const [storedLinkedSessions, setStoredLinkedSessions] = useState<
-    SessionSummary[]
-  >(() => bootHistory.filter((session) => session.linkedWorkItem));
-  /**
-   * Projects whose rows are already in `history`. This has to be state, not a
-   * ref: `sidebarCwd` is derived during render, so the frame that first shows
-   * a new project must already know the listing has not arrived yet.
-   */
-  const [loadedProjects, setLoadedProjects] = useState<ReadonlySet<string>>(
-    () => (bootHistoryCwd ? new Set([pathKey(bootHistoryCwd)]) : new Set()),
-  );
-  /** Failures stay with their project while other tree branches load. */
-  const [failedProjectPaths, setFailedProjectPaths] = useState<
-    ReadonlySet<string>
-  >(new Set());
-  const projectHistoryLoader = useRef<ReturnType<
-    typeof createProjectHistoryLoader<SessionSummary>
-  > | null>(null);
-  if (!projectHistoryLoader.current) {
-    projectHistoryLoader.current = createProjectHistoryLoader<SessionSummary>({
-      list: listSessionsByProject,
-      start: (cwd) =>
-        setFailedProjectPaths((previous) => {
-          const key = pathKey(cwd);
-          if (!previous.has(key)) return previous;
-          const next = new Set(previous);
-          next.delete(key);
-          return next;
-        }),
-      success: (cwd, rows, startedAt) => {
-        const fetchedIds = new Set(rows.map((row) => row.id));
-        setHistory((current) => {
-          // A chat persisted during this read is newer than the fetched snapshot.
-          // Alias reads can return the same chat under its canonical project path.
-          const changed = current.filter(
-            (entry) =>
-              (sameProjectPath(entry.cwd, cwd) || fetchedIds.has(entry.id)) &&
-              entry.updatedAt >= startedAt,
-          );
-          let next = replaceProjectHistory(current, cwd, rows);
-          for (const entry of changed) {
-            const fetched = rows.find((row) => row.id === entry.id);
-            if (!fetched || fetched.updatedAt < entry.updatedAt)
-              next = mergeProjectHistorySummary(next, entry);
-          }
-          return next;
-        });
-        setLoadedProjects((previous) =>
-          previous.has(pathKey(cwd))
-            ? previous
-            : new Set(previous).add(pathKey(cwd)),
-        );
-      },
-      failure: (cwd) =>
-        setFailedProjectPaths((previous) =>
-          new Set(previous).add(pathKey(cwd)),
-        ),
-    });
-  }
 
-  const sessionsRef = useRef(sessions);
-  sessionsRef.current = sessions;
   const titleCoordinator = useRef<SessionTitleCoordinator | null>(null);
   if (!titleCoordinator.current)
     titleCoordinator.current = new SessionTitleCoordinator({
@@ -1019,23 +961,10 @@ export function useWorkspaceController({
   useMouseHistoryNavigation(onVisitBack, onVisitForward);
   const turnGen = useRef(new Map<string, number>());
   const editedResends = useRef(createEditedResendCoordinator()).current;
-  const lastPersisted = useRef(new Map<string, string>());
-  const lastBoundProvider = useRef(new Map<string, string>());
-  const lastPersistedUserBlock = useRef(new Map<string, string>());
   const inFlightSyncKey = useRef<string | null>(null);
   const sawInFlight = useRef(false);
   const workspaceSyncKey = useRef<string | null>(null);
   const workspaceSaveTimer = useRef<number | undefined>(undefined);
-  const observedSessions = useRef(new Map<string, Session>());
-  const pendingPersist = useRef(new Map<string, Session>());
-  const persistTimer = useRef<number | undefined>(undefined);
-  const persistDirtySince = useRef<number | null>(null);
-  const removingSessionIds = useRef(new Set<string>());
-  const loadedSessionCache = useRef(new Map<string, Session>());
-  const sessionLoads = useRef(new Map<string, Promise<Session | null>>());
-  const sessionLoadEpochs = useRef(new Map<string, number>());
-  const openingSessionIds = useRef(new Set<string>());
-  const activeSessionPrefetch = useRef<Promise<Session | null> | null>(null);
   const [transcriptPool] = useState(() => new TranscriptPool());
   // Visible output advances per frame; hidden streams keep their own cadence.
   const [harnessEvents] = useState(
@@ -1075,7 +1004,6 @@ export function useWorkspaceController({
       ),
   );
   const skipForgetSessionIds = useRef(new Set<string>());
-  const importedSessionsApplied = useRef(false);
   const projectLocationSyncs = useRef(
     new Map<string, ReturnType<typeof synchronizeProjectLocation>>(),
   );
@@ -1086,22 +1014,6 @@ export function useWorkspaceController({
       void rememberProjectLocation(project.path).catch(() => undefined);
     }
   }, [recents]);
-
-  useEffect(() => {
-    if (importedSessionsApplied.current) return;
-    const imported = windowTransfer?.sessions ?? resumed?.sessions;
-    if (!imported?.length) return;
-    importedSessionsApplied.current = true;
-    for (const session of imported) {
-      observedSessions.current.set(session.id, session);
-      lastPersisted.current.set(session.id, persistFingerprint(session));
-      const userId = lastUserBlockId(session);
-      if (userId) lastPersistedUserBlock.current.set(session.id, userId);
-      if (session.providerSessionId) {
-        lastBoundProvider.current.set(session.id, session.providerSessionId);
-      }
-    }
-  }, [windowTransfer, resumed]);
 
   const flushHarnessEvents = harnessEvents.flush;
   const flushForegroundHarnessEvents = harnessEvents.flushForeground;
@@ -1629,159 +1541,22 @@ export function useWorkspaceController({
     };
   }, [flushHarnessEvents, keepWorkspaceTab, readProjectReturnMemory]);
 
-  const refreshHistory = useCallback((cwd: string, force = false) => {
-    if (isRemoteProjectPath(cwd)) return Promise.resolve();
-    return projectHistoryLoader.current!.load(cwd, force);
-  }, []);
-
-  useEffect(
-    () =>
-      installNativeSessionSync({
-        live: () => sessionsRef.current,
-        changed: (session, summary, imported) => {
-          loadedSessionCache.current.delete(session.id);
-          lastPersisted.current.set(session.id, persistFingerprint(session));
-          // Bulk imports touch many closed sessions; only an open one needs a re-render.
-          if (sessionsRef.current.some((entry) => entry.id === session.id)) {
-            const next = sessionsRef.current.map((entry) =>
-              entry.id === session.id ? session : entry,
-            );
-            sessionsRef.current = next;
-            setSessions(next);
-          }
-          setHistory((current) => mergeProjectHistorySummary(current, summary));
-          if (imported) setRecents(rememberImportedProject(session.cwd));
-        },
-      }),
-    [],
-  );
-
   useEffect(() => {
     void refreshHistory(sidebarCwd);
   }, [sidebarCwd, refreshHistory]);
 
   useEffect(() => {
     if (!inboxVisible) return;
-    let cancelled = false;
-    void listLinkedSessions()
-      .then((rows) => {
-        if (!cancelled) setStoredLinkedSessions(rows);
-      })
-      .catch(() => {
-        // Already-loaded and live sessions still provide a useful fallback.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [inboxVisible]);
+    return sessionData.refreshLinked();
+  }, [inboxVisible, sessionData]);
 
   useEffect(() => {
     prefetchProjectFiles(gitCwd);
   }, [gitCwd]);
 
-  const persistSession = useCallback((session: Session | undefined) => {
-    if (
-      !session ||
-      !shouldPersistSession(session) ||
-      removingSessionIds.current.has(session.id) ||
-      switchingWorktrees.current.has(session.id)
-    )
-      return;
-    const fingerprint = persistFingerprint(session);
-    // Leaving a session flushes it. An unchanged one would still rewrite and
-    // re-diff its whole transcript under the store lock, stalling the next load.
-    if (lastPersisted.current.get(session.id) === fingerprint) return;
-    void upsertSession(session)
-      .then((summary) => {
-        if (!summary) return;
-        lastPersisted.current.set(session.id, fingerprint);
-        setHistory((current) => mergeProjectHistorySummary(current, summary));
-      })
-      .catch(() => undefined);
-  }, []);
-
   useEffect(() => {
-    const liveIds = new Set(sessions.map((session) => session.id));
-    const visibleIds = openSessionIds(tabsRef.current);
-    for (const session of sessions) {
-      if (
-        removingSessionIds.current.has(session.id) ||
-        switchingWorktrees.current.has(session.id)
-      )
-        continue;
-      if (observedSessions.current.get(session.id) === session) continue;
-      observedSessions.current.set(session.id, session);
-      const parked = !visibleIds.has(session.id);
-      const newlyBound =
-        !!session.providerSessionId &&
-        lastBoundProvider.current.get(session.id) !== session.providerSessionId;
-      const lastUserId = lastUserBlockId(session);
-      const newUserTurn =
-        !!lastUserId &&
-        lastPersistedUserBlock.current.get(session.id) !== lastUserId;
-      if (newlyBound && session.providerSessionId) {
-        lastBoundProvider.current.set(session.id, session.providerSessionId);
-      }
-      if (newUserTurn && lastUserId) {
-        lastPersistedUserBlock.current.set(session.id, lastUserId);
-      }
-      if ((newlyBound || newUserTurn) && shouldPersistSession(session)) {
-        persistSession(session);
-      }
-      if (
-        shouldPersistSession(session) &&
-        (!session.busy ||
-          parked ||
-          newlyBound ||
-          newUserTurn ||
-          !lastPersisted.current.has(session.id))
-      ) {
-        pendingPersist.current.set(session.id, session);
-      }
-    }
-    for (const sessionId of observedSessions.current.keys()) {
-      if (liveIds.has(sessionId)) continue;
-      observedSessions.current.delete(sessionId);
-      pendingPersist.current.delete(sessionId);
-    }
-    if (pendingPersist.current.size === 0) return;
-
-    // Debounced, but never starved: another session streaming re-renders
-    // every frame, which used to push a parked session's save out forever.
-    const now = Date.now();
-    persistDirtySince.current ??= now;
-    const delay = Math.max(
-      0,
-      Math.min(
-        PERSIST_DEBOUNCE_MS,
-        persistDirtySince.current + PERSIST_MAX_WAIT_MS - now,
-      ),
-    );
-    window.clearTimeout(persistTimer.current);
-    persistTimer.current = window.setTimeout(() => {
-      persistTimer.current = undefined;
-      persistDirtySince.current = null;
-      const dirty = [...pendingPersist.current.values()];
-      pendingPersist.current.clear();
-      void Promise.all(
-        dirty.map(async (session) => {
-          if (
-            removingSessionIds.current.has(session.id) ||
-            switchingWorktrees.current.has(session.id)
-          )
-            return;
-          const fingerprint = persistFingerprint(session);
-          if (lastPersisted.current.get(session.id) === fingerprint) return;
-          const summary = await upsertSession(session).catch(() => null);
-          if (!summary) return;
-          lastPersisted.current.set(session.id, fingerprint);
-          setHistory((current) => mergeProjectHistorySummary(current, summary));
-        }),
-      );
-    }, delay);
-  }, [persistSession, sessions]);
-
-  useEffect(() => () => window.clearTimeout(persistTimer.current), []);
+    sessionData.observe(sessions, openSessionIds(tabsRef.current));
+  }, [sessions, sessionData]);
 
   useEffect(() => {
     const refs = inFlightRefs(sessions, tabs);
@@ -1880,10 +1655,8 @@ export function useWorkspaceController({
     orchestrationRuns,
     liveAgentsEnabled,
     unseenFinishedIds,
-    openingSessionIds,
-    loadedSessionCache,
+    sessionData,
     skipForgetSessionIds,
-    persistSession,
     setSessions,
   });
 
@@ -1940,9 +1713,7 @@ export function useWorkspaceController({
   const discardEmptySessionReferences = useCallback(
     (ids: ReadonlySet<string>) => {
       for (const id of ids) {
-        loadedSessionCache.current.delete(id);
-        openingSessionIds.current.delete(id);
-        lastPersisted.current.delete(id);
+        sessionData.forget(id);
         workspacePins.current.delete(id);
       }
       for (const tab of tabsRef.current) {
@@ -1953,7 +1724,7 @@ export function useWorkspaceController({
         [...projectReturnRef.current].filter(([, id]) => !ids.has(id)),
       );
     },
-    [],
+    [sessionData],
   );
 
   useEmptySessionCleanup({
@@ -2443,7 +2214,7 @@ export function useWorkspaceController({
     setActiveTabId,
     setComposerFocused,
     sessionsRef,
-    lastPersisted,
+    sessionData,
     setSessions,
     setTabs,
     projectCwd,
@@ -2860,7 +2631,7 @@ export function useWorkspaceController({
         sessionId,
       );
       if (!tab) return false;
-      loadedSessionCache.current.delete(sessionId);
+      sessionData.evict(sessionId);
       const multipleChats =
         leafIds(tab.layout).filter((id) =>
           sessionsRef.current.some((session) => session.id === id),
@@ -2868,7 +2639,7 @@ export function useWorkspaceController({
       activateTab(tab.id, multipleChats ? sessionId : undefined);
       return true;
     },
-    [activateTab],
+    [activateTab, sessionData],
   );
 
   const replaceBlankPaneWithSession = useCallback((session: Session) => {
@@ -2888,7 +2659,7 @@ export function useWorkspaceController({
         );
     if (!paneId || paneId === session.id) return false;
 
-    lastPersisted.current.delete(paneId);
+    sessionData.resetPersistence(paneId);
     {
       const blank = sessionsRef.current.find((entry) => entry.id === paneId);
       if (blank) void forgetHarnessSession(blank.harness, paneId);
@@ -2913,54 +2684,7 @@ export function useWorkspaceController({
     setActiveTabId(tab.id);
     setComposerFocused(true);
     return true;
-  }, []);
-
-  const invalidateLoadedSession = useCallback((sessionId: string) => {
-    openingSessionIds.current.delete(sessionId);
-    loadedSessionCache.current.delete(sessionId);
-    sessionLoads.current.delete(sessionId);
-    sessionLoadEpochs.current.set(
-      sessionId,
-      (sessionLoadEpochs.current.get(sessionId) ?? 0) + 1,
-    );
-  }, []);
-
-  const loadStoredSession = useCallback(
-    (sessionId: string): Promise<Session | null> => {
-      const cached = loadedSessionCache.current.get(sessionId);
-      if (cached) {
-        // The cache owns closed sessions only. Transfer this reference into
-        // live state instead of retaining a stale duplicate while it changes.
-        loadedSessionCache.current.delete(sessionId);
-        return Promise.resolve(cached);
-      }
-
-      const pending = sessionLoads.current.get(sessionId);
-      if (pending) return pending;
-
-      const epoch = sessionLoadEpochs.current.get(sessionId) ?? 0;
-      const loading = getSession(sessionId)
-        .then((loaded) => {
-          if (
-            !loaded ||
-            removingSessionIds.current.has(sessionId) ||
-            (sessionLoadEpochs.current.get(sessionId) ?? 0) !== epoch
-          ) {
-            return null;
-          }
-          return loaded;
-        })
-        .catch(() => null);
-      sessionLoads.current.set(sessionId, loading);
-      void loading.then(() => {
-        if (sessionLoads.current.get(sessionId) === loading) {
-          sessionLoads.current.delete(sessionId);
-        }
-      });
-      return loading;
-    },
-    [],
-  );
+  }, [sessionData]);
 
   const ensureOpenSession = useCallback(
     async (sessionId: string): Promise<Session | null> => {
@@ -2969,14 +2693,14 @@ export function useWorkspaceController({
       );
       if (open) return open;
 
-      openingSessionIds.current.add(sessionId);
-      const restored = await loadStoredSession(sessionId);
-      if (!restored || removingSessionIds.current.has(sessionId)) {
-        openingSessionIds.current.delete(sessionId);
+      const cancelOpening = sessionData.beginOpening(sessionId);
+      const restored = await sessionData.load(sessionId);
+      if (!restored || sessionData.isRemoving(sessionId)) {
+        cancelOpening();
         void refreshHistory(sidebarCwd);
         return null;
       }
-      loadedSessionCache.current.delete(sessionId);
+      sessionData.evict(sessionId);
       const appeared = sessionsRef.current.find(
         (session) => session.id === sessionId,
       );
@@ -2997,7 +2721,7 @@ export function useWorkspaceController({
           restored.nativeSession,
         );
       }
-      lastPersisted.current.set(restored.id, persistFingerprint(restored));
+      sessionData.acknowledge(restored);
       if (!sessionsRef.current.some((session) => session.id === restored.id)) {
         const next = [...sessionsRef.current, restored];
         sessionsRef.current = next;
@@ -3005,37 +2729,10 @@ export function useWorkspaceController({
       }
       return restored;
     },
-    [loadStoredSession, refreshHistory, sidebarCwd],
+    [sessionData, refreshHistory, sidebarCwd],
   );
 
-  const onPrefetchHistorySession = useCallback(
-    (sessionId: string) => {
-      if (
-        removingSessionIds.current.has(sessionId) ||
-        sessionsRef.current.some((session) => session.id === sessionId) ||
-        loadedSessionCache.current.has(sessionId) ||
-        sessionLoads.current.has(sessionId) ||
-        activeSessionPrefetch.current
-      ) {
-        return;
-      }
-      const loading = loadStoredSession(sessionId);
-      activeSessionPrefetch.current = loading;
-      void loading.then((loaded) => {
-        if (
-          loaded &&
-          !removingSessionIds.current.has(sessionId) &&
-          !sessionsRef.current.some((session) => session.id === sessionId)
-        ) {
-          rememberLoadedSession(loadedSessionCache.current, loaded);
-        }
-        if (activeSessionPrefetch.current === loading) {
-          activeSessionPrefetch.current = null;
-        }
-      });
-    },
-    [loadStoredSession],
-  );
+  const onPrefetchHistorySession = sessionData.prefetch;
 
   const revealLinkedSessionUpdate = useCallback(
     (sessionId: string, update: LinkedSessionUpdate) => {
@@ -3191,7 +2888,7 @@ export function useWorkspaceController({
     async (item: InboxItem): Promise<string> => {
       const id = await onAskInboxItem(item);
       const current = sessionsRef.current.find((session) => session.id === id)!;
-      removingSessionIds.current.add(id);
+      sessionData.beginRemoval(id);
       try {
         await stopSessionForRemoval(id);
         const stopped =
@@ -3205,6 +2902,7 @@ export function useWorkspaceController({
           block.role === "image" && block.image ? [block.image.path] : [],
         );
         await deleteSession(id, imagePaths);
+        sessionData.forget(id);
         const fresh = {
           ...newSession(
             stopped.harness,
@@ -3228,10 +2926,10 @@ export function useWorkspaceController({
         );
         return fresh.id;
       } finally {
-        removingSessionIds.current.delete(id);
+        sessionData.endRemoval(id);
       }
     },
-    [onAskInboxItem, stopSessionForRemoval],
+    [onAskInboxItem, stopSessionForRemoval, sessionData],
   );
 
   useEffect(() => {
@@ -3415,7 +3113,7 @@ export function useWorkspaceController({
         canDiscardEmptySession(targetId);
 
       if (replaceTarget) {
-        lastPersisted.current.delete(targetId);
+        sessionData.resetPersistence(targetId);
         const blank = sessionsRef.current.find(
           (entry) => entry.id === targetId,
         );
@@ -3446,7 +3144,7 @@ export function useWorkspaceController({
       setProjectTerminalFocused(false);
       setComposerFocused(true);
     },
-    [ensureOpenSession, newSessionRuntimeMode, tabCloseScope],
+    [ensureOpenSession, newSessionRuntimeMode, tabCloseScope, sessionData],
   );
 
   const {
@@ -3465,33 +3163,23 @@ export function useWorkspaceController({
     onSetHistorySessionLinkedWorkItem,
   } = useSessionHistoryActions({
     sessionsRef,
-    history,
     sidebarCwd,
     titleCoordinator,
-    invalidateLoadedSession,
+    sessionData,
     setSessions,
-    loadedSessionCache,
-    refreshHistory,
-    lastPersisted,
-    persistSession,
     tabsRef,
     projectTerminalsRef,
     removingWorktreePaths,
     switchingWorktrees,
-    removingSessionIds,
-    pendingPersist,
     stopSessionForRemoval,
     projectCwdRef,
     setProjectCwd,
     setRecents,
-    setHistory,
-    setStoredLinkedSessions,
     deleteConfirmationPending,
     setSessionDeleteDialog,
     tabCloseScope,
     activeTabIdRef,
     dirtyFilesRef,
-    sessionLoads,
     setDirtyFiles,
     setTabs,
     activateTab,
@@ -3693,7 +3381,7 @@ export function useWorkspaceController({
       if (
         !current ||
         current.busy ||
-        removingSessionIds.current.has(sessionId) ||
+        sessionData.isRemoving(sessionId) ||
         switchingWorktrees.current.has(sessionId)
       ) {
         throw new Error(
@@ -3726,7 +3414,7 @@ export function useWorkspaceController({
         );
       }
       switchingWorktrees.current.set(sessionId, tree.path);
-      pendingPersist.current.delete(sessionId);
+      sessionData.cancelSave(sessionId);
       try {
         const listed = await listWorktrees(current.cwd);
         if (!isCurrent()) return;
@@ -3790,10 +3478,10 @@ export function useWorkspaceController({
         else workspacePins.current.delete(sessionId);
         if (latest.worktreeRemoved)
           await keepSessionChanges(sessionId, target.path);
-        pendingPersist.current.delete(sessionId);
+        sessionData.cancelSave(sessionId);
         if (shouldPersistSession(next)) await upsertSession(next);
         if (!isCurrent()) return;
-        invalidateLoadedSession(sessionId);
+        sessionData.invalidate(sessionId);
         sessionsRef.current = sessionsRef.current.map((s) =>
           s.id === sessionId ? next : s,
         );
@@ -3805,7 +3493,7 @@ export function useWorkspaceController({
         switchingWorktrees.current.delete(sessionId);
       }
     },
-    [appendTab, invalidateLoadedSession, refreshHistory],
+    [appendTab, sessionData, refreshHistory],
   );
 
   const onComposerWorktreeChange = useCallback(
@@ -3928,20 +3616,7 @@ export function useWorkspaceController({
   const onRemoveProject = useCallback(
     (path: string, options: { purgeData: boolean }) => {
       const normalized = normalizeProjectPath(path);
-      projectHistoryLoader.current?.invalidate(normalized);
-      setHistory((current) =>
-        current.filter((session) => !sameProjectPath(session.cwd, normalized)),
-      );
-      setLoadedProjects((current) => {
-        const next = new Set(current);
-        next.delete(pathKey(normalized));
-        return next;
-      });
-      setFailedProjectPaths((current) => {
-        const next = new Set(current);
-        next.delete(pathKey(normalized));
-        return next;
-      });
+      sessionData.removeProject(normalized);
       const wasCurrent = sameProjectPath(projectCwdRef.current, normalized);
       const remaining = options.purgeData
         ? forgetProject(normalized)
@@ -3972,15 +3647,9 @@ export function useWorkspaceController({
       );
 
       if (options.purgeData) {
-        const cachedOrLoading = new Set([
-          ...loadedSessionCache.current.keys(),
-          ...sessionLoads.current.keys(),
-        ]);
-        for (const sessionId of cachedOrLoading) {
-          invalidateLoadedSession(sessionId);
-        }
+        sessionData.invalidateAllLoads();
         for (const session of projectSessions) {
-          pendingPersist.current.delete(session.id);
+          sessionData.cancelSave(session.id);
           if (session.busy) {
             turnGen.current.set(
               session.id,
@@ -3993,17 +3662,17 @@ export function useWorkspaceController({
           for (const id of sessionChildHarnesses(session)) {
             void forgetHarnessSession(id, session.id);
           }
-          lastPersisted.current.delete(session.id);
+          sessionData.resetPersistence(session.id);
         }
         void removeProjectData(normalized);
       } else {
         for (const session of projectSessions) {
           if (session.busy) continue;
           if (shouldPersistSession(session)) {
-            rememberLoadedSession(loadedSessionCache.current, session);
+            sessionData.retain(session);
           }
           persistSession(session);
-          pendingPersist.current.delete(session.id);
+          sessionData.cancelSave(session.id);
           for (const id of sessionChildHarnesses(session)) {
             void forgetHarnessSession(id, session.id);
           }
@@ -4063,7 +3732,7 @@ export function useWorkspaceController({
         }
       }
     },
-    [activeTabId, invalidateLoadedSession, onSelectProject, persistSession],
+    [activeTabId, sessionData, onSelectProject, persistSession],
   );
 
   const onRestoreProject = useCallback(
@@ -4095,11 +3764,7 @@ export function useWorkspaceController({
 
   const applyProjectLocationChange = useCallback(
     async (from: string, to: string) => {
-      projectHistoryLoader.current?.invalidate(from);
-      projectHistoryLoader.current?.invalidate(to);
-      await rebaseProjectSessions(from, to);
-      projectHistoryLoader.current?.invalidate(from);
-      projectHistoryLoader.current?.invalidate(to);
+      await sessionData.rebaseProject(from, to);
       rebaseCiRepairs(from, to);
 
       const nextSessions = sessionsRef.current.map((session) =>
@@ -4107,44 +3772,6 @@ export function useWorkspaceController({
       );
       sessionsRef.current = nextSessions;
       setSessions(nextSessions);
-      for (const [id, session] of loadedSessionCache.current) {
-        if (sameProjectPath(session.cwd, from)) {
-          loadedSessionCache.current.set(id, { ...session, cwd: to });
-        }
-      }
-      for (const [id, session] of pendingPersist.current) {
-        if (sameProjectPath(session.cwd, from)) {
-          pendingPersist.current.set(id, { ...session, cwd: to });
-        }
-      }
-      setHistory((current) =>
-        current.map((session) =>
-          sameProjectPath(session.cwd, from)
-            ? { ...session, cwd: to }
-            : session,
-        ),
-      );
-      setStoredLinkedSessions((current) =>
-        current.map((session) =>
-          sameProjectPath(session.cwd, from)
-            ? { ...session, cwd: to }
-            : session,
-        ),
-      );
-      setLoadedProjects((current) => {
-        const next = new Set(current);
-        next.delete(pathKey(from));
-        next.delete(pathKey(to));
-        if (current.has(pathKey(from))) next.add(pathKey(to));
-        return next;
-      });
-      setFailedProjectPaths((current) => {
-        const next = new Set(current);
-        next.delete(pathKey(from));
-        next.delete(pathKey(to));
-        return next;
-      });
-
       if (sameProjectPath(projectCwdRef.current, from)) {
         projectCwdRef.current = to;
         setProjectCwd(to);
@@ -4166,7 +3793,7 @@ export function useWorkspaceController({
       onFileMoved(from, to);
       notifyDirsChanged();
     },
-    [onFileMoved],
+    [onFileMoved, sessionData],
   );
 
   const onFileDeleted = useCallback((path: string) => {
@@ -4404,12 +4031,7 @@ export function useWorkspaceController({
   } = useSessionComposerActions({
     sessionsRef,
     setSessions,
-    pendingPersist,
-    lastPersisted,
-    lastPersistedUserBlock,
-    invalidateLoadedSession,
-    setHistory,
-    setStoredLinkedSessions,
+    sessionData,
   });
 
   const { submitSession, onSubmit } = useSessionSubmission({
@@ -4417,7 +4039,7 @@ export function useWorkspaceController({
     editedResends,
     flushHarnessEvents,
     enqueueHarnessEvent,
-    removingSessionIds,
+    sessionData,
     switchingWorktrees,
     isWorkspaceSwitching: workspaceNavigation.isSwitching,
     removingWorktreePaths,
@@ -4880,12 +4502,11 @@ export function useWorkspaceController({
   }, [tabs, activeTabId, orchestrationRuns]);
 
   useOrchestrationBridge({
+    sessionData,
     sessionsRef,
     setSessions,
     onStop,
     checkOpenWorktreeFiles,
-    setHistory,
-    setStoredLinkedSessions,
     submitSession,
     flushHarnessEvents,
   });

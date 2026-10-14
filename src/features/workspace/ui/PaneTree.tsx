@@ -1,6 +1,7 @@
 import { fitToolLayout } from "../model/fitToolLayout";
 import { fitPaneWidths, paneWidthBounds } from "../model/paneWidths";
 import { beginPaneResize, isPaneResizing, onPaneResizeSettled } from "../../../shared/lib/paneResize";
+import { beginResizeInteraction } from "../../../shared/lib/resizeInteraction";
 import { motion, useAnimationControls, type TargetAndTransition } from "motion/react";
 import { panelTransition, immediateTransition, motionDistance } from "../../../shared/motion/tokens";
 import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
@@ -1447,17 +1448,11 @@ function Sash({
           const chats = new Set(sessionPaneIds.split("\n"));
           const bounds = paneWidthBounds(layout, sash, rect.width, id => paneTrackMinimumWidth(id, chats, chatMinimum, toolMinimum));
           handle.setPointerCapture(e.pointerId);
+          const endInteraction = beginResizeInteraction(row ? "col-resize" : "row-resize");
           setDragging(true);
           const previousTransition = parent.style.transitionProperty;
           parent.style.transitionProperty = "none";
-          const previousResizeCursor = document.documentElement.style.getPropertyValue("--resize-cursor");
-          document.documentElement.style.setProperty("--resize-cursor", row ? "col-resize" : "row-resize");
-          document.documentElement.classList.add("is-resizing");
           callbacks.current.onStart();
-          const endPaneResize = beginPaneResize();
-          const restoreSelection = suppressTextSelection();
-          const previousCursor = document.body.style.cursor;
-          document.body.style.cursor = row ? "col-resize" : "row-resize";
           const startPointer = row ? e.clientX : e.clientY;
           const span = row ? group.w * rect.width : group.h * rect.height;
           let nextBoundary = boundary;
@@ -1493,15 +1488,10 @@ function Sash({
               callbacks.current.onCommit(nextBoundary);
             } else callbacks.current.onCancel();
             parent.style.transitionProperty = previousTransition;
-            document.documentElement.classList.remove("is-resizing");
-            if (previousResizeCursor) document.documentElement.style.setProperty("--resize-cursor", previousResizeCursor);
-            else document.documentElement.style.removeProperty("--resize-cursor");
-            endPaneResize();
+            endInteraction();
             if (handle.hasPointerCapture(e.pointerId)) {
               handle.releasePointerCapture(e.pointerId);
             }
-            restoreSelection();
-            document.body.style.cursor = previousCursor;
             setDragging(false);
           };
           const up = (event: PointerEvent) => {

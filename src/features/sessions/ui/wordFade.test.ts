@@ -105,7 +105,7 @@ describe("smooth streaming", () => {
       );
     },
   );
-  it("does not jump on a late burst or when the provider finishes with a backlog", () => {
+  it("paces a late burst, then drains a completed backlog within one message transition", () => {
     render("a".repeat(160));
     advance(100);
     const before = host.textContent!.length;
@@ -113,15 +113,16 @@ describe("smooth streaming", () => {
     expect(host.textContent).toHaveLength(before);
     advance(300);
     const ending = host.textContent!.length;
+    const finishedAt = performance.now();
     render("a".repeat(5000), false);
     expect(host.textContent).toHaveLength(ending);
     expect(host.firstElementChild?.getAttribute("data-revealing")).toBe("true");
-    advance(6500);
+    advance(200);
     expect(host.textContent).toHaveLength(5000);
     expect(host.firstElementChild?.getAttribute("data-revealing")).toBe(
       "false",
     );
-    expectBounded();
+    expect(samples.at(-1)!.time - finishedAt).toBeLessThanOrEqual(200);
   });
   it("paces a late final snapshot even after the earlier completed text has drained", () => {
     render("a".repeat(100));
@@ -131,7 +132,9 @@ describe("smooth streaming", () => {
     render("a".repeat(2000), false);
     expect(host.textContent).toHaveLength(100);
     advance(25);
-    expect(host.textContent!.length - 100).toBeLessThanOrEqual(32);
+    expect(host.textContent!.length).toBeGreaterThan(100);
+    advance(175);
+    expect(host.textContent).toHaveLength(2000);
   });
   it("keeps one bounded timer through StrictMode effect replay", () => {
     act(() =>
@@ -160,9 +163,8 @@ describe("smooth streaming", () => {
       Math.max(...steps().map((step) => step.elapsed)),
     ).toBeLessThanOrEqual(25);
     render("a".repeat(2000), false);
-    advance(3000);
+    advance(200);
     expect(host.textContent).toHaveLength(2000);
-    expectBounded();
   });
   it("does not accumulate multiple display batches before a React commit", () => {
     render("a".repeat(5000));
@@ -170,16 +172,18 @@ describe("smooth streaming", () => {
     act(() => vi.advanceTimersByTime(5000));
     expect(host.textContent!.length - before).toBeLessThanOrEqual(32);
     advance(25);
-    expectBounded();
+    expect(steps()).toHaveLength(2);
+    expect(steps().at(-1)!.chars).toBeLessThanOrEqual(128);
   });
-  it("discards delayed-timer time and drains unfinished Markdown markers at completion", () => {
+  it("uses bounded delayed-timer time and drains unfinished Markdown markers at completion", () => {
     render("a".repeat(5000));
     advance(300);
     const before = host.textContent!.length;
     const clock = performance.now.bind(performance);
     vi.spyOn(performance, "now").mockImplementation(() => clock() + 5000);
     advance(25);
-    expect(host.textContent!.length - before).toBeLessThanOrEqual(32);
+    expect(host.textContent!.length - before).toBeGreaterThan(16);
+    expect(host.textContent!.length - before).toBeLessThanOrEqual(128);
     render("");
     render("###");
     advance(100);

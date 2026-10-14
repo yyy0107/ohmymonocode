@@ -110,7 +110,7 @@ describe("pane drag resizing", () => {
   it.each(["top", "bottom"] as const)("resizes a %s-facing handle with vertical pointer movement", (direction) => {
     act(() => root.render(createElement(Probe, { direction })));
     startDrag();
-    expect(document.body.style.cursor).toBe("row-resize");
+    expect(document.querySelector<HTMLElement>("[data-resize-cursor]")?.style.cursor).toBe("row-resize");
     act(() => window.dispatchEvent(new PointerEvent("pointerup", {
       pointerId: 1,
       clientX: 900,
@@ -188,7 +188,8 @@ describe("pane drag resizing", () => {
     expect(resize.finishDrag).toBe(finishDrag);
     pointer("pointermove", 800);
     expect(pane().style.width).toBe("560px");
-    expect(document.body.style.cursor).toBe("col-resize");
+    expect(document.querySelector<HTMLElement>("[data-resize-cursor]")?.style.cursor).toBe("col-resize");
+    expect(document.body.style.cursor).toBe("crosshair");
     expect(document.documentElement.classList.contains("is-resizing")).toBe(true);
     const blockedSelection = new Event("selectstart", { cancelable: true });
     window.dispatchEvent(blockedSelection);

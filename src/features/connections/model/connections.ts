@@ -287,17 +287,41 @@ export async function remoteRequest<T>(
   return result;
 }
 
-/** Reads one sync, assembling it from bounded pieces when the host chunks it. */
-async function syncRemoteSession(
+/** A visibility change or second pane must not overlap the same session's read. */
+const pendingSyncs = new Map<string, { revision?: number; request: Promise<SessionSync> }>();
+
+function syncRemoteSession(
   machineId: string,
   sessionId: string,
   revision?: number,
+  waitMs?: number,
+): Promise<SessionSync> {
+  const key = JSON.stringify([machineId, sessionId]);
+  const pending = pendingSyncs.get(key);
+  if (pending) {
+    if (pending.revision === revision) return pending.request;
+    const retry = () => syncRemoteSession(machineId, sessionId, revision, waitMs);
+    return pending.request.then(retry, retry);
+  }
+  const request = requestSessionSync(machineId, sessionId, revision, waitMs).finally(() => {
+    if (pendingSyncs.get(key)?.request === request) pendingSyncs.delete(key);
+  });
+  pendingSyncs.set(key, { revision, request });
+  return request;
+}
+
+/** Assemble bounded pieces of one Host revision before releasing the request. */
+async function requestSessionSync(
+  machineId: string,
+  sessionId: string,
+  revision?: number,
+  waitMs?: number,
 ): Promise<SessionSync> {
   const sentAt = Date.now();
   const response = await remoteRequest<SessionSyncResponse>(
     machineId,
     "sessions.sync",
-    { sessionId, revision },
+    { sessionId, revision, ...(waitMs ? { waitMs } : {}) },
   );
   const clockOffsetMs = sessionClockOffset(response, sentAt, Date.now());
   if (response.kind !== "chunked") return { ...response, clockOffsetMs };
@@ -335,9 +359,10 @@ export async function loadRemoteSessionText(
   machineId: string,
   sessionId: string,
   known?: HostSession,
+  waitMs?: number,
 ): Promise<HostSession> {
   const sync = (revision?: number) =>
-    syncRemoteSession(machineId, sessionId, revision);
+    syncRemoteSession(machineId, sessionId, revision, revision === undefined ? undefined : waitMs);
   const update = await sync(known?.revision);
   let snapshot: HostSession;
   try {

@@ -78,9 +78,7 @@ it("resizes through the shared target, ignores other pointers and commits a clam
   expect(handle.getAttribute("aria-orientation")).toBe("horizontal");
   expect(handle.getAttribute("aria-valuenow")).toBe("240");
   pointer(handle, "pointerdown", 300);
-  expect(
-    document.documentElement.style.getPropertyValue("--resize-cursor"),
-  ).toBe("row-resize");
+  expect(document.querySelector<HTMLElement>("[data-resize-cursor]")?.style.cursor).toBe("row-resize");
   pointer(window, "pointermove", 260, 2);
   expect(onHeightPaint).not.toHaveBeenCalled();
   pointer(window, "pointermove", 260);
@@ -96,9 +94,7 @@ it("resizes through the shared target, ignores other pointers and commits a clam
   expect(document.documentElement.classList.contains("is-resizing")).toBe(
     false,
   );
-  expect(
-    document.documentElement.style.getPropertyValue("--resize-cursor"),
-  ).toBe("");
+  expect(document.querySelector("[data-resize-cursor]")).toBeNull();
 });
 
 it("retains the minimum height and double-click reset", () => {

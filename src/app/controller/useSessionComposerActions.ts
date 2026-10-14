@@ -5,7 +5,6 @@ import { remoteSessionActions } from "../../features/connections/model/remoteSes
 import {
   discardDraftSessionRecord,
   shouldPersistSession,
-  type SessionSummary,
 } from "../../features/sessions/data/sessionStore";
 import {
   selectComposerConfiguration,
@@ -34,27 +33,18 @@ import {
 } from "../../features/sessions/model/session";
 import { forgetHarnessSession } from "../../integrations/harness";
 import { withHarnessChoice } from "../model/sessionTransforms";
+import type { WorkspaceSessionData } from "../model/workspaceSessionData";
 
 type Options = {
+  sessionData: Pick<WorkspaceSessionData, "forget">;
   sessionsRef: RefObject<Session[]>;
   setSessions: Dispatch<SetStateAction<Session[]>>;
-  pendingPersist: RefObject<Map<string, Session>>;
-  lastPersisted: RefObject<Map<string, string>>;
-  lastPersistedUserBlock: RefObject<Map<string, string>>;
-  invalidateLoadedSession: (sessionId: string) => void;
-  setHistory: Dispatch<SetStateAction<SessionSummary[]>>;
-  setStoredLinkedSessions: Dispatch<SetStateAction<SessionSummary[]>>;
 };
 
 export function useSessionComposerActions({
+  sessionData,
   sessionsRef,
   setSessions,
-  pendingPersist,
-  lastPersisted,
-  lastPersistedUserBlock,
-  invalidateLoadedSession,
-  setHistory,
-  setStoredLinkedSessions,
 }: Options) {
   const onModelChange = useCallback(
     (sessionId: string, harness: HarnessId, model: string) => {
@@ -214,16 +204,7 @@ export function useSessionComposerActions({
       if (!withoutDraft) return false;
 
       if (!shouldPersistSession(withoutDraft)) {
-        pendingPersist.current.delete(sessionId);
-        lastPersisted.current.delete(sessionId);
-        lastPersistedUserBlock.current.delete(sessionId);
-        invalidateLoadedSession(sessionId);
-        setHistory((history) =>
-          history.filter((session) => session.id !== sessionId),
-        );
-        setStoredLinkedSessions((history) =>
-          history.filter((session) => session.id !== sessionId),
-        );
+        sessionData.forget(sessionId);
         void discardDraftSessionRecord(sessionId).catch(() => undefined);
       }
 
@@ -236,7 +217,7 @@ export function useSessionComposerActions({
       );
       return true;
     },
-    [invalidateLoadedSession],
+    [sessionData],
   );
   return {
     onSaveDraft,

@@ -1622,3 +1622,28 @@ it("allows both file write APIs during a shared turn and protects exclusive chan
   expect(blocked.status).toBe(400);
   expect(blocked.value.error).toContain("native:terminal");
 });
+
+it("streams committed sync revisions and rechecks revoked credentials after waiting", async () => {
+  const s = await setup();
+  expect((await s.call("environment.describe")).value.result.capabilities).toContain("sessions.sync.wait.v1");
+  const created = await s.call("commands.dispatch", {
+    type: "create", commandId: "waiting-sync", projectId: s.project.id,
+    harness: "codex", model: "codex:test", runtimeMode: "supervised",
+  });
+  const sessionId = created.value.result.sessionId;
+  const value = s.store.session(sessionId);
+  const wait = vi.spyOn(s.store, "waitForRevision");
+  const changed = s.call("sessions.sync", { sessionId, revision: value.revision, waitMs: 1_000 });
+  await vi.waitFor(() => expect(wait).toHaveBeenCalledTimes(1));
+  s.store.updateSession(sessionId, { title: "Updated while waiting" });
+  const response = await changed;
+  expect(response.value.result).toMatchObject({ kind: "delta", base: value.revision,
+    value: { session: { title: "Updated while waiting" } }, serverWaitMs: expect.any(Number) });
+  const unchanged = await s.call("sessions.sync", { sessionId, revision: value.revision + 1, waitMs: 20 });
+  expect(unchanged.value.result).toMatchObject({ kind: "unchanged", revision: value.revision + 1 });
+  const revoked = s.call("sessions.sync", { sessionId, revision: value.revision + 1, waitMs: 1_000 }, s.second.token);
+  await vi.waitFor(() => expect(wait).toHaveBeenCalledTimes(3));
+  s.store.revokeDevice(s.second.id);
+  s.store.updateSession(sessionId, { title: "Changed after revocation" });
+  expect((await revoked).value.error).toContain("revoked");
+});

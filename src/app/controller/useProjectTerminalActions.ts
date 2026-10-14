@@ -37,8 +37,10 @@ import {
 } from "../../features/workspace/model/layout";
 import { forgetHarnessSession } from "../../integrations/harness";
 import { orderByIds } from "../../shared/lib/reorder";
+import type { WorkspaceSessionData } from "../model/workspaceSessionData";
 
 type Options = {
+  sessionData: Pick<WorkspaceSessionData, "resetPersistence">;
   projectCwdRef: RefObject<string>;
   setProjectTerminals: Dispatch<SetStateAction<ProjectTerminalDock[]>>;
   lastDockSideRef: RefObject<DockSide | null>;
@@ -50,7 +52,6 @@ type Options = {
   setActiveTabId: (id: string) => void;
   setComposerFocused: Dispatch<SetStateAction<boolean>>;
   sessionsRef: RefObject<Session[]>;
-  lastPersisted: RefObject<Map<string, string>>;
   setSessions: Dispatch<SetStateAction<Session[]>>;
   setTabs: Dispatch<SetStateAction<WorkspaceTab[]>>;
   projectCwd: string;
@@ -60,6 +61,7 @@ type Options = {
 };
 
 export function useProjectTerminalActions({
+  sessionData,
   projectCwdRef,
   setProjectTerminals,
   lastDockSideRef,
@@ -71,7 +73,6 @@ export function useProjectTerminalActions({
   setActiveTabId,
   setComposerFocused,
   sessionsRef,
-  lastPersisted,
   setSessions,
   setTabs,
   projectCwd,
@@ -133,7 +134,7 @@ export function useProjectTerminalActions({
       const occupyPaneId =
         occupying && isBlankSession(occupying) ? occupying.id : undefined;
       if (occupyPaneId && occupying) {
-        lastPersisted.current.delete(occupyPaneId);
+        sessionData.resetPersistence(occupyPaneId);
         void forgetHarnessSession(occupying.harness, occupyPaneId);
         setSessions((prev) =>
           prev.filter((session) => session.id !== occupyPaneId),
@@ -154,7 +155,14 @@ export function useProjectTerminalActions({
       );
       setComposerFocused(false);
     },
-    [terminalCwd, activeTab, appendTab, openProjectTerminal, sidebarCwd],
+    [
+      terminalCwd,
+      activeTab,
+      appendTab,
+      openProjectTerminal,
+      sidebarCwd,
+      sessionData,
+    ],
   );
 
   const onNewTerminal = useCallback(() => {
