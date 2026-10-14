@@ -1,9 +1,7 @@
 import { Suspense } from "react";
 import { AppView } from "./AppView";
-import {
-  useWorkspaceController,
-  type AppProps,
-} from "./controller/useWorkspaceController";
+import { useWorkspaceController } from "./controller/useWorkspaceController";
+import type { AppProps } from "./controller/workspaceTypes";
 
 export default function App(props: AppProps) {
   return (

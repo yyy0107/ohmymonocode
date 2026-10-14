@@ -81,7 +81,8 @@ prefetchRemoteProjectSessions
 } from "../features/connections/model/connections";
 import { AddRemoteProjectDialog } from "../features/connections/ui/AddRemoteProjectDialog";
 
-import { LinkedWorkItemPanel,selectedChangeKind,selectedChangePath,selectedCommitSha,tabIsOneCard } from "./controller/useWorkspaceController";
+import { selectedChangeKind,selectedChangePath,selectedCommitSha,tabIsOneCard } from "./model/workspaceSelectors";
+import { LinkedWorkItemPanel } from "./ui/workspaceSurfaces";
 import type { WorkspaceViewModel } from "./controller/useWorkspaceController";
 
 /** Workspace window layout. Pure view over the controller's view-model. */
