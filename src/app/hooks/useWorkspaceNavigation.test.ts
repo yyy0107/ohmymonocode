@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, createElement, useRef, useState } from "react";
+import { act, createElement, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
@@ -24,7 +24,6 @@ import {
   splitPane,
   type WorkspaceTab,
 } from "../../features/workspace/model/layout";
-import { workspaceTabWorktree } from "../../features/workspace/model/workspaceTabGroups";
 import { useWorkspaceNavigation } from "./useWorkspaceNavigation";
 
 const project = "/navigation-project";
@@ -43,7 +42,8 @@ let view: {
 };
 let directOpen: (id: string) => void;
 let openProject: (path: string, landingTab: string) => void;
-let pins: Map<string, string>;
+const workspaceOf = (id: string) =>
+  navigation.tabWorkspace(view.tabs.find((tab) => tab.id === id)!);
 const activate = vi.fn();
 const move =
   vi.fn<
@@ -79,6 +79,7 @@ async function mount(
   activeId = sessions[0].id,
   initialTabs = sessions.map((s) => ({ ...newTab(s.id), id: `tab-${s.id}` })),
   canReuseBlank?: (sessionId: string) => boolean,
+  restoreDefaultWorkspaces = false,
 ) {
   function Harness() {
     const [state, setState] = useState(() => ({
@@ -89,16 +90,14 @@ async function mount(
         leafIds(tab.layout).includes(activeId),
       )!.id,
     }));
-    const heldPins = useRef(new Map<string, string>());
-    pins = heldPins.current;
     view = state;
     const focus = useWorktreeFocus(state.project);
     navigation = useWorkspaceNavigation({
       ...state,
       canReuseBlank,
-      pins,
-      tabWorkspace: (tab, list) =>
-        pins.get(tab.id) ?? workspaceTabWorktree(tab, list),
+      restoreDefaultWorkspaces,
+      setActiveTabId: (id) =>
+        setState((prev) => ({ ...prev, activeTabId: id })),
       moveSession: async (id, tree, isCurrent) => {
         await move(id, tree, isCurrent);
         if (isCurrent())
@@ -109,9 +108,17 @@ async function mount(
             ),
           }));
       },
-      activateTab: (id) => {
+      activateTab: (id, paneId) => {
         activate(id);
-        setState((prev) => ({ ...prev, activeTabId: id }));
+        setState((prev) => ({
+          ...prev,
+          activeTabId: id,
+          tabs: paneId
+            ? prev.tabs.map((tab) =>
+                tab.id === id ? { ...tab, focusedId: paneId } : tab,
+              )
+            : prev.tabs,
+        }));
       },
       createTab: (cwd, nextFocus) => {
         const session = chat("created", cwd, nextFocus?.path);
@@ -125,7 +132,7 @@ async function mount(
       },
     });
     directOpen = (id) => {
-      navigation.cancel();
+      navigation.setActiveTabId(`tab-${id}`);
       const target = state.sessions.find((s) => s.id === id)!;
       setState((prev) => ({
         ...prev,
@@ -164,8 +171,12 @@ it("opens another workspace without moving a blank protected by its composer or 
   await act(async () => navigation.selectWorkspace(project, treeA));
   expect(move).not.toHaveBeenCalled();
   expect(view.activeTabId).toBe("tab-created");
-  expect(view.sessions.find((session) => session.id === "blank")?.worktreeCwd).toBeUndefined();
-  expect(view.sessions.find((session) => session.id === "created")?.worktreeCwd).toBe(treeA.path);
+  expect(
+    view.sessions.find((session) => session.id === "blank")?.worktreeCwd,
+  ).toBeUndefined();
+  expect(
+    view.sessions.find((session) => session.id === "created")?.worktreeCwd,
+  ).toBe(treeA.path);
 });
 const select = async (focus?: WorktreeFocus) => {
   await act(async () => navigation.selectWorkspace(project, focus));
@@ -186,6 +197,89 @@ afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
   vi.unstubAllGlobals();
+});
+
+it("restores default-workspace ownership even for a background worktree checkout", async () => {
+  await mount(
+    [
+      chat("main", project, undefined, true),
+      chat("worktree", project, treeA.path, true),
+    ],
+    undefined,
+    undefined,
+    undefined,
+    true,
+  );
+  const restored = view.tabs.find((tab) => tab.id === "tab-worktree")!;
+  expect(navigation.tabWorkspace(restored)).toBe(project);
+  expect(navigation.keepWorkspaceTab(restored)).toBe(true);
+  expect(sessionWorkCwd(view.sessions[1])).toBe(treeA.path);
+
+  await select(treeA);
+  const created = view.tabs.find((tab) => tab.id === view.activeTabId)!;
+  expect(created.id).toBe("tab-created");
+  expect(navigation.keepWorkspaceTab(created)).toBe(false);
+  expect(navigation.keepWorkspaceTab(restored)).toBe(true);
+});
+
+it("keeps checkout locks across navigation cancellation and ignores an old release", async () => {
+  await mount();
+  const finishFirst = navigation.beginMove("blank", treeA.path)!;
+  expect(navigation.beginMove("blank", treeB.path)).toBeNull();
+  expect(navigation.hasMoveInto("/navigation-trees")).toBe(true);
+  expect(navigation.hasMoveInto(treeB.path)).toBe(false);
+  await act(async () => navigation.cancel());
+  expect(navigation.isMoving("blank")).toBe(true);
+  expect(navigation.isSwitching("blank")).toBe(true);
+  finishFirst();
+  const finishSecond = navigation.beginMove("blank", treeB.path)!;
+  finishFirst();
+  expect(navigation.isMoving("blank")).toBe(true);
+  expect(navigation.hasMoveInto(treeB.path)).toBe(true);
+  finishSecond();
+  expect(navigation.isMoving("blank")).toBe(false);
+  expect(navigation.isSwitching("blank")).toBe(false);
+  expect(navigation.hasMoveInto("/navigation-trees")).toBe(false);
+});
+
+it("records the focused split pane when activating and returning between projects", async () => {
+  const split = newTab("first");
+  split.layout = splitPane(split.layout, "first", "right", "second");
+  await mount(
+    [
+      chat("first", project, undefined, true),
+      chat("second", project, undefined, true),
+      chat("other", other, undefined, true),
+    ],
+    "first",
+    [split, { ...newTab("other"), id: "tab-other" }],
+  );
+  await act(async () => navigation.activateTab(split.id, "second"));
+  await act(async () => openProject(other, "tab-other"));
+  expect(navigation.readProjectReturnMemory().get(project)).toBe("second");
+  expect(navigation.readProjectReturnMemory().get(other)).toBe("other");
+});
+
+it("activating a pane cancels a move before its late completion can steal focus", async () => {
+  const pending = deferred();
+  move.mockImplementationOnce(() => pending.promise);
+  const split = newTab("blank");
+  split.layout = splitPane(split.layout, "blank", "right", "second");
+  await mount(
+    [chat("blank"), chat("second", project, undefined, true)],
+    "blank",
+    [split],
+  );
+  await select(treeA);
+  await act(async () => navigation.activateTab(split.id, "second"));
+  await act(async () => pending.resolve());
+  expect(view.tabs[0].focusedId).toBe("second");
+  expect(screen()).toMatchObject({
+    workspace: project,
+    checkout: project,
+    pending: false,
+  });
+  expect(navigation.isSwitching("blank")).toBe(false);
 });
 
 it("serializes A then B and never publishes A after B was requested", async () => {
@@ -210,7 +304,7 @@ it("serializes A then B and never publishes A after B was requested", async () =
   expect(move.mock.calls[1][1].path).toBe(treeB.path);
   expect(navigation.isSwitching("blank")).toBe(true);
   expect(activate).not.toHaveBeenCalled();
-  expect(pins.get("tab-blank")).toBe(project);
+  expect(workspaceOf("tab-blank")).toBe(project);
   expect(screen()).toMatchObject({
     workspace: project,
     checkout: project,
@@ -222,7 +316,7 @@ it("serializes A then B and never publishes A after B was requested", async () =
     checkout: treeB.path,
     pending: false,
   });
-  expect(pins.get("tab-blank")).toBe(treeB.path);
+  expect(workspaceOf("tab-blank")).toBe(treeB.path);
   expect(navigation.isSwitching("blank")).toBe(false);
 });
 
@@ -256,7 +350,7 @@ it("keeps the previous workspace and reports a failed move, then allows retry", 
     pending: false,
     error: "Working copy no longer exists",
   });
-  expect(pins.get("tab-blank")).toBe(project);
+  expect(workspaceOf("tab-blank")).toBe(project);
   expect(navigation.isSwitching("blank")).toBe(false);
   await select(treeB);
   expect(screen()).toMatchObject({
@@ -315,7 +409,7 @@ it("can return to the original workspace while a move is pending", async () => {
     checkout: project,
     pending: false,
   });
-  expect(pins.get("tab-blank")).toBe(project);
+  expect(workspaceOf("tab-blank")).toBe(project);
   expect(move).toHaveBeenCalledTimes(1);
   expect(navigation.isSwitching("blank")).toBe(false);
 });
@@ -336,7 +430,7 @@ it("a completed project switch cannot override a later explicit session open", a
     workspace: treeA.path,
     checkout: project,
   });
-  expect(pins.get("tab-main")).toBe(treeA.path);
+  expect(workspaceOf("tab-main")).toBe(treeA.path);
   expect(activate).not.toHaveBeenCalled();
   expect(move).not.toHaveBeenCalled();
 });
@@ -356,7 +450,7 @@ it("project selection still restores the last tab in its remembered workspace", 
     checkout: treeA.path,
   });
   expect(move).not.toHaveBeenCalled();
-  expect(pins.get("tab-main")).toBeUndefined();
+  expect(workspaceOf("tab-main")).toBe(project);
 });
 
 it("selects an existing workspace tab without moving the current session", async () => {
@@ -379,11 +473,17 @@ it("keeps globally visible app tabs out of workspace return targets", async () =
     chat("worktree", project, treeA.path, true),
   ];
   await mount(sessions, "main", [
-    ...sessions.map((session) => ({ ...newTab(session.id), id: `tab-${session.id}` })),
+    ...sessions.map((session) => ({
+      ...newTab(session.id),
+      id: `tab-${session.id}`,
+    })),
     newAppViewWorkspaceTab("settings"),
   ]);
   await select(treeA);
-  expect(screen()).toMatchObject({ activeTab: "tab-worktree", workspace: treeA.path });
+  expect(screen()).toMatchObject({
+    activeTab: "tab-worktree",
+    workspace: treeA.path,
+  });
   expect(move).not.toHaveBeenCalled();
 });
 
@@ -394,7 +494,10 @@ it("creates a project tab for an empty workspace even when app tabs are open", a
     newAppViewWorkspaceTab("notes"),
   ]);
   await select(treeA);
-  expect(screen()).toMatchObject({ activeTab: "tab-created", workspace: treeA.path });
+  expect(screen()).toMatchObject({
+    activeTab: "tab-created",
+    workspace: treeA.path,
+  });
   expect(move).not.toHaveBeenCalled();
 });
 
@@ -464,7 +567,7 @@ it("preserves the landing conversation when a project's remembered workspace has
     checkout: project,
     pending: false,
   });
-  expect(pins.get("tab-main")).toBe(treeA.path);
+  expect(workspaceOf("tab-main")).toBe(treeA.path);
   expect(view.sessions).toHaveLength(2);
   expect(move).not.toHaveBeenCalled();
 });
@@ -487,7 +590,7 @@ it("keeps a split tab grouped under another project without leaving navigation p
     project,
     other,
   ]);
-  expect(pins.get("tab-main")).toBe(project);
+  expect(workspaceOf("tab-main")).toBe(project);
   expect(view.sessions).toHaveLength(2);
   expect(move).not.toHaveBeenCalled();
 });

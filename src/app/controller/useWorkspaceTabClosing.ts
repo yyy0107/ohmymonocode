@@ -45,11 +45,7 @@ type Options = {
   setDirtyFiles: Dispatch<SetStateAction<Set<string>>>;
   setTabs: Dispatch<SetStateAction<WorkspaceTab[]>>;
   activeTabIdRef: RefObject<string>;
-  activateTab: (
-    id: string,
-    paneId?: string | undefined,
-    reason?: "session" | "workspace",
-  ) => void;
+  activateTab: (id: string, paneId?: string) => void;
   refreshHistory: (cwd: string, force?: boolean) => Promise<void>;
   sidebarCwd: string;
   projectCwd: string;

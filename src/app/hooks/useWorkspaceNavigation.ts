@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  isBlankSession,
+  reconcileProjectReturn,
+  type ProjectReturnMemory,
+} from "../../features/projects/model/projectReturn";
+import {
   isRemoteProjectPath,
   sameProjectPath,
 } from "../../features/projects/model/recents";
-import { isBlankSession } from "../../features/projects/model/projectReturn";
 import type { Session } from "../../features/sessions/model/session";
 import {
   setWorktreeFocus,
@@ -13,32 +17,35 @@ import {
 import type { Worktree } from "../../features/source-control/model/worktrees";
 import {
   isAppViewOnlyTab,
+  leafIds,
   type WorkspaceTab,
 } from "../../features/workspace/model/layout";
 import {
   filterTabsForProject,
   workspaceTabCwd,
+  workspaceTabWorktree,
 } from "../../features/workspace/model/workspaceTabGroups";
-import { pathKey } from "../../shared/lib/paths";
+import { isEqualOrInside, pathKey } from "../../shared/lib/paths";
 
 type Destination = { project: string; focus?: WorktreeFocus };
 type Request = Destination & { kind: "project" | "workspace" };
-type Options = {
+type Snapshot = {
   project: string;
   activeTabId: string;
   tabs: WorkspaceTab[];
   sessions: Session[];
-  pins: Map<string, string>;
-  tabWorkspace: (
-    tab: WorkspaceTab,
-    sessions: readonly Session[],
-  ) => string | null;
+};
+type Options = Snapshot & {
+  getSnapshot?: () => Snapshot;
+  restoredProjectReturn?: ProjectReturnMemory;
+  restoreDefaultWorkspaces?: boolean;
   moveSession: (
     id: string,
     tree: Worktree,
     isCurrent: () => boolean,
   ) => Promise<void>;
-  activateTab: (id: string) => void;
+  activateTab: (id: string, paneId?: string) => void;
+  setActiveTabId: (id: string) => void;
   createTab: (project: string, focus?: WorktreeFocus) => string;
   canReuseBlank?: (sessionId: string) => boolean;
 };
@@ -55,7 +62,24 @@ export function useWorkspaceNavigation(options: Options) {
   const running = useRef(false);
   const mounted = useRef(true);
   const moving = useRef(new Set<string>());
+  const moves = useRef(new Map<string, { path: string }>());
   const memory = useRef(new Map<string, string>());
+  const projectReturn = useRef(options.restoredProjectReturn ?? new Map());
+  // Only default-workspace tabs are persisted. Their checkout can still be
+  // another worktree, so restoring must preserve the saved workspace ownership.
+  const [pins] = useState(
+    () =>
+      new Map<string, string>(
+        options.restoreDefaultWorkspaces
+          ? options.tabs.flatMap((tab) => {
+              const project = workspaceTabCwd(tab, options.sessions);
+              return project && !isRemoteProjectPath(project)
+                ? [[tab.id, project] as const]
+                : [];
+            })
+          : [],
+      ),
+  );
   const [revision, refreshPins] = useState(0);
   const [pending, setPending] = useState<Request | null>(null);
   const [error, setError] = useState<{
@@ -63,11 +87,117 @@ export function useWorkspaceNavigation(options: Options) {
     message: string;
   } | null>(null);
 
+  const snapshot = useCallback(
+    () => latest.current.getSnapshot?.() ?? latest.current,
+    [],
+  );
+  const tabWorkspace = useCallback(
+    (tab: WorkspaceTab, sessions: readonly Session[] = snapshot().sessions) => {
+      if (isAppViewOnlyTab(tab)) return null;
+      const pinned = pins.get(tab.id);
+      if (pinned) return pinned;
+      for (const id of leafIds(tab.layout)) {
+        const path = pins.get(id);
+        if (path) return path;
+      }
+      return workspaceTabWorktree(tab, sessions);
+    },
+    [pins, snapshot],
+  );
+  const keepWorkspaceTab = useCallback(
+    (tab: WorkspaceTab) => {
+      const view = snapshot();
+      const project = workspaceTabCwd(tab, view.sessions);
+      if (!project || isRemoteProjectPath(project)) return true;
+      const workspace = tabWorkspace(tab, view.sessions);
+      return !workspace || sameProjectPath(workspace, project);
+    },
+    [snapshot, tabWorkspace],
+  );
+  const readProjectReturnMemory = useCallback(
+    (view = snapshot()) => {
+      projectReturn.current = reconcileProjectReturn({
+        memory: projectReturn.current,
+        ...view,
+      });
+      return projectReturn.current;
+    },
+    [snapshot],
+  );
+  const pin = useCallback(
+    (id: string, path: string) => {
+      if (pins.get(id) === path) return;
+      pins.set(id, path);
+      refreshPins((value) => value + 1);
+    },
+    [pins],
+  );
+  const pinSessionToCurrentWorkspace = useCallback(
+    (id: string, project: string) => {
+      pin(id, worktreeFocus(project)?.path ?? project);
+    },
+    [pin],
+  );
+  const unpinSession = useCallback(
+    (id: string) => {
+      if (pins.delete(id)) refreshPins((value) => value + 1);
+    },
+    [pins],
+  );
+  const forgetSessions = useCallback(
+    (ids: ReadonlySet<string>) => {
+      let changed = false;
+      for (const id of ids) changed = pins.delete(id) || changed;
+      for (const tab of snapshot().tabs) {
+        if (leafIds(tab.layout).every((id) => ids.has(id)))
+          changed = pins.delete(tab.id) || changed;
+      }
+      projectReturn.current = new Map(
+        [...projectReturn.current].filter(([, id]) => !ids.has(id)),
+      );
+      if (changed) refreshPins((value) => value + 1);
+    },
+    [pins, snapshot],
+  );
+
+  // Cancellation invalidates navigation, but the underlying checkout move
+  // remains locked until its asynchronous cleanup has completed.
+  const isMoving = useCallback((id: string) => moves.current.has(id), []);
+  const hasMoveInto = useCallback(
+    (path: string) =>
+      [...moves.current.values()].some((move) =>
+        isEqualOrInside(move.path, path),
+      ),
+    [],
+  );
+  const beginMove = useCallback((id: string, path: string) => {
+    if (moves.current.has(id)) return null;
+    const move = { path };
+    moves.current.set(id, move);
+    return () => {
+      if (moves.current.get(id) === move) moves.current.delete(id);
+    };
+  }, []);
+
   const cancel = useCallback(() => {
     request.current = null;
     setPending(null);
     setError(null);
   }, []);
+  const setActiveTabId = useCallback(
+    (id: string) => {
+      cancel();
+      latest.current.setActiveTabId(id);
+    },
+    [cancel],
+  );
+  const activateTab = useCallback(
+    (id: string, paneId?: string) => {
+      cancel();
+      latest.current.activateTab(id, paneId);
+    },
+    [cancel],
+  );
 
   const select = useCallback((next: Request) => {
     if (
@@ -136,10 +266,10 @@ export function useWorkspaceNavigation(options: Options) {
             next.project,
           ).filter((entry) => {
             if (isAppViewOnlyTab(entry)) return false;
-            const workspace = view.tabWorkspace(entry, view.sessions);
+            const workspace = tabWorkspace(entry, view.sessions);
             return !workspace || sameProjectPath(workspace, path);
           });
-          const workspace = view.tabWorkspace(tab, view.sessions);
+          const workspace = tabWorkspace(tab, view.sessions);
           const target =
             !workspace || sameProjectPath(workspace, path)
               ? tab
@@ -184,10 +314,7 @@ export function useWorkspaceNavigation(options: Options) {
           if (!isCurrent()) continue;
           // Only a successful, current request publishes the workspace. A
           // superseded move never changes focus or pins an unrelated tab.
-          if (view.pins.get(tabId) !== path) {
-            view.pins.set(tabId, path);
-            refreshPins((value) => value + 1);
-          }
+          pin(tabId, path);
           memory.current.set(key, tabId);
           setWorktreeFocus(next.project, next.focus);
           view.activateTab(tabId);
@@ -197,8 +324,7 @@ export function useWorkspaceNavigation(options: Options) {
             // If restoring the remembered workspace fails, keep that landing
             // usable and label the workspace it actually belongs to.
             if (next.kind === "project") {
-              const landing =
-                view.tabWorkspace(tab, view.sessions) ?? next.project;
+              const landing = tabWorkspace(tab, view.sessions) ?? next.project;
               setWorktreeFocus(
                 next.project,
                 sameProjectPath(landing, next.project)
@@ -223,7 +349,7 @@ export function useWorkspaceNavigation(options: Options) {
       moving.current.clear();
       running.current = false;
     }
-  }, []);
+  }, [pin, tabWorkspace]);
 
   useEffect(() => {
     mounted.current = true;
@@ -246,12 +372,18 @@ export function useWorkspaceNavigation(options: Options) {
     const project = workspaceTabCwd(tab, view.sessions);
     if (!project || project === "~" || isRemoteProjectPath(project)) return;
     const path = worktreeFocus(project)?.path ?? project;
-    if (view.pins.get(tab.id) !== path) {
-      view.pins.set(tab.id, path);
-      refreshPins((value) => value + 1);
-    }
+    pin(tab.id, path);
     memory.current.set(workspaceKey(project, path), tab.id);
-  }, [options.project, options.activeTabId, focusedId]);
+  }, [options.project, options.activeTabId, focusedId, pin]);
+
+  useEffect(() => {
+    readProjectReturnMemory();
+  }, [
+    options.activeTabId,
+    options.tabs,
+    options.sessions,
+    readProjectReturnMemory,
+  ]);
 
   useEffect(() => {
     void drain();
@@ -265,7 +397,8 @@ export function useWorkspaceNavigation(options: Options) {
   ]);
 
   const isSwitching = useCallback((sessionId: string) => {
-    if (moving.current.has(sessionId)) return true;
+    if (moving.current.has(sessionId) || moves.current.has(sessionId))
+      return true;
     const next = request.current;
     const view = latest.current;
     return (
@@ -283,6 +416,17 @@ export function useWorkspaceNavigation(options: Options) {
   }, []);
 
   return {
+    activateTab,
+    setActiveTabId,
+    tabWorkspace,
+    keepWorkspaceTab,
+    readProjectReturnMemory,
+    pinSessionToCurrentWorkspace,
+    unpinSession,
+    forgetSessions,
+    isMoving,
+    hasMoveInto,
+    beginMove,
     selectWorkspace,
     selectProject,
     cancel,
@@ -292,3 +436,5 @@ export function useWorkspaceNavigation(options: Options) {
     revision,
   };
 }
+
+export type WorkspaceNavigation = ReturnType<typeof useWorkspaceNavigation>;

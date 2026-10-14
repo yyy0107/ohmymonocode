@@ -131,6 +131,7 @@ import {
 import { SessionTitleCoordinator } from "../../integrations/harness/core/titleCoordinator";
 import { createPath, notifyGitChanged } from "../../platform/tauri/fs";
 import { isEqualOrInside, pathKey } from "../../shared/lib/paths";
+import type { WorkspaceNavigation } from "../hooks/useWorkspaceNavigation";
 import {
   nudgeOpenEditors,
   nudgeWorkspace,
@@ -146,7 +147,6 @@ import {
   submitAfterProjectSync,
   type SubmissionAcceptance,
 } from "../model/submissionAcceptance";
-import { currentWorkspace } from "../model/workspaceSelectors";
 import type { WorkspaceSessionData } from "../model/workspaceSessionData";
 import type { Submit, SubmitOptions } from "./workspaceTypes";
 
@@ -165,8 +165,10 @@ type Options = {
   editedResends: EditedResendCoordinator;
   flushHarnessEvents: () => void;
   enqueueHarnessEvent: (sessionId: string, event: HarnessEvent) => void;
-  switchingWorktrees: RefObject<Map<string, string>>;
-  isWorkspaceSwitching: (sessionId: string) => boolean;
+  navigation: Pick<
+    WorkspaceNavigation,
+    "isSwitching" | "pinSessionToCurrentWorkspace"
+  >;
   removingWorktreePaths: RefObject<Set<string>>;
   setSessions: Dispatch<SetStateAction<Session[]>>;
   setProjectCwd: Dispatch<SetStateAction<string>>;
@@ -178,7 +180,6 @@ type Options = {
   applyProjectLocationChange: (from: string, to: string) => Promise<void>;
   turnGen: RefObject<Map<string, number>>;
   titleCoordinator: RefObject<SessionTitleCoordinator | null>;
-  workspacePins: RefObject<Map<string, string>>;
   activeSessionIdRef: RefObject<string | undefined>;
 };
 
@@ -188,8 +189,7 @@ export function useSessionSubmission({
   editedResends,
   flushHarnessEvents,
   enqueueHarnessEvent,
-  switchingWorktrees,
-  isWorkspaceSwitching,
+  navigation,
   removingWorktreePaths,
   setSessions,
   setProjectCwd,
@@ -199,7 +199,6 @@ export function useSessionSubmission({
   applyProjectLocationChange,
   turnGen,
   titleCoordinator,
-  workspacePins,
   activeSessionIdRef,
 }: Options) {
   const submitSession = useCallback(
@@ -251,8 +250,7 @@ export function useSessionSubmission({
       }
       if (
         sessionData.isRemoving(sessionId) ||
-        switchingWorktrees.current.has(sessionId) ||
-        isWorkspaceSwitching(sessionId)
+        navigation.isSwitching(sessionId)
       )
         return false;
       const storedCurrent = sessionsRef.current.find((s) => s.id === sessionId);
@@ -964,7 +962,7 @@ export function useSessionSubmission({
             return;
           }
           workCwd = tree.path;
-          workspacePins.current.set(sessionId, currentWorkspace(current.cwd));
+          navigation.pinSessionToCurrentWorkspace(sessionId, current.cwd);
           if (proposalDraft)
             proposalDraft = { ...proposalDraft, checkoutCwd: tree.path };
           setSessions((prev) =>
@@ -1527,7 +1525,7 @@ export function useSessionSubmission({
   const onSubmit = useCallback(
     (...args: Parameters<Submit>): boolean => {
       // Reject before async preparation can make the composer clear its draft.
-      if (isWorkspaceSwitching(args[0])) return false;
+      if (navigation.isSwitching(args[0])) return false;
       const questionAnswer = args[3]?.questionAnswer;
       if (questionAnswer) {
         const session = sessionsRef.current.find(

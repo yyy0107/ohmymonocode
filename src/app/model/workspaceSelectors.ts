@@ -4,7 +4,6 @@ import {
 } from "../../features/connections/model/connections";
 import { isBlankSession } from "../../features/projects/model/projectReturn";
 import { type Session } from "../../features/sessions/model/session";
-import { worktreeFocus } from "../../features/source-control/model/worktreeFocus";
 import {
   firstLeafId,
   focusedFileTab,
@@ -50,11 +49,6 @@ export function filesInWorkspaceTabs(
     ...tab.editorPanes.flatMap((pane) => pane.files),
     ...(tab.terminalPanes ?? []).flatMap((pane) => pane.files),
   ]);
-}
-
-/** The worktree a project's workspace currently shows. */
-export function currentWorkspace(project: string): string {
-  return worktreeFocus(project)?.path ?? project;
 }
 
 export function selectedChangePath(

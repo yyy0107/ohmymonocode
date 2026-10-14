@@ -165,6 +165,7 @@ vi.mock("./shell/MenuBar", async () => {
         { "data-menu": true },
         ...[
           "App: Settings",
+          "App: Open Project",
           "View: Inbox",
           "View: Notes",
           "View: Automations",
@@ -2491,6 +2492,34 @@ describe("App multi-project history", () => {
     expect(workspace(firstId).querySelector('[data-session="first"]')?.getAttribute("data-session-cwd")).toBe("/repo");
     expect(workspace().querySelector('[data-session]')?.getAttribute("data-session-cwd")).toBe("/project-b");
     expect(getComposerDraft("first")).toBe("Keep this in repo");
+  });
+
+  it("focuses a newly created project selected again in a folder batch and leaves the page", async () => {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    await mount();
+    setComposerDraft("first", "Keep this in repo");
+    await click('[data-command="View: Notes"]');
+    vi.mocked(open).mockResolvedValueOnce(["/project-a", "/project-b", "/project-a"]);
+    await click('[data-command="App: Open Project"]');
+    expect(container.querySelector('[data-app-page="notes"]')?.getAttribute("aria-hidden")).toBe("true");
+    expect(workspace().querySelector('[data-session]')?.getAttribute("data-session-cwd")).toBe("/project-a");
+    expect(container.querySelectorAll('[data-session-cwd="/project-a"]')).toHaveLength(1);
+    expect(container.querySelectorAll('[data-session-cwd="/project-b"]')).toHaveLength(1);
+    expect(getComposerDraft("first")).toBe("Keep this in repo");
+    expect(workspace(firstId).querySelector('[data-session="first"]')?.getAttribute("data-session-cwd")).toBe("/repo");
+  });
+
+  it("keeps the current page and draft when the folder picker is dismissed", async () => {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    await mount();
+    setComposerDraft("first", "Keep my prompt");
+    await click('[data-command="View: Notes"]');
+    vi.mocked(open).mockResolvedValueOnce(null);
+    await click('[data-command="App: Open Project"]');
+    expect(container.querySelector('[data-app-page="notes"]')?.getAttribute("aria-hidden")).toBe("false");
+    expect(activeTabId()).toBe(firstId);
+    expect(getComposerDraft("first")).toBe("Keep my prompt");
+    expect(container.querySelectorAll('[data-workspace-tab]')).toHaveLength(2);
   });
 
   it("protects a pinned blank before its persistence finishes", async () => {

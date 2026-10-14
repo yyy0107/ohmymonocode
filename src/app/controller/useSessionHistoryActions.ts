@@ -52,6 +52,7 @@ import {
 } from "../../integrations/harness";
 import { SessionTitleCoordinator } from "../../integrations/harness/core/titleCoordinator";
 import { isEqualOrInside, pathKey } from "../../shared/lib/paths";
+import type { WorkspaceNavigation } from "../hooks/useWorkspaceNavigation";
 import { bindResumedSessions } from "../model/appLifecycle";
 import { confirmDiscardUnsaved } from "../model/confirmDiscardUnsaved";
 import { filesInWorkspaceTabs } from "../model/workspaceSelectors";
@@ -86,7 +87,7 @@ type Options = {
   tabsRef: RefObject<WorkspaceTab[]>;
   projectTerminalsRef: RefObject<ProjectTerminalDock[]>;
   removingWorktreePaths: RefObject<Set<string>>;
-  switchingWorktrees: RefObject<Map<string, string>>;
+  navigation: Pick<WorkspaceNavigation, "isMoving" | "hasMoveInto">;
   stopSessionForRemoval: (sessionId: string) => Promise<Session | undefined>;
   projectCwdRef: RefObject<string>;
   setProjectCwd: Dispatch<SetStateAction<string>>;
@@ -107,11 +108,7 @@ type Options = {
   dirtyFilesRef: RefObject<Set<string>>;
   setDirtyFiles: Dispatch<SetStateAction<Set<string>>>;
   setTabs: Dispatch<SetStateAction<WorkspaceTab[]>>;
-  activateTab: (
-    id: string,
-    paneId?: string | undefined,
-    reason?: "session" | "workspace",
-  ) => void;
+  activateTab: (id: string, paneId?: string) => void;
   setComposerFocused: Dispatch<SetStateAction<boolean>>;
   projectTerminalFocusedRef: RefObject<boolean>;
   appViewFocusedRef: RefObject<
@@ -141,7 +138,7 @@ export function useSessionHistoryActions({
   tabsRef,
   projectTerminalsRef,
   removingWorktreePaths,
-  switchingWorktrees,
+  navigation,
   stopSessionForRemoval,
   projectCwdRef,
   setProjectCwd,
@@ -237,11 +234,7 @@ export function useSessionHistoryActions({
       const lockedIds = new Set<string>();
       const forgottenIds = new Set<string>();
       try {
-        if (
-          [...switchingWorktrees.current.values()].some((target) =>
-            isEqualOrInside(target, path),
-          )
-        ) {
+        if (navigation.hasMoveInto(path)) {
           throw new Error(
             "A session is selecting this worktree. Try deleting it again once selection finishes.",
           );
@@ -261,7 +254,7 @@ export function useSessionHistoryActions({
         if (
           ids.some(
             (id) =>
-              sessionData.isRemoving(id) || switchingWorktrees.current.has(id),
+              sessionData.isRemoving(id) || navigation.isMoving(id),
           )
         ) {
           throw new Error(
@@ -361,7 +354,7 @@ export function useSessionHistoryActions({
     ): Promise<boolean> => {
       if (
         sessionData.isRemoving(sessionId) ||
-        switchingWorktrees.current.has(sessionId) ||
+        navigation.isMoving(sessionId) ||
         deleteConfirmationPending.current
       )
         return false;
