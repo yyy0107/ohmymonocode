@@ -183,6 +183,19 @@ function pointer(
 }
 
 describe("workspace split resize handles", () => {
+  it("lets tools cover a lone conversation while its rendered minimum stays fixed", () => {
+    const { handle, separator, onRatio } = render("right", {
+      sessions: [{ id: "first", title: "Chat", cwd: "/project", blocks: [] } as unknown as Session],
+    });
+    pointer(handle, "pointerdown", 600, 500);
+    pointer(handle, "pointermove", 200, 500);
+    expect(separator.getAttribute("aria-valuenow")).toBe("10");
+    const chat = container.querySelector<HTMLElement>('[data-pane-id="first"]')!;
+    expect(chat.style.minWidth).toBe("var(--desktop-conversation-min-width)");
+    pointer(handle, "pointerup", 200, 500);
+    expect(onRatio).toHaveBeenCalledExactlyOnceWith("split", 0, expect.closeTo(0.1));
+  });
+
   it("keeps chat and editor subtrees memoized throughout sash resizing", () => {
     const { handle } = render("right", {
       sessions: [
@@ -214,6 +227,20 @@ describe("workspace split resize handles", () => {
     expect(paneRenders.session).toHaveBeenCalledTimes(1);
     expect(paneRenders.file).toHaveBeenCalledTimes(1);
     expect(paneRenders.layout).toHaveBeenCalledTimes(2);
+  });
+
+  it("clamps both ends of a tool split and permits an immediate reversal and second drag", () => {
+    const { handle, separator, onRatio } = render("right");
+    pointer(handle, "pointerdown", 600, 500);
+    pointer(handle, "pointermove", 50, 500);
+    expect(separator.getAttribute("aria-valuenow")).toBe("28");
+    pointer(handle, "pointermove", 1500, 500);
+    expect(separator.getAttribute("aria-valuenow")).toBe("72");
+    pointer(handle, "pointerup", 650, 500);
+    expect(onRatio).toHaveBeenLastCalledWith("split", 0, 0.55);
+    pointer(handle, "pointerdown", 600, 500);
+    pointer(handle, "pointerup", 50, 500);
+    expect(onRatio).toHaveBeenLastCalledWith("split", 0, 0.28);
   });
 
   it("uses the latest file handlers and keeps the source session after focus and session changes", () => {

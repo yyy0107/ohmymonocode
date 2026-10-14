@@ -20,8 +20,7 @@ export function SidebarChromeDivider() {
       const rect = sidebar.getBoundingClientRect();
       const paneRect = pane.getBoundingClientRect();
       const chromeLeft = chrome.getBoundingClientRect().left;
-      const inset = parseFloat(getComputedStyle(sidebar).getPropertyValue("--desktop-sidebar-inset"));
-      const edge = rect.right - inset;
+      const edge = rect.right;
       const left = edge - chromeLeft;
       if (rect.width > 0 && rect.width !== previousWidth) {
         chrome.style.setProperty("--desktop-sidebar-chrome-width", `${rect.width}px`);

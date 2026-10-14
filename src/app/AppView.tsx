@@ -262,9 +262,8 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
   const liftPageHeader = (appPage === "inbox" || appPage === "notes" || appPage === "automations" || appPage === "workflows") && !appDialog && !menuBarPinned;
   const activeLeaves = activeTab ? leafIds(activeTab.layout) : [];
   const singleConversation = activeLeaves.filter(id => sessions.some(session => session.id === id)).length === 1;
-  const hasWorkspacePanel = activeLeaves.length > 1 || sidebarTab !== "sessions" || !!currentProjectDock?.open;
   const liftSessionHeader = workspaceVisible && !appDialog && !menuBarPinned &&
-    singleConversation && hasWorkspacePanel && activeTab?.surfaceMode !== "unified";
+    singleConversation && (activeLeaves.length === 1 || activeTab?.surfaceMode !== "unified");
 
   const sidebarProps: SidebarProps = {
     navigation: sidebarNavigation,

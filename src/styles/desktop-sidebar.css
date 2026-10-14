@@ -284,18 +284,18 @@ html[data-skin] [data-desktop-sidebar] {
   --desktop-sidebar-title-line: 20px;
   --desktop-sidebar-title-weight: 400;
   --desktop-sidebar-group-row: 32px;
-  padding-inline: var(--desktop-sidebar-inset);
-  background: var(--color-panel);
+  padding-inline: var(--desktop-sidebar-inset) 0;
+  background: var(--color-app);
   font-size: 14px;
   line-height: 21px;
 }
 
-/* Keep the divider at the list's scrollbar edge and the drag target in the gutter. */
+/* The sidebar ends at its divider; the drag target overlays the workspace edge. */
 html[data-skin] [data-desktop-sidebar]::after {
   content: "";
   position: absolute;
   inset-block: 0;
-  right: var(--desktop-sidebar-inset);
+  right: 0;
   width: 0.5px;
   background: var(--color-composer-ring);
   pointer-events: none;
@@ -311,7 +311,7 @@ html[data-skin] [data-sidebar-chrome-divider] {
 }
 
 html[data-skin] .sidebar-transition:has([data-desktop-sidebar]) > .resize-handle[data-resize-edge="right"] {
-  right: 0;
+  right: calc(-1 * var(--desktop-sidebar-inset));
   width: var(--desktop-sidebar-inset);
 }
 
@@ -322,6 +322,10 @@ html[data-skin] .sidebar-transition:has([data-desktop-sidebar]) > .resize-handle
 /* Pointer resizing owns the width until release; disclosure motion owns it otherwise. */
 .sidebar-transition[data-resizing] {
   width: var(--sidebar-resize-width) !important;
+}
+
+html[data-skin] .sidebar-transition[data-resizing]:has([data-desktop-sidebar]) {
+  width: max(0px, calc(var(--sidebar-resize-width) - var(--desktop-sidebar-inset))) !important;
 }
 
 html[data-skin] [data-desktop-sidebar-header] {

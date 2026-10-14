@@ -1,6 +1,8 @@
 /* Measured desktop geometry. Mobile removes data-skin before applying its theme. */
+/* Keep the drag value untyped: WebKitGTK 2.52 applies native page zoom twice to
+   registered <length> values when they are substituted into width. */
 @property --sidebar-resize-width {
-  syntax: "<length>";
+  syntax: "*";
   inherits: false;
   initial-value: 0px;
 }
@@ -98,6 +100,7 @@ html[data-skin] {
   --desktop-sidebar-action-inset: 2px;
   --desktop-sidebar-action-gap: 4px;
   --desktop-conversation-min-width: 420px;
+  --desktop-pane-min-width: 280px;
   --desktop-transcript-edge-height: 20px;
   --desktop-transcript-edge-blur: 4px;
   --desktop-tile-gap: 12px;

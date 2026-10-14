@@ -987,6 +987,7 @@ function SidebarComponent(props: SidebarProps) {
     <SidebarTransition
       open={open}
       width={resize.width}
+      trailingInset={props.desktopMode ? "var(--desktop-sidebar-inset)" : undefined}
       dragging={resize.dragging}
       setPaneRef={resize.setPaneRef}
       finishDrag={resize.finishDrag}
@@ -1005,8 +1006,8 @@ function SidebarComponent(props: SidebarProps) {
     >
       <aside
         data-desktop-sidebar={props.desktopMode}
-        className="sidebar-glass relative flex h-full min-h-0 shrink-0 flex-col"
-        style={{ width: resize.dragging ? "100%" : resize.width }}
+        className={`${props.desktopMode ? "" : "sidebar-glass "}relative flex h-full min-h-0 shrink-0 flex-col`}
+        style={{ width: props.desktopMode || resize.dragging ? "100%" : resize.width }}
       >
         {props.desktopMode ? <SidebarChromeDivider /> : null}
         {props.desktopMode && !props.chromeInMenuBar ? (

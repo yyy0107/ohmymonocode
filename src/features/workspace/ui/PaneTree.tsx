@@ -1,4 +1,5 @@
 import { fitToolLayout } from "../model/fitToolLayout";
+import { fitPaneWidths, paneWidthBounds } from "../model/paneWidths";
 import { beginPaneResize, isPaneResizing, onPaneResizeSettled } from "../../../shared/lib/paneResize";
 import { motion, useAnimationControls, type TargetAndTransition } from "motion/react";
 import { panelTransition, immediateTransition, motionDistance } from "../../../shared/motion/tokens";
@@ -496,7 +497,7 @@ function PaneTreeComponent({
   // A lone chat, or full view, owns a full-width top bar (title, tools,
   // window controls). The shell can lift a single chat's header into its title
   // row; otherwise split columns keep their own headers.
-  const promoteHeader = !!sessionHeaderHost && visible && hasOwnerSession && !unified;
+  const promoteHeader = !!sessionHeaderHost && visible && hasOwnerSession && (!unified || !inSplit);
   const ownerTopBar = hasOwnerSession && (unified || !inSplit || promoteHeader);
   // Split view draws every column as a card on a tinted gutter, each with its
   // own header: chats side by side, and a chat beside its documents.
@@ -524,22 +525,28 @@ function PaneTreeComponent({
         : leaves.some((leaf) => leaf.id === maximizedId)
           ? (maximizedId ?? undefined)
           : undefined;
+  const sessionPaneIds = sessionLeaves.map(pane => pane.id).sort().join("\n");
   const fitCallback = useRef(onFitLayout);
   fitCallback.current = onFitLayout;
   const fittedSize = useRef("");
   useLayoutEffect(() => {
     const container = treeRef.current;
-    if (!container || !visible || !ownerSession || unified) return;
+    if (!container || !visible || unified) return;
     let measuredWidth = container.clientWidth;
     const chatMinimum = parseFloat(getComputedStyle(container).getPropertyValue("--desktop-conversation-min-width")) || 420;
-    const capChatWidth = () => {
+    const toolMinimum = parseFloat(getComputedStyle(container).getPropertyValue("--desktop-pane-min-width")) || 280;
+    const chats = new Set(sessionPaneIds.split("\n"));
+    const minimumWidth = (id: string) => paneTrackMinimumWidth(id, chats, chatMinimum, toolMinimum);
+    const capPaneWidths = () => {
       if (measuredWidth <= 0) return;
       // A size-query container here makes WebKit reevaluate the entire chat
-      // on every pixel. This cap changes only below the conversation minimum.
-      const minimum = `${Math.min(measuredWidth, chatMinimum)}px`;
-      for (const pane of container.querySelectorAll<HTMLElement>(":scope > [data-pane-chat-edge]")) {
-        if (pane.style.getPropertyValue("--pane-chat-min-width") !== minimum) {
-          pane.style.setProperty("--pane-chat-min-width", minimum);
+      // on every pixel. Only tools cap their minimum to the available width;
+      // conversations keep their full width while tools cover the excess.
+      for (const pane of container.querySelectorAll<HTMLElement>(":scope > [data-pane-id]")) {
+        if (chats.has(pane.dataset.paneId!)) continue;
+        const minimum = `${Math.min(measuredWidth, toolMinimum)}px`;
+        if (pane.style.getPropertyValue("--pane-min-width") !== minimum) {
+          pane.style.setProperty("--pane-min-width", minimum);
         }
       }
     };
@@ -550,24 +557,25 @@ function PaneTreeComponent({
       if (requestedUnified || maximized || !fitCallback.current) return;
       const width = measuredWidth;
       if (width <= 0) return;
-      // Sash edits keep the user's ratios; refit only for new panes or a new available width.
-      const key = `${Math.round(width)}:${ownerSession.id}:${layoutLeaves(layout).map(pane => pane.id).sort().join(",")}`;
+      // Sash edits keep the user's ratios; refit for topology or available-width changes.
+      const key = `${Math.round(width)}:${sessionPaneIds}:${layoutLeaves(layout).map(pane => pane.id).join(",")}:${layoutSashes(layout).map(sash => `${sash.splitId}/${sash.dir}`).join(",")}`;
       if (key === fittedSize.current) return;
       fittedSize.current = key;
-      const next = fitToolLayout(layout, ownerSession.id, width, chatMinimum);
+      const tools = ownerSession ? fitToolLayout(layout, ownerSession.id, width, chatMinimum, toolMinimum) : layout;
+      const next = fitPaneWidths(tools, width, minimumWidth);
       if (next !== layout) fitCallback.current?.(layout, next);
     };
-    capChatWidth();
+    capPaneWidths();
     fit();
     const observer = new ResizeObserver(([entry]) => {
       if (entry) measuredWidth = entry.contentRect.width;
-      capChatWidth();
+      capPaneWidths();
       fit();
     });
     observer.observe(container);
     const unsubscribe = onPaneResizeSettled(fit);
     return () => { observer.disconnect(); unsubscribe(); };
-  }, [layout, visible, ownerSession?.id, unified, requestedUnified, maximized]);
+  }, [layout, visible, ownerSession?.id, sessionPaneIds, unified, requestedUnified, maximized]);
 
   // The card that was maximized before full view was requested, if any.
   const fullViewTarget = useRef<string | undefined>(undefined);
@@ -976,11 +984,18 @@ function PaneTreeComponent({
                 event.currentTarget.scrollTop = 0;
               }}
               style={{
+                minWidth: expanded && (session || !unified)
+                  ? session
+                    ? "var(--desktop-conversation-min-width)"
+                    : "var(--pane-min-width, var(--desktop-pane-min-width))"
+                  : undefined,
                 translate: paneDrag?.offsets.get(leaf.id),
                 transition: paneDrag && !reduced ? "translate 0.24s cubic-bezier(0.22, 1, 0.36, 1)" : undefined,
                 ...(surfaceGrid
                   ? {
                       ...surfaceGrid.placements.get(leaf.id),
+                      width: "100%",
+                      justifySelf: leaf.rect.x + leaf.rect.w > 1 - PANE_BOUNDARY_EPSILON ? "end" : "start",
                       ...backgroundStyle,
                     }
                   : unified
@@ -989,10 +1004,7 @@ function PaneTreeComponent({
                         ...backgroundStyle,
                       }
                     : {
-                        left: `${leaf.rect.x * 100}%`,
-                        top: `${leaf.rect.y * 100}%`,
-                        width: `${leaf.rect.w * 100}%`,
-                        height: `${leaf.rect.h * 100}%`,
+                        ...panePositionStyle(leaf.rect),
                         ...backgroundStyle,
                       }),
               }}
@@ -1166,6 +1178,7 @@ function PaneTreeComponent({
               key={`${sash.splitId}:${sash.index}`}
               sash={sash}
               layout={layout}
+              sessionPaneIds={sessionPaneIds}
               visible={visible && parentVisible && !maximized && !paneDrag}
               containerRef={treeRef}
               onStart={() => {
@@ -1288,6 +1301,18 @@ function paneBackgroundStyle(
   } as CSSProperties;
 }
 
+/** Anchor the outer right edge when minimum widths overlap in a narrow window. */
+function panePositionStyle(rect: LayoutLeaf["rect"]): CSSProperties {
+  const right = rect.x > PANE_BOUNDARY_EPSILON && rect.x + rect.w > 1 - PANE_BOUNDARY_EPSILON;
+  return {
+    left: right ? "auto" : `${rect.x * 100}%`,
+    right: right ? 0 : "auto",
+    top: `${rect.y * 100}%`,
+    width: `${rect.w * 100}%`,
+    height: `${rect.h * 100}%`,
+  };
+}
+
 function sashStyle(sash: LayoutSash): CSSProperties {
   const boundary = sash.sizes
     .slice(0, sash.index + 1)
@@ -1335,12 +1360,7 @@ function paintPaneLayout(
         element.style,
         surface
           ? surface.placements.get(pane.id)
-          : {
-              left: `${pane.rect.x * 100}%`,
-              top: `${pane.rect.y * 100}%`,
-              width: `${pane.rect.w * 100}%`,
-              height: `${pane.rect.h * 100}%`,
-            },
+          : panePositionStyle(pane.rect),
       );
     }
     const sash = sashes.get(element.dataset.paneSash ?? "");
@@ -1355,9 +1375,16 @@ function paintPaneLayout(
   return surface;
 }
 
+/** A lone chat paints at 420px even when its grid track gives way to tools. */
+function paneTrackMinimumWidth(id: string, chats: ReadonlySet<string>, chatMinimum: number, toolMinimum: number) {
+  if (!chats.has(id)) return toolMinimum;
+  return chats.size === 1 ? 0 : chatMinimum;
+}
+
 function Sash({
   sash,
   layout,
+  sessionPaneIds,
   visible,
   containerRef,
   onStart,
@@ -1367,6 +1394,7 @@ function Sash({
 }: {
   sash: LayoutSash;
   layout: LayoutNode;
+  sessionPaneIds: string;
   visible: boolean;
   containerRef: { current: HTMLDivElement | null };
   onStart: () => void;
@@ -1412,6 +1440,12 @@ function Sash({
           const handle = e.currentTarget;
           const parent = containerRef.current;
           if (!parent) return;
+          const rect = parent.getBoundingClientRect();
+          const styles = getComputedStyle(parent);
+          const chatMinimum = parseFloat(styles.getPropertyValue("--desktop-conversation-min-width")) || 420;
+          const toolMinimum = parseFloat(styles.getPropertyValue("--desktop-pane-min-width")) || 280;
+          const chats = new Set(sessionPaneIds.split("\n"));
+          const bounds = paneWidthBounds(layout, sash, rect.width, id => paneTrackMinimumWidth(id, chats, chatMinimum, toolMinimum));
           handle.setPointerCapture(e.pointerId);
           setDragging(true);
           const previousTransition = parent.style.transitionProperty;
@@ -1421,7 +1455,6 @@ function Sash({
           document.documentElement.classList.add("is-resizing");
           callbacks.current.onStart();
           const endPaneResize = beginPaneResize();
-          const rect = parent.getBoundingClientRect();
           const restoreSelection = suppressTextSelection();
           const previousCursor = document.body.style.cursor;
           document.body.style.cursor = row ? "col-resize" : "row-resize";
@@ -1433,7 +1466,8 @@ function Sash({
           const sample = (ev: PointerEvent) => {
             if (span <= 0) return false;
             const pos = row ? ev.clientX : ev.clientY;
-            const next = boundary + (pos - startPointer) / span;
+            const requested = boundary + (pos - startPointer) / span;
+            const next = bounds ? Math.max(bounds.min, Math.min(bounds.max, requested)) : requested;
             if (next === nextBoundary) return false;
             moved = true;
             nextBoundary = next;

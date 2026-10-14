@@ -760,7 +760,6 @@ html[data-skin][data-desktop-mode] [data-pane-tree-layout][data-chat-overlap] {
 
 html[data-skin][data-desktop-mode] [data-chat-overlap] > [data-pane-chat-edge][aria-hidden="false"] {
   width: 100%;
-  min-width: var(--pane-chat-min-width, var(--desktop-conversation-min-width));
   justify-self: start;
   z-index: 0;
 }

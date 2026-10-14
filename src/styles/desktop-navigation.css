@@ -136,7 +136,7 @@ html[data-skin][data-desktop-mode] [data-window-page-header] [data-app-page-head
 html[data-skin][data-desktop-mode] .desktop-titlebar-navigation {
   display: flex;
   align-items: center;
-  width: max(228px, calc(var(--desktop-sidebar-chrome-width, var(--desktop-sidebar-width)) - var(--desktop-sidebar-inset) - 20px));
+  width: max(228px, calc(var(--desktop-sidebar-chrome-width, var(--desktop-sidebar-width)) - 20px));
   max-width: 100%;
   gap: var(--desktop-titlebar-action-gap);
   flex-shrink: 0;
@@ -149,7 +149,7 @@ html[data-skin][data-desktop-mode] .desktop-titlebar-navigation [data-window-vis
 /* Anchor to the sidebar edge in window chrome, independent of nav flex sizing. */
 html[data-skin][data-desktop-mode] .desktop-titlebar-mode-slot {
   position: absolute;
-  left: calc(var(--desktop-sidebar-chrome-width, var(--desktop-sidebar-width)) - var(--desktop-sidebar-inset) - 80px);
+  left: calc(var(--desktop-sidebar-chrome-width, var(--desktop-sidebar-width)) - 80px);
   top: 50%;
   transform: translateY(-50%);
   width: 70px;
@@ -182,10 +182,10 @@ html[data-skin][data-desktop-mode].is-mac [data-window-drag-bar] > div:has(> .de
   padding-left: 78px;
 }
 html[data-skin][data-desktop-mode].is-mac .desktop-titlebar-navigation {
-  width: max(228px, calc(var(--desktop-sidebar-chrome-width, var(--desktop-sidebar-width)) - var(--desktop-sidebar-inset) - 88px));
+  width: max(228px, calc(var(--desktop-sidebar-chrome-width, var(--desktop-sidebar-width)) - 88px));
 }
 html[data-skin][data-desktop-mode].is-mac .desktop-titlebar-mode-slot {
-  left: max(236px, calc(var(--desktop-sidebar-chrome-width, var(--desktop-sidebar-width)) - var(--desktop-sidebar-inset) - 80px));
+  left: max(236px, calc(var(--desktop-sidebar-chrome-width, var(--desktop-sidebar-width)) - 80px));
 }
 html[data-skin][data-desktop-mode] .desktop-tools-layout {
   position: relative;
@@ -216,7 +216,7 @@ html[data-skin][data-desktop-mode] .desktop-tools-workspace {
 }
 html[data-skin][data-desktop-mode] .desktop-tools-layout:is([data-tools-side="left"], [data-tools-side="right"]) > .desktop-tools-workspace:has([data-pane-chat-edge]) {
   width: 100%;
-  min-width: min(var(--desktop-conversation-min-width), 100cqw);
+  min-width: var(--desktop-conversation-min-width);
   justify-self: start;
 }
 html[data-skin][data-desktop-mode] .desktop-tools-layout[data-tools-side="left"] > .desktop-tools-workspace:has([data-pane-chat-edge]) {

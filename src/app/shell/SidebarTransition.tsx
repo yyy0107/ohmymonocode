@@ -1,4 +1,4 @@
-import { animate, motion, useMotionValue } from "motion/react";
+import { animate, motion, useMotionTemplate, useMotionValue } from "motion/react";
 import { duration, ease, panelTransition, immediateTransition } from "../../shared/motion/tokens";
 import { useMotionPreference } from "../../shared/motion/useMotionPreference";
 import {
@@ -15,6 +15,8 @@ import { SurfaceVisibilityContext } from "../../shared/ui/SurfaceVisibility";
 type Props = {
   open: boolean;
   width: number;
+  /** Reserved drag gutter excluded from the sidebar's layout and paint bounds. */
+  trailingInset?: string;
   dragging: boolean;
   setPaneRef: (pane: HTMLElement | null) => void;
   finishDrag: () => void;
@@ -97,6 +99,7 @@ export function SidebarRail({
 export function SidebarTransition({
   open,
   width,
+  trailingInset,
   dragging,
   setPaneRef,
   finishDrag,
@@ -107,6 +110,7 @@ export function SidebarTransition({
   const { foldState, finish } = useCollapseMotion(open, SIDEBAR_TRANSITION_MS);
   const hasOpened = useRef(open);
   const animatedWidth = useMotionValue(open ? width : 0);
+  const insetWidth = useMotionTemplate`max(0px, calc(${animatedWidth}px - ${trailingInset ?? "0px"}))`;
   const wasDragging = useRef(false);
   if (open) hasOpened.current = true;
   const attach = useCallback(
@@ -155,14 +159,14 @@ export function SidebarTransition({
       aria-hidden={!open || undefined}
       inert={!open || undefined}
       className="animated-collapse-size sidebar-transition relative h-full min-h-0 shrink-0"
-      style={{ ...SIDEBAR_MOTION_STYLE, width: animatedWidth }}
+      style={{ ...SIDEBAR_MOTION_STYLE, width: trailingInset ? insetWidth : animatedWidth }}
     >
       <motion.div
         initial={false} animate={{ x: open ? 0 : -SIDEBAR_RAIL_WIDTH }}
         transition={dragging || reduced ? immediateTransition : panelTransition}
         className="sidebar-transition-clip absolute inset-y-0 h-full min-h-0 overflow-hidden"
         style={{
-          width: dragging ? "100%" : width,
+          width: dragging ? "100%" : trailingInset ? `max(0px, calc(${width}px - ${trailingInset}))` : width,
           left: 0,
         }}
       >

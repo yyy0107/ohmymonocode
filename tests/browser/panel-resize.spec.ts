@@ -10,7 +10,7 @@ type FixtureWindow = Window & {
   };
 };
 
-test("conversation minimum follows available space without a size-query container", async ({ page }) => {
+test("conversation keeps its 420px minimum even in a narrow viewport", async ({ page }) => {
   await page.goto("/tests/browser/desktop-tools.html?editor=terminal");
   await expect(page.locator('[data-pane-id="tools-session"]')).toBeVisible();
   await page.evaluate(() => (window as FixtureWindow).toolsFixture.setSidebarOpen(false));
@@ -19,10 +19,46 @@ test("conversation minimum follows available space without a size-query containe
     await expect.poll(() => page.locator('[data-pane-tree-layout]').evaluate(el => {
       const chat = el.querySelector('[data-pane-chat-edge]')!;
       const minimum = parseFloat(getComputedStyle(el).getPropertyValue("--desktop-conversation-min-width"));
-      return Math.abs(parseFloat(getComputedStyle(chat).minWidth) - Math.min(el.clientWidth, minimum));
+      return Math.abs(parseFloat(getComputedStyle(chat).minWidth) - minimum);
     })).toBeLessThan(1);
     await expect(page.locator('[data-pane-tree-layout]')).toHaveCSS("container-type", "normal");
   }
+});
+
+test("workspace panes stop at pixel minima and remain readable in a narrow window", async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 800 });
+  await page.goto("/tests/browser/desktop-tools.html?editor=terminal");
+  await expect(page.locator('[data-pane-id="tools-editor"] .xterm')).toBeVisible();
+  await page.evaluate(() => (window as FixtureWindow).toolsFixture.setSidebarOpen(false));
+  await expect.poll(() => resizing(page)).toBe(false);
+  const chat = page.locator('[data-pane-id="tools-session"]');
+  const tool = page.locator('[data-pane-id="tools-editor"]');
+  const handle = page.locator('[data-pane-sash="tools-split:0"] > .resize-handle');
+  const box = (await handle.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + 100);
+  await page.mouse.down();
+  await page.mouse.move(0, box.y + 100);
+  await painted(page);
+  expect((await chat.boundingBox())!.width).toBeCloseTo(420, 0);
+  const chatBox = (await chat.boundingBox())!;
+  const toolBox = (await tool.boundingBox())!;
+  expect(toolBox.x).toBeLessThan(chatBox.x + chatBox.width - 100);
+  await page.mouse.up();
+  const coveringPane = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-pane-id]')?.getAttribute('data-pane-id'), { x: toolBox.x + 20, y: toolBox.y + 80 });
+  expect(coveringPane).toBe("tools-editor");
+  const nextBox = (await handle.boundingBox())!;
+  await page.mouse.move(nextBox.x + nextBox.width / 2, nextBox.y + 100);
+  await page.mouse.down();
+  await page.mouse.move(1400, box.y + 100);
+  await painted(page);
+  expect((await tool.boundingBox())!.width).toBeCloseTo(280, 0);
+  await page.mouse.up();
+  await page.setViewportSize({ width: 360, height: 800 });
+  await expect.poll(async () => (await tool.boundingBox())!.width).toBeGreaterThanOrEqual(280);
+  const layout = (await page.locator('[data-pane-tree-layout]').boundingBox())!;
+  const right = (await tool.boundingBox())!;
+  expect(right.x + right.width).toBeLessThanOrEqual(layout.x + layout.width + 1);
+  expect((await chat.boundingBox())!.width).toBeGreaterThanOrEqual(420 - 1);
 });
 
 test("dock keeps its live size across React updates and pointer release", async ({ page }) => {
@@ -225,8 +261,7 @@ for (const kind of ["tools", "terminal", "explorer", "sidebar"] as const) {
     if (kind === "sidebar") {
       const gap = await page.evaluate(() => {
         const sidebar = document.querySelector("[data-desktop-sidebar]")!;
-        const inset = parseFloat(getComputedStyle(sidebar).getPropertyValue("--desktop-sidebar-inset"));
-        return sidebar.getBoundingClientRect().right - inset - document.querySelector(".desktop-mode-toggle")!.getBoundingClientRect().right;
+        return sidebar.getBoundingClientRect().right - document.querySelector(".desktop-mode-toggle")!.getBoundingClientRect().right;
       });
       expect(gap).toBe(10);
     }

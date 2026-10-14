@@ -186,7 +186,7 @@ export const SIDEBAR_BLUR_MIN = 1;
 export const SIDEBAR_BLUR_MAX = 64;
 export const SIDEBAR_BLUR_DEFAULT = 24;
 
-export const SIDEBAR_WIDTH_MIN = 256;
+export const SIDEBAR_WIDTH_MIN = 232;
 export const SIDEBAR_WIDTH_MAX = 560;
 export const SIDEBAR_WIDTH_DEFAULT = 256;
 

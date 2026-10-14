@@ -829,10 +829,10 @@ afterEach(async () => {
   localStorage.clear();
 });
 
-async function mount(onlyApp = false, side: DockSide = "bottom", seed?: Partial<Session>, strict = false, recentSeed?: Partial<Session>) {
+async function mount(onlyApp = false, side: DockSide = "bottom", seed?: Partial<Session>, strict = false, recentSeed?: Partial<Session>, surfaceMode?: "split" | "unified") {
   const first = { ...newSession("codex", "/repo"), id: "first", ...seed };
   const recent = { ...newSession("codex", "/repo"), id: "recent", ...recentSeed };
-  const firstTab = newTab(first.id);
+  const firstTab = { ...newTab(first.id), surfaceMode };
   const recentTab = newTab(recent.id);
   firstId = firstTab.id;
   recentId = recentTab.id;
@@ -1409,6 +1409,26 @@ describe("terminal dock disclosure motion", () => {
 });
 
 describe("App workspace app views", () => {
+  it.each([
+    { pinned: false, surfaceMode: "split" },
+    { pinned: false, surfaceMode: "unified" },
+    { pinned: true, surfaceMode: "split" },
+    { pinned: true, surfaceMode: "unified" },
+  ] as const)("keeps a lone Code conversation header in window chrome: pinned=$pinned, mode=$surfaceMode", async ({ pinned, surfaceMode }) => {
+    saveMenuBarVisible(pinned);
+    await mount(false, "bottom", { blocks: [{ id: "message", role: "user", text: "Single Code conversation" }] }, false, undefined, surfaceMode);
+    expect(document.documentElement.dataset.desktopMode).toBe("code");
+    const conversation = workspace().querySelector('[data-pane-id="first"]');
+    expect(conversation).not.toBeNull();
+    await click("[data-terminal-hide]");
+    await act(async () => finishMotion());
+    const inChrome = container.querySelectorAll('[data-window-session-header] [data-session-surface-tabs="first"]');
+    const inWorkspace = workspace().querySelectorAll('[data-session-surface-tabs="first"]');
+    expect(inChrome).toHaveLength(pinned ? 0 : 1);
+    expect(inWorkspace).toHaveLength(pinned ? 1 : 0);
+    expect(workspace().querySelector('[data-pane-id="first"]')).toBe(conversation);
+  });
+
   it.each([false, true])("opens the owning project's files from the session header with a pinned menu: %s", async (pinned) => {
     saveMenuBarVisible(pinned);
     await mount(false, "bottom", undefined, false, { cwd: "/project-b" });
