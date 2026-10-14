@@ -57,6 +57,7 @@ import { bindResumedSessions } from "../model/appLifecycle";
 import { confirmDiscardUnsaved } from "../model/confirmDiscardUnsaved";
 import { filesInWorkspaceTabs } from "../model/workspaceSelectors";
 import type { WorkspaceSessionData } from "../model/workspaceSessionData";
+import type { WorkspaceFiles } from "./useWorkspaceFiles";
 import type { LinkedWorkItemPanelState } from "./workspaceTypes";
 
 type Options = {
@@ -105,8 +106,10 @@ type Options = {
   >;
   tabCloseScope: "project";
   activeTabIdRef: RefObject<string>;
-  dirtyFilesRef: RefObject<Set<string>>;
-  setDirtyFiles: Dispatch<SetStateAction<Set<string>>>;
+  fileState: Pick<
+    WorkspaceFiles,
+    "isDirty" | "readDirtyFiles" | "forgetDirtyFiles"
+  >;
   setTabs: Dispatch<SetStateAction<WorkspaceTab[]>>;
   activateTab: (id: string, paneId?: string) => void;
   setComposerFocused: Dispatch<SetStateAction<boolean>>;
@@ -147,8 +150,7 @@ export function useSessionHistoryActions({
   setSessionDeleteDialog,
   tabCloseScope,
   activeTabIdRef,
-  dirtyFilesRef,
-  setDirtyFiles,
+  fileState,
   setTabs,
   activateTab,
   setComposerFocused,
@@ -425,7 +427,7 @@ export function useSessionHistoryActions({
               tabs: tabsRef.current,
               sessions: sessionsRef.current,
               activeTabId: activeTabIdRef.current,
-              dirtyFiles: dirtyFilesRef.current,
+              dirtyFiles: fileState.readDirtyFiles(),
             }),
             apply: (change) => {
               if (change.type === "stopped") {
@@ -457,11 +459,7 @@ export function useSessionHistoryActions({
               const { removal } = change;
               sessionData.resetPersistence(sessionId);
               const closingFiles = filesInWorkspaceTabs(removal.closedTabs);
-              setDirtyFiles((current) => {
-                const next = new Set(current);
-                for (const file of closingFiles) next.delete(file.id);
-                return next;
-              });
+              fileState.forgetDirtyFiles(closingFiles.map((file) => file.id));
               sessionsRef.current = removal.sessions;
               tabsRef.current = removal.tabs;
               setSessions(removal.sessions);
@@ -498,7 +496,7 @@ export function useSessionHistoryActions({
             const files = filesInWorkspaceTabs(closedTabs);
             const unsaved = files.some(
               (file) =>
-                isFilesystemTab(file) && dirtyFilesRef.current.has(file.id),
+                isFilesystemTab(file) && fileState.isDirty(file.id),
             );
             if (
               unsaved &&

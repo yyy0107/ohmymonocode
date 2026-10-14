@@ -34,15 +34,15 @@ import { planWorkspaceTabClose } from "../../features/workspace/model/workspaceT
 import { basename } from "../../platform/tauri/fs";
 import { confirmDiscardUnsaved } from "../model/confirmDiscardUnsaved";
 import { isBlankWorkspaceTab } from "../model/workspaceSelectors";
+import type { WorkspaceFiles } from "./useWorkspaceFiles";
 
 type Options = {
   tabsRef: RefObject<WorkspaceTab[]>;
   sessionsRef: RefObject<Session[]>;
   tabCloseScope: "project";
   tabWorktreeOf: (tab: WorkspaceTab) => string | null;
-  dirtyFilesRef: RefObject<Set<string>>;
+  fileState: Pick<WorkspaceFiles, "isDirty" | "forgetDirtyFiles">;
   persistSession: (session: Session | undefined) => void;
-  setDirtyFiles: Dispatch<SetStateAction<Set<string>>>;
   setTabs: Dispatch<SetStateAction<WorkspaceTab[]>>;
   activeTabIdRef: RefObject<string>;
   activateTab: (id: string, paneId?: string) => void;
@@ -66,9 +66,8 @@ export function useWorkspaceTabClosing({
   sessionsRef,
   tabCloseScope,
   tabWorktreeOf,
-  dirtyFilesRef,
+  fileState,
   persistSession,
-  setDirtyFiles,
   setTabs,
   activeTabIdRef,
   activateTab,
@@ -105,7 +104,7 @@ export function useWorkspaceTabClosing({
         ...(closing.terminalPanes ?? []).flatMap((pane) => pane.files),
       ];
       const unsaved = closingFiles.filter(
-        (file) => isFilesystemTab(file) && dirtyFilesRef.current.has(file.id),
+        (file) => isFilesystemTab(file) && fileState.isDirty(file.id),
       );
       const confirmed = new Set(opts?.confirmedTerminalIds ?? []);
       const terminals = closingFiles.filter(
@@ -125,11 +124,7 @@ export function useWorkspaceTabClosing({
           rememberRemoteSession(sessionId);
           rememberRemotePendingWorktree(sessionId);
         }
-        setDirtyFiles((prev) => {
-          const updated = new Set(prev);
-          for (const file of closingFiles) updated.delete(file.id);
-          return updated;
-        });
+        fileState.forgetDirtyFiles(closingFiles.map((file) => file.id));
         setTabs(next);
         if (id === activeTabIdRef.current && nextActiveTabId) {
           activateTab(nextActiveTabId);
@@ -169,7 +164,7 @@ export function useWorkspaceTabClosing({
         ...(tab.terminalPanes ?? []).flatMap((pane) => pane.files),
       ]);
       const unsaved = closingFiles.filter(
-        (file) => isFilesystemTab(file) && dirtyFilesRef.current.has(file.id),
+        (file) => isFilesystemTab(file) && fileState.isDirty(file.id),
       );
       const terminals = closingFiles.filter((file) => file.terminal);
 
@@ -188,11 +183,7 @@ export function useWorkspaceTabClosing({
           rememberRemoteSession(sessionId);
           rememberRemotePendingWorktree(sessionId);
         }
-        setDirtyFiles((prev) => {
-          const next = new Set(prev);
-          for (const file of closingFiles) next.delete(file.id);
-          return next;
-        });
+        fileState.forgetDirtyFiles(closingFiles.map((file) => file.id));
         setTabs((prev) => prev.filter((tab) => !closingIds.has(tab.id)));
         if (closingIds.has(activeTabIdRef.current)) activateTab(fallback.id);
         void refreshHistory(sidebarCwd);
@@ -244,7 +235,7 @@ export function useWorkspaceTabClosing({
       if (index < 0) return;
       const file = pane.files[index];
       const needsUnsavedConfirm =
-        isFilesystemTab(file) && dirtyFilesRef.current.has(fileId);
+        isFilesystemTab(file) && fileState.isDirty(fileId);
 
       const finishClose = () => {
         const files = pane.files.filter((entry) => entry.id !== fileId);
@@ -264,11 +255,7 @@ export function useWorkspaceTabClosing({
           const sibling = siblingLeafId(tab.layout, paneId);
           const withoutPane = removePane(tab.layout, paneId);
           if (!withoutPane) {
-            setDirtyFiles((prev) => {
-              const next = new Set(prev);
-              next.delete(fileId);
-              return next;
-            });
+            fileState.forgetDirtyFiles([fileId]);
             const closePlan = planWorkspaceTabClose({
               tabs: tabsRef.current,
               sessions: sessionsRef.current,
@@ -333,11 +320,7 @@ export function useWorkspaceTabClosing({
               : entry,
           ),
         );
-        setDirtyFiles((prev) => {
-          const next = new Set(prev);
-          next.delete(fileId);
-          return next;
-        });
+        fileState.forgetDirtyFiles([fileId]);
         if (tab.id === activeTabId && files.length === 0) {
           setComposerFocused(
             sessionsRef.current.some((session) => session.id === nextFocus),
@@ -377,7 +360,7 @@ export function useWorkspaceTabClosing({
     if (closingFiles.length === 0) return;
     const closingIds = new Set(closingFiles.map((file) => file.id));
     const unsaved = closingFiles.filter(
-      (file) => isFilesystemTab(file) && dirtyFilesRef.current.has(file.id),
+      (file) => isFilesystemTab(file) && fileState.isDirty(file.id),
     );
     const terminals = closingFiles.filter((file) => file.terminal);
 
@@ -406,11 +389,7 @@ export function useWorkspaceTabClosing({
           );
         }),
       );
-      setDirtyFiles((prev) => {
-        const next = new Set(prev);
-        for (const id of closingIds) next.delete(id);
-        return next;
-      });
+      fileState.forgetDirtyFiles(closingIds);
     };
 
     void (async () => {
@@ -438,7 +417,7 @@ export function useWorkspaceTabClosing({
         ...(tab.terminalPanes ?? []).flatMap((pane) => pane.files),
       ];
       const unsaved = closingFiles.filter(
-        (file) => isFilesystemTab(file) && dirtyFilesRef.current.has(file.id),
+        (file) => isFilesystemTab(file) && fileState.isDirty(file.id),
       );
 
       const oldSessionId = leafIds(tab.layout).find((paneId) =>
@@ -485,11 +464,7 @@ export function useWorkspaceTabClosing({
         };
 
         setSessions((prev) => [...prev, session]);
-        setDirtyFiles((prev) => {
-          const updated = new Set(prev);
-          for (const file of closingFiles) updated.delete(file.id);
-          return updated;
-        });
+        fileState.forgetDirtyFiles(closingFiles.map((file) => file.id));
         setTabs((prev) =>
           prev.map((entry) =>
             entry.id === id ? resetTabToSession(entry, session.id) : entry,
@@ -574,7 +549,7 @@ export function useWorkspaceTabClosing({
         }
       }
       const unsaved = editorFiles.filter(
-        (file) => isFilesystemTab(file) && dirtyFilesRef.current.has(file.id),
+        (file) => isFilesystemTab(file) && fileState.isDirty(file.id),
       );
 
       const finishClose = () => {
@@ -599,11 +574,7 @@ export function useWorkspaceTabClosing({
         setTabs((prev) =>
           prev.map((entry) => (entry.id === tab.id ? nextTab : entry)),
         );
-        setDirtyFiles((prev) => {
-          const updated = new Set(prev);
-          for (const file of editorFiles) updated.delete(file.id);
-          return updated;
-        });
+        fileState.forgetDirtyFiles(editorFiles.map((file) => file.id));
         setComposerFocused(focusesSession);
       };
 
@@ -638,7 +609,7 @@ export function useWorkspaceTabClosing({
       ...terminalFiles,
     ];
     const unsaved = closingFiles.filter(
-      (file) => isFilesystemTab(file) && dirtyFilesRef.current.has(file.id),
+      (file) => isFilesystemTab(file) && fileState.isDirty(file.id),
     );
     const terminals = closingFiles.filter((file) => file.terminal);
 
@@ -689,7 +660,7 @@ export function useWorkspaceTabClosing({
       if (explorerPane) {
         void (async () => {
           const dirty = explorerPane.files.some((file) =>
-            dirtyFilesRef.current.has(file.id),
+            fileState.isDirty(file.id),
           );
           if (
             dirty &&
@@ -714,11 +685,7 @@ export function useWorkspaceTabClosing({
                 : tab;
             }),
           );
-          setDirtyFiles((current) => {
-            const next = new Set(current);
-            for (const file of explorerPane.files) next.delete(file.id);
-            return next;
-          });
+          fileState.forgetDirtyFiles(explorerPane.files.map((file) => file.id));
         })();
         return;
       }

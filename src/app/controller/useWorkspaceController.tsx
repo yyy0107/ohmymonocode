@@ -12,14 +12,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { flushSync } from "react-dom";
-import { loadEditorPreferences } from "../../features/connections/files/model/editorPreferences";
-import {
-  invalidateProjectFiles,
-  prefetchProjectFiles,
-  rememberOpenedFile,
-  resolveFileOpenRequest,
-  resolveOpenablePath,
-} from "../../features/connections/files/model/fileIndex";
+import { prefetchProjectFiles } from "../../features/connections/files/model/fileIndex";
 import { loadRemoteSession } from "../../features/connections/model/connections";
 import { useInboxActivity } from "../../features/inbox/hooks/useInboxUnseen";
 import type { CiRepairRequest } from "../../features/inbox/model/ciRepair";
@@ -38,8 +31,6 @@ import {
 import { type OrchestrationWorkerDetail } from "../../features/orchestration/ui/OrchestrationActions";
 import {
   findProjectTerminal,
-  moveDockToPane,
-  movePaneToDock,
   type DockSide,
   type ProjectTerminalDock as ProjectTerminal,
 } from "../../features/projects/model/projectTerminal";
@@ -85,42 +76,19 @@ import { newTerminalCwd } from "../../features/terminal/model/terminalTab";
 import { workflowActivityIndex } from "../../features/workflows/model/workflowActivity";
 import { type WorkflowAppActions } from "../../features/workflows/ui/workflowAppContext";
 import {
-  findSurfacePane,
   focusedFileTab,
-  isAppPageKind,
   isAppViewOnlyTab,
-  isFilesystemTab,
   isolateTerminalPanes,
   leafIds,
-  movePane,
-  neighborLeafId,
   newAgentTab,
-  newFileTab,
-  newPlanTab,
   newSubagentTab,
   newTab,
   newWorkflowAgentTab,
   newWorkflowRunTab,
-  openAppViewTab,
-  openChangesTab,
-  openCommitTab,
   openEditorTab,
-  openFileExplorer,
-  openSessionAppView,
-  openSessionChangesTab,
-  pinEditorFile,
   replaceLeafId,
-  setSplitRatio,
   splitPane,
-  surfacePanes,
-  withSurfacePanes,
-  type AppPageKind,
-  type AppViewKind,
   type FilePaneTab,
-  type FocusDir,
-  type LayoutNode,
-  type PaneEdge,
-  type SplitDir,
   type WorkspaceTab,
 } from "../../features/workspace/model/layout";
 import { insertTabBesideActive } from "../../features/workspace/model/tabGroups";
@@ -150,24 +118,14 @@ import { supportsHarnessLogin } from "../../integrations/harness/core/authSuppor
 import { isHarnessAvailable } from "../../integrations/harness/core/availability";
 import { readHarnessSessionTitle } from "../../integrations/harness/core/registry";
 import { SessionTitleCoordinator } from "../../integrations/harness/core/titleCoordinator";
-import {
-  notifyGitChanged,
-  type GitFileDiffKind,
-  type GitHistoryCommit,
-} from "../../platform/tauri/fs";
+import { notifyGitChanged } from "../../platform/tauri/fs";
 import { IS_LINUX, IS_MAC, IS_WIN } from "../../platform/tauri/platform";
 import { translate } from "../../shared/i18n/language";
 import { useTranslation } from "../../shared/i18n/useTranslation";
-import { orderByIds } from "../../shared/lib/reorder";
 import { HELP_URLS, type CommandHandlers } from "../commands/registry";
 import { useCommandDispatcher } from "../commands/useCommandDispatcher";
 import { useEmptySessionCleanup } from "../hooks/useEmptySessionCleanup";
 import { useIdleSessionDetach } from "../hooks/useIdleSessionDetach";
-import { useMouseHistoryNavigation } from "../hooks/useMouseHistoryNavigation";
-import {
-  usePageNavigation,
-  type PageDestination,
-} from "../hooks/usePageNavigation";
 import { useWorkspaceNavigation } from "../hooks/useWorkspaceNavigation";
 import { useWorkspaceSessionData } from "../hooks/useWorkspaceSessionData";
 import { contentTabTarget } from "../model/appViewNavigation";
@@ -194,7 +152,6 @@ import {
 import { useTraySessions } from "../model/traySessions";
 import { readAppVersion, runUpdateFlow } from "../model/updater";
 import {
-  dropOpenFiles,
   openSessionIds,
   sameWorktreeTabStats,
   tabProjectName,
@@ -213,6 +170,9 @@ import { useSessionLaunches } from "./useSessionLaunches";
 import { useSessionSubmission } from "./useSessionSubmission";
 import { useSessionTurnActions } from "./useSessionTurnActions";
 import { useSessionWorktreeActions } from "./useSessionWorktreeActions";
+import { useWorkspaceAppViews } from "./useWorkspaceAppViews";
+import { useWorkspaceFiles } from "./useWorkspaceFiles";
+import { useWorkspacePaneActions } from "./useWorkspacePaneActions";
 import { useWorkspaceShortcuts } from "./useWorkspaceShortcuts";
 import { useWorkspaceTabClosing } from "./useWorkspaceTabClosing";
 import type {
@@ -223,10 +183,6 @@ import type {
 
 import { notifyDirsChanged } from "../../features/connections/files/model/fileTree";
 import { nudgeWatchedFiles } from "../../features/connections/files/model/fileWatch";
-import {
-  type EditorNavigationTarget,
-  type OpenFileFn,
-} from "../../features/search/model/search";
 import {
   finishSessionTurn,
   notifyReviewChanged,
@@ -269,7 +225,6 @@ import {
   type ProviderAccountProvider,
 } from "../../features/providers/model/providerAccounts";
 import { applyAddToChatRequest } from "../../features/sessions/model/addChatToWorkspace";
-import { planTitle } from "../../features/sessions/model/plan";
 import {
   ADD_TO_CHAT_EVENT,
   requestAddToChat,
@@ -292,7 +247,6 @@ import {
 } from "../../features/sessions/model/session";
 import { anchorSessionId } from "../../features/workspace/model/sessionColumns";
 import {
-  applyPlaceSessionOnPane,
   filterTabsForProject,
   findOpenSessionTab,
   focusedWorkspaceTabCwd,
@@ -300,12 +254,7 @@ import {
   workspaceTabWorktree,
 } from "../../features/workspace/model/workspaceTabGroups";
 import { type SessionHeaderActions } from "../../features/workspace/ui/SessionHeaderActions";
-import {
-  isEqualOrInside,
-  pathKey,
-  projectName,
-  rebasePath,
-} from "../../shared/lib/paths";
+import { pathKey, projectName } from "../../shared/lib/paths";
 import { newWorkspaceSession } from "../model/newWorkspaceSession";
 
 import {
@@ -354,8 +303,6 @@ import {
   openReplaceInActiveEditor,
 } from "../../features/connections/files/editor/editorSearch";
 import {
-  OPEN_CONNECTIONS_EVENT,
-  OPEN_REMOTE_PROJECT_EVENT,
   REMOTE_HISTORY_UPDATED,
   cachedRemoteSessionSummary,
   knownRemoteMachine,
@@ -388,7 +335,6 @@ import {
 } from "../../features/inbox/model/gitlab";
 import { inboxAskKey } from "../../features/inbox/model/inboxAsk";
 import { inboxTrackerDescription } from "../../features/inbox/model/inboxContext";
-import type { ConnectableInboxSource } from "../../features/inbox/model/inboxFilters";
 import { markLinkedSessionUpdateSeen } from "../../features/inbox/model/linkedSessionSeen";
 import type { LinkedSessionUpdate } from "../../features/inbox/model/linkedSessionUpdates";
 import {
@@ -403,21 +349,15 @@ import { type OpenSubagentRequest } from "../../features/sessions/ui/SubagentTab
 import {
   loadAutosave,
   loadCloseToTray,
-  loadDiffViewer,
-  loadFileTabMode,
   loadLiveAgentsEnabled,
   loadMenuBarVisible,
   loadNotesEnabled,
-  loadSettingsSection,
   saveAutosave,
   saveMenuBarVisible,
-  saveSettingsSection,
   subscribeLiveAgentsEnabled,
   subscribeMenuBarVisible,
   subscribeNotesEnabled,
-  type SettingsSectionId,
 } from "../../features/settings/model/settings";
-import type { SettingsAnchor } from "../../features/settings/ui/SettingsView";
 
 import {
   allProjectHistoryWithLiveSessions,
@@ -461,12 +401,6 @@ function setsEqual<T>(a: Set<T>, b: Set<T>): boolean {
 function sameItems<T>(a: readonly T[], b: readonly T[]): boolean {
   return a.length === b.length && a.every((item, index) => item === b[index]);
 }
-
-/** App views that open as a dialog instead of a workspace pane. */
-const DIALOG_APP_VIEWS: ReadonlySet<AppViewKind> = new Set<AppViewKind>([
-  "settings",
-  "search",
-]);
 
 // Register capabilities before composer hooks choose their discovery strategy.
 registerBuiltinHarnesses();
@@ -565,14 +499,6 @@ export function useWorkspaceController({
   const dockVisible = !!currentProjectDock?.open;
   const [filesSearchOpen, setFilesSearchOpen] = useState(false);
   const [searchFocusToken, setSearchFocusToken] = useState(0);
-  const [searchViewFocusToken, setSearchViewFocusToken] = useState(0);
-  const [appPage, setAppPage] = useState<AppPageKind | null>(() =>
-    !resumed && !windowTransfer && !lastProjectPath() && loadDesktopMode() === "code" ? "projects" : null,
-  );
-  const closeAppPage = useCallback(() => {
-    setAppPage(null);
-    setComposerFocused(true);
-  }, []);
   const [linkedWorkItemPanels, setLinkedWorkItemPanels] = useState<
     ReadonlyMap<string, LinkedWorkItemPanelState>
   >(() => new Map());
@@ -646,37 +572,77 @@ export function useWorkspaceController({
         return [providerSignInRequestKey(session)];
       }),
     ));
-  const [settingsSection, setSettingsSection] =
-    useState<SettingsSectionId>(loadSettingsSection);
-  const [settingsAnchor, setSettingsAnchor] = useState<SettingsAnchor | null>(
-    null,
-  );
-  const [notificationProjectPath, setNotificationProjectPath] = useState<
-    string | null
-  >(null);
-  const [notificationSettingsRequest, setNotificationSettingsRequest] =
-    useState(0);
-  const [editorNavigations, setEditorNavigations] = useState<
-    Record<
-      string,
-      {
-        ownerSessionId?: string;
-        target: EditorNavigationTarget;
-      }
-    >
-  >({});
-  const editorNavigationToken = useRef(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteQuery, setPaletteQuery] = useState("");
   const [paletteToken, setPaletteToken] = useState(0);
-  const [dirtyFiles, setDirtyFiles] = useState<Set<string>>(
-    () => new Set(windowTransfer?.dirtyFileIds ?? []),
-  );
-  // Not carried across a window transfer the way dirty state is: the editor
-  // re-lints whatever it mounts, so the counts rebuild themselves.
-  const [fileErrorCounts, setFileErrorCounts] = useState<Map<string, number>>(
-    () => new Map(),
-  );
+  const {
+    appPage,
+    showWorkspace,
+    closeAppPage,
+    appDialog,
+    closeAppDialog,
+    appPageHostRef,
+    activeAppView,
+    appViewFocusedRef,
+    workspaceVisible,
+    inboxVisible,
+    tabVisitNav,
+    onVisitBack,
+    onVisitForward,
+    previousTabs,
+    openAppView,
+    onOpenSearch,
+    onSearchEverywhere,
+    onLeaveSearch,
+    searchViewFocusToken,
+    searchQueryRequest,
+    onOpenInbox,
+    onOpenNotes,
+    onLeaveNotes,
+    onOpenAutomations,
+    onLeaveAutomations,
+    onOpenWorkflows,
+    openSettings,
+    onOpenSettings,
+    onCloseSettings,
+    onSelectSettingsSection,
+    onOpenNotificationSettings,
+    onOpenInboxIntegrations,
+    settingsSection,
+    settingsAnchor,
+    notificationProjectPath,
+    notificationSettingsRequest,
+    remoteProjectDialogOpen,
+    setRemoteProjectDialogOpen,
+    assistantMachineId,
+    onOpenAssistant,
+  } = useWorkspaceAppViews({
+    tabs,
+    activeTabId,
+    notesEnabled,
+    initialPage:
+      !resumed &&
+      !windowTransfer &&
+      !lastProjectPath() &&
+      desktopStartup.mode === "code"
+        ? "projects"
+        : null,
+    context: () => ({
+      tabs: tabsRef.current,
+      sessions: sessionsRef.current,
+      activeTabId: activeTabIdRef.current,
+      projectCwd: projectCwdRef.current,
+    }),
+    cancelNavigation: () => workspaceNavigation.cancel(),
+    ensureContentTab: (cwd) => ensureContentTab(cwd),
+    activateTab: (id, paneId) => activateTab(id, paneId),
+    onSelectFileSurface: (paneId, fileId) => onSelectFileSurface(paneId, fileId),
+    setTabs,
+    setPaletteOpen,
+    setProjectTerminalFocused,
+    setComposerFocused,
+  });
+
   const sessionsRef = useRef(sessions);
   sessionsRef.current = sessions;
   const {
@@ -747,8 +713,6 @@ export function useWorkspaceController({
   const linkedWorkItemActivityFetches = useRef(new Map<string, number>());
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
-  const dirtyFilesRef = useRef(dirtyFiles);
-  dirtyFilesRef.current = dirtyFiles;
   const projectTerminalsRef = useRef(projectTerminals);
   projectTerminalsRef.current = projectTerminals;
   const projectTerminalFocusedRef = useRef(projectTerminalFocused);
@@ -757,18 +721,46 @@ export function useWorkspaceController({
   activeTabIdRef.current = activeTabId;
   const historyForCleanupRef = useRef(history);
   historyForCleanupRef.current = history;
-  const pendingTabResources = useRef(new Map<string, number>());
-  const resolveTabResource = useCallback(<T,>(tabId: string, work: Promise<T>) => {
-    pendingTabResources.current.set(
-      tabId,
-      (pendingTabResources.current.get(tabId) ?? 0) + 1,
-    );
-    return work.finally(() => {
-      const remaining = (pendingTabResources.current.get(tabId) ?? 1) - 1;
-      if (remaining) pendingTabResources.current.set(tabId, remaining);
-      else pendingTabResources.current.delete(tabId);
-    });
-  }, []);
+  const files = useWorkspaceFiles({
+    tabs,
+    initialDirtyFileIds: windowTransfer?.dirtyFileIds,
+    context: () => ({
+      tabs: tabsRef.current,
+      sessions: sessionsRef.current,
+      activeTabId: activeTabIdRef.current,
+      projectCwd: projectCwdRef.current,
+      sidebarCwd: sidebarCwdRef.current,
+      gitCwd: gitCwdRef.current,
+    }),
+    ensureContentTab: (cwd) => ensureContentTab(cwd),
+    activateTab: (id, paneId) => activateTab(id, paneId),
+    showWorkspace: () => showWorkspace(),
+    setSidebarTab: (tab, project) => setSidebarTab(tab, project),
+    setTabs,
+    setComposerFocused,
+    setProjectTerminalFocused,
+  });
+  const {
+    dirtyFiles,
+    fileErrorCounts,
+    editorNavigations,
+    openFilePaths,
+    onOpenDiff,
+    onOpenWorkingTreeDiff,
+    onOpenAllChanges,
+    onOpenCommit,
+    onReorderFiles,
+    onFileMoved,
+    onFileDeleted,
+    onShowFileExplorer,
+    onOpenFile,
+    onOpenSessionFile,
+    onOpenPlan,
+    onPinFile,
+    onFileDirtyChange,
+    onFileErrorCountChange,
+    onSelectFileSurface,
+  } = files;
   const canDiscardEmptySession = useCallback((id: string) => {
     const session = sessionsRef.current.find((entry) => entry.id === id);
     return (
@@ -778,7 +770,7 @@ export function useWorkspaceController({
       !historyForCleanupRef.current.some((entry) => entry.id === id) &&
       !tabsRef.current.some((tab) =>
         leafIds(tab.layout).includes(id) &&
-        (tabHasSessionResources(tab) || pendingTabResources.current.has(tab.id)),
+        (tabHasSessionResources(tab) || files.hasPendingResources(tab.id)),
       )
     );
   }, []);
@@ -804,13 +796,13 @@ export function useWorkspaceController({
         applyTabActivation(id, paneId);
       } else {
         // A newly created tab has not rendered into tabsRef yet.
-        setAppPage(null);
+        showWorkspace();
         setActiveTabIdState(id);
         setComposerFocused(true);
       }
     },
     setActiveTabId: (id) => {
-      setAppPage(null);
+      showWorkspace();
       setActiveTabIdState(id);
     },
     createTab: (project, focus) => createWorkspaceTab(project, focus),
@@ -830,32 +822,6 @@ export function useWorkspaceController({
 
   const projectCwdRef = useRef(projectCwd);
   projectCwdRef.current = projectCwd;
-  const focusedAppView = tabs.find((tab) => tab.id === activeTabId);
-  const activeAppView =
-    appPage ??
-    (focusedAppView
-      ? focusedFileTab(focusedAppView)?.appView?.kind
-      : undefined);
-  const appViewFocusedRef = useRef(activeAppView);
-  appViewFocusedRef.current = activeAppView;
-  // Settings-like views open as a dialog over the workspace.
-  const [appDialog, setAppDialog] = useState<AppViewKind | null>(null);
-  const appDialogRef = useRef(appDialog);
-  appDialogRef.current = appDialog;
-  const closeAppDialog = useCallback(() => setAppDialog(null), []);
-  const appPageHostRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (
-      appPage &&
-      !appDialog &&
-      !appPageHostRef.current?.contains(document.activeElement)
-    ) {
-      appPageHostRef.current?.focus({ preventScroll: true });
-    }
-  }, [appPage, appDialog]);
-
-  const workspaceVisible = appPage === null;
-  const inboxVisible = appPage === "inbox" && appDialog === null;
   const foregroundSurfaceRef = useRef<{
     workspaceVisible: boolean;
     inboxSessionId?: string;
@@ -873,17 +839,6 @@ export function useWorkspaceController({
 
   usePreloadWorkspaceSurfaces(notesEnabled);
 
-  const navigateHistoryRef = useRef<(destination: PageDestination) => void>(() => {});
-  const tabVisitNav = usePageNavigation({
-    tabs,
-    activeTabId,
-    page: appPage,
-    dialog: appDialog,
-    notesEnabled,
-    navigate: (destination) => navigateHistoryRef.current(destination),
-  });
-  const { back: onVisitBack, forward: onVisitForward, previousTabs } = tabVisitNav;
-  useMouseHistoryNavigation(onVisitBack, onVisitForward);
   const turnGen = useRef(new Map<string, number>());
   const editedResends = useRef(createEditedResendCoordinator()).current;
   const inFlightSyncKey = useRef<string | null>(null);
@@ -1588,7 +1543,7 @@ export function useWorkspaceController({
 
   const applyTabActivation = useCallback(
     (id: string, paneId?: string) => {
-      setAppPage(null);
+      showWorkspace();
       const tab = tabsRef.current.find((entry) => entry.id === id);
       const nextFocusedId =
         tab &&
@@ -2072,33 +2027,43 @@ export function useWorkspaceController({
     );
   }, []);
 
-  const onSplit = useCallback(
-    (dir: SplitDir) => {
-      if (!activeTab) return;
-      const session = newDefaultSession(
-        sessionDefaults?.cwd ?? projectCwd,
-        newSessionRuntimeMode,
-      );
-      setSessions((prev) => [...prev, session]);
-      setTabs((prev) =>
-        prev.map((t) => {
-          if (t.id !== activeTab.id) return t;
-          return {
-            ...t,
-            layout: splitPane(t.layout, t.focusedId, dir, session.id),
-            focusedId: session.id,
-          };
-        }),
-      );
-      setComposerFocused(true);
-    },
-    [activeTab, projectCwd, sessionDefaults?.cwd, newSessionRuntimeMode],
-  );
-
-  const focusProjectTerminal = useCallback(() => {
-    setProjectTerminalFocused(true);
-    setComposerFocused(false);
-  }, []);
+  const {
+    onSplit,
+    onSplitSession,
+    onFocusPane,
+    onFocusDir,
+    focusProjectTerminal,
+    onMovePane,
+    onMoveDockToPane,
+    onMovePaneToDock,
+    onPlaceSessionOnPane,
+    onFitPaneLayout,
+    onRatio,
+  } = useWorkspacePaneActions({
+    sessionsRef,
+    tabsRef,
+    activeTabIdRef,
+    projectCwdRef,
+    projectTerminalsRef,
+    lastDockSideRef,
+    setSessions,
+    setTabs,
+    setProjectTerminals,
+    setProjectTerminalFocused,
+    setComposerFocused,
+    setActiveTabId,
+    activeTab,
+    activeTabId,
+    projectCwd,
+    sessionDefaults,
+    newSessionRuntimeMode,
+    inboxSessionId: inboxAskPortal?.sessionId,
+    cancelNavigation: workspaceNavigation.cancel,
+    ensureOpenSession: (id) => ensureOpenSession(id),
+    canDiscardEmptySession,
+    sessionData,
+    tabCloseScope,
+  });
 
   const {
     onNewTerminal,
@@ -2148,9 +2113,8 @@ export function useWorkspaceController({
     sessionsRef,
     tabCloseScope,
     tabWorktreeOf,
-    dirtyFilesRef,
+    fileState: files,
     persistSession,
-    setDirtyFiles,
     setTabs,
     activeTabIdRef,
     activateTab,
@@ -2257,186 +2221,6 @@ export function useWorkspaceController({
     [activateTab, deckProjectTabs],
   );
 
-  const onFocusPane = useCallback(
-    (paneId: string) => {
-      if (
-        tabsRef.current.find((tab) => tab.id === activeTabIdRef.current)
-          ?.focusedId !== paneId
-      )
-        workspaceNavigation.cancel();
-      setProjectTerminalFocused(false);
-      if (inboxAskPortal?.sessionId === paneId) {
-        setComposerFocused(true);
-        return;
-      }
-      // Refocusing the already-focused pane must keep the same tabs array, or
-      // every click inside a pane re-renders the whole workspace.
-      setTabs((prev) => {
-        const current = prev.find((t) => t.id === activeTabId);
-        if (!current || (current.focusedId === paneId && !current.diffFocused))
-          return prev;
-        return prev.map((t) =>
-          t === current ? { ...t, focusedId: paneId, diffFocused: false } : t,
-        );
-      });
-      setComposerFocused(
-        sessionsRef.current.some((session) => session.id === paneId),
-      );
-    },
-    [activeTabId, inboxAskPortal],
-  );
-
-  const onOpenDiff = useCallback(
-    (
-      path?: string,
-      session?: { sessionId: string; cwd: string },
-      changeKind?: GitFileDiffKind,
-      pin = false,
-      options?: { exact?: boolean },
-    ) => {
-      void (async () => {
-        const diffCwd = session?.cwd ?? gitCwdRef.current;
-        const diffProjectCwd = session
-          ? sessionsRef.current.find((entry) => entry.id === session.sessionId)
-              ?.cwd
-          : sidebarCwdRef.current;
-        const target = session
-          ? tabsRef.current.find((tab) =>
-              leafIds(tab.layout).includes(session.sessionId),
-            )
-          : ensureContentTab(diffProjectCwd ?? projectCwdRef.current);
-        if (!target) return;
-        const ownerSessionId =
-          session?.sessionId ??
-          leafIds(target.layout).find((id) =>
-            sessionsRef.current.some((entry) => entry.id === id),
-          );
-        const initialMode =
-          target.surfaceMode ??
-          (loadFileTabMode() === "workspace" ? "unified" : "split");
-        const resolved = path
-          ? options?.exact
-            ? path
-            : ((await resolveTabResource(
-                target.id,
-                resolveOpenablePath(diffCwd, path),
-              )) ?? path)
-          : undefined;
-        if (
-          !tabsRef.current.some(
-            (tab) =>
-              tab.id === target.id &&
-              (!ownerSessionId || leafIds(tab.layout).includes(ownerSessionId)),
-          )
-        )
-          return;
-        if (resolved) rememberOpenedFile(diffCwd, resolved);
-        setTabs((prev) =>
-          prev.map((tab) => {
-            if (
-              tab.id !== target.id ||
-              (ownerSessionId && !leafIds(tab.layout).includes(ownerSessionId))
-            )
-              return tab;
-            tab = { ...tab, surfaceMode: tab.surfaceMode ?? initialMode };
-            if (session) {
-              return openSessionChangesTab(
-                tab,
-                session.cwd,
-                session.sessionId,
-                resolved,
-                diffProjectCwd,
-                pin,
-              );
-            }
-            if (loadDiffViewer() === "unified") {
-              return openChangesTab(
-                tab,
-                diffCwd,
-                resolved,
-                changeKind,
-                diffProjectCwd,
-              );
-            }
-            if (!resolved) return tab;
-            return openEditorTab(
-              tab,
-              newFileTab(resolved, diffCwd, true, changeKind, diffProjectCwd),
-              { pin },
-            );
-          }),
-        );
-        if (activeTabIdRef.current !== target.id) return;
-        setSidebarTab("changes", diffProjectCwd);
-        setComposerFocused(false);
-      })();
-    },
-    [ensureContentTab],
-  );
-
-  const onOpenWorkingTreeDiff = useCallback(
-    (path: string, kind?: GitFileDiffKind, pin?: boolean) =>
-      onOpenDiff(path, undefined, kind, pin, { exact: true }),
-    [onOpenDiff],
-  );
-
-  /** Stack one section's working-tree changes in one review, whatever the diff-view setting. */
-  const onOpenAllChanges = useCallback(
-    (kind: GitFileDiffKind) => {
-      const target = ensureContentTab(sidebarCwdRef.current);
-      setTabs((prev) =>
-        prev.map((tab) =>
-          tab.id === target.id
-            ? openChangesTab(
-                {
-                  ...tab,
-                  surfaceMode:
-                    tab.surfaceMode ??
-                    (loadFileTabMode() === "workspace" ? "unified" : "split"),
-                },
-                gitCwdRef.current,
-                undefined,
-                kind,
-                sidebarCwdRef.current,
-              )
-            : tab,
-        ),
-      );
-      setComposerFocused(false);
-    },
-    [ensureContentTab],
-  );
-
-  const onOpenCommit = useCallback(
-    (commit: GitHistoryCommit, pin?: boolean) => {
-      const target = ensureContentTab(sidebarCwdRef.current);
-      setTabs((prev) =>
-        prev.map((tab) =>
-          tab.id === target.id
-            ? openCommitTab(
-                {
-                  ...tab,
-                  surfaceMode:
-                    tab.surfaceMode ??
-                    (loadFileTabMode() === "workspace" ? "unified" : "split"),
-                },
-                gitCwdRef.current,
-                {
-                  sha: commit.sha,
-                  shortSha: commit.shortSha,
-                  subject: commit.subject,
-                },
-                sidebarCwdRef.current,
-                pin,
-              )
-            : tab,
-        ),
-      );
-      setComposerFocused(false);
-    },
-    [ensureContentTab],
-  );
-
   const onShowSourceControl = useCallback(() => {
     saveSessionSidebarOpen(true);
     setSessionSidebarOpen(loadSessionSidebarOpen());
@@ -2446,94 +2230,6 @@ export function useWorkspaceController({
   const onToggleChanges = useCallback(() => {
     onShowSourceControl();
   }, [onShowSourceControl]);
-
-  const onReorderFiles = useCallback((paneId: string, ids: string[]) => {
-    setTabs((prev) =>
-      prev.map((tab) => {
-        const found = findSurfacePane(tab, paneId);
-        if (!found) return tab;
-        return withSurfacePanes(
-          tab,
-          found.kind,
-          surfacePanes(tab, found.kind).map((pane) =>
-            pane.id === paneId
-              ? { ...pane, files: orderByIds(pane.files, ids) }
-              : pane,
-          ),
-        );
-      }),
-    );
-  }, []);
-
-  const onMovePane = useCallback(
-    (fromId: string, toId: string, edge: PaneEdge) => {
-      setTabs((prev) =>
-        prev.map((tab) => {
-          return leafIds(tab.layout).includes(fromId)
-            ? {
-                ...tab,
-                layout: movePane(tab.layout, fromId, toId, edge),
-                focusedId: fromId,
-              }
-            : tab;
-        }),
-      );
-    },
-    [],
-  );
-
-  /** The project dock's terminals become one pane in the split; the dock closes. */
-  const onMoveDockToPane = useCallback((targetId: string, edge: PaneEdge) => {
-    const projectPath = projectCwdRef.current;
-    const dock = findProjectTerminal(projectTerminalsRef.current, projectPath);
-    const tab = tabsRef.current.find((entry) =>
-      leafIds(entry.layout).includes(targetId),
-    );
-    if (!dock || !tab) return;
-    const moved = moveDockToPane(tab, dock, targetId, edge);
-    if (!moved) return;
-    const nextTabs = tabsRef.current.map((entry) =>
-      entry.id === tab.id ? moved : entry,
-    );
-    const nextDocks = projectTerminalsRef.current.filter(
-      (entry) => entry !== dock,
-    );
-    tabsRef.current = nextTabs;
-    projectTerminalsRef.current = nextDocks;
-    setTabs(nextTabs);
-    setProjectTerminals(nextDocks);
-    setProjectTerminalFocused(false);
-  }, []);
-
-  /** A split terminal pane returns to the project's dock, opening one if needed. */
-  const onMovePaneToDock = useCallback(
-    (paneId: string) => {
-      const projectPath = projectCwdRef.current;
-      if (!isLocalProject(projectPath)) return;
-      const tab = tabsRef.current.find((entry) =>
-        (entry.terminalPanes ?? []).some((pane) => pane.id === paneId),
-      );
-      if (!tab) return;
-      const moved = movePaneToDock(
-        tab,
-        projectTerminalsRef.current,
-        paneId,
-        projectPath,
-        lastDockSideRef.current ?? "bottom",
-        { width: window.innerWidth, height: window.innerHeight },
-      );
-      if (!moved) return;
-      const nextTabs = tabsRef.current.map((entry) =>
-        entry.id === tab.id ? moved.tab : entry,
-      );
-      tabsRef.current = nextTabs;
-      projectTerminalsRef.current = moved.docks;
-      setTabs(nextTabs);
-      setProjectTerminals(moved.docks);
-      focusProjectTerminal();
-    },
-    [focusProjectTerminal],
-  );
 
   const focusOpenSession = useCallback(
     (sessionId: string) => {
@@ -2862,7 +2558,7 @@ export function useWorkspaceController({
       if (project && session && !sameProjectPath(session.cwd, project)) return;
       if (project) setSidebarTab("sessions", project);
       if (!session || session.inboxAsk) return;
-      setAppPage(null);
+      showWorkspace();
       const parentId =
         session.orchestrationLeadId ??
         orchestrator.forSession(sessionId)?.leadId;
@@ -2973,92 +2669,6 @@ export function useWorkspaceController({
     [sessionReminders.dismissDue, setLinkedWorkItemUpdateCard],
   );
 
-  const onPlaceSessionOnPane = useCallback(
-    async (
-      droppedId: string,
-      targetId: string,
-      edge: PaneEdge,
-      hostProject?: string,
-    ) => {
-      const targetTab = tabsRef.current.find((tab) =>
-        leafIds(tab.layout).includes(targetId),
-      );
-      if (!targetTab) return;
-      // A Host session opens through a local shell, as a sidebar click does:
-      // reuse the shell already showing it, or bind a new one.
-      let sessionId = droppedId;
-      if (hostProject) {
-        const shell = sessionsRef.current.find(
-          (session) =>
-            remoteSessionFor(session.id) === droppedId &&
-            sameProjectPath(session.cwd, hostProject),
-        );
-        if (shell) sessionId = shell.id;
-        else {
-          const created = newDefaultSession(
-            hostProject,
-            newSessionRuntimeMode,
-          );
-          rememberRemoteSession(
-            created.id,
-            droppedId,
-            remoteProjectFor(hostProject),
-          );
-          sessionsRef.current = [...sessionsRef.current, created];
-          setSessions(sessionsRef.current);
-          sessionId = created.id;
-        }
-      }
-      if (sessionId === targetId) return;
-
-      const alreadyHere = leafIds(targetTab.layout).includes(sessionId);
-      if (!alreadyHere) {
-        const session = await ensureOpenSession(sessionId);
-        if (!session) return;
-      }
-
-      const tab = tabsRef.current.find((entry) => entry.id === targetTab.id);
-      if (!tab || !leafIds(tab.layout).includes(targetId)) return;
-
-      const replaceTarget =
-        !leafIds(tab.layout).includes(sessionId) &&
-        canDiscardEmptySession(targetId);
-
-      if (replaceTarget) {
-        sessionData.resetPersistence(targetId);
-        const blank = sessionsRef.current.find(
-          (entry) => entry.id === targetId,
-        );
-        if (blank) void forgetHarnessSession(blank.harness, targetId);
-      }
-
-      const result = applyPlaceSessionOnPane({
-        tabs: tabsRef.current,
-        sessions: sessionsRef.current,
-        sessionId,
-        targetId,
-        edge,
-        replaceTarget,
-        scope: tabCloseScope,
-        createReplacement: (seed) =>
-          newDefaultSession(
-            seed?.cwd ?? projectCwdRef.current,
-            seed?.runtimeMode,
-          ),
-      });
-      if (!result) return;
-
-      sessionsRef.current = result.sessions;
-      tabsRef.current = result.tabs;
-      setSessions(result.sessions);
-      setTabs(result.tabs);
-      setActiveTabId(result.activeTabId);
-      setProjectTerminalFocused(false);
-      setComposerFocused(true);
-    },
-    [ensureOpenSession, newSessionRuntimeMode, tabCloseScope, sessionData],
-  );
-
   const {
     checkOpenWorktreeFiles,
     onArchiveFocusedSession,
@@ -3091,8 +2701,7 @@ export function useWorkspaceController({
     setSessionDeleteDialog,
     tabCloseScope,
     activeTabIdRef,
-    dirtyFilesRef,
-    setDirtyFiles,
+    fileState: files,
     setTabs,
     activateTab,
     setComposerFocused,
@@ -3102,33 +2711,6 @@ export function useWorkspaceController({
     whatsNewVersionRef,
     setLinkedWorkItemPanels,
   });
-
-  const onFocusDir = useCallback(
-    (dir: FocusDir) => {
-      if (!activeTab) return;
-      const next = neighborLeafId(activeTab.layout, activeTab.focusedId, dir);
-      if (next) onFocusPane(next);
-    },
-    [activeTab, onFocusPane],
-  );
-
-  const onFitPaneLayout = useCallback((tabId: string, previous: LayoutNode, next: LayoutNode) => {
-    setTabs(current => current.map(tab => tab.id === tabId && tab.layout === previous
-      ? { ...tab, layout: next } : tab));
-  }, []);
-
-  const onRatio = useCallback(
-    (tabId: string, splitId: string, index: number, ratio: number) => {
-      setTabs((prev) =>
-        prev.map((t) =>
-          t.id === tabId
-            ? { ...t, layout: setSplitRatio(t.layout, splitId, index, ratio) }
-            : t,
-        ),
-      );
-    },
-    [],
-  );
 
   const {
     onBranchChange,
@@ -3260,18 +2842,10 @@ export function useWorkspaceController({
       if (nextActiveTabId !== activeTabId) {
         setActiveTabId(nextActiveTabId);
       }
-      setDirtyFiles((prev) => {
-        const updated = new Set(prev);
-        for (const tab of projectTabs) {
-          for (const file of [
-            ...tab.editorPanes.flatMap((pane) => pane.files),
-            ...(tab.terminalPanes ?? []).flatMap((pane) => pane.files),
-          ]) {
-            updated.delete(file.id);
-          }
-        }
-        return updated;
-      });
+      files.forgetDirtyFiles(projectTabs.flatMap((tab) => [
+        ...tab.editorPanes.flatMap((pane) => pane.files),
+        ...(tab.terminalPanes ?? []).flatMap((pane) => pane.files),
+      ]).map((file) => file.id));
       setProjectTerminals((prev) =>
         prev.filter((dock) => !sameProjectPath(dock.projectPath, normalized)),
       );
@@ -3297,25 +2871,6 @@ export function useWorkspaceController({
     },
     [onSelectProject],
   );
-
-  const onFileMoved = useCallback((from: string, to: string) => {
-    invalidateProjectFiles();
-    setTabs((prev) =>
-      prev.map((tab) => {
-        return {
-          ...tab,
-          editorPanes: tab.editorPanes.map((pane) => ({
-            ...pane,
-            files: pane.files.map((file) =>
-              isFilesystemTab(file)
-                ? { ...file, path: rebasePath(file.path, from, to) }
-                : file,
-            ),
-          })),
-        };
-      }),
-    );
-  }, []);
 
   const applyProjectLocationChange = useCallback(
     async (from: string, to: string) => {
@@ -3351,232 +2906,12 @@ export function useWorkspaceController({
     [onFileMoved, sessionData],
   );
 
-  const onFileDeleted = useCallback((path: string) => {
-    invalidateProjectFiles();
-    const dropped = new Set<string>();
-    for (const tab of tabsRef.current) {
-      for (const pane of tab.editorPanes) {
-        for (const file of pane.files) {
-          if (isFilesystemTab(file) && isEqualOrInside(file.path, path)) {
-            dropped.add(file.id);
-          }
-        }
-      }
-    }
-    setTabs((prev) =>
-      prev.map((tab) =>
-        dropOpenFiles(tab, (filePath) => isEqualOrInside(filePath, path)),
-      ),
-    );
-    if (dropped.size === 0) return;
-    setDirtyFiles((prev) => {
-      const next = new Set(prev);
-      for (const id of dropped) next.delete(id);
-      return next;
-    });
-  }, []);
-
-  const openOwnedFile = useCallback(
-    (
-      path: string,
-      navigation?: Parameters<OpenFileFn>[1],
-      options?: Parameters<OpenFileFn>[2],
-      sessionId?: string,
-    ) => {
-      const source = sessionId
-        ? sessionsRef.current.find((session) => session.id === sessionId)
-        : undefined;
-      if (sessionId && !source) return;
-      const fileCwd = source ? sessionWorkCwd(source) : gitCwdRef.current;
-      const fileProjectCwd = source?.cwd ?? sidebarCwdRef.current;
-      // Capture the owner before resolving the path. A later session switch
-      // must not redirect an in-flight link or bring the old session forward.
-      const owner = source
-        ? tabsRef.current.find((tab) => leafIds(tab.layout).includes(source.id))
-        : ensureContentTab(fileProjectCwd);
-      if (!owner) return;
-      const ownerSessionId =
-        source?.id ??
-        leafIds(owner.layout).find((id) =>
-          sessionsRef.current.some((session) => session.id === id),
-        );
-      const initialMode =
-        owner.surfaceMode ??
-        (loadFileTabMode() === "workspace" ? "unified" : "split");
-      void (async () => {
-        const resolved = await resolveTabResource(
-          owner.id,
-          resolveFileOpenRequest(fileCwd, path, options),
-        );
-        if (
-          !tabsRef.current.some(
-            (tab) =>
-              tab.id === owner.id &&
-              (!ownerSessionId || leafIds(tab.layout).includes(ownerSessionId)),
-          )
-        )
-          return;
-        rememberOpenedFile(fileCwd, resolved);
-        const file = newFileTab(
-          resolved,
-          fileCwd,
-          false,
-          undefined,
-          fileProjectCwd,
-        );
-        setTabs((prev) =>
-          prev.map((entry) =>
-            entry.id === owner.id &&
-            (!ownerSessionId || leafIds(entry.layout).includes(ownerSessionId))
-              ? openEditorTab(
-                  openFileExplorer({ ...entry, surfaceMode: entry.surfaceMode ?? initialMode }, fileCwd, fileProjectCwd),
-                  file,
-                  { split: "right", pin: !!options?.pin || !loadEditorPreferences().previewTabs },
-                )
-              : entry,
-          ),
-        );
-        if (navigation) {
-          editorNavigationToken.current += 1;
-          const target = {
-            path: resolved,
-            ...navigation,
-            token: editorNavigationToken.current,
-          };
-          setEditorNavigations((current) => ({
-            ...current,
-            [owner.id]: { ownerSessionId, target },
-          }));
-        }
-        if (activeTabIdRef.current !== owner.id) return;
-        setProjectTerminalFocused(false);
-        setComposerFocused(false);
-      })();
-    },
-    [ensureContentTab],
-  );
-
-  const onShowFileExplorer = useCallback((cwd: string, executionCwd?: string, sessionId?: string) => {
-    if (!cwd || cwd === "~") return;
-    const owner = sessionId
-      ? tabsRef.current.find((tab) => leafIds(tab.layout).includes(sessionId))
-      : ensureContentTab(cwd);
-    if (!owner) return;
-    if (sessionId) activateTab(owner.id, sessionId);
-    const workingCwd = executionCwd ?? (sameProjectPath(cwd, sidebarCwdRef.current) ? gitCwdRef.current : cwd);
-    setTabs((current) => current.map((tab) => tab.id === owner.id
-      ? openFileExplorer({ ...tab, surfaceMode: "split" }, workingCwd, cwd)
-      : tab));
-    setComposerFocused(false);
-  }, [ensureContentTab, activateTab]);
   showFileExplorerRef.current = onShowFileExplorer;
   useEffect(() => {
     if (sidebarTab !== "files") return;
     onShowFileExplorer(sidebarCwd);
     setSidebarTab("sessions");
   }, [sidebarTab, sidebarCwd, onShowFileExplorer, setSidebarTab]);
-
-  const onOpenFile = useCallback<OpenFileFn>(
-    (path, navigation, options) => {
-      setAppPage(null);
-      openOwnedFile(path, navigation, options);
-    },
-    [openOwnedFile],
-  );
-  const onOpenSessionFile = useCallback(
-    (path: string, sessionId: string) =>
-      openOwnedFile(path, undefined, undefined, sessionId),
-    [openOwnedFile],
-  );
-
-  const onOpenPlan = useCallback((sessionId: string, blockId: string) => {
-    const session = sessionsRef.current.find((entry) => entry.id === sessionId);
-    const block = session?.blocks.find((entry) => entry.id === blockId);
-    if (!session || !block) return;
-    const tab = tabsRef.current.find((entry) =>
-      leafIds(entry.layout).includes(session.id),
-    );
-    if (!tab) return;
-    const file = {
-      ...newPlanTab(
-        session.id,
-        block.id,
-        planTitle(block.text),
-        sessionWorkCwd(session),
-      ),
-      ...(session.worktreeCwd ? { projectCwd: session.cwd } : {}),
-    };
-    setTabs((prev) =>
-      prev.map((entry) =>
-        entry.id === tab.id
-          ? openEditorTab(
-              {
-                ...entry,
-                surfaceMode:
-                  entry.surfaceMode ??
-                  (loadFileTabMode() === "workspace" ? "unified" : "split"),
-              },
-              file,
-            )
-          : entry,
-      ),
-    );
-    setComposerFocused(false);
-  }, []);
-
-  const onPinFile = useCallback((fileId: string) => {
-    setTabs((prev) => {
-      const next = prev.map((tab) => pinEditorFile(tab, fileId));
-      return next.some((tab, index) => tab !== prev[index]) ? next : prev;
-    });
-  }, []);
-
-  const onFileDirtyChange = useCallback(
-    (fileId: string, dirty: boolean) => {
-      // An edited preview must not be replaced by the next click.
-      if (dirty) onPinFile(fileId);
-      setDirtyFiles((prev) => {
-        if (prev.has(fileId) === dirty) return prev;
-        const next = new Set(prev);
-        if (dirty) next.add(fileId);
-        else next.delete(fileId);
-        return next;
-      });
-    },
-    [onPinFile],
-  );
-
-  /** The editor reports 0 as it unmounts, so closed tabs drop out on their own. */
-  const onFileErrorCountChange = useCallback(
-    (fileId: string, count: number) => {
-      setFileErrorCounts((prev) => {
-        if ((prev.get(fileId) ?? 0) === count) return prev;
-        const next = new Map(prev);
-        if (count > 0) next.set(fileId, count);
-        else next.delete(fileId);
-        return next;
-      });
-    },
-    [],
-  );
-
-  const onSelectFileSurface = useCallback((paneId: string, fileId: string) => {
-    setTabs((prev) =>
-      prev.map((tab) => {
-        const found = findSurfacePane(tab, paneId);
-        if (!found) return tab;
-        return withSurfacePanes(
-          { ...tab, focusedId: paneId },
-          found.kind,
-          surfacePanes(tab, found.kind).map((pane) =>
-            pane.id === paneId ? { ...pane, activeFileId: fileId } : pane,
-          ),
-        );
-      }),
-    );
-    setComposerFocused(false);
-  }, []);
-
   const {
     onSaveDraft,
     onModelChange,
@@ -4471,7 +3806,7 @@ export function useWorkspaceController({
   );
   const onReload = useCallback(() => {
     void (async () => {
-      if (!(await confirmReload(dirtyFilesRef.current.size > 0))) return;
+      if (!(await confirmReload(files.hasDirtyFiles()))) return;
       window.location.reload();
     })();
   }, []);
@@ -4483,96 +3818,6 @@ export function useWorkspaceController({
     setFilesSearchOpen(true);
     setSearchFocusToken((token) => token + 1);
   }, []);
-
-  const openAppView = useCallback(
-    (kind: AppViewKind) => {
-      workspaceNavigation.cancel();
-      setPaletteOpen(false);
-      if (isAppPageKind(kind)) {
-        setAppDialog(null);
-        setAppPage(kind);
-        setProjectTerminalFocused(false);
-        setComposerFocused(false);
-        return;
-      }
-      if (DIALOG_APP_VIEWS.has(kind)) {
-        setAppDialog(kind);
-        return;
-      }
-      const owner = ensureContentTab(projectCwdRef.current);
-      if (!owner) return;
-      const initialMode =
-        owner.surfaceMode ??
-        (loadFileTabMode() === "workspace" ? "unified" : "split");
-      let targetPaneId: string | undefined;
-      flushSync(() =>
-        setTabs((current) =>
-          current.map((tab) => {
-            if (tab.id !== owner.id) return tab;
-            const next = openSessionAppView(
-              { ...tab, surfaceMode: tab.surfaceMode ?? initialMode },
-              kind,
-            );
-            targetPaneId = next.focusedId;
-            return next;
-          }),
-        ),
-      );
-      activateTab(owner.id, targetPaneId);
-      setProjectTerminalFocused(false);
-      setComposerFocused(false);
-    },
-    [activateTab, ensureContentTab, workspaceNavigation.cancel],
-  );
-
-  const leaveAppView = useCallback(() => {
-    const tab = tabsRef.current.find(
-      (entry) => entry.id === activeTabIdRef.current,
-    );
-    if (!tab) return;
-    for (const id of leafIds(tab.layout)) {
-      if (sessionsRef.current.some((session) => session.id === id)) {
-        activateTab(tab.id, id);
-        return;
-      }
-      const pane = findSurfacePane(tab, id)?.pane;
-      const file = pane?.files.find((entry) => !entry.appView);
-      if (pane && file) {
-        activateTab(tab.id, pane.id);
-        onSelectFileSurface(pane.id, file.id);
-        return;
-      }
-    }
-    ensureContentTab(projectCwdRef.current);
-  }, [activateTab, ensureContentTab, onSelectFileSurface]);
-
-  const onOpenSearch = useCallback(() => {
-    openAppView("search");
-    setSearchViewFocusToken((token) => token + 1);
-  }, [openAppView]);
-
-  const [searchQueryRequest, setSearchQueryRequest] = useState<
-    { query: string; token: number } | undefined
-  >();
-  const onSearchEverywhere = useCallback(
-    (query: string) => {
-      setSearchQueryRequest((previous) => ({
-        query,
-        token: (previous?.token ?? 0) + 1,
-      }));
-      onOpenSearch();
-    },
-    [onOpenSearch],
-  );
-
-  const onLeaveSearch = useCallback(() => {
-    if (appDialogRef.current) closeAppDialog();
-    else leaveAppView();
-  }, [closeAppDialog, leaveAppView]);
-
-  const onOpenInbox = useCallback(() => {
-    openAppView("inbox");
-  }, [openAppView]);
 
   const onOpenLinkedWorkItem = useCallback(
     (item: LinkedWorkItem, sessionId: string) => {
@@ -4666,23 +3911,6 @@ export function useWorkspaceController({
     ],
   );
 
-  const onOpenNotes = useCallback(() => {
-    if (!loadNotesEnabled()) return;
-    openAppView("notes");
-  }, [openAppView]);
-
-  const onLeaveNotes = closeAppPage;
-
-  const onOpenAutomations = useCallback(() => {
-    openAppView("automations");
-  }, [openAppView]);
-
-  const onOpenWorkflows = useCallback(() => {
-    openAppView("workflows");
-  }, [openAppView]);
-
-  const onLeaveAutomations = closeAppPage;
-
   const onOpenAutomationSession = useCallback(
     async (sessionId: string) => {
       const session = await ensureOpenSession(sessionId);
@@ -4697,64 +3925,6 @@ export function useWorkspaceController({
     [ensureOpenSession, onSelectHistorySession],
   );
 
-  const openSettings = useCallback(
-    (section?: SettingsSectionId, anchor?: SettingsAnchor) => {
-      if (section) {
-        setSettingsSection(section);
-        saveSettingsSection(section);
-      }
-      setSettingsAnchor(anchor ?? null);
-      setNotificationProjectPath(null);
-      openAppView("settings");
-    },
-    [openAppView],
-  );
-
-  const onOpenSettings = useCallback(() => openSettings(), [openSettings]);
-  useEffect(() => {
-    const openConnections = () => openSettings("connections");
-    window.addEventListener(OPEN_CONNECTIONS_EVENT, openConnections);
-    return () =>
-      window.removeEventListener(OPEN_CONNECTIONS_EVENT, openConnections);
-  }, [openSettings]);
-  const [remoteProjectDialogOpen, setRemoteProjectDialogOpen] = useState(false);
-  useEffect(() => {
-    const open = () => setRemoteProjectDialogOpen(true);
-    window.addEventListener(OPEN_REMOTE_PROJECT_EVENT, open);
-    return () => window.removeEventListener(OPEN_REMOTE_PROJECT_EVENT, open);
-  }, []);
-
-  useEffect(() => {
-    const onOpenMcp = () => openSettings("mcp");
-    window.addEventListener("monocode:open-mcp-settings", onOpenMcp);
-    return () =>
-      window.removeEventListener("monocode:open-mcp-settings", onOpenMcp);
-  }, [openSettings]);
-
-  const onOpenNotificationSettings = useCallback(
-    (path?: string) => {
-      openSettings("inbox", "project-notifications");
-      setNotificationProjectPath(path ?? null);
-      setNotificationSettingsRequest((request) => request + 1);
-    },
-    [openSettings],
-  );
-
-  const onOpenInboxIntegrations = useCallback(
-    (source: ConnectableInboxSource) => openSettings("inbox", source),
-    [openSettings],
-  );
-
-  const onCloseSettings = useCallback(() => {
-    if (appDialogRef.current) closeAppDialog();
-    else leaveAppView();
-  }, [closeAppDialog, leaveAppView]);
-
-  const onSelectSettingsSection = useCallback((section: SettingsSectionId) => {
-    setSettingsSection(section);
-    saveSettingsSection(section);
-  }, []);
-
   const onOpenArchivedSession = useCallback(
     (sessionId: string) => {
       void onSelectHistorySession(sessionId);
@@ -4764,35 +3934,9 @@ export function useWorkspaceController({
 
   const onRailBack = onVisitBack;
   const onRailForward = onVisitForward;
-  navigateHistoryRef.current = (destination) => {
-    setPaletteOpen(false);
-    activateTab(destination.tabId, destination.paneId);
-    if (destination.fileId)
-      onSelectFileSurface(destination.paneId, destination.fileId);
-    setAppPage(destination.page);
-    setAppDialog(destination.dialog);
-    setProjectTerminalFocused(false);
-    if (destination.page || destination.dialog) setComposerFocused(false);
-  };
-
   useEffect(() => {
     if (!dockVisible) setProjectTerminalFocused(false);
   }, [dockVisible]);
-
-  const openFilePaths = useMemo(() => {
-    const paths: string[] = [];
-    const seen = new Set<string>();
-    for (const tab of tabs) {
-      for (const pane of tab.editorPanes) {
-        for (const file of pane.files) {
-          if (!isFilesystemTab(file) || seen.has(file.path)) continue;
-          seen.add(file.path);
-          paths.push(file.path);
-        }
-      }
-    }
-    return paths;
-  }, [tabs]);
 
   useEffect(() => {
     void invoke("set_traffic_lights_visible", { visible: true }).catch(
@@ -5015,18 +4159,6 @@ export function useWorkspaceController({
     [openSettings],
   );
 
-  const [assistantMachineId, setAssistantMachineId] = useState<string>();
-  const onOpenAssistant = useCallback((machineId?: string) => {
-    if (machineId) setAssistantMachineId(machineId);
-    workspaceNavigation.cancel();
-    setPaletteOpen(false);
-    const next = openAppViewTab(tabsRef.current, "assistant");
-    flushSync(() => setTabs(next.tabs));
-    activateTab(next.tabId, next.paneId);
-    setProjectTerminalFocused(false);
-    setComposerFocused(false);
-  }, [activateTab, workspaceNavigation.cancel]);
-
   const sessionPaneProps = {
     workspaceSwitchingSessionId: workspaceNavigation.pending
       ? active?.id
@@ -5101,26 +4233,7 @@ export function useWorkspaceController({
       archive: (sessionId) => {
         void onArchiveHistorySession(sessionId, true);
       },
-      splitRight: (sessionId) => {
-        const session = newDefaultSession(
-          sessionDefaults?.cwd ?? projectCwd,
-          newSessionRuntimeMode,
-        );
-        setSessions((prev) => [...prev, session]);
-        setTabs((prev) =>
-          prev.map((tab) =>
-            leafIds(tab.layout).includes(sessionId)
-              ? {
-                  ...tab,
-                  layout: splitPane(tab.layout, sessionId, "right", session.id),
-                  focusedId: session.id,
-                  diffFocused: false,
-                }
-              : tab,
-          ),
-        );
-        setComposerFocused(true);
-      },
+      splitRight: onSplitSession,
       terminalAvailable: isLocalProject(projectCwd),
       terminalOpen: dockVisible,
       toggleTerminal: onToggleProjectTerminal,
@@ -5159,6 +4272,7 @@ export function useWorkspaceController({
       sidebarTab,
       sidebarCwd,
       onFocusPane,
+      onSplitSession,
       setSidebarTab,
       dockVisible,
       onArchiveHistorySession,
@@ -5179,20 +4293,20 @@ export function useWorkspaceController({
     if (mode === desktopMode && workspaceVisible && !activeAppView) return;
     workspaceNavigation.cancel();
     setPaletteOpen(false);
-    setAppDialog(null);
+    closeAppDialog();
     setDesktopMode(mode);
     saveDesktopMode(mode, desktopLocationsRef.current);
     const target = desktopModeTarget(mode, desktopLocationsRef.current, tabsRef.current, sessionsRef.current);
     if (target) {
       setProjectCwd(target.cwd);
       activateTab(target.tabId, target.paneId ?? target.sessionId);
-      setAppPage(null);
+      showWorkspace();
       return;
     }
     const remembered = desktopLocationsRef.current[mode];
     const fallback = () => {
       if (mode === "chat") onNewChat();
-      else { setAppPage("projects"); setComposerFocused(false); }
+      else { openAppView("projects"); setComposerFocused(false); }
     };
     if (remembered?.sessionId && history.some(session => session.id === remembered.sessionId)) {
       const originTab = activeTabIdRef.current;
@@ -5210,7 +4324,7 @@ export function useWorkspaceController({
         }
       })();
     } else fallback();
-  }, [desktopMode, workspaceVisible, activeAppView, workspaceNavigation.cancel, activateTab, history, ensureOpenSession, onSelectHistorySession, onNewChat]);
+  }, [desktopMode, workspaceVisible, activeAppView, workspaceNavigation.cancel, activateTab, history, ensureOpenSession, onSelectHistorySession, onNewChat, closeAppDialog, showWorkspace, openAppView]);
   const onNewDesktopSession = useCallback(() => {
     if (desktopMode === "chat") onNewChat();
     else if (desktopModeForCwd(sidebarCwd) === "code") onNew();

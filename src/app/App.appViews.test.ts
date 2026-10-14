@@ -1631,12 +1631,16 @@ describe("App workspace app views", () => {
     expect(document.querySelector('[data-app-view-dialog] [data-app-view="settings"]')).not.toBeNull();
   });
 
-  it("updates the page header in zh-CN without losing view state", async () => {
+  it.each([false, true])("updates the page header in zh-CN without losing view state (menu pinned=%s)", async (pinned) => {
+    saveMenuBarVisible(pinned);
     await mount();
     await click('[data-command="View: Notes"]');
     await click('[data-app-page="notes"] [data-view-state]');
     await act(async () => setUiLanguage("zh-CN"));
-    expect(container.querySelector('[data-app-page="notes"]')?.textContent).toContain("笔记");
+    const header = container.querySelector(pinned
+      ? '[data-app-page="notes"] [data-app-page-header]'
+      : '[data-window-page-header] [data-app-page-header]');
+    expect(header?.textContent).toContain("笔记");
     expect(container.querySelector('[aria-label="返回会话"]')).not.toBeNull();
     expect(ownedFileTabs()).toHaveLength(0);
     expect(activeTabId()).toBe(firstId);
