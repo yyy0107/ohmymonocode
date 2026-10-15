@@ -255,19 +255,20 @@ export type SessionPaneProps = {
 const TRANSCRIPT_BREAKPOINTS = [28] as const;
 
 type Props = SessionPaneProps & {
-  /** The session runtime is on another machine. */
+  /** Queue presentation supplied by the owning runtime. */
   messageQueue?: ReactNode;
+  hostManaged?: boolean;
   remoteSession?: boolean;
-  remoteFeatures?: { attachments: boolean; plan: boolean; draft: boolean; orchestration?: boolean; checkpoint?: boolean };
+  hostFeatures?: { attachments: boolean; plan: boolean; draft: boolean; orchestration?: boolean; checkpoint?: boolean };
   /** An opened host conversation whose transcript has not arrived yet. */
-  remoteSessionLoading?: boolean;
-  remoteSessionStarted?: boolean;
+  hostSessionLoading?: boolean;
+  hostSessionStarted?: boolean;
   allowedModelHarnesses?: readonly HarnessId[];
 };
 
 export const SessionPane = memo(function SessionPane(props: SessionPaneProps) {
-  // Sessions in a project on another machine render this same pane, backed by
-  // the host instead of this computer's session runtime.
+  // Both local and remote Host projects use the Host runtime. Location only
+  // controls filesystem access and desktop presentation.
   const project = remoteProjectFor(props.session.cwd);
   if (isRemoteProjectPath(props.session.cwd) || sessionUsesHost(props.session))
     return (
@@ -281,7 +282,7 @@ export const SessionPane = memo(function SessionPane(props: SessionPaneProps) {
         unavailableHeader={props.renderHeader?.(props.session)}
         render={(remote) => <LocalSessionPane {...props} {...remote}
           {...(project?.local ? { onNewTerminal: props.onNewTerminal,
-            onManageWorktrees: props.onManageWorktrees } : {})} />}
+            onManageWorktrees: props.onManageWorktrees, onCwdChange: props.onCwdChange } : {})} />}
       />
     );
   return <LocalSessionPane {...props} />;
@@ -290,10 +291,11 @@ export const SessionPane = memo(function SessionPane(props: SessionPaneProps) {
 const LocalSessionPane = memo(function LocalSessionPane({
   clockOffsetMs,
   messageQueue,
+  hostManaged = false,
   remoteSession = false,
-  remoteFeatures,
-  remoteSessionLoading = false,
-  remoteSessionStarted = false,
+  hostFeatures,
+  hostSessionLoading = false,
+  hostSessionStarted = false,
   allowedModelHarnesses,
   session,
   workspaceSwitchingSessionId,
@@ -386,8 +388,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
       firstSend.current = null;
   }, [isEmpty, visible, session.id]);
   const recallLastTurnRef = useRef<(() => void) | null>(null);
-  const remote = remoteSession;
-  const editLastTurnSupported = !remote && canEditLastTurn(session);
+  const editLastTurnSupported = !hostManaged && canEditLastTurn(session);
   const turnRecall = editLastTurnSupported ? lastTurnRecall(session) : null;
   const draftBlock = sessionDraftBlock(session);
   useSyncExternalStore(
@@ -560,13 +561,13 @@ const LocalSessionPane = memo(function LocalSessionPane({
   }, [visible]);
   // Restore a saved run for this lead; its agents render on the sidebar card.
   useEffect(() => {
-    if (remoteSession && !session.inboxAsk && !session.worktreeRemoved)
+    if (hostManaged && !session.inboxAsk && !session.worktreeRemoved)
       void orchestrationRuntime.hydrate(session.id).catch(console.error);
-  }, [remoteSession, orchestrationRuntime, session.id, session.inboxAsk, session.worktreeRemoved]);
+  }, [hostManaged, orchestrationRuntime, session.id, session.inboxAsk, session.worktreeRemoved]);
   const [quoteRequest, setQuoteRequest] = useState<QuoteRequest>();
   const btw = useBtwConversation({
     available:
-      !remote &&
+      !hostManaged &&
       !isEmpty &&
       !managed &&
       !session.inboxAsk &&
@@ -698,7 +699,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
   );
   const showDeckProjectPicker = isEmpty && !looksLikeProject(session.cwd);
   const dockComposer =
-    remoteSessionLoading ||
+    hostSessionLoading ||
     (!draftBlock && (!isEmpty || inSplit || !!session.inboxAsk));
   const composerDockMotion = useComposerDockMotion(dockComposer);
   const draftRef = useRef<string | undefined>(getComposerDraft(session.id));
@@ -712,9 +713,10 @@ const LocalSessionPane = memo(function LocalSessionPane({
       }
       readOnlyReason={nativeAccessHint}
       messageQueue={messageQueue}
+      hostManaged={hostManaged}
       remoteSession={remoteSession}
-      remoteFeatures={remoteFeatures}
-      orchestrationAvailable={remoteSession && !session.nativeSession}
+      hostFeatures={hostFeatures}
+      orchestrationAvailable={hostManaged && !session.nativeSession}
       allowedModelHarnesses={allowedModelHarnesses}
       enabled={visible}
       focused={focused && composerFocused && !btw.open}
@@ -801,8 +803,8 @@ const LocalSessionPane = memo(function LocalSessionPane({
         !session.inboxAsk &&
         !session.worktreeRemoved &&
         !managed &&
-        (remote
-          ? !remoteSessionStarted
+        (hostManaged
+          ? !hostSessionStarted
           : (isEmpty || !!session.workspaceMode) && !session.worktreeCwd)
       }
       workspaceMode={session.workspaceMode}
@@ -830,7 +832,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
       }
       onRuntimeModeChange={(mode) => onRuntimeModeChange(session.id, mode)}
       canSaveDraft={
-        (!remote || !!remoteFeatures?.draft) &&
+        (!hostManaged || !!hostFeatures?.draft) &&
         !session.busy &&
         !draftBlock &&
         !session.inboxAsk &&
@@ -962,7 +964,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
         <div
           ref={setTranscriptScope}
           data-transcript-inline-size
-          data-transcript-viewport={!isEmpty && !remoteSessionLoading || undefined}
+          data-transcript-viewport={!isEmpty && !hostSessionLoading || undefined}
           className="relative min-h-0 flex-1"
         >
           <AnimatePresence>{visible && focused && !session.inboxAsk ? (
@@ -994,7 +996,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
           ) : null}</AnimatePresence>
           <AnimatePresence>{visible &&
           !isEmpty &&
-          !remoteSessionLoading &&
+          !hostSessionLoading &&
           !session.inboxAsk &&
           !linkedNoticeShown ? (
             <SessionStatusPanel
@@ -1008,7 +1010,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
               onOpenAgent={openSubagent}
             />
           ) : null}</AnimatePresence>
-          {remoteSessionLoading ? null : isEmpty ? (
+          {hostSessionLoading ? null : isEmpty ? (
             session.inboxAsk ? (
               <div className="scrollbar-none h-full min-h-0 overflow-y-auto">
                 <DiscussionEmpty
@@ -1097,7 +1099,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
                   onOpenPlan={openPlan}
                   onBuildPlan={session.worktreeRemoved ? undefined : buildPlan}
                   decidingPlanId={decidingPlanId}
-                  planBuildTargets={!remote}
+                  planBuildTargets={!hostManaged}
                   onSecondOpinion={
                     !session.inboxAsk &&
                     !session.worktreeRemoved &&
@@ -1126,7 +1128,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
                       : undefined
                   }
                   latestTurnAccessory={
-                    (remote && !remoteFeatures?.checkpoint) ||
+                    (hostManaged && !hostFeatures?.checkpoint) ||
                     session.inboxAsk ||
                     session.worktreeRemoved ||
                     draftBlock ? undefined : (

@@ -165,6 +165,22 @@ afterEach(() => {
 });
 
 describe("Composer Explorer file drops", () => {
+  it("accepts local Explorer files for a Host-managed session while honoring upload capabilities", async () => {
+    await render({ hostManaged: true, remoteSession: false,
+      hostFeatures: { attachments: true, plan: false, draft: false } });
+    await act(async () => window.dispatchEvent(explorerDrag({
+      type: "drop", path: "/project/src/main.ts", x: 100, y: 100,
+    })));
+    expect(invoke).toHaveBeenCalledWith("inspect_paths", { paths: ["/project/src/main.ts"] });
+    expect(container.querySelector('[title="/project/src/main.ts"]')).not.toBeNull();
+
+    await render({ hostManaged: true, remoteSession: false,
+      hostFeatures: { attachments: false, plan: false, draft: false } });
+    invoke.mockClear();
+    await nativeDrop(["/project/second.png"]);
+    expect(invoke).not.toHaveBeenCalledWith("inspect_paths", expect.anything());
+  });
+
   it("attaches a file from the pointer-driven Explorer drag", async () => {
     await render();
 
@@ -250,8 +266,9 @@ describe("Composer image drops", () => {
   it("uses current remote capabilities and rejects local Explorer paths in remote sessions", async () => {
     await render();
     await render({
+      hostManaged: true,
       remoteSession: true,
-      remoteFeatures: { attachments: true, plan: false, draft: false },
+      hostFeatures: { attachments: true, plan: false, draft: false },
     });
     await act(async () => {
       window.dispatchEvent(
@@ -268,8 +285,9 @@ describe("Composer image drops", () => {
     await nativeDrop(["/local/image.png"]);
     expect(attachmentCount()).toBe(1);
     await render({
+      hostManaged: true,
       remoteSession: true,
-      remoteFeatures: { attachments: false, plan: false, draft: false },
+      hostFeatures: { attachments: false, plan: false, draft: false },
     });
     await nativeDrop(["/local/second.png"]);
 
@@ -432,8 +450,9 @@ describe("Composer image drops", () => {
         mounted = false;
       } else {
         await render({
+          hostManaged: true,
           remoteSession: true,
-          remoteFeatures: { attachments: false, plan: false, draft: false },
+          hostFeatures: { attachments: false, plan: false, draft: false },
         });
       }
       await act(async () => release?.());

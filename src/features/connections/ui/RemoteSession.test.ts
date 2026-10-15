@@ -203,6 +203,7 @@ beforeEach(async () => {
   }).key;
   vi.mocked(invoke).mockReset();
   vi.mocked(invoke).mockImplementation(async (command, input) => {
+    if (command === "list_project_files" || command === "notes_list") return [];
     if (command === "remote_machines") return [machine];
     if (command === "remote_outbox_list") return [];
     if (command !== "remote_request") return undefined;
@@ -679,6 +680,14 @@ it("backs a native project conversation with Host commands and keeps transcript 
   configureSharedHost("env", [{ id: "project", cwd: projectKey, name: "repo" }]);
   const onOpenFile = vi.fn();
   await render(shell(), { onOpenFile });
+  expect(container.querySelector('.composer-environment-badge')?.textContent).toBe("Local");
+  await act(async () => byLabel("Add files or choose a mode")!.click());
+  const menu = document.querySelector("[data-composer-plus]")!;
+  expect(menu.textContent).toMatch(/Files/);
+  expect(menu.textContent).not.toContain("Operator");
+  const files = [...menu.querySelectorAll<HTMLButtonElement>("button")].find(button => /^Files/.test(button.textContent ?? ""))!;
+  await act(async () => files.click());
+  expect(document.querySelector("[data-mention-picker]")).not.toBeNull();
   await send("Shared local project");
   expect(commands.map(command => command.type)).toEqual(["create", "send"]);
   expect(remoteSessionFor("shell")).toBe("host-session");

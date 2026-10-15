@@ -252,10 +252,13 @@ type Props = {
   hideProjectPicker?: boolean;
   hideBranchPicker?: boolean;
   hideTopBar?: boolean;
-  /** Keeps local file mentions, skills, and app modes off for host sessions. */
+  /** Queue presentation supplied by the owning runtime. */
   messageQueue?: ReactNode;
+  /** Host commands and capabilities apply to both local and remote workspaces. */
+  hostManaged?: boolean;
+  /** Workspace location is independent of Host ownership. */
   remoteSession?: boolean;
-  remoteFeatures?: {
+  hostFeatures?: {
     attachments: boolean;
     plan: boolean;
     draft: boolean;
@@ -396,8 +399,9 @@ export function Composer({
   hideBranchPicker = false,
   hideTopBar = false,
   messageQueue,
+  hostManaged = false,
   remoteSession = false,
-  remoteFeatures,
+  hostFeatures,
   orchestrationAvailable = true,
   context,
   compactSupported = false,
@@ -626,17 +630,17 @@ export function Composer({
     harness,
     executionCwd: localCwd,
     sessionId,
-    pickerOpen: pickerOpen && !remote,
+    pickerOpen: pickerOpen && !hostManaged,
   });
   const skills = skillCatalog.skills;
   const slashItems = useMemo(
     () =>
-      remote
+      hostManaged
         ? [
-            ...(remoteFeatures?.orchestration && !hideTopBar
+            ...(hostFeatures?.orchestration && !hideTopBar
               ? [ORCHESTRATOR_COMMAND]
               : []),
-            ...(remoteFeatures?.plan ? [PLAN_COMMAND] : []),
+            ...(hostFeatures?.plan ? [PLAN_COMMAND] : []),
             COMPACT_COMMAND,
           ]
         : [
@@ -666,9 +670,9 @@ export function Composer({
     [
       harness,
       skills,
-      remote,
-      remoteFeatures?.plan,
-      remoteFeatures?.orchestration,
+      hostManaged,
+      hostFeatures?.plan,
+      hostFeatures?.orchestration,
       orchestrationAvailable,
       hideTopBar,
       canSaveDraft,
@@ -688,7 +692,7 @@ export function Composer({
     [slashItems, slashQuery, skillLimit],
   );
   const attachmentsSupported =
-    (!remote || !!remoteFeatures?.attachments) &&
+    (!hostManaged || !!hostFeatures?.attachments) &&
     harnessSupportsAttachments(harness);
   const skillNames = useMemo(
     () => new Set(slashItems.map((skill) => skill.invocation)),
@@ -2194,8 +2198,8 @@ export function Composer({
             status={queueStatus}
             remote={remote}
             disabled={disabled}
-            canSteer={!remote || busy}
-            canResume={!remote || !busy}
+            canSteer={!hostManaged || busy}
+            canResume={!hostManaged || !busy}
             onDelete={onDeleteQueuedMessage}
             onEdit={onEditQueuedMessage}
             onEditingChange={onQueuedMessageEditingChange}
@@ -2223,6 +2227,7 @@ export function Composer({
       question,
       queueStatus,
       queuedMessages,
+      hostManaged,
       readOnlyReason,
       remote,
       shownUsageLimit,
@@ -2633,7 +2638,7 @@ export function Composer({
                       <span data-menu-description className="block truncate whitespace-nowrap text-[11px] leading-4 text-content/45">
                         {attachmentsSupported
                           ? uiT("Attach files or images")
-                          : remote && !remoteFeatures?.attachments
+                          : hostManaged && !hostFeatures?.attachments
                             ? uiT("Update this machine’s host to attach files")
                             : uiT("{value0} does not support attachments", {
                                 value0: String(HARNESS_TITLE[harness]),
@@ -2657,40 +2662,44 @@ export function Composer({
                         </span>
                         <span className="ml-auto text-content/45">@</span>
                       </button>
-                      <button
-                        type="button"
-                        data-menu-row="single"
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => openReferencePicker("/")}
-                        className="composer-add-reference relative isolate"
-                      >
-                        <MenuHover />
-                        <Terminal className="size-4 shrink-0" />
-                        <span data-menu-title>{uiT("Skills and commands")}</span>
-                        <span className="ml-auto text-content/45">/</span>
-                      </button>
-                      <button
-                        type="button"
-                        data-menu-row="single"
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => {
-                          setPlusOpen(false);
-                          openMcpPicker();
-                          ref.current?.focus();
-                        }}
-                        className="composer-add-reference relative isolate"
-                      >
-                        <MenuHover />
-                        <Link className="size-4 shrink-0" />
-                        <span data-menu-title>{uiT("MCP servers")}</span>
-                      </button>
+                      {!hostManaged ? (
+                        <>
+                          <button
+                            type="button"
+                            data-menu-row="single"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => openReferencePicker("/")}
+                            className="composer-add-reference relative isolate"
+                          >
+                            <MenuHover />
+                            <Terminal className="size-4 shrink-0" />
+                            <span data-menu-title>{uiT("Skills and commands")}</span>
+                            <span className="ml-auto text-content/45">/</span>
+                          </button>
+                          <button
+                            type="button"
+                            data-menu-row="single"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => {
+                              setPlusOpen(false);
+                              openMcpPicker();
+                              ref.current?.focus();
+                            }}
+                            className="composer-add-reference relative isolate"
+                          >
+                            <MenuHover />
+                            <Link className="size-4 shrink-0" />
+                            <span data-menu-title>{uiT("MCP servers")}</span>
+                          </button>
+                        </>
+                      ) : null}
                       <div
                         role="separator"
                         className="my-1 h-px bg-content/10"
                       />
                     </>
                   ) : null}
-                  {!remote || remoteFeatures?.plan ? (
+                  {!hostManaged || hostFeatures?.plan ? (
                     <button
                       type="button"
                       data-menu-row="description"
@@ -2722,7 +2731,7 @@ export function Composer({
                       ) : null}
                     </button>
                   ) : null}
-                  {!remote ? (
+                  {!hostManaged ? (
                     <button
                       type="button"
                       data-menu-row="description"
@@ -2757,7 +2766,7 @@ export function Composer({
                     </button>
                   ) : null}
                   {orchestrationAvailable &&
-                    (!remote || remoteFeatures?.orchestration) &&
+                    (!hostManaged || hostFeatures?.orchestration) &&
                     !hideTopBar && (
                       <button
                         type="button"
@@ -2857,7 +2866,7 @@ export function Composer({
             </div>
           ) : null}
         </div>
-        {runnerLive && runnerEnabled && !remote ? (
+        {runnerLive && runnerEnabled && !hostManaged ? (
           <ComposerRunner
             boxRef={boxRef}
             cwd={cwd}

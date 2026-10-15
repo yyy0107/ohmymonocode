@@ -104,10 +104,11 @@ import {
 
 export type RemoteSessionOverrides = Partial<SessionPaneProps> & {
   messageQueue?: ReactNode;
+  hostManaged: boolean;
   remoteSession: boolean;
-  remoteFeatures: { attachments: boolean; plan: boolean; draft: boolean; orchestration?: boolean; checkpoint?: boolean };
-  remoteSessionLoading: boolean;
-  remoteSessionStarted: boolean;
+  hostFeatures: { attachments: boolean; plan: boolean; draft: boolean; orchestration?: boolean; checkpoint?: boolean };
+  hostSessionLoading: boolean;
+  hostSessionStarted: boolean;
   allowedModelHarnesses: readonly HarnessId[];
 };
 
@@ -1797,16 +1798,17 @@ function ConnectedRemoteSession({
       : undefined,
     clockOffsetMs: hostSession ? snapshot?.clockOffsetMs : undefined,
     messageQueue: <MessageQueue key={snapshot?.session.id} {...queue} disabled={!online || sending || !!pending} />,
-    remoteSession: true,
-    remoteFeatures: {
+    hostManaged: true,
+    remoteSession: !project.local,
+    hostFeatures: {
       attachments: !!descriptor?.capabilities.includes("attachments.upload"),
       plan: !!descriptor?.capabilities.includes("sessions.plan"),
       draft: !!descriptor?.capabilities.includes("sessions.draft"),
       orchestration: orchestrationEnabled,
       checkpoint: checkpointEnabled && !!hostSessionId && checkpointRoute === hostSessionId,
     },
-    remoteSessionLoading: !!sessionId && !hostSession && !session.blocks.length,
-    remoteSessionStarted: !!sessionId,
+    hostSessionLoading: !!sessionId && !hostSession && !session.blocks.length,
+    hostSessionStarted: !!sessionId,
     allowedModelHarnesses: hostSession
       ? handoffEnabled
         ? [...new Set([hostSession.harness, ...providers])]
@@ -1842,7 +1844,7 @@ function ConnectedRemoteSession({
     onOpenDiff: (path, review) => review
       ? onOpenDiff(path ? hostFilePath(path) : undefined, review)
       : onOpenDiff(path ? hostFilePath(path) : undefined),
-    // This computer's features do not apply to a host session.
+    // Machine-local navigation callbacks are supplied by SessionPane for local Hosts.
     onCwdChange: noop,
     onBranchChange: () => {
       notifyGitChanged();
