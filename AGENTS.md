@@ -141,9 +141,22 @@ are not prerequisites for local work.
   清楚记录仍需人工验收的部分。功能测试须等待异步高亮初始化完成，不把正常
   的首次 Worker 切换误判为拖动重建，也不掩盖稳定运行后的异常重建。
 
+## Dependency baseline
+
+- `npm run check:arch` (`scripts/arch-baseline.mjs`) checks layer rules against
+  `docs/architecture-baseline.json`: shared/platform/integrations must not depend
+  on features or app, features not on app, desktop and mobile not on each other,
+  Tauri APIs only in `src/platform/`, host not on UI, plus file-level cycles.
+- New violations fail. Resolved entries tighten the baseline locally; in CI a
+  stale baseline fails, so commit the updated JSON. Do not run `--update` to
+  accept new violations without the user's approval. Use `--report <file>` for
+  a readable list with line numbers.
+
 ## Verification
 
 Keep verification proportional to the change and minimize unnecessary testing.
+
+- Run `npm run check:arch` when changing imports across modules.
 
 - Run the smallest relevant existing tests for changed behavior; do not run full
   suites by default.
