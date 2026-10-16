@@ -87,6 +87,7 @@ function DesktopBotsHost({
     // has messages, so it shows at session visibility (none when the
     // background is limited to empty chats).
     <section
+      data-app-bots
       className="assistant-workspace chat-pane-background relative isolate text-content"
       data-project-chat-background="false"
       data-session-empty="false"

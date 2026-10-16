@@ -166,6 +166,11 @@ html[data-skin] .settings-row[data-revealed] { background-color: transparent; }
 
 /* Shared owned chrome for every existing secondary workspace. Code/terminal
  * content keeps its own typography, scrolling and editor theme. */
+/* Match the chat ground instead of exposing the legacy body-glass tint. */
+html[data-skin] :is([data-app-inbox], [data-app-notes], [data-app-automations], [data-app-workflows], [data-app-search], [data-app-bots]) {
+  background: var(--color-app);
+}
+
 html[data-skin] .desktop-page-heading { font-family: var(--font-serif); font-size: 24px; line-height: 32px; font-weight: var(--font-weight-medium); }
 html[data-skin] .desktop-pane-heading { font-size: 15px; line-height: 20px; font-weight: var(--font-weight-semibold); }
 html[data-skin] .desktop-pane-description { font-size: 14px; line-height: 20px; color: var(--color-ink-secondary); }
@@ -182,7 +187,7 @@ html[data-skin] .desktop-bots-host .assistant-chat.desktop-bots-workspace {
   color: var(--color-ink);
   font-family: var(--font-sans);
 }
-html[data-skin] .desktop-bots-host .assistant-chat.desktop-bots-workspace .desktop-bots-navigation { background: var(--color-panel); border-color: var(--color-hairline); }
+html[data-skin] .desktop-bots-host .assistant-chat.desktop-bots-workspace .desktop-bots-navigation { background: var(--color-app); border-color: var(--color-hairline); }
 html[data-skin] .desktop-bots-host .assistant-chat.desktop-bots-workspace .desktop-bots-search { background: var(--color-card); border-color: var(--color-hairline); border-radius: 8px; }
 html[data-skin] .desktop-bots-host .assistant-chat.desktop-bots-workspace .desktop-bots-contact { border-radius: 8px; }
 html[data-skin] .desktop-bots-host .assistant-chat.desktop-bots-workspace .desktop-bots-contact:not([data-selected="true"]) { background: transparent; }
