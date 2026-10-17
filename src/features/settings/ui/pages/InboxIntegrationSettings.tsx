@@ -1,27 +1,12 @@
 import { usePreferenceState } from "../../model/usePreferenceState";
 import { useTranslation } from "../../../../shared/i18n/useTranslation";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import {
-  Check,
-} from "../../../../shared/ui/icons";
+import { Check } from "../../../../shared/ui/icons";
 import { withStatusToast } from "../../../../shared/ui/StatusToast";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "../../../../shared/ui/forms/Button";
-import {
-  clearInboxCache,
-  githubStatus,
-  type GithubStatus,
-} from "../../../inbox/model/githubTasks";
-import {
-  disconnectGitlab,
-  gitlabConnected,
-  saveGitlabConfig,
-} from "../../../inbox/model/gitlab";
+import { clearInboxCache, githubStatus, type GithubStatus } from "../../../inbox/model/githubTasks";
+import { disconnectGitlab, gitlabConnected, saveGitlabConfig } from "../../../inbox/model/gitlab";
 import {
   azureDevOpsConnected,
   disconnectAzureDevOps,

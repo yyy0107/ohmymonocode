@@ -1,9 +1,6 @@
 import { usePreferenceState } from "../../model/usePreferenceState";
 import { useTranslation } from "../../../../shared/i18n/useTranslation";
-import {
-  useContext,
-  useEffect,
-} from "react";
+import { useContext, useEffect } from "react";
 import { TitleModelSettings } from "../TitleModelSettings";
 import {
   loadTranscriptLayout,

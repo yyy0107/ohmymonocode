@@ -1,11 +1,7 @@
 import { SearchableSelect } from "../../../../../shared/ui/SearchableSelect";
 import { usePreferenceState } from "../../../model/usePreferenceState";
 import { useTranslation } from "../../../../../shared/i18n/useTranslation";
-import {
-  Globe,
-  Loader,
-  RefreshCw,
-} from "../../../../../shared/ui/icons";
+import { Globe, Loader, RefreshCw } from "../../../../../shared/ui/icons";
 import {
   useCallback,
   useEffect,
@@ -40,19 +36,9 @@ import {
   savePickerProviderVisible,
   subscribeModels,
 } from "../../../../sessions/model/models";
-import {
-  pathKey,
-  projectKey,
-  projectName,
-} from "../../../../../shared/lib/paths";
-import {
-  looksLikeProject,
-  type RecentProject,
-} from "../../../../projects/model/recents";
-import {
-  HARNESSES,
-  type HarnessId,
-} from "../../../../sessions/model/session";
+import { pathKey, projectKey, projectName } from "../../../../../shared/lib/paths";
+import { looksLikeProject, type RecentProject } from "../../../../projects/model/recents";
+import { HARNESSES, type HarnessId } from "../../../../sessions/model/session";
 import {
   loadProjectProviderSettings,
   projectProvidersRevision,
@@ -78,10 +64,7 @@ import {
 import { useTabGroupLogos } from "../../../../projects/hooks/useTabGroupLogos";
 import { ProjectLogoIcon } from "../../../../projects/ui/ProjectLogoIcon";
 import { ProjectMascot } from "../../../../projects/ui/ProjectMascot";
-import {
-  loadClaudeHooks,
-  saveClaudeHooks,
-} from "../../../model/settings";
+import { loadClaudeHooks, saveClaudeHooks } from "../../../model/settings";
 import { ProviderAccountsSettings } from "./ProviderAccountsSettings";
 import { Group, Row, Toggle } from "../../settingsLayout";
 import { ProviderRow } from "./ProviderRow";

@@ -1,5 +1,4 @@
 import { AssistantStatus } from "../../../../shared/ui/messaging/AssistantStatus";
-import type { SessionExecutionState } from "../../model/session";
 import { AnimatePresence, motion } from "motion/react";
 import { msgTransition, immediateTransition } from "../../../../shared/motion/tokens";
 import { useMotionPreference } from "../../../../shared/motion/useMotionPreference";
@@ -10,9 +9,7 @@ import { liveStatus } from "../../model/liveStatus";
 import { Shimmer } from "../../../../shared/ui/Shimmer";
 import { TypingDots } from "../../../../shared/ui/TypingDots";
 import { RollingClock, rollingClockMotion } from "../../../../shared/ui/RollingClock";
-import {
-  type Block,
-} from "../../model/session";
+import { type Block, type SessionExecutionState } from "../../model/session";
 import { ActivityPhaseIcon } from "./activity/ActivityPhaseIcon";
 import { formatElapsed, formatWorkingDuration, useElapsedFrom, useNow } from "./transcriptClock";
 

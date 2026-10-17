@@ -1,16 +1,8 @@
 import { usePreferenceState } from "../../model/usePreferenceState";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "../../../../shared/i18n/useTranslation";
-import {
-  RotateCcw,
-  Search,
-} from "../../../../shared/ui/icons";
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { RotateCcw, Search } from "../../../../shared/ui/icons";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { IS_MAC } from "../../../../platform/tauri/platform";
 import {
   filterKeybindings,

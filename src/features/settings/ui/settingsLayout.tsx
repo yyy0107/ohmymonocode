@@ -1,5 +1,9 @@
 import { motion, useIsPresent } from "motion/react";
-import { immediateTransition, motionDistance, panelTransition } from "../../../shared/motion/tokens";
+import {
+  immediateTransition,
+  motionDistance,
+  panelTransition,
+} from "../../../shared/motion/tokens";
 import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import {
   createContext,

@@ -1,10 +1,7 @@
 import { SearchableSelect } from "../../../../../shared/ui/SearchableSelect";
 import { AnimatedCollapse } from "../../../../../shared/ui/AnimatedCollapse";
 import { useTranslation } from "../../../../../shared/i18n/useTranslation";
-import {
-  ImagePlus,
-  Loader,
-} from "../../../../../shared/ui/icons";
+import { ImagePlus, Loader } from "../../../../../shared/ui/icons";
 import { Button } from "../../../../../shared/ui/forms/Button";
 import { GradientBlurBackground } from "../../GradientBlurBackground";
 import { useColorScheme } from "../../../../../shared/hooks/useColorScheme";
@@ -33,9 +30,7 @@ import {
   NEW_THREAD_BACKGROUND_EFFECT_LABELS,
   NEW_THREAD_BACKGROUND_EFFECT_DESCRIPTIONS,
 } from "../../../model/appearance";
-import {
-  UI_SCALE_PERCENTS,
-} from "../../../model/uiScale";
+import { UI_SCALE_PERCENTS } from "../../../model/uiScale";
 import { IS_LINUX } from "../../../../../platform/tauri/platform";
 import { type AppearanceSettings } from "./useAppearanceSettings";
 import { Group, LiveSlider, Row, Segmented, Toggle } from "../../settingsLayout";

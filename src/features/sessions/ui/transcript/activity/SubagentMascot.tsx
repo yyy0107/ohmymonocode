@@ -1,9 +1,6 @@
 import { agentStepCount } from "../../../model/agentTranscript";
 import { ProjectMascot } from "../../../../projects/ui/ProjectMascot";
-import {
-  type AgentStep,
-  type Block,
-} from "../../../model/session";
+import { type AgentStep, type Block } from "../../../model/session";
 import {
   isFailedStatus,
   toolCallState,

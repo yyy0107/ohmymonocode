@@ -1,22 +1,11 @@
 import { DisclosureChevron } from "../../../../shared/ui/DisclosureChevron";
 import { useTranslation } from "../../../../shared/i18n/useTranslation";
-import {
-  ChevronRight,
-} from "../../../../shared/ui/icons";
-import {
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
+import { ChevronRight } from "../../../../shared/ui/icons";
+import { useEffect, useState, type ReactNode } from "react";
 import { AnimatedCollapse } from "../../../../shared/ui/AnimatedCollapse";
-import {
-  type HarnessId,
-} from "../../model/session";
+import { type HarnessId } from "../../model/session";
 import { HarnessIcon } from "../HarnessIcon";
-import {
-  type ActivityPhaseKind,
-  type TurnItem,
-} from "../../model/transcriptActivity";
+import { type ActivityPhaseKind, type TurnItem } from "../../model/transcriptActivity";
 import { ActivityPhaseIcon } from "./activity/ActivityPhaseIcon";
 
 

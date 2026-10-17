@@ -1,37 +1,24 @@
 import { PresenceBoundary } from "../../../../shared/ui/PresenceBoundary";
 import { usePreferenceState } from "../../model/usePreferenceState";
 import { useTranslation } from "../../../../shared/i18n/useTranslation";
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useEffect, useMemo, useState } from "react";
 import { HarnessIcon } from "../../../sessions/ui/HarnessIcon";
 import { Button } from "../../../../shared/ui/forms/Button";
 import { RemoveProjectDialog } from "../../../projects/ui/RemoveProjectDialog";
-import {
-  prettyCwd,
-  projectKey,
-  projectName,
-} from "../../../../shared/lib/paths";
+import { prettyCwd, projectKey, projectName } from "../../../../shared/lib/paths";
 import {
   loadArchivedProjects,
   looksLikeProject,
   subscribeArchivedProjects,
   type ArchivedProject,
 } from "../../../projects/model/recents";
-import {
-  sessionDisplayTitle,
-} from "../../../sessions/model/session";
+import { sessionDisplayTitle } from "../../../sessions/model/session";
 import {
   loadSessionSidebarFilters,
   saveSessionSidebarFilters,
 } from "../../../sessions/model/sessionFilters";
 import type { SessionSummary } from "../../../sessions/data/sessionStore";
-import {
-  loadTabGroupLabels,
-  resolveTabGroupLabel,
-} from "../../../workspace/model/tabGroups";
+import { loadTabGroupLabels, resolveTabGroupLabel } from "../../../workspace/model/tabGroups";
 import { Group, Row, Toggle } from "../settingsLayout";
 
 

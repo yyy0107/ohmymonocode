@@ -1,13 +1,12 @@
 import { useTranslation } from "../../../../shared/i18n/useTranslation";
 import { localizeChildExitError } from "../../../../integrations/harness/core/childErrors";
-import { providerSessionAccessIssue } from "../../../../integrations/harness/providers/sessionAccessErrors";
+import {
+  providerSessionAccessIssue,
+} from "../../../../integrations/harness/providers/sessionAccessErrors";
 import { SessionAccessNotice } from "../SessionAccessNotice";
 import { QuestionHistoryCard } from "../QuestionHistoryCard";
 import type { QuestionAnswer } from "../../model/userQuestion";
-import {
-  memo,
-  useContext,
-} from "react";
+import { memo, useContext } from "react";
 import { GeneratedImage } from "../GeneratedImage";
 import { PlanPreview } from "../PlanPreview";
 import { localizeOrchestrationMessage } from "../../../orchestration/ui/orchestrationMessages";
@@ -15,11 +14,7 @@ import { TaskListPreview } from "../TaskListPreview";
 import type { ApprovalDecision } from "../../../../integrations/harness";
 import { TranscriptPlatformContext } from "../TranscriptPlatform";
 import { legacyTaskListFromText } from "../../model/taskList";
-import {
-  type Block,
-  type HarnessId,
-  type PlanBuildTarget,
-} from "../../model/session";
+import { type Block, type HarnessId, type PlanBuildTarget } from "../../model/session";
 import type { TranscriptLayout } from "../../../settings/model/appearance";
 import { AgentMarkdown } from "../AgentMarkdown";
 import { UserMessageBlock } from "./UserMessageBlock";

@@ -2,21 +2,11 @@ import { PresenceBoundary } from "../../../../shared/ui/PresenceBoundary";
 import { formatGenerationRate, sanitizeGenerationSample } from "../../model/generationSample";
 import { timestampTitle } from "../timestampTitle";
 import { useTranslation } from "../../../../shared/i18n/useTranslation";
-import {
-  Check,
-  ChartBreakoutSquare,
-} from "../../../../shared/ui/icons";
-import {
-  useRef,
-  useState,
-} from "react";
+import { Check, ChartBreakoutSquare } from "../../../../shared/ui/icons";
+import { useRef, useState } from "react";
 import { HandoffButton, SecondOpinionButton } from "../SecondOpinionButton";
 import { Popover } from "../../../../shared/ui/Popover";
-import {
-  type HarnessId,
-  type ModelTarget,
-  type TurnMetrics,
-} from "../../model/session";
+import { type HarnessId, type ModelTarget, type TurnMetrics } from "../../model/session";
 import { HarnessIcon } from "../HarnessIcon";
 import { CopyTurnButton } from "../CopyTurnButton";
 import { formatClockTime, formatElapsed, formatWorkingDuration } from "./transcriptClock";

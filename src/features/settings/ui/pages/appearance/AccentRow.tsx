@@ -1,12 +1,6 @@
 import { useTranslation } from "../../../../../shared/i18n/useTranslation";
-import {
-  useRef,
-  useState,
-} from "react";
-import {
-  ColorPickerPopover,
-  ColorSwatchRow,
-} from "../../../../../shared/ui/ColorPickerPopover";
+import { useRef, useState } from "react";
+import { ColorPickerPopover, ColorSwatchRow } from "../../../../../shared/ui/ColorPickerPopover";
 import { Popover } from "../../../../../shared/ui/Popover";
 import {
   ACCENT_COLOR_DEFAULT,

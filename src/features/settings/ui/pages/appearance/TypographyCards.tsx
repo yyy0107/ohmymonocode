@@ -1,9 +1,6 @@
 import { SearchableSelect } from "../../../../../shared/ui/SearchableSelect";
 import { useTranslation } from "../../../../../shared/i18n/useTranslation";
-import {
-  useEffect,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 import { Input } from "../../../../../shared/ui/forms/Input";
 import {
   CODE_FONT_PRESETS,

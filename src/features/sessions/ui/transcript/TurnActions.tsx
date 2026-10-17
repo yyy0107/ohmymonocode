@@ -1,14 +1,6 @@
 import { useTranslation } from "../../../../shared/i18n/useTranslation";
-import {
-  Check,
-  FilePlusCorner,
-  Pencil,
-} from "../../../../shared/ui/icons";
-import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { Check, FilePlusCorner, Pencil } from "../../../../shared/ui/icons";
+import { useEffect, useRef, useState } from "react";
 import { playCue } from "../../../settings/model/sounds";
 
 

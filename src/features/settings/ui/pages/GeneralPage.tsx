@@ -2,15 +2,8 @@ import { usePreferenceState } from "../../model/usePreferenceState";
 import { formatBuildVersion } from "../../../../shared/lib/buildVersion";
 import { useTranslation } from "../../../../shared/i18n/useTranslation";
 import { setUiLanguage, type UiLanguage } from "../../../../shared/i18n/language";
-import {
-  ArrowDownCircle,
-  Loader,
-  RefreshCw,
-} from "../../../../shared/ui/icons";
-import {
-  useEffect,
-  useState,
-} from "react";
+import { ArrowDownCircle, Loader, RefreshCw } from "../../../../shared/ui/icons";
+import { useEffect, useState } from "react";
 import { Button } from "../../../../shared/ui/forms/Button";
 import { IS_LINUX, IS_MAC, IS_WIN } from "../../../../platform/tauri/platform";
 import {
@@ -31,9 +24,7 @@ import {
 } from "../../model/settings";
 import { loadSoundsEnabled, saveSoundsEnabled } from "../../model/sounds";
 import { setQuickComposerShortcut } from "../../../quick-composer/model/quickComposer";
-import {
-  quickComposerShortcutLabel,
-} from "../../../quick-composer/model/quickComposerShortcut";
+import { quickComposerShortcutLabel } from "../../../quick-composer/model/quickComposerShortcut";
 import {
   cachedNotificationPermission,
   loadNotificationsEnabled,

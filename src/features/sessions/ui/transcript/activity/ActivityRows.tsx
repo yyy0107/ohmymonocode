@@ -1,29 +1,17 @@
 import { DisclosureChevron } from "../../../../../shared/ui/DisclosureChevron";
 import { useTranslation } from "../../../../../shared/i18n/useTranslation";
 import { localizeChildExitError } from "../../../../../integrations/harness/core/childErrors";
-import {
-  CircleAlert,
-} from "../../../../../shared/ui/icons";
-import {
-  useState,
-} from "react";
+import { CircleAlert } from "../../../../../shared/ui/icons";
+import { useState } from "react";
 import { localizeOrchestrationMessage } from "../../../../orchestration/ui/orchestrationMessages";
 import { AnimatedCollapse } from "../../../../../shared/ui/AnimatedCollapse";
 import type { ApprovalDecision } from "../../../../../integrations/harness";
 import { ToolRow } from "../tools/ToolRow";
-import {
-  useLivePhaseScroll,
-} from "../useLivePhaseScroll";
-import {
-  type Block,
-} from "../../../model/session";
+import { useLivePhaseScroll } from "../useLivePhaseScroll";
+import { type Block } from "../../../model/session";
 import { AgentMarkdown } from "../../AgentMarkdown";
-import {
-  proseSummary,
-} from "../../../model/transcriptActivity";
-import {
-  monoCodeToolCall,
-} from "../../../model/monocodeToolCall";
+import { proseSummary } from "../../../model/transcriptActivity";
+import { monoCodeToolCall } from "../../../model/monocodeToolCall";
 import { INTERJECTION_BODY, interjectionChrome } from "../Dividers";
 import { ActivityPhaseIcon } from "./ActivityPhaseIcon";
 import { formatElapsed, useElapsedFrom } from "../transcriptClock";

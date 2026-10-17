@@ -8,14 +8,7 @@ import {
   Pencil,
   RefreshCw,
 } from "../../../../../shared/ui/icons";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { HarnessIcon } from "../../../../sessions/ui/HarnessIcon";
 import { Popover } from "../../../../../shared/ui/Popover";
 import { Button } from "../../../../../shared/ui/forms/Button";
@@ -47,16 +40,9 @@ import {
   parseOpenCodeVersion,
 } from "../../../../../integrations/harness/providers/opencode/opencodeProtocol";
 import { refreshHarnessCatalogs } from "../../../../../integrations/harness/core/registry";
-import {
-  hasFreshCatalog,
-  modelsFor,
-  resolveModel,
-} from "../../../../sessions/model/models";
+import { hasFreshCatalog, modelsFor, resolveModel } from "../../../../sessions/model/models";
 import { revealPath } from "../../../../../platform/tauri/fs";
-import {
-  HARNESS_TITLE,
-  type HarnessId,
-} from "../../../../sessions/model/session";
+import { HARNESS_TITLE, type HarnessId } from "../../../../sessions/model/session";
 import { Row, Toggle } from "../../settingsLayout";
 
 

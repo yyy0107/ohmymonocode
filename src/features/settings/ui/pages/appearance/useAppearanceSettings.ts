@@ -1,12 +1,7 @@
 import { activePreferenceStore } from "../../../model/sharedPreferences";
 import { uploadPreferenceBackground } from "../../../model/preferenceAssets";
 import { usePreferenceState } from "../../../model/usePreferenceState";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   activeScheme,
   activeScope,

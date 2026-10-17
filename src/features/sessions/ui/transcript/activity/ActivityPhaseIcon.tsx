@@ -7,9 +7,7 @@ import {
   Terminal,
   Wrench,
 } from "../../../../../shared/ui/icons";
-import {
-  type ActivityPhaseKind,
-} from "../../../model/transcriptActivity";
+import { type ActivityPhaseKind } from "../../../model/transcriptActivity";
 
 
 

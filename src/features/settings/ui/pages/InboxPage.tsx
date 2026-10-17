@@ -1,15 +1,16 @@
 import { useTranslation } from "../../../../shared/i18n/useTranslation";
-import {
-  useContext,
-} from "react";
+import { useContext } from "react";
 import { JiraSettings } from "../JiraSettings";
 import { InboxProviderMark } from "../../../inbox/ui/InboxProviderMark";
-import {
-  type RecentProject,
-} from "../../../projects/model/recents";
+import { type RecentProject } from "../../../projects/model/recents";
 import { ProjectNotificationSettings } from "../../../notifications/ui/ProjectNotificationSettings";
 import { Group, RevealedSetting, settingDomId } from "../settingsLayout";
-import { AzureDevOpsSettings, GithubSettings, GitlabSettings, LinearSettings } from "./InboxIntegrationSettings";
+import {
+  AzureDevOpsSettings,
+  GithubSettings,
+  GitlabSettings,
+  LinearSettings,
+} from "./InboxIntegrationSettings";
 
 
 

@@ -2,9 +2,7 @@ import { animate, motionValue, type AnimationPlaybackControlsWithThen } from "mo
 import { msgTransition, springs } from "../../../../shared/motion/tokens";
 import { syncLiveFooterClip } from "../liveFooterClip";
 import { reducedMotionQuery } from "../../../../shared/lib/reducedMotion";
-import {
-  type Block,
-} from "../../model/session";
+import { type Block } from "../../model/session";
 import { slidePromptIn, type PromptSlide } from "../promptLaunch";
 
 

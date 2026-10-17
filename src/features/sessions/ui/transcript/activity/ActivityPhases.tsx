@@ -4,9 +4,7 @@ import { duration, msgTransition, immediateTransition } from "../../../../../sha
 import { useMotionPreference } from "../../../../../shared/motion/useMotionPreference";
 import { agentTranscript } from "../../../model/agentTranscript";
 import { useTranslation } from "../../../../../shared/i18n/useTranslation";
-import {
-  ChevronRight,
-} from "../../../../../shared/ui/icons";
+import { ChevronRight } from "../../../../../shared/ui/icons";
 import {
   memo,
   useContext,
@@ -18,18 +16,12 @@ import {
   type ReactNode,
 } from "react";
 import { AnimatedCollapse } from "../../../../../shared/ui/AnimatedCollapse";
-import {
-  useSurfaceVisibility,
-} from "../../../../../shared/ui/SurfaceVisibility";
+import { useSurfaceVisibility } from "../../../../../shared/ui/SurfaceVisibility";
 import type { ApprovalDecision } from "../../../../../integrations/harness";
 import { TranscriptPlatformContext } from "../../TranscriptPlatform";
-import {
-  useLivePhaseScroll,
-} from "../useLivePhaseScroll";
+import { useLivePhaseScroll } from "../useLivePhaseScroll";
 import { Shimmer } from "../../../../../shared/ui/Shimmer";
-import {
-  type Block,
-} from "../../../model/session";
+import { type Block } from "../../../model/session";
 import { AgentMarkdown } from "../../AgentMarkdown";
 import {
   activityPhaseTitle,
@@ -46,13 +38,17 @@ import {
   workDiffStats,
   type ActivityPhase,
 } from "../../../model/transcriptActivity";
-import {
-  monoCodeWorkSummary,
-} from "../../../model/monocodeToolCall";
+import { monoCodeWorkSummary } from "../../../model/monocodeToolCall";
 import { ActivityPhaseIcon } from "./ActivityPhaseIcon";
 import { MonoCodeMark } from "../ToolCall";
 import { SubagentMascot, subagentStatusLine } from "./SubagentMascot";
-import { ActivityInterjectionRow, ActivityNoteRow, ActivityStatusRow, ActivityThinkingRow, ActivityToolRow } from "./ActivityRows";
+import {
+  ActivityInterjectionRow,
+  ActivityNoteRow,
+  ActivityStatusRow,
+  ActivityThinkingRow,
+  ActivityToolRow,
+} from "./ActivityRows";
 
 
 /*

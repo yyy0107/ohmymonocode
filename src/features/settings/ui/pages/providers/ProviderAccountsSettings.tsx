@@ -2,28 +2,14 @@ import { PresenceBoundary } from "../../../../../shared/ui/PresenceBoundary";
 import { AnimatedCollapse } from "../../../../../shared/ui/AnimatedCollapse";
 import { useTranslation } from "../../../../../shared/i18n/useTranslation";
 import { ask } from "@tauri-apps/plugin-dialog";
-import {
-  Loader,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Trash2,
-} from "../../../../../shared/ui/icons";
+import { Loader, MoreHorizontal, Pencil, Plus, Trash2 } from "../../../../../shared/ui/icons";
 import { withStatusToast } from "../../../../../shared/ui/StatusToast";
-import {
-  Fragment,
-  useEffect,
-  useRef,
-  useState,
-  type FormEvent,
-} from "react";
+import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import { HarnessIcon } from "../../../../sessions/ui/HarnessIcon";
 import { MenuHover } from "../../../../../shared/ui/MenuHover";
 import { Button } from "../../../../../shared/ui/forms/Button";
 import { loginHarness } from "../../../../../integrations/harness/core/auth";
-import {
-  HARNESS_TITLE,
-} from "../../../../sessions/model/session";
+import { HARNESS_TITLE } from "../../../../sessions/model/session";
 import {
   providerAccounts,
   sharedProviderAccountId,
@@ -61,10 +47,7 @@ import {
   meterWindows,
   UsageMeter,
 } from "../../../../providers/ui/ProviderAccountUsage";
-import {
-  ExplorerMenu,
-  type ExplorerMenuItem,
-} from "../../../../connections/files/ui/ExplorerMenu";
+import { ExplorerMenu, type ExplorerMenuItem } from "../../../../connections/files/ui/ExplorerMenu";
 import { useSurfaceVisibility } from "../../../../../shared/ui/SurfaceVisibility";
 import { Group } from "../../settingsLayout";
 
