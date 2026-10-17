@@ -7,6 +7,7 @@ import {
   FilePlus,
   FolderPlus,
   FoldVertical,
+  LoaderCircle,
   Search,
 } from "../../../../shared/ui/icons";
 import {
@@ -304,6 +305,7 @@ export const FileTree = memo(function FileTree({
   const lockOverscroll = useLockOverscroll<HTMLDivElement>();
   const name = rootLabel?.trim() || basename(cwd);
   const rootOpen = (compact && !navigationOnly) || expanded.has(cwd);
+  const rootLoading = rootOpen && children === null && !error;
 
   useEffect(() => {
     const root = rootRef.current;
@@ -1055,6 +1057,7 @@ export const FileTree = memo(function FileTree({
         aria-level={navigationOnly ? 1 : undefined}
         aria-selected={navigationOnly ? selectedPath === cwd : undefined}
         aria-expanded={rootOpen}
+        aria-busy={rootLoading || undefined}
         title={cwd}
         onClick={() => {
           onSelect(cwd);
@@ -1074,9 +1077,11 @@ export const FileTree = memo(function FileTree({
         }`}
       >
         <span className="grid size-4 shrink-0 place-items-center text-content/50">
-          <DisclosureChevron expanded={rootOpen}
-            className="size-3.5"
-          />
+          {rootLoading ? (
+            <LoaderCircle className="size-3.5 motion-safe:animate-spin" aria-hidden="true" />
+          ) : (
+            <DisclosureChevron expanded={rootOpen} className="size-3.5" />
+          )}
         </span>
         <span className={navigationOnly ? "min-w-0 truncate text-ui-base text-content" : "min-w-0 truncate text-[11px] font-semibold tracking-[0.08em] text-content/50 uppercase"}>
           {name}
@@ -1167,15 +1172,20 @@ export const FileTree = memo(function FileTree({
               {opError}
             </p>
           ) : null}
-          <div role="tree" aria-label={uiT("{value0} files", { value0: String(name) })}>
+          <div className="relative" role="tree" aria-busy={rootLoading || undefined} aria-label={uiT("{value0} files", { value0: String(name) })}>
+            {compact && !navigationOnly && rootLoading ? (
+              <span role="status" className="absolute left-2 top-1 text-content/50">
+                <LoaderCircle className="size-3.5 motion-safe:animate-spin" aria-hidden="true" />
+                <span className="sr-only">{uiT("Loading folders…")}</span>
+              </span>
+            ) : null}
             {navigationOnly ? rootRow : null}
-            <AnimatedCollapse expanded={rootOpen}>
+            <AnimatedCollapse expanded={rootOpen && children !== null}>
               <div role={navigationOnly ? "group" : undefined}>
                 <TreeChildren
                   parent={cwd}
                   depth={navigationOnly ? 1 : 0}
                   entries={children}
-                  loading={children === null && !error}
                   error={error}
                 />
               </div>
@@ -1234,13 +1244,11 @@ function TreeChildren({
   parent,
   depth,
   entries,
-  loading,
   error,
 }: {
   parent: string;
   depth: number;
   entries: FsEntry[] | null;
-  loading: boolean;
   error: string | null;
 }) {
   const ctx = useTree();
@@ -1272,11 +1280,6 @@ function TreeChildren({
         </p>
       ) : null}
       {show && ctx.creating?.isDir ? row : null}
-      {loading && !error ? (
-        <p className="pr-2 text-[12px] text-content/50" style={pad}>
-          …
-        </p>
-      ) : null}
       {folders.map((child) => (
         <TreeNode key={child.path} entry={child} depth={depth} />
       ))}
@@ -1311,6 +1314,7 @@ function TreeNode({ entry, depth }: { entry: FsEntry; depth: number }) {
     entry.isDir ? peekDir(entry.path) : null,
   );
   const [error, setError] = useState<string | null>(null);
+  const loading = entry.isDir && open && children === null && !error;
   const selected = selectedPath === entry.path;
   const editing = renaming === entry.path;
   const gitStatus = entry.isDir
@@ -1376,6 +1380,7 @@ function TreeNode({ entry, depth }: { entry: FsEntry; depth: number }) {
           aria-selected={selected}
           aria-level={depth + 1}
           aria-expanded={entry.isDir ? open : undefined}
+          aria-busy={loading || undefined}
           onClick={onClick}
           onDoubleClick={() => {
             if (!entry.isDir) {
@@ -1396,7 +1401,9 @@ function TreeNode({ entry, depth }: { entry: FsEntry; depth: number }) {
           }`}
         >
           <span className="grid size-4 shrink-0 place-items-center text-content/50">
-            {entry.isDir ? (
+            {loading ? (
+              <LoaderCircle className="size-3.5 motion-safe:animate-spin" aria-hidden="true" />
+            ) : entry.isDir ? (
               <DisclosureChevron expanded={open}
                 className="size-3.5"
               />
@@ -1418,12 +1425,11 @@ function TreeNode({ entry, depth }: { entry: FsEntry; depth: number }) {
         </button>
       )}
       {entry.isDir ? (
-        <AnimatedCollapse expanded={open}>
+        <AnimatedCollapse expanded={open && children !== null}>
           <TreeChildren
             parent={entry.path}
             depth={depth + 1}
             entries={children}
-            loading={children === null && !error}
             error={error}
           />
         </AnimatedCollapse>

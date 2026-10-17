@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { saveShowExcludedFiles } from "../../../settings/model/appearance";
 import {
   listCachedDir,
+  forgetDir,
   notifyDirsChanged,
   refreshDir,
   saveExpanded,
@@ -20,7 +21,7 @@ import { FileTree } from "./FileTree";
 const { iconRender, directories, clipboardFiles, copied, dragDrop } =
   vi.hoisted(() => ({
     iconRender: vi.fn(),
-    directories: new Map<string, FsEntry[]>(),
+    directories: new Map<string, FsEntry[] | Promise<FsEntry[]>>(),
     clipboardFiles: [] as string[],
     copied: [] as { from: string; destParent: string }[],
     dragDrop: {
@@ -239,6 +240,78 @@ describe("FileTree render isolation", () => {
       expect(row("docs/nested.ts")).toBeNull();
     },
   );
+});
+
+describe("FileTree asynchronous expansion", () => {
+  it.each(["root", "folder"])("waits for %s contents before starting the expansion", async (target) => {
+    vi.useFakeTimers();
+    let resolve!: (entries: FsEntry[]) => void;
+    const pending = new Promise<FsEntry[]>((done) => { resolve = done; });
+    const path = target === "root" ? cwd : `${cwd}/docs`;
+    if (target === "root") {
+      forgetDir(cwd);
+    } else {
+      directories.set(cwd, [folder("docs")]);
+      await refreshDir(cwd);
+    }
+    directories.set(path, pending);
+    await act(async () => render());
+    const toggle = target === "root"
+      ? container.querySelector<HTMLButtonElement>("[data-explorer-root]")!
+      : row("docs");
+    if (target === "folder") await act(async () => toggle.click());
+    const group = target === "root"
+      ? container.querySelector('[role="tree"]')!
+      : toggle.parentElement!;
+
+    expect(toggle.getAttribute("aria-busy")).toBe("true");
+    await act(async () => vi.advanceTimersByTimeAsync(400));
+    expect(group.querySelector(".zen-fold-item")).toBeNull();
+
+    await act(async () => resolve([
+      { name: "loaded.ts", path: `${path}/loaded.ts`, isDir: false },
+    ]));
+    expect(toggle.hasAttribute("aria-busy")).toBe(false);
+    expect(group.querySelector('[data-fold-state="opening"]')).not.toBeNull();
+    expect(row(target === "root" ? "loaded.ts" : "docs/loaded.ts")).not.toBeNull();
+    await act(async () => vi.advanceTimersByTimeAsync(400));
+    expect(group.querySelector(".zen-fold-item")?.getAttribute("data-fold-state")).toBe("open");
+  });
+
+  it("does not reopen after a pending load is cancelled, and reuses the loaded cache", async () => {
+    let resolve!: (entries: FsEntry[]) => void;
+    directories.set(cwd, [folder("docs")]);
+    directories.set(`${cwd}/docs`, new Promise((done) => { resolve = done; }));
+    await refreshDir(cwd);
+    await act(async () => render());
+    const toggle = row("docs");
+    await act(async () => toggle.click());
+    expect(toggle.getAttribute("aria-busy")).toBe("true");
+    await act(async () => toggle.click());
+    await act(async () => resolve([
+      { name: "loaded.ts", path: `${cwd}/docs/loaded.ts`, isDir: false },
+    ]));
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.hasAttribute("aria-busy")).toBe(false);
+    expect(row("docs/loaded.ts")).toBeNull();
+
+    await act(async () => toggle.click());
+    expect(row("docs/loaded.ts")).not.toBeNull();
+    expect(toggle.hasAttribute("aria-busy")).toBe(false);
+  });
+
+  it("shows directory errors and clears the loading indicator", async () => {
+    let reject!: (reason: Error) => void;
+    directories.set(cwd, [folder("docs")]);
+    directories.set(`${cwd}/docs`, new Promise((_resolve, fail) => { reject = fail; }));
+    await refreshDir(cwd);
+    await act(async () => render());
+    const toggle = row("docs");
+    await act(async () => toggle.click());
+    await act(async () => reject(new Error("Cannot read directory")));
+    expect(toggle.hasAttribute("aria-busy")).toBe(false);
+    expect(toggle.parentElement?.textContent).toContain("Cannot read directory");
+  });
 });
 
 describe("FileTree excluded files", () => {
