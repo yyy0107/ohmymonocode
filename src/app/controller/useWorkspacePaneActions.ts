@@ -1,3 +1,4 @@
+import { supportsProjectTerminal } from "../../features/terminal/model/terminalAvailability";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useCallback, useRef } from "react";
 import {
@@ -13,7 +14,6 @@ import {
   type ProjectTerminalDock as ProjectTerminal,
 } from "../../features/projects/model/projectTerminal";
 import {
-  isLocalProject,
   sameProjectPath,
 } from "../../features/projects/model/recents";
 import type { RuntimeMode } from "../../features/sessions/model/session";
@@ -188,7 +188,7 @@ export function useWorkspacePaneActions({
   const onMovePaneToDock = useCallback(
     (paneId: string) => {
       const projectPath = projectCwdRef.current;
-      if (!isLocalProject(projectPath)) return;
+      if (!supportsProjectTerminal(projectPath)) return;
       const tab = tabsRef.current.find((entry) =>
         (entry.terminalPanes ?? []).some((pane) => pane.id === paneId),
       );

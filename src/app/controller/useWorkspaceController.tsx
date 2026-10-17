@@ -1,3 +1,4 @@
+import { supportsProjectTerminal } from "../../features/terminal/model/terminalAvailability";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { message } from "@tauri-apps/plugin-dialog";
@@ -197,7 +198,6 @@ import {
 import {
   archiveProject,
   forgetProject,
-  isLocalProject,
   isRemoteProjectPath,
   lastProjectPath,
   loadRecents,
@@ -4017,7 +4017,7 @@ export function useWorkspaceController({
         void onArchiveHistorySession(sessionId, true);
       },
       splitRight: onSplitSession,
-      terminalAvailable: isLocalProject(projectCwd),
+      terminalAvailable: supportsProjectTerminal(projectCwd),
       terminalOpen: dockVisible,
       toggleTerminal: onToggleProjectTerminal,
       filesSessionId: activeTab?.editorPanes.some((pane) => pane.files.some((file) => file.explorer))

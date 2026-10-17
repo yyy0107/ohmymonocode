@@ -1,3 +1,4 @@
+import { supportsProjectTerminal } from "../../features/terminal/model/terminalAvailability";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useCallback } from "react";
 import { isBlankSession } from "../../features/projects/model/projectReturn";
@@ -17,7 +18,6 @@ import {
   withDockSize,
   type DockSide,
 } from "../../features/projects/model/projectTerminal";
-import { isLocalProject } from "../../features/projects/model/recents";
 import type { Session } from "../../features/sessions/model/session";
 import {
   confirmCloseTerminal,
@@ -81,7 +81,7 @@ export function useProjectTerminalActions({
     (cwd: string) => {
       const workdir = cwd || projectCwdRef.current;
       const projectPath = projectCwdRef.current;
-      if (!isLocalProject(projectPath)) return false;
+      if (!supportsProjectTerminal(projectPath)) return false;
       setProjectTerminals((prev) => {
         const existing = findProjectTerminal(prev, projectPath);
         const file = newTerminalFile(
@@ -112,7 +112,7 @@ export function useProjectTerminalActions({
   const onOpenTerminal = useCallback(
     (cwd: string, asWorkspaceTab = false, occupySessionId?: string) => {
       const workdir = cwd || terminalCwd;
-      if (!isLocalProject(projectCwdRef.current) || !isLocalProject(workdir))
+      if (!supportsProjectTerminal(projectCwdRef.current) || !supportsProjectTerminal(workdir))
         return;
       if (openProjectTerminal(workdir)) return;
 
@@ -168,7 +168,7 @@ export function useProjectTerminalActions({
 
 
   const onToggleProjectTerminal = useCallback(() => {
-    if (!isLocalProject(projectCwd)) return;
+    if (!supportsProjectTerminal(projectCwd)) return;
     const dock = findProjectTerminal(projectTerminalsRef.current, projectCwd);
     if (!dock) {
       openProjectTerminal(terminalCwd);
