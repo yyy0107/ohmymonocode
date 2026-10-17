@@ -83,6 +83,7 @@ html[data-skin] {
   --desktop-checkbox-size: 16px;
   --desktop-checkbox-radius: 4px;
   --desktop-settings-nav: 192px;
+  --desktop-settings-toolbar-height: 56px;
   --desktop-sidebar-width: 256px;
   --desktop-navigation-row-height: 26px;
   --desktop-titlebar-action-width: 34px;

@@ -74,6 +74,7 @@ html[data-skin] .app-view-dialog [data-app-settings] > .desktop-toolbar {
   inset: 12px 12px auto;
   z-index: 3;
   height: 32px;
+  min-height: 32px;
   border: 0;
   pointer-events: auto;
 }
@@ -139,7 +140,11 @@ html[data-skin] [data-app-settings] .settings-panel {
   box-shadow: none;
   background: transparent;
 }
-html[data-skin] [data-settings-content] { max-width: none; padding: 60px 24px 40px; }
+/* Reserve the toolbar outside the scrolling viewport, including Skills. */
+html[data-skin] .app-view-dialog [data-app-settings] .settings-panel {
+  padding-top: var(--desktop-settings-toolbar-height);
+}
+html[data-skin] [data-settings-content] { max-width: none; padding: 24px 24px 40px; }
 html[data-skin] [data-settings-title] { font-size: 15px; line-height: 20px; font-weight: var(--font-weight-semibold); }
 html[data-skin] [data-settings-content] [data-settings-page] > header { padding-bottom: 24px; }
 html[data-skin] [data-settings-group] { padding-top: 24px; }
@@ -242,7 +247,7 @@ html[data-skin] [data-app-automations] { container: automations / inline-size; }
   html[data-skin] .settings-nav-item { padding-inline: 6px; gap: 8px; }
   html[data-skin] .app-view-dialog [data-app-settings] > .desktop-toolbar > div:last-child > .relative { width: 136px; left: -4px; }
   html[data-skin] .app-view-dialog [data-app-settings] > .desktop-toolbar > div:last-child > button { max-width: calc(100% - 192px); overflow: hidden; white-space: nowrap; }
-  html[data-skin] [data-settings-content] { padding: 60px 16px 24px; }
+  html[data-skin] [data-settings-content] { padding: 24px 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
   html[data-skin] .settings-nav-item { transition: none; }
