@@ -3,6 +3,18 @@ svg[data-ui-icon]:not([data-ui-icon-artwork]) {
   stroke-width: calc(var(--ui-icon-stroke-width, 2) + 0.25);
 }
 
+/* Keep disclosure glyphs quieter without changing slots, hit targets or rotation. */
+svg:is(
+  [data-ui-icon="ChevronDown"],
+  [data-ui-icon="ChevronLeft"],
+  [data-ui-icon="ChevronRight"],
+  [data-ui-icon="ChevronUp"],
+  [data-ui-icon="FoldVertical"],
+  [data-ui-icon="UnfoldVertical"]
+) {
+  scale: 0.875;
+}
+
 /* Filled outlines need a small extra contour instead of replacing their fill. */
 svg[data-ui-icon-artwork] :is(path, rect, circle, ellipse, polygon, polyline):not([stroke-width]) {
   stroke: currentColor;

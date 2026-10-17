@@ -609,9 +609,6 @@ html[data-reduced-motion="on"] [data-ui="navigation-icon"] svg {
   transition: none !important;
 }
 
-html[data-skin] [data-desktop-sidebar] {
-  padding-inline: 8px;
-}
 html[data-skin] [data-desktop-sidebar-mode] {
   margin-right: 1.5px;
 }
