@@ -162,6 +162,41 @@ html[data-skin] .settings-row:not([data-stacked]) { flex-wrap: wrap; }
 html[data-skin] .settings-row-label { font-size: 14px; line-height: 20px; font-weight: var(--font-weight-normal); }
 html[data-skin] .settings-row-description { margin-top: 5px; color: var(--color-ink-tertiary); font-size: 14px; line-height: 20px; }
 html[data-skin] .settings-row-control { max-width: 100%; }
+.desktop-skin-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(128px, 100%), 1fr));
+  gap: 12px;
+}
+.desktop-skin-option {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: var(--desktop-radius-card);
+  cursor: pointer;
+}
+.desktop-skin-option:has(:focus-visible) { outline-width: 2px; outline-style: solid; outline-offset: 2px; }
+.desktop-skin-preview {
+  display: block;
+  height: 100px;
+  overflow: hidden;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 6px;
+}
+.desktop-skin-preview-auto { display: grid; grid-template-columns: 1fr 1fr; height: 100%; }
+.desktop-skin-scene { display: flex; height: 100%; overflow: hidden; }
+.desktop-skin-scene-sidebar { display: flex; width: 22%; flex-shrink: 0; flex-direction: column; gap: 5px; padding: 9px 4px; }
+.desktop-skin-scene-sidebar > span { height: 4px; border-radius: 2px; }
+.desktop-skin-scene-thread { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 7px; padding: 10px 6px 6px; }
+.desktop-skin-scene-message { height: 7px; width: 75%; border-radius: 4px; }
+.desktop-skin-scene-user { height: 10px; width: 65%; align-self: flex-end; border-radius: 4px; }
+.desktop-skin-scene-composer { display: flex; height: 18px; margin-top: auto; align-items: center; justify-content: flex-end; padding: 3px; border-width: 1px; border-style: solid; border-radius: 6px; }
+.desktop-skin-scene-composer > span { width: 10px; height: 10px; border-radius: 50%; }
+.desktop-skin-option-label { display: flex; align-items: center; gap: 6px; font-size: var(--text-body-sm); line-height: var(--text-body-sm--line-height); }
 html[data-skin] [data-settings-segmented] {
   isolation: isolate;
   position: relative;

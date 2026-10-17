@@ -118,12 +118,19 @@ import {
   UI_SCALE_DEFAULT,
 } from "../../../model/uiScale";
 import { IS_LINUX } from "../../../../../platform/tauri/platform";
+import {
+  DESKTOP_SKIN_DEFAULT,
+  loadDesktopSkin,
+  normalizeDesktopSkin,
+  saveDesktopSkin,
+} from "../../../../../shared/theme/desktopSkin";
 
 
 
 export type AppearanceSettings = ReturnType<typeof useAppearanceSettings>;
 
 export function useAppearanceSettings() {
+  const [desktopSkin, setDesktopSkin] = usePreferenceState(loadDesktopSkin);
   const [themePreference, setThemePreference] =
     usePreferenceState<ThemePreference>(loadThemePreference);
   const [accentColor, setAccentColor] = usePreferenceState(loadAccentColor);
@@ -229,6 +236,13 @@ export function useAppearanceSettings() {
     applyThemePreference(next);
     saveThemePreference(next);
     setThemePreference(next);
+  }, []);
+
+  const onDesktopSkin = useCallback((value: string) => {
+    const next = normalizeDesktopSkin(value);
+    applyThemePreference(loadThemePreference(), next);
+    saveDesktopSkin(next);
+    setDesktopSkin(next);
   }, []);
 
   const onAccentColor = useCallback((value: string | null) => {
@@ -421,6 +435,7 @@ export function useAppearanceSettings() {
     });
     applyProfile(shared);
     setProfile(shared);
+    onDesktopSkin(DESKTOP_SKIN_DEFAULT);
     onThemePreference(THEME_PREFERENCE_DEFAULT);
     onAccentColor(ACCENT_COLOR_DEFAULT);
     onOpacity(Math.round(SIDEBAR_OPACITY_DEFAULT * 100));
@@ -461,6 +476,7 @@ export function useAppearanceSettings() {
     onAccentColor,
     onShowExcludedFiles,
     onThemePreference,
+    onDesktopSkin,
     onOpacity,
     onPopoverOpacity,
     onWindowOpacity,
@@ -471,6 +487,8 @@ export function useAppearanceSettings() {
   ]);
 
   return {
+    desktopSkin,
+    onDesktopSkin,
     themePreference,
     accentColor: separateSchemes ? profile.accentColor : accentColor,
     opacity,

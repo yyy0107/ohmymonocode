@@ -36,6 +36,7 @@ import { type AppearanceSettings } from "./useAppearanceSettings";
 import { Group, LiveSlider, Row, Segmented, Toggle } from "../../settingsLayout";
 import { AccentRow } from "./AccentRow";
 import { TypographyCards } from "./TypographyCards";
+import { DesktopSkinPicker } from "./DesktopSkinPicker";
 
 
 
@@ -67,21 +68,36 @@ export function AppearancePage({ appearance }: { appearance: AppearanceSettings 
         }
       >
         <Row
-          id="theme"
-          label={uiT("Theme")}
-          description={uiT("System follows the OS appearance.")}
+          id="desktop-skin"
+          label={uiT("Skin")}
+          description={uiT("Choose a palette, or follow color mode with Automatic.")}
+          stacked
         >
-          <Segmented
-            label={uiT("Theme")}
-            value={appearance.themePreference}
-            options={[
-              { value: "system", label: uiT("System") },
-              { value: "dark", label: uiT("Dark") },
-              { value: "light", label: uiT("Light") },
-            ]}
-            onChange={appearance.onThemePreference}
+          <DesktopSkinPicker
+            value={appearance.desktopSkin}
+            onChange={appearance.onDesktopSkin}
           />
         </Row>
+        <AnimatedCollapse
+          expanded={appearance.desktopSkin === "auto" || appearance.desktopSkin === "classic"}
+        >
+          <Row
+            id="theme"
+            label={uiT("Theme")}
+            description={uiT("System follows the OS appearance.")}
+          >
+            <Segmented
+              label={uiT("Theme")}
+              value={appearance.themePreference}
+              options={[
+                { value: "system", label: uiT("System") },
+                { value: "dark", label: uiT("Dark") },
+                { value: "light", label: uiT("Light") },
+              ]}
+              onChange={appearance.onThemePreference}
+            />
+          </Row>
+        </AnimatedCollapse>
           <Row
             id="compact-sidebar"
             label={uiT("Compact sidebar")}

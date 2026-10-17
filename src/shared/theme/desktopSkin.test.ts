@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   DESKTOP_SKIN_DEFAULT,
+  DESKTOP_SKIN_IDS,
   DESKTOP_SKIN_KEY,
   applyDesktopSkin,
   loadDesktopSkin,
@@ -23,11 +24,14 @@ describe("desktop skin preference", () => {
     expect(normalizeDesktopSkin("classic")).toBe("classic");
   });
 
-  it("maps every legacy skin onto the new light/dark pair", () => {
+  it("uses the default pair for automatic mode and preserves named palettes", () => {
     expect(resolveDesktopSkin("auto", false)).toBe("midnight");
     expect(resolveDesktopSkin("auto", true)).toBe("daylight");
     expect(resolveDesktopSkin("classic", true)).toBe("daylight");
-    expect(resolveDesktopSkin("foundry", true)).toBe("midnight");
+    for (const skin of DESKTOP_SKIN_IDS) {
+      expect(resolveDesktopSkin(skin, true)).toBe(skin);
+      expect(resolveDesktopSkin(skin, false)).toBe(skin);
+    }
   });
 
   it("persists a named skin and ignores a broken store", () => {
@@ -72,7 +76,7 @@ describe("desktop skin preference", () => {
       },
     });
     expect(applyDesktopSkin("meadow")).toBe("light");
-    expect(dataset.skin).toBe("daylight");
+    expect(dataset.skin).toBe("meadow");
     expect(dataset.desktopVisual).toBe("claude-measured-v1");
     expect(classNames.has("theme-light")).toBe(true);
     expect(style.colorScheme).toBe("light");

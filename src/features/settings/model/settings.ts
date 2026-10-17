@@ -291,6 +291,12 @@ export const SETTINGS_INDEX: SettingsEntry[] = [
     keywords: "dark light system appearance mode",
   },
   {
+    id: "desktop-skin",
+    section: "appearance",
+    label: "Skin",
+    keywords: "palette theme automatic midnight foundry graphite dusk daylight atelier lagoon linen meadow 自动 午夜 铸铁 石墨 暮色 日光 画室 潟湖 亚麻 草地",
+  },
+  {
     id: "compact-sidebar",
     section: "appearance",
     label: "Compact sidebar",

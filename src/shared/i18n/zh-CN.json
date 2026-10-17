@@ -2298,6 +2298,7 @@
   "Remote session unavailable": "远程会话不可用",
   "{percent}% left ({used} / {window} used)": "剩余 {percent}%（已用 {used} / {window}）",
   "Skin": "皮肤",
+  "Choose a palette, or follow color mode with Automatic.": "选择一套配色，或选择“自动”以跟随颜色模式。",
   "Classic": "经典",
   "Automatic uses Midnight in dark mode and Daylight in light mode. A named skin replaces hue and lightness. Classic keeps the original tint.": "深色用午夜，浅色用日光。指定皮肤会替换色相和明度。经典保留原来的色调。",
   "This skin supplies the palette. Classic restores hue, saturation and dark-mode lightness.": "当前皮肤自带配色。切回经典后可再调色相、饱和度和深色明度。",

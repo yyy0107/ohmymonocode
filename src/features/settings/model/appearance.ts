@@ -17,7 +17,10 @@ import {
 import {
   applyDesktopSkin,
   DESKTOP_SKIN_INFO,
+  DESKTOP_SKIN_KEY,
   isDesktopSkinId,
+  loadDesktopSkin,
+  type DesktopSkinPreference,
 } from "../../../shared/theme/desktopSkin";
 
 const ACCENT_COLOR_KEY = "monocode.accentColor";
@@ -417,11 +420,14 @@ export function isLightScheme(): boolean {
   return document.documentElement.classList.contains("theme-light");
 }
 
-export function applyThemePreference(value: ThemePreference): ColorScheme {
+export function applyThemePreference(
+  value: ThemePreference,
+  skin: DesktopSkinPreference = loadDesktopSkin(),
+): ColorScheme {
   const next = resolveColorScheme(value);
   document.documentElement.classList.toggle("theme-light", next === "light");
-  // Desktop palette follows the resolved local mode; mobile owns its palette.
-  const scheme = applyDesktopSkin("auto") ?? next;
+  // Named desktop palettes own their scheme; mobile owns its palette.
+  const scheme = applyDesktopSkin(skin) ?? next;
   if (nativeGlassReady) syncNativeGlass(scheme);
   window.dispatchEvent(
     new CustomEvent<ColorScheme>(SCHEME_CHANGE_EVENT, { detail: scheme }),
@@ -529,7 +535,7 @@ export function watchSystemColorScheme() {
   if (!query) return;
   watchingSystemScheme = true;
   window.addEventListener("storage", (event) => {
-    if (isDesktopDocument() && (event.key === DESKTOP_SCHEME_KEY || event.key === null))
+    if (isDesktopDocument() && (event.key === DESKTOP_SCHEME_KEY || event.key === DESKTOP_SKIN_KEY || event.key === null))
       applyThemePreference(loadThemePreference());
   });
   query.addEventListener("change", () => {

@@ -4,7 +4,7 @@ export type DesktopThemePreference = "light" | "dark" | "system";
 export const DESKTOP_SCHEME_KEY = "monocode.desktopColorScheme";
 export const DESKTOP_APPEARANCE_BACKUP_KEY = "monocode.desktopAppearanceBackup.v1";
 
-/** These are migration inputs, not selectable palettes. Keep old values intact. */
+/** Scheme migration for stored named skins. Keep old values intact. */
 export const LEGACY_SKIN_SCHEMES: Record<string, "light" | "dark"> = {
   midnight: "dark", atelier: "light", foundry: "dark", lagoon: "light",
   graphite: "dark", linen: "light", dusk: "dark", daylight: "light", meadow: "light",

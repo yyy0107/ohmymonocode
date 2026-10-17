@@ -1016,6 +1016,45 @@ describe("settings pages", () => {
     document.documentElement.style.removeProperty("zoom");
   });
 
+  it("selects named desktop palettes and restores automatic color mode", async () => {
+    localStorage.setItem("monocode.desktopColorScheme", "system");
+    localStorage.setItem("monocode.mobile.skin", "linen");
+    localStorage.setItem("monocode.accentColor", "#8b5cf6");
+    await render("appearance");
+    const row = container.querySelector('[data-setting-id="desktop-skin"]')!;
+    const selectSkin = async (label: string) => {
+      const option = Array.from(row.querySelectorAll<HTMLLabelElement>('label'))
+        .find((node) => node.textContent === label)?.querySelector<HTMLInputElement>('input[type="radio"]');
+      expect(option).toBeTruthy();
+      await act(async () => option!.click());
+    };
+
+    await selectSkin("Foundry");
+    expect(localStorage.getItem("monocode.desktopSkin")).toBe("foundry");
+    expect(document.documentElement.dataset.skin).toBe("foundry");
+    expect(document.documentElement.classList.contains("theme-light")).toBe(false);
+    await selectSkin("Lagoon");
+    expect(document.documentElement.dataset.skin).toBe("lagoon");
+    expect(document.documentElement.classList.contains("theme-light")).toBe(true);
+    expect(row.querySelector<HTMLInputElement>('input[value="lagoon"]')!.checked).toBe(true);
+
+    await selectSkin("Automatic");
+    expect(localStorage.getItem("monocode.desktopSkin")).toBe("auto");
+    expect(localStorage.getItem("monocode.desktopColorScheme")).toBe("system");
+    expect(document.documentElement.dataset.skin).toBe(
+      window.matchMedia("(prefers-color-scheme: light)").matches ? "daylight" : "midnight",
+    );
+    expect(localStorage.getItem("monocode.mobile.skin")).toBe("linen");
+    expect(localStorage.getItem("monocode.accentColor")).toBe("#8b5cf6");
+
+    await selectSkin("Dusk");
+    const restore = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((button) => button.textContent === "Restore defaults")!;
+    await act(async () => restore.click());
+    expect(localStorage.getItem("monocode.desktopSkin")).toBe("auto");
+    expect(document.documentElement.dataset.skin).toBe("midnight");
+  });
+
   it("reports embedded navigation changes to its owner", async () => {
     await render("general");
     const keybindings = Array.from(

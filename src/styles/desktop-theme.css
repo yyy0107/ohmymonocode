@@ -44,12 +44,15 @@
   60% { opacity: 0.25; }
 }
 
-[data-skin="midnight"] {
+html[data-skin]:not(.theme-light) {
   /* Native scrollbar buttons cannot use CSS masks; keep their SVG ink here. */
   --scrollbar-arrow-up-idle: url("data:image/svg+xml,%3Csvg xmlns='http%3A//www.w3.org/2000/svg' viewBox='0 0 7 7'%3E%3Cpath d='M2.9 .5Q3.5 -.5 4.1 .5L6.85 5.7Q7.5 7 6 7H1Q-.5 7 .15 5.7Z' fill='%23f0efec' opacity='.15'/%3E%3C/svg%3E");
   --scrollbar-arrow-up-edge: url("data:image/svg+xml,%3Csvg xmlns='http%3A//www.w3.org/2000/svg' viewBox='0 0 7 7'%3E%3Cpath d='M2.9 .5Q3.5 -.5 4.1 .5L6.85 5.7Q7.5 7 6 7H1Q-.5 7 .15 5.7Z' fill='%23f0efec' opacity='.32'/%3E%3C/svg%3E");
   --scrollbar-arrow-down-idle: url("data:image/svg+xml,%3Csvg xmlns='http%3A//www.w3.org/2000/svg' viewBox='0 0 7 7'%3E%3Cpath d='M2.9 .5Q3.5 -.5 4.1 .5L6.85 5.7Q7.5 7 6 7H1Q-.5 7 .15 5.7Z' fill='%23f0efec' opacity='.15' transform='rotate%28180 3.5 3.5%29'/%3E%3C/svg%3E");
   --scrollbar-arrow-down-edge: url("data:image/svg+xml,%3Csvg xmlns='http%3A//www.w3.org/2000/svg' viewBox='0 0 7 7'%3E%3Cpath d='M2.9 .5Q3.5 -.5 4.1 .5L6.85 5.7Q7.5 7 6 7H1Q-.5 7 .15 5.7Z' fill='%23f0efec' opacity='.32' transform='rotate%28180 3.5 3.5%29'/%3E%3C/svg%3E");
+}
+
+[data-skin="midnight"] {
   --color-app: #242423;
   --color-panel: #20201e;
   --color-raised: #383733;
@@ -82,12 +85,15 @@
   --radius-xl: 12px;
 }
 
-[data-skin="daylight"] {
+html[data-skin].theme-light {
   /* Native scrollbar buttons cannot use CSS masks; keep their SVG ink here. */
   --scrollbar-arrow-up-idle: url("data:image/svg+xml,%3Csvg xmlns='http%3A//www.w3.org/2000/svg' viewBox='0 0 7 7'%3E%3Cpath d='M2.9 .5Q3.5 -.5 4.1 .5L6.85 5.7Q7.5 7 6 7H1Q-.5 7 .15 5.7Z' fill='%231f1e1d' opacity='.15'/%3E%3C/svg%3E");
   --scrollbar-arrow-up-edge: url("data:image/svg+xml,%3Csvg xmlns='http%3A//www.w3.org/2000/svg' viewBox='0 0 7 7'%3E%3Cpath d='M2.9 .5Q3.5 -.5 4.1 .5L6.85 5.7Q7.5 7 6 7H1Q-.5 7 .15 5.7Z' fill='%23141413' opacity='.32'/%3E%3C/svg%3E");
   --scrollbar-arrow-down-idle: url("data:image/svg+xml,%3Csvg xmlns='http%3A//www.w3.org/2000/svg' viewBox='0 0 7 7'%3E%3Cpath d='M2.9 .5Q3.5 -.5 4.1 .5L6.85 5.7Q7.5 7 6 7H1Q-.5 7 .15 5.7Z' fill='%231f1e1d' opacity='.15' transform='rotate%28180 3.5 3.5%29'/%3E%3C/svg%3E");
   --scrollbar-arrow-down-edge: url("data:image/svg+xml,%3Csvg xmlns='http%3A//www.w3.org/2000/svg' viewBox='0 0 7 7'%3E%3Cpath d='M2.9 .5Q3.5 -.5 4.1 .5L6.85 5.7Q7.5 7 6 7H1Q-.5 7 .15 5.7Z' fill='%23141413' opacity='.32' transform='rotate%28180 3.5 3.5%29'/%3E%3C/svg%3E");
+}
+
+[data-skin="daylight"] {
   --color-app: #f9f9f7;
   --color-panel: #faf9f5;
   --color-raised: #f0efec;
@@ -118,6 +124,225 @@
   --color-backdrop: #00000066;
   --radius-lg: 8px;
   --radius-xl: 12px;
+}
+
+/* Additional palettes match mobile/theme/skins.css (OpenMausBot, Apache-2.0).
+   Desktop geometry remains in desktop-tokens.css. */
+[data-skin="foundry"] {
+  --color-app: #100e0b;
+  --color-panel: #171410;
+  --color-raised: #262019;
+  --color-raised-hover: #322b21;
+  --color-card: #1e1a14;
+  --color-menu: #1e1a14;
+  --color-composer: #262019;
+  --color-composer-ring: transparent;
+  --color-inset: #0b0a08;
+  --color-control: #262019;
+  --color-hairline: #3d3529;
+  --color-ink: #f4efe4;
+  --color-ink-secondary: #b0a696;
+  --color-ink-tertiary: #9c9384;
+  --color-accent: #d99a3e;
+  --color-accent-border: #e8b25e;
+  --color-accent-text: #e0a44c;
+  --color-accent-ink: #1c150c;
+  --color-focus: #e0a44c;
+  --color-bubble-user: #2a2318;
+  --color-bubble-user-ink: #f4efe4;
+  --color-success: #57b078;
+  --color-success-ink: #1c150c;
+  --color-danger: #e0685e;
+  --color-danger-ink: #1c0d0b;
+  --color-warning: #dfa441;
+  --color-scrollbar: #ffffff33;
+  --color-backdrop: #00000080;
+}
+
+[data-skin="graphite"] {
+  --color-app: #111214;
+  --color-panel: #181a1d;
+  --color-raised: #2a2d32;
+  --color-raised-hover: #353941;
+  --color-card: #22252a;
+  --color-menu: #22252a;
+  --color-composer: #2a2d32;
+  --color-composer-ring: transparent;
+  --color-inset: #0d0e10;
+  --color-control: #2a2d32;
+  --color-hairline: #3b4048;
+  --color-ink: #f2f4f7;
+  --color-ink-secondary: #b3b8c2;
+  --color-ink-tertiary: #9fa4ad;
+  --color-accent: #4f75a2;
+  --color-accent-border: #698fbb;
+  --color-accent-text: #8fb4df;
+  --color-accent-ink: #ffffff;
+  --color-focus: #8fb4df;
+  --color-bubble-user: #30343a;
+  --color-bubble-user-ink: #f2f4f7;
+  --color-success: #63b58a;
+  --color-success-ink: #101a14;
+  --color-danger: #dd6b73;
+  --color-danger-ink: #1e0b0e;
+  --color-warning: #d3a150;
+  --color-scrollbar: #ffffff33;
+  --color-backdrop: #00000080;
+}
+
+[data-skin="dusk"] {
+  --color-app: #121014;
+  --color-panel: #19161c;
+  --color-raised: #2b2630;
+  --color-raised-hover: #37303d;
+  --color-card: #231f27;
+  --color-menu: #231f27;
+  --color-composer: #2b2630;
+  --color-composer-ring: transparent;
+  --color-inset: #0d0b0f;
+  --color-control: #2b2630;
+  --color-hairline: #403847;
+  --color-ink: #f4eff6;
+  --color-ink-secondary: #b9afbd;
+  --color-ink-tertiary: #a199a5;
+  --color-accent: #765683;
+  --color-accent-border: #9670a3;
+  --color-accent-text: #c49bd2;
+  --color-accent-ink: #ffffff;
+  --color-focus: #c49bd2;
+  --color-bubble-user: #332b38;
+  --color-bubble-user-ink: #f4eff6;
+  --color-success: #6fad83;
+  --color-success-ink: #101812;
+  --color-danger: #db727a;
+  --color-danger-ink: #210c10;
+  --color-warning: #d0a35d;
+  --color-scrollbar: #ffffff33;
+  --color-backdrop: #00000080;
+}
+
+[data-skin="atelier"] {
+  --color-app: #f5f1eb;
+  --color-panel: #fbf8f2;
+  --color-raised: #ffffff;
+  --color-raised-hover: #f2e9dc;
+  --color-card: #ffffff;
+  --color-menu: #ffffff;
+  --color-composer: #ffffff;
+  --color-composer-ring: transparent;
+  --color-inset: #f5f1eb;
+  --color-control: #ece4d6;
+  --color-hairline: #c8bda8;
+  --color-ink: #1a1a18;
+  --color-ink-secondary: #6b6559;
+  --color-ink-tertiary: #6d685c;
+  --color-accent: #a05f25;
+  --color-accent-border: #b06a2c;
+  --color-accent-text: #96551f;
+  --color-accent-ink: #ffffff;
+  --color-focus: #96551f;
+  --color-bubble-user: #f2e9dc;
+  --color-bubble-user-ink: #1a1a18;
+  --color-success: #3f6b47;
+  --color-success-ink: #ffffff;
+  --color-danger: #a33a32;
+  --color-danger-ink: #ffffff;
+  --color-warning: #7a5f31;
+  --color-scrollbar: #0b0b0b33;
+  --color-backdrop: #00000066;
+}
+
+[data-skin="lagoon"] {
+  --color-app: #dfeceb;
+  --color-panel: #ecf4f3;
+  --color-raised: #ffffff;
+  --color-raised-hover: #cfe4e1;
+  --color-card: #ffffff;
+  --color-menu: #ffffff;
+  --color-composer: #ffffff;
+  --color-composer-ring: transparent;
+  --color-inset: #d5e8e5;
+  --color-control: #c3dcd9;
+  --color-hairline: #aebfbd;
+  --color-ink: #14201f;
+  --color-ink-secondary: #4d5c5b;
+  --color-ink-tertiary: #566564;
+  --color-accent: #11736d;
+  --color-accent-border: #14807a;
+  --color-accent-text: #0d5f5a;
+  --color-accent-ink: #ffffff;
+  --color-focus: #0d5f5a;
+  --color-bubble-user: #cfe4e1;
+  --color-bubble-user-ink: #14201f;
+  --color-success: #2f6b4f;
+  --color-success-ink: #ffffff;
+  --color-danger: #a8382f;
+  --color-danger-ink: #ffffff;
+  --color-warning: #7a5a2a;
+  --color-scrollbar: #0b0b0b33;
+  --color-backdrop: #00000066;
+}
+
+[data-skin="linen"] {
+  --color-app: #eceff3;
+  --color-panel: #f5f6f8;
+  --color-raised: #ffffff;
+  --color-raised-hover: #e1e6ed;
+  --color-card: #ffffff;
+  --color-menu: #ffffff;
+  --color-composer: #ffffff;
+  --color-composer-ring: transparent;
+  --color-inset: #e6e9ee;
+  --color-control: #d3d9e1;
+  --color-hairline: #b4bbc5;
+  --color-ink: #1d2229;
+  --color-ink-secondary: #59616c;
+  --color-ink-tertiary: #5f6671;
+  --color-accent: #355f8a;
+  --color-accent-border: #4978a6;
+  --color-accent-text: #2c5680;
+  --color-accent-ink: #ffffff;
+  --color-focus: #2c5680;
+  --color-bubble-user: #e1e6ed;
+  --color-bubble-user-ink: #1d2229;
+  --color-success: #2f704f;
+  --color-success-ink: #ffffff;
+  --color-danger: #a83d48;
+  --color-danger-ink: #ffffff;
+  --color-warning: #765b2b;
+  --color-scrollbar: #0b0b0b33;
+  --color-backdrop: #00000066;
+}
+
+[data-skin="meadow"] {
+  --color-app: #ffffff;
+  --color-panel: #f6f8f6;
+  --color-raised: #e9eeea;
+  --color-raised-hover: #d6efdf;
+  --color-card: #f1f5f2;
+  --color-menu: #ffffff;
+  --color-composer: #ffffff;
+  --color-composer-ring: #e3e9e4;
+  --color-inset: #e7ece8;
+  --color-control: #dce3de;
+  --color-hairline: #c9d3cc;
+  --color-ink: #0f1a13;
+  --color-ink-secondary: #4d5a52;
+  --color-ink-tertiary: #4f5c54;
+  --color-accent: #1a7a48;
+  --color-accent-border: #1f8a52;
+  --color-accent-text: #176b3f;
+  --color-accent-ink: #ffffff;
+  --color-focus: #1a7a48;
+  --color-bubble-user: #0f1a13;
+  --color-bubble-user-ink: #ffffff;
+  --color-success: #1a7a48;
+  --color-success-ink: #ffffff;
+  --color-danger: #c02b3a;
+  --color-danger-ink: #ffffff;
+  --color-warning: #8a5a00;
+  --color-scrollbar: #0b0b0b33;
+  --color-backdrop: #00000066;
 }
 
 html[data-skin][data-skin] {
@@ -169,4 +394,27 @@ html[data-skin] {
   --messaging-send-hover: #b65333;
   --messaging-spark: #d97757;
   --messaging-skeleton: rgb(115 114 108 / 50%);
+}
+
+/* Miniature scenes read their own data-skin palette, not the active document's. */
+.desktop-skin-option { border-color: var(--color-hairline); }
+.desktop-skin-option:hover { background: var(--color-hover-fill); }
+.desktop-skin-option:has(:checked) { border-color: var(--color-focus); box-shadow: 0 0 0 1px var(--color-focus); }
+.desktop-skin-option:has(:focus-visible) { outline-color: var(--color-focus); }
+.desktop-skin-preview { border-color: var(--color-hairline); }
+.desktop-skin-scene { background: var(--color-app); }
+.desktop-skin-scene-sidebar { background: var(--color-panel); }
+.desktop-skin-scene-sidebar > span { background: var(--color-control); }
+.desktop-skin-scene-message { background: var(--color-card); }
+.desktop-skin-scene-user { background: var(--color-bubble-user); }
+.desktop-skin-scene-composer { background: var(--color-composer); border-color: var(--color-composer-ring); }
+.desktop-skin-scene-composer > span { background: var(--color-accent); }
+
+/* Explicit accent choices override every palette without changing its surfaces. */
+html.has-user-accent[data-skin] {
+  --color-accent: var(--user-accent-color);
+  --color-accent-border: var(--user-accent-color);
+  --color-accent-text: var(--user-accent-color);
+  --color-accent-ink: var(--user-accent-foreground);
+  --color-focus: var(--user-accent-color);
 }

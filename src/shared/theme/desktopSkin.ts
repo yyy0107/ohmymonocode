@@ -1,16 +1,15 @@
 import { preferenceStorage } from "../../features/settings/model/sharedPreferences";
 
-/** Compatibility IDs for persisted legacy skins. Runtime paints only the new
- * light/dark pair; old IDs remain readable for migration and old callers. */
+/** Settings order matches mobile: dark palettes followed by light palettes. */
 export const DESKTOP_SKIN_IDS = [
   "midnight",
-  "atelier",
   "foundry",
-  "lagoon",
   "graphite",
-  "linen",
   "dusk",
   "daylight",
+  "atelier",
+  "lagoon",
+  "linen",
   "meadow",
 ] as const;
 
@@ -51,13 +50,12 @@ export function normalizeDesktopSkin(value: unknown): DesktopSkinPreference {
   return DESKTOP_SKIN_DEFAULT;
 }
 
-/** Legacy named values select their scheme, never their former palette. */
+/** Named skins own their scheme; automatic and legacy classic follow color mode. */
 export function resolveDesktopSkin(
   preference: DesktopSkinPreference,
   light: boolean,
-): DesktopSkinId | null {
-  const scheme = isDesktopSkinId(preference) ? DESKTOP_SKIN_INFO[preference].scheme : light ? "light" : "dark";
-  return scheme === "light" ? "daylight" : "midnight";
+): DesktopSkinId {
+  return isDesktopSkinId(preference) ? preference : light ? "daylight" : "midnight";
 }
 
 export function loadDesktopSkin(): DesktopSkinPreference {
@@ -78,7 +76,7 @@ export function saveDesktopSkin(value: DesktopSkinPreference) {
 
 /**
  * Stamp the document skin. Call after the theme class is set.
- * Legacy callers resolve to the new pair. Mobile returns null and owns its scheme.
+ * Mobile returns null and owns its palette and scheme.
  */
 export function applyDesktopSkin(
   preference: DesktopSkinPreference = "auto",
@@ -95,12 +93,6 @@ export function applyDesktopSkin(
   }
   const light = root.classList.contains("theme-light");
   const skin = resolveDesktopSkin(preference, light);
-  if (!skin) {
-    delete root.dataset.skin;
-    delete root.dataset.desktopVisual;
-    root.style.colorScheme = "";
-    return null;
-  }
   const scheme = DESKTOP_SKIN_INFO[skin].scheme;
   root.dataset.skin = skin;
   root.dataset.desktopVisual = "claude-measured-v1";

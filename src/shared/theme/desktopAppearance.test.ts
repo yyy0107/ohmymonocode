@@ -25,7 +25,7 @@ describe("desktop appearance migration", () => {
     expect(loadThemePreference()).toBe("system");
     expect(localStorage.getItem(DESKTOP_APPEARANCE_BACKUP_KEY)).toBe(backup);
     applyThemePreference(scheme);
-    expect(document.documentElement.dataset.skin).toBe(scheme === "light" ? "daylight" : "midnight");
+    expect(document.documentElement.dataset.skin).toBe(skin);
   });
 
   it.each(["classic", "auto"])("preserves %s mode and font/scale preferences", skin => {
@@ -67,14 +67,17 @@ describe("desktop appearance migration", () => {
   it("boot palette agrees with runtime migration for every legacy input", () => {
     const boot = readFileSync("index.html", "utf8").match(/<script>([\s\S]*?)<\/script>/)![1];
     for (const skin of [...Object.keys(LEGACY_SKIN_SCHEMES), "classic", "auto", "invalid"]) {
-      for (const scheme of ["light", "dark", "system"]) {
-        localStorage.clear();
-        localStorage.setItem("monocode.desktopSkin", skin);
-        localStorage.setItem("monocode.colorScheme", scheme);
-        new Function(boot)();
-        const first = document.documentElement.dataset.skin;
-        applyThemePreference(loadThemePreference());
-        expect(document.documentElement.dataset.skin, `${skin}/${scheme}`).toBe(first);
+      for (const scheme of ["light", "dark", "system", "invalid"]) {
+        for (const migrated of [false, true]) {
+          localStorage.clear();
+          localStorage.setItem("monocode.desktopSkin", skin);
+          localStorage.setItem("monocode.colorScheme", scheme);
+          if (migrated) localStorage.setItem(DESKTOP_SCHEME_KEY, scheme);
+          new Function(boot)();
+          const first = document.documentElement.dataset.skin;
+          applyThemePreference(loadThemePreference());
+          expect(document.documentElement.dataset.skin, `${skin}/${scheme}`).toBe(first);
+        }
       }
     }
   });
