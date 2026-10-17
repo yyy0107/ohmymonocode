@@ -877,9 +877,9 @@ html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-su
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] :is(.composer-field, .composer-highlight) {
   min-height: 26px;
   max-height: 160px;
-  /* CJK fallback glyphs sit high in the 22px line; lower the line by 1px so
-   * Chinese text centers in the row. Latin text then sits slightly low. */
-  padding: 3px 2px 1px;
+  /* Center the line box without a font-specific baseline offset. Keep the
+   * textarea and highlight layer aligned for both empty and populated input. */
+  padding: 2px;
   font-size: var(--text-desktop-label);
   line-height: 22px;
 }
