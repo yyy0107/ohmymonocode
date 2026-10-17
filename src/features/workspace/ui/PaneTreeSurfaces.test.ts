@@ -358,7 +358,7 @@ describe("session surface layout", () => {
     expect(actions.archive).toHaveBeenCalledExactlyOnceWith("other-chat");
   });
 
-  it("uses one split heading while retaining pane drag and close controls", () => {
+  it("hides the close control for a sole chat even with tool panes open", () => {
     render();
     expect(
       container.querySelectorAll("[data-session-surface-tabs]"),
@@ -370,24 +370,19 @@ describe("session surface layout", () => {
     const chatTab = container.querySelector("[data-session-chat-tab]")!;
     const close = chatTab.parentElement!.querySelector<HTMLButtonElement>(
       '[aria-label="Close My session"]',
-    )!;
-    expect(close).not.toBeNull();
-    expect(close.parentElement?.querySelector("button button")).toBeNull();
-    click(close);
-    expect(props.onClose).toHaveBeenCalledWith("chat");
-    expect(props.onFocus).not.toHaveBeenCalled();
+    );
+    expect(close).toBeNull();
+    expect(chatTab.hasAttribute("data-closable")).toBe(false);
 
     render({ surfaceMode: "unified" });
     expect(
       container.querySelectorAll("[data-session-surface-tabs]"),
     ).toHaveLength(1);
-    click(container.querySelector('[aria-label="Close My session"]')!);
-    expect(props.onClose).toHaveBeenCalledTimes(2);
+    expect(container.querySelector('[aria-label="Close My session"]')).toBeNull();
     expect(container.querySelector("[data-legacy-heading]")).toBeNull();
 
     render({ layout: { type: "leaf", id: "chat" }, editorPanes: [] });
-    click(container.querySelector('[aria-label="Close My session"]')!);
-    expect(props.onClose).toHaveBeenCalledTimes(3);
+    expect(container.querySelector('[aria-label="Close My session"]')).toBeNull();
   });
 
   it("keeps a persistent Chat tab and owned tool selection across split/full views", () => {
@@ -575,6 +570,16 @@ describe("session surface layout", () => {
     expect(container.querySelector('[role="separator"]')).not.toBeNull();
     expect(pane("chat").inert).toBe(false);
     expect(pane("tools").inert).toBe(false);
+    const close = container.querySelector('[aria-label="Close My session"]')!;
+    expect(close).not.toBeNull();
+    expect(container.querySelector('[aria-label="Close Other chat"]')).not.toBeNull();
+    click(close);
+    expect(props.onClose).toHaveBeenCalledExactlyOnceWith("chat");
+    expect(props.onFocus).not.toHaveBeenCalled();
+
+    render({ layout: { type: "leaf", id: "chat" }, focusedId: "chat" });
+    expect(container.querySelector('[aria-label="Close My session"]')).toBeNull();
+    expect(container.querySelector('[data-session-chat-tab]')?.hasAttribute("data-closable")).toBe(false);
   });
 
   it("collapses and restores nested tool panes with stable tracks and per-pane motion", () => {

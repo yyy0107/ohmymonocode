@@ -468,6 +468,7 @@ function PaneTreeComponent({
   const sessionLeaves = leaves.filter((leaf) =>
     sessions.some((session) => session.id === leaf.id),
   );
+  const canCloseSessionPane = sessionLeaves.length > 1;
   // `editorPanes` is rebuilt by the caller every render; keep the previous
   // array while its panes are the same so `toolbarProps` stays stable.
   const ownedPanesRef = useRef<EditorPane[]>([]);
@@ -890,7 +891,7 @@ function PaneTreeComponent({
                       onPaneDragStart={
                         inSplit ? paneDragStartFor(sessionId) : undefined
                       }
-                      onClosePane={() => onClose(sessionId)}
+                      onClosePane={canCloseSessionPane ? () => onClose(sessionId) : undefined}
                       paneFocused={
                         inSplit && !hasOwnerSession
                           ? focusedId === sessionId
@@ -908,6 +909,7 @@ function PaneTreeComponent({
       hasOwnerSession,
       ownerTopBar,
       inSplit,
+      canCloseSessionPane,
       onClose,
       focusedId,
       chromeLeftId,
@@ -926,7 +928,6 @@ function PaneTreeComponent({
         onPaneDragStart={
           inSplit && !unified ? paneDragStartFor(ownerSession.id) : undefined
         }
-        onClosePane={() => onClose(ownerSession.id)}
       />
     </SurfaceVisibilityContext.Provider>
   ) : null;
