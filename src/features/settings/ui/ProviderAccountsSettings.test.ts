@@ -3,7 +3,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import { ProviderAccountsSettings } from "./SettingsView";
+import { ProviderAccountsSettings } from "./pages/providers/ProviderAccountsSettings";
 import { configureSharedHost } from "../../connections/model/remoteProjects";
 import { refreshUiLanguage, UI_LANGUAGE_KEY } from "../../../shared/i18n/language";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), convertFileSrc: (path: string) => path, isTauri: () => false }));
