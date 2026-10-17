@@ -16,7 +16,7 @@ import {
 import type { Block } from "../features/sessions/model/session";
 import { displayPath, resolveWorkspacePath } from "../shared/lib/paths";
 import { useTranslation } from "../shared/i18n/useTranslation";
-import { Check, ChevronRight, Copy, File as FileIcon, WrapText } from "../shared/ui/icons";
+import { Check, ChevronRight, Copy, File as FileIcon, LoaderCircle, WrapText } from "../shared/ui/icons";
 import { AnimatedCollapse } from "../shared/ui/AnimatedCollapse";
 import { TranscriptContentMotion, useMessageArrivals } from "../features/sessions/ui/TranscriptContentMotion";
 import { useSurfaceVisibility } from "../shared/ui/SurfaceVisibility";
@@ -119,6 +119,7 @@ export function MobileToolSheet({
   const [copied, setCopied] = useState<string>();
   const [wrap, setWrap] = useState(false);
   const [diffExpanded, setDiffExpanded] = useState(true);
+  const [diffReady, setDiffReady] = useState(false);
   const diffId = useId();
   const { label, state, input, output, details, readOutput, path, preview } =
     useMemo(() => toolDetails(block, cwd), [block, cwd]);
@@ -209,18 +210,23 @@ export function MobileToolSheet({
                   type="button"
                   className="mobile-git-file-row"
                   aria-expanded={diffExpanded}
+                  aria-busy={diffExpanded && !diffReady || undefined}
                   aria-controls={diffId}
                   title={path}
                   onClick={() => setDiffExpanded((value) => !value)}
                 >
-                  <MotionChevronRight size={16} aria-hidden="true" className="mobile-git-file-chevron" animate={{ rotate: diffExpanded ? motionGeometry.disclosureAngle : 0 }} transition={panelTransition} />
+                  {diffExpanded && !diffReady ? (
+                    <LoaderCircle size={16} aria-hidden="true" className="mobile-git-file-chevron motion-safe:animate-spin" />
+                  ) : (
+                    <MotionChevronRight size={16} aria-hidden="true" className="mobile-git-file-chevron" animate={{ rotate: diffExpanded ? motionGeometry.disclosureAngle : 0 }} transition={panelTransition} />
+                  )}
                   <span className="mobile-git-file-path"><bdi dir="ltr">{displayPath(path, cwd)}</bdi></span>
                   <MobileDiffCounts additions={preview.additions ?? 0} deletions={preview.deletions ?? 0} />
                 </button>
-                <AnimatedCollapse expanded={diffExpanded} motion="height" animateContentResize>
+                <AnimatedCollapse expanded={diffExpanded} ready={diffReady} motion="height">
                   <div id={diffId} className="mobile-git-file">
                     <MobileToolDiff path={displayPath(path, cwd)} lines={preview.lines!}
-                      startLine={preview.startLine} wrap={wrap} />
+                      startLine={preview.startLine} wrap={wrap} onReady={setDiffReady} />
                   </div>
                 </AnimatedCollapse>
               </div>

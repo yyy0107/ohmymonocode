@@ -16,12 +16,14 @@ const hover = vi.hoisted(() => ({
   side: "deletions" as "additions" | "deletions",
   lineNumber: 2,
 }));
+const rendering = vi.hoisted(() => ({ postRender: undefined as undefined | ((container: HTMLElement) => void) }));
 vi.mock("@pierre/diffs/react", () => ({
   useWorkerPool: () => undefined,
   Virtualizer: ({ children }: { children: React.ReactNode }) =>
     createElement("div", { "data-virtualizer": "" }, children),
-  FileDiff: (props: FileDiffProps<number>) =>
-    createElement(
+  FileDiff: (props: FileDiffProps<number>) => {
+    rendering.postRender = props.options?.onPostRender as typeof rendering.postRender;
+    return createElement(
       "div",
       { "data-pierre": "" },
       props.renderGutterUtility?.(() => hover),
@@ -32,7 +34,8 @@ vi.mock("@pierre/diffs/react", () => ({
           props.renderAnnotation?.(annotation),
         ),
       ) ?? []),
-    ),
+    );
+  },
 }));
 vi.mock("../../../shared/hooks/useColorScheme", () => ({
   useColorScheme: () => "dark",
@@ -173,6 +176,40 @@ it("disables actions and removes the comment portal during closing, then support
   render(false);
   await act(async () => finishMotion());
   expect(container.querySelector("[data-pierre]")).toBeNull();
+});
+
+it("waits for rendered code or an error before reporting readiness and resets on unmount", () => {
+  const onReady = vi.fn();
+  act(() => root.render(createElement(ReviewDiffViewer, {
+    path: "/repo/test.ts", relative: "test.ts", diff, busy: false, onReady,
+  })));
+  const host = document.createElement("div");
+  const shadow = host.attachShadow({ mode: "open" });
+  act(() => rendering.postRender?.(host));
+  expect(onReady).not.toHaveBeenCalled();
+  const line = document.createElement("span");
+  line.setAttribute("data-line", "");
+  shadow.append(line);
+  act(() => rendering.postRender?.(host));
+  expect(onReady).toHaveBeenLastCalledWith(true);
+  line.remove();
+  const error = document.createElement("div");
+  error.setAttribute("data-error-wrapper", "");
+  shadow.append(error);
+  onReady.mockClear();
+  act(() => rendering.postRender?.(host));
+  expect(onReady).toHaveBeenCalledWith(true);
+  act(() => root.render(null));
+  expect(onReady).toHaveBeenLastCalledWith(false);
+});
+
+it("marks non-textual diff notices ready without waiting for the code renderer", () => {
+  const onReady = vi.fn();
+  act(() => root.render(createElement(ReviewDiffViewer, {
+    path: "/repo/image.png", relative: "image.png", diff: { ...diff, binary: true }, busy: false, onReady,
+  })));
+  expect(onReady).toHaveBeenCalledWith(true);
+  expect(container.textContent).toContain("Binary file changed");
 });
 
 it("passes Monocode chunk positions to the stage action", () => {

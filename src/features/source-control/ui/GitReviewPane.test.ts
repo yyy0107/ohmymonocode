@@ -1,6 +1,6 @@
 import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver";
 // @vitest-environment happy-dom
-import { act, createElement, type ReactNode } from "react";
+import { act, createElement, useEffect, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
@@ -63,12 +63,17 @@ vi.mock("./ReviewDiffsWorkerPool", () => ({
 vi.mock("./ReviewDiffViewer", () => ({
   ReviewDiffViewer: ({
     diff,
+    busy,
+    onReady,
     onStageHunk,
   }: {
     diff: ReviewLoadedDiff;
+    busy: boolean;
+    onReady?: (ready: boolean) => void;
     onStageHunk?: (pos: number) => void;
-  }) =>
-    createElement(
+  }) => {
+    useEffect(() => { onReady?.(true); return () => onReady?.(false); }, [onReady]);
+    return createElement(
       "div",
       { "data-diff-content": "" },
       diff.current,
@@ -77,6 +82,7 @@ vi.mock("./ReviewDiffViewer", () => ({
           "button",
           {
             title: "Stage hunk",
+            disabled: busy,
             onClick: () =>
               onStageHunk(
                 diff.unified!.lines.find((line) => line.pos != null)!.pos!,
@@ -84,7 +90,8 @@ vi.mock("./ReviewDiffViewer", () => ({
           },
           "Stage hunk",
         ),
-    ),
+    );
+  },
 }));
 
 // happy-dom has no layout engine. Supply deterministic dimensions to the real
@@ -321,6 +328,63 @@ it("virtualizes cards, supports multiple expansions, and removes offscreen expan
   await measure();
   expect(container.querySelector("[data-diff-content]")).toBeNull();
   expect(listHeight()).toBe(32 * files.length);
+});
+
+it("waits for a requested diff before expanding without changing the list height", async () => {
+  let finish!: (value: typeof comparison) => void;
+  vi.mocked(gitFileDiff).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+  await render();
+  const height = listHeight();
+  await click("Expand file", card(0));
+  await settle();
+  await measure();
+  expect(card(0).querySelector("header button")?.getAttribute("aria-busy")).toBe("true");
+  expect(card(0).querySelector(".zen-fold-item")).toBeNull();
+  expect(listHeight()).toBe(height);
+
+  await act(async () => finish(comparison));
+  expect(card(0).querySelector('[data-fold-state="opening"]')).not.toBeNull();
+  expect(card(0).querySelector("[data-diff-content]")?.textContent).toContain("new");
+  expect(card(0).querySelector("header button")?.hasAttribute("aria-busy")).toBe(false);
+});
+
+it("keeps a cancelled loading file closed and opens its cached result on the next click", async () => {
+  let finish!: (value: typeof comparison) => void;
+  vi.mocked(gitFileDiff).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+  await render();
+  await click("Expand file", card(0));
+  await click("Collapse file", card(0));
+  await act(async () => finish(comparison));
+  expect(card(0).querySelector(".zen-fold-item")).toBeNull();
+  await click("Expand file", card(0));
+  expect(card(0).querySelector("[data-diff-content]")).not.toBeNull();
+  expect(gitFileDiff).toHaveBeenCalledTimes(1);
+});
+
+it("opens a failed diff as an error instead of leaving a loading header", async () => {
+  vi.mocked(gitFileDiff).mockRejectedValueOnce(new Error("Diff unavailable"));
+  await render();
+  await click("Expand file", card(0));
+  expect(card(0).querySelector('[role="alert"]')?.textContent).toContain("Diff unavailable");
+  expect(card(0).querySelector("header button")?.hasAttribute("aria-busy")).toBe(false);
+});
+
+it("keeps the current diff mounted and disables hunk actions during a slow refresh", async () => {
+  await render();
+  await click("Expand file", card(0));
+  await settle();
+  const body = card(0).querySelector("[data-diff-content]");
+  let finish!: (value: typeof comparison) => void;
+  vi.mocked(gitFileDiff).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+  await click("Refresh changes");
+  await settle();
+  expect(card(0).querySelector("[data-diff-content]")).toBe(body);
+  expect(card(0).querySelector('.zen-fold-item')?.getAttribute("data-fold-state")).toBe("open");
+  expect(card(0).querySelector<HTMLButtonElement>('[title="Stage hunk"]')?.disabled).toBe(true);
+  await act(async () => finish({ ...comparison, current: "refreshed\n" }));
+  expect(card(0).querySelector("[data-diff-content]")).toBe(body);
+  expect(body?.textContent).toContain("refreshed");
+  expect(card(0).querySelector<HTMLButtonElement>('[title="Stage hunk"]')?.disabled).toBe(false);
 });
 
 it("retains the card and scroll position during refresh and reloads its invalidated diff", async () => {

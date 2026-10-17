@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { GitChangedFile, GitFileDiff } from "../platform/tauri/fs";
 import { useTranslation } from "../shared/i18n/useTranslation";
 import { pathKey, resolveWorkspacePath } from "../shared/lib/paths";
-import { ChevronRight, WrapText } from "../shared/ui/icons";
+import { ChevronRight, LoaderCircle, WrapText } from "../shared/ui/icons";
 import { AnimatedCollapse } from "../shared/ui/AnimatedCollapse";
 import { useSurfaceVisibility } from "../shared/ui/SurfaceVisibility";
 import type { MobileGitSource } from "./mobileGit";
@@ -246,6 +246,8 @@ function MobileGitFileRow({
   initiallyExpanded: boolean;
 }) {
   const [expanded, setExpanded] = useState(initiallyExpanded);
+  const [ready, setReady] = useState(false);
+  const visible = useSurfaceVisibility();
   const contentId = useId();
   return (
     <div className="mobile-git-file-entry">
@@ -254,20 +256,25 @@ function MobileGitFileRow({
         className="mobile-git-file-row"
         disabled={!enabled && !expanded}
         aria-expanded={expanded}
+        aria-busy={expanded && enabled && !ready || undefined}
         aria-controls={contentId}
         title={entry.relative}
         onClick={() => setExpanded((value) => !value)}
       >
-        <MotionChevronRight size={16} aria-hidden="true" className="mobile-git-file-chevron" animate={{ rotate: expanded ? motionGeometry.disclosureAngle : 0 }} transition={panelTransition} />
+        {expanded && enabled && !ready ? (
+          <LoaderCircle size={16} aria-hidden="true" className="mobile-git-file-chevron motion-safe:animate-spin" />
+        ) : (
+          <MotionChevronRight size={16} aria-hidden="true" className="mobile-git-file-chevron" animate={{ rotate: expanded ? motionGeometry.disclosureAngle : 0 }} transition={panelTransition} />
+        )}
         <span className="mobile-git-file-path"><bdi dir="ltr">{entry.relative}</bdi></span>
         <MobileDiffCounts
           additions={entry.additions}
           deletions={entry.deletions}
         />
       </button>
-      <AnimatedCollapse expanded={expanded} motion="height" animateContentResize>
+      <AnimatedCollapse expanded={expanded} ready={ready} motion="height">
         <div id={contentId} className="mobile-git-file">
-          <MobileGitFile source={source} entry={entry} enabled={enabled} wrap={wrap} />
+          <MobileGitFile source={source} entry={entry} enabled={enabled} wrap={wrap} active={expanded && visible} onReady={setReady} />
         </div>
       </AnimatedCollapse>
     </div>
@@ -279,60 +286,59 @@ function MobileGitFile({
   entry,
   enabled,
   wrap,
+  active,
+  onReady,
 }: {
   source: MobileGitSource;
   entry: GitChangedFile;
   enabled: boolean;
   wrap: boolean;
+  active: boolean;
+  onReady: (ready: boolean) => void;
 }) {
   const { t } = useTranslation();
-  const visible = useSurfaceVisibility();
+  useEffect(() => () => onReady(false), [onReady]);
   const [loaded, setLoaded] = useState<{
     source: MobileGitSource;
     diff?: GitFileDiff;
-    loading: boolean;
     error?: string;
-  }>({ source, loading: true });
+  }>({ source });
   useEffect(() => {
-    if (!visible || !enabled) return;
+    if (!active || !enabled) return;
     let current = true;
     setLoaded((previous) => ({
       source,
       diff: previous.source === source ? previous.diff : undefined,
-      loading: true,
     }));
     void source
       .loadDiff(entry.relative)
       .then((diff) => {
-        if (current) setLoaded({ source, diff, loading: false });
+        if (current) setLoaded({ source, diff });
       })
       .catch((problem) => {
         if (current)
           setLoaded({
             source,
-            loading: false,
             error: problem instanceof Error ? problem.message : String(problem),
           });
       });
     return () => {
       current = false;
     };
-  }, [source, entry.relative, visible, enabled]);
+  }, [source, entry.relative, active, enabled]);
+  useEffect(() => {
+    if (loaded.source === source && loaded.error) onReady(true);
+  }, [loaded, source, onReady]);
   const diff = loaded.source === source ? loaded.diff : undefined;
   return (
     <>
-      {enabled && loaded.loading && !diff && (
-        <p className="mobile-git-note" role="status">
-          {t("Loading changes…")}
-        </p>
-      )}
       {loaded.error && (
         <div className="mobile-git-error" role="alert">
           <strong>{t("Could not load diff.")}</strong>
           <p>{loaded.error}</p>
         </div>
       )}
-      {diff && <MobileGitDiff diff={diff} wrap={wrap} />}
+      {diff && <MobileGitDiff diff={diff} wrap={wrap} onReady={onReady} />}
     </>
   );
 }

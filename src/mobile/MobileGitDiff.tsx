@@ -1,4 +1,4 @@
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { processFile, type FileDiffOptions } from "@pierre/diffs";
 import { FileDiff } from "@pierre/diffs/react";
 import {
@@ -19,8 +19,9 @@ const subscribeColorScheme = (notify: () => void) => {
   return () => window.removeEventListener(SCHEME_CHANGE_EVENT, notify);
 };
 
-function useMobileDiffOptions(wrap: boolean, partial: boolean) {
+function useMobileDiffOptions(wrap: boolean, partial: boolean, onReady?: (ready: boolean) => void) {
   const { t } = useTranslation();
+  useEffect(() => () => onReady?.(false), [onReady]);
   // A mobile skin can override the stored desktop color preference before
   // this lazy-loaded panel mounts. Read the scheme actually applied to it.
   const themeType = useSyncExternalStore(subscribeColorScheme, appliedColorScheme);
@@ -50,6 +51,7 @@ function useMobileDiffOptions(wrap: boolean, partial: boolean) {
       [data-overflow="wrap"] [data-line] { overflow-wrap: anywhere; }
     `,
       onPostRender(node) {
+        if (node.shadowRoot?.querySelector("[data-line], [data-error-wrapper]")) onReady?.(true);
         // Pierre renders these labels inside its shadow root, outside React i18n.
         for (const label of node.shadowRoot?.querySelectorAll<HTMLElement>(
           "[data-unmodified-lines]",
@@ -77,13 +79,17 @@ function useMobileDiffOptions(wrap: boolean, partial: boolean) {
         }
       },
     }),
-    [themeType, partial, t, wrap],
+    [themeType, partial, t, wrap, onReady],
   );
   return { options, themeType };
 }
 
 /** An inline diff with horizontal code scrolling and a fixed line-number gutter. */
-export function MobileGitDiff({ diff, wrap }: { diff: GitFileDiff; wrap: boolean }) {
+export function MobileGitDiff({ diff, wrap, onReady }: {
+  diff: GitFileDiff;
+  wrap: boolean;
+  onReady?: (ready: boolean) => void;
+}) {
   const { t } = useTranslation();
   // Shared preparation bounds comparison work; large files with small changes
   // use patch-only metadata below instead of highlighting the whole file.
@@ -92,7 +98,21 @@ export function MobileGitDiff({ diff, wrap }: { diff: GitFileDiff; wrap: boolean
     () => reviewFileMetadata(diff.relative, prepared),
     [diff.relative, prepared],
   );
-  const { options, themeType } = useMobileDiffOptions(wrap, !!fileDiff?.isPartial);
+  const { options, themeType } = useMobileDiffOptions(wrap, !!fileDiff?.isPartial, onReady);
+  const hasText = !prepared.binary && !prepared.tooLarge && !!fileDiff &&
+    !!prepared.unified && !!(prepared.unified.additions || prepared.unified.deletions);
+  useEffect(() => {
+    if (!hasText) onReady?.(true);
+  }, [hasText, onReady]);
+  const partialReady = useMemo(() => {
+    const hunks = prepared.unified?.blocks.flatMap((block, index) => block.kind === "hunk" ? [index] : []) ?? [];
+    const ready = new Set<number>();
+    return new Map(hunks.map(index => [index, (rendered: boolean) => {
+      if (rendered) ready.add(index);
+      else ready.delete(index);
+      onReady?.(ready.size === hunks.length);
+    }]));
+  }, [prepared, onReady]);
 
   if (prepared.binary)
     return <p className="mobile-git-note">{t("Binary file changed")}</p>;
@@ -116,7 +136,7 @@ export function MobileGitDiff({ diff, wrap }: { diff: GitFileDiff; wrap: boolean
           block.kind === "fold" ? (
             <MobileDiffContext key={index} lines={block.lines} path={diff.relative} wrap={wrap} />
           ) : (
-            <MobileDiffLines key={index} lines={block.lines} path={diff.relative} wrap={wrap} />
+            <MobileDiffLines key={index} lines={block.lines} path={diff.relative} wrap={wrap} onReady={partialReady.get(index)} />
           ),
         )}
       </div>
@@ -128,10 +148,11 @@ export function MobileGitDiff({ diff, wrap }: { diff: GitFileDiff; wrap: boolean
   );
 }
 
-function MobileDiffLines({ lines, path, wrap }: {
+function MobileDiffLines({ lines, path, wrap, onReady }: {
   lines: UnifiedLine[];
   path: string;
   wrap: boolean;
+  onReady?: (ready: boolean) => void;
 }) {
   const metadata = useMemo(() => {
     const oldLines = lines.filter((line) => line.oldNumber != null);
@@ -145,7 +166,10 @@ function MobileDiffLines({ lines, path, wrap }: {
     if (result) { result.name = path; result.prevName = path; }
     return result;
   }, [lines, path]);
-  const { options } = useMobileDiffOptions(wrap, true);
+  const { options } = useMobileDiffOptions(wrap, true, onReady);
+  useEffect(() => {
+    if (!metadata) onReady?.(true);
+  }, [metadata, onReady]);
   return metadata ? <FileDiff fileDiff={metadata} options={options} /> : null;
 }
 
@@ -156,6 +180,7 @@ function MobileDiffContext({ lines, path, wrap }: {
 }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
+  const [ready, setReady] = useState(false);
   const tooLarge = lines.length > 1_200 ||
     lines.reduce((total, line) => total + line.text.length + 1, 0) > 180_000;
   return (
@@ -165,10 +190,10 @@ function MobileDiffContext({ lines, path, wrap }: {
         {t("{count} unmodified lines", { count: lines.length })}
         {" · "}{t(expanded ? "Collapse" : "Expand all")}
       </button>
-      <AnimatedCollapse expanded={expanded}>
+      <AnimatedCollapse expanded={expanded} ready={tooLarge || ready}>
         {() => tooLarge ? (
           <p className="mobile-git-note" role="status">{t("Unmodified content is too large to expand. Changes are still shown.")}</p>
-        ) : <MobileDiffLines lines={lines} path={path} wrap={wrap} />}
+        ) : <MobileDiffLines lines={lines} path={path} wrap={wrap} onReady={setReady} />}
       </AnimatedCollapse>
     </div>
   );
@@ -199,17 +224,21 @@ function toolPatchMetadata(path: string, lines: ToolPreviewLine[], startLine?: n
 }
 
 /** A tool call's edit, drawn like a Git review diff. */
-export function MobileToolDiff({ path, lines, startLine, wrap }: {
+export function MobileToolDiff({ path, lines, startLine, wrap, onReady }: {
   path: string;
   lines: ToolPreviewLine[];
   startLine?: number;
   wrap: boolean;
+  onReady?: (ready: boolean) => void;
 }) {
   const fileDiff = useMemo(
     () => toolPatchMetadata(path, lines, startLine),
     [path, lines, startLine],
   );
-  const { options, themeType } = useMobileDiffOptions(wrap, true);
+  const { options, themeType } = useMobileDiffOptions(wrap, true, onReady);
+  useEffect(() => {
+    if (!fileDiff) onReady?.(true);
+  }, [fileDiff, onReady]);
   if (!fileDiff) return null;
   return (
     <div className="mobile-git-diff" data-theme={themeType}>

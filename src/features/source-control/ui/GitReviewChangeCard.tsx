@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Copy,
   FolderOpen,
+  LoaderCircle,
   Minus,
   Plus,
   Undo2,
@@ -73,13 +74,19 @@ export const GitReviewChangeCard = memo(function GitReviewChangeCard({
   const visible = useSurfaceVisibility();
   const menuRef = useRef<HTMLButtonElement>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [settledDiff, setSettledDiff] = useState<ReviewDiffState>();
+  const [bodyReady, setBodyReady] = useState(false);
+  if (diffState && diffState.state !== "loading" && diffState !== settledDiff)
+    setSettledDiff(diffState);
+  const displayedDiff = diffState && diffState.state !== "loading" ? diffState : settledDiff;
   useEffect(() => {
     if (!visible) setMenu(null);
   }, [visible]);
   useEffect(() => {
     if (expanded && !diffState) loadDiff(file.relative);
   }, [diffState, expanded, file.relative, loadDiff]);
-  const entered = expanded;
+  const loading = expanded && (!diffState || diffState.state === "loading");
+  const preparing = expanded && displayedDiff?.state === "loaded" && !bodyReady;
   const toggle = () => onToggle(file);
   // Start fetching on press so the diff is often ready when the card opens.
   const prefetch = () => {
@@ -112,6 +119,7 @@ export const GitReviewChangeCard = memo(function GitReviewChangeCard({
           ref={menuRef}
           type="button"
           aria-expanded={expanded}
+          aria-busy={loading || preparing || undefined}
           aria-label={`${expanded ? t("Collapse file") : t("Expand file")}: ${file.relative}`}
           onPointerDown={(event) => {
             if (event.button === 0) prefetch();
@@ -134,7 +142,11 @@ export const GitReviewChangeCard = memo(function GitReviewChangeCard({
           title={file.relative}
           className={`review-file-toggle flex h-8 w-full min-w-0 items-center gap-1 px-2 text-left transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent motion-reduce:transition-none ${focused ? "ring-1 ring-inset ring-accent/30" : ""}`}
         >
-          <RotatingIcon icon={ChevronRight} angle={expanded ? motionGeometry.disclosureAngle : 0} className="review-file-chevron size-4 shrink-0" />
+          {loading || preparing ? (
+            <LoaderCircle className="review-file-chevron size-4 shrink-0 motion-safe:animate-spin" aria-hidden="true" />
+          ) : (
+            <RotatingIcon icon={ChevronRight} angle={expanded ? motionGeometry.disclosureAngle : 0} className="review-file-chevron size-4 shrink-0" />
+          )}
           <span className="review-file-icon flex size-4 shrink-0 items-center justify-center" data-markdown={/\.(md|markdown)$/i.test(name) || undefined}>
             <FileTypeIcon name={file.relative} isDir={false} />
           </span>
@@ -225,69 +237,42 @@ export const GitReviewChangeCard = memo(function GitReviewChangeCard({
         </MenuItem>
       </Popover>
       <AnimatedCollapse
-        expanded={expanded}
+        expanded={expanded && (!!displayedDiff || placeholderHeight !== undefined)}
+        ready={displayedDiff?.state !== "loaded" || placeholderHeight !== undefined || bodyReady}
         motion="height"
-        animateContentResize
       >
         {() => (
-          <DeferredMount
-            ready={entered}
-            fallback={
-              <p
-                className="flex items-center justify-center py-4 text-ui-base text-foreground-subtle"
-                style={{ minHeight: placeholderHeight }}
-              >
-                {diffState?.state === "loaded" ? null : t("Loading…")}
-              </p>
-            }
-          >
-            {diffState?.state === "loaded" ? (
+          <>
+            {displayedDiff?.state === "loaded" ? (
               <ReviewDiffViewer
                 path={file.path}
                 relative={file.relative}
-                diff={diffState.diff}
-                busy={busy}
+                diff={displayedDiff.diff}
+                busy={busy || loading}
+                onReady={setBodyReady}
                 onStageHunk={source === "unstaged" ? stageHunk : undefined}
               />
             ) : (
               <p
                 className="flex items-center justify-center px-4 py-4 text-ui-base text-foreground-subtle"
-                role={diffState?.state === "error" ? "alert" : undefined}
+                role={displayedDiff?.state === "error" ? "alert" : undefined}
                 style={
-                  diffState?.state === "error"
+                  displayedDiff?.state === "error"
                     ? undefined
                     : { minHeight: placeholderHeight }
                 }
               >
-                {diffState?.state === "error"
-                  ? t("Couldn’t load diff: {error}", { error: diffState.error })
+                {displayedDiff?.state === "error"
+                  ? t("Couldn’t load diff: {error}", { error: displayedDiff.error })
                   : t("Loading…")}
               </p>
             )}
-          </DeferredMount>
+          </>
         )}
       </AnimatedCollapse>
     </section>
   );
 });
-
-/**
- * Latches once ready, so content stays during a closing animation and resets
- * only when the collapse unmounts it.
- */
-function DeferredMount({
-  ready,
-  fallback,
-  children,
-}: {
-  ready: boolean;
-  fallback: ReactNode;
-  children: ReactNode;
-}) {
-  const [shown, setShown] = useState(ready);
-  if (ready && !shown) setShown(true);
-  return shown || ready ? children : fallback;
-}
 
 function MenuItem({
   onClick,

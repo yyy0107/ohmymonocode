@@ -277,11 +277,12 @@ describe("mobile Git review from the progress capsule", () => {
       await render(source);
       expect(
         app.querySelector(".mobile-progress-capsule")?.textContent,
-      ).toContain("+0−0");
+      ).toContain("1 file changed");
       await openReview();
       await click(fileButton());
       expect(page().textContent).toContain(message);
       expect(page().querySelector(".mobile-git-diff")).toBeNull();
+      expect(fileButton().hasAttribute("aria-busy")).toBe(false);
     },
   );
 
@@ -338,6 +339,28 @@ describe("mobile Git review from the progress capsule", () => {
     ).not.toContain("+2");
   });
 
+  it("starts opening only after a slow diff has loaded and rendered", async () => {
+    let finish!: (value: GitFileDiff) => void;
+    await render({
+      loadIndex: vi.fn(async () => index()),
+      loadDiff: vi.fn(() => new Promise(resolve => { finish = resolve; })),
+    });
+    await openReview();
+    await click(fileButton());
+    const collapse = fileButton().parentElement!.querySelector<HTMLElement>(".zen-fold-item")!;
+    await settle();
+    expect(fileButton().getAttribute("aria-busy")).toBe("true");
+    expect(collapse.style.height).toBe("0px");
+    expect(collapse.inert).toBe(true);
+    await act(async () => finish(diff()));
+    expect(diffText()).toContain("new");
+    expect(collapse.dataset.foldState).toBe("opening");
+    expect(collapse.inert).toBe(false);
+    expect(fileButton().hasAttribute("aria-busy")).toBe(false);
+    await settle();
+    expect(collapse.dataset.foldState).toBe("open");
+  });
+
   it("ignores a collapsed file's late response while another file is expanded", async () => {
     let finish!: (value: GitFileDiff) => void;
     const loadDiff = vi.fn<MobileGitSource["loadDiff"]>(async () =>
@@ -359,7 +382,12 @@ describe("mobile Git review from the progress capsule", () => {
     });
     await openReview();
     await click(fileButton());
-    expect(page().querySelector('[role="status"]')?.textContent).toContain("Loading changes…");
+    expect(fileButton().getAttribute("aria-busy")).toBe("true");
+    const collapse = fileButton().parentElement!.querySelector<HTMLElement>(".zen-fold-item")!;
+    await settle();
+    expect(collapse.dataset.foldState).toBe("closed");
+    expect(collapse.inert).toBe(true);
+    expect(collapse.style.height).toBe("0px");
     await click(fileButton());
     await click(fileButton(1));
     await act(async () => finish(diff("Old request\n", "Old result\n")));

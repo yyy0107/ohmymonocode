@@ -474,7 +474,7 @@ export function GitReviewPane({
                       focused={focusIndex === row.index}
                       busy={busy.has(id)}
                       diffState={diffState}
-                      placeholderHeight={Math.min(
+                      placeholderHeight={measuredOpen.current.has(id) ? undefined : Math.min(
                         MAX_PLACEHOLDER_HEIGHT,
                         estimateReviewBodyHeight(file, diffState),
                       )}

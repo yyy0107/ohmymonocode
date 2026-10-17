@@ -85,6 +85,39 @@ it("does not replay motion on mount and animates both opening and closing", asyn
   expect(fold()?.dataset.foldState).toBe("open");
 });
 
+it("prepares asynchronous content while closed and starts opening only when ready", async () => {
+  const onEntered = vi.fn();
+  render(false, true, undefined, undefined, { ready: false, onEntered });
+  render(true, true, undefined, undefined, { ready: false, onEntered });
+  const button = child();
+  await complete();
+  expect(button).not.toBeNull();
+  expect(fold()?.dataset.foldState).toBe("closed");
+  expect(fold()?.hidden).toBe(false);
+  expect(fold()?.inert).toBe(true);
+  expect(fold()?.style.height).toBe("0px");
+  expect(button?.getAttribute("data-visible")).toBe("false");
+  expect(onEntered).not.toHaveBeenCalled();
+
+  render(true, true, undefined, undefined, { ready: true, onEntered });
+  expect(child()).toBe(button);
+  expect(fold()?.dataset.foldState).toBe("opening");
+  expect(fold()?.inert).toBe(false);
+  await complete();
+  expect(fold()?.dataset.foldState).toBe("open");
+  expect(onEntered).toHaveBeenCalledOnce();
+});
+
+it("does not open when readiness arrives after cancellation", async () => {
+  const onEntered = vi.fn();
+  render(true, true, undefined, undefined, { ready: false, onEntered });
+  render(false, true, undefined, undefined, { ready: false, onEntered });
+  render(false, true, undefined, undefined, { ready: true, onEntered });
+  await complete();
+  expect(fold()).toBeNull();
+  expect(onEntered).not.toHaveBeenCalled();
+});
+
 it("only clips overflowing descendants while opening, closing or settled closed", async () => {
   const options = { keepMounted: true };
   render(true, true, undefined, undefined, options);

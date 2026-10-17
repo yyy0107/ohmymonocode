@@ -63,12 +63,14 @@ export const ReviewDiffViewer = memo(function ReviewDiffViewer({
   relative,
   diff,
   busy,
+  onReady,
   onStageHunk,
 }: {
   path: string;
   relative: string;
   diff: ReviewLoadedDiff;
   busy: boolean;
+  onReady?: (ready: boolean) => void;
   onStageHunk?: (pos: number) => void;
 }) {
   const { t } = useTranslation();
@@ -79,7 +81,9 @@ export const ReviewDiffViewer = memo(function ReviewDiffViewer({
   const onPostRender = useCallback((container: HTMLElement) => {
     separatorLayout.current ??= createReviewSeparatorLayout();
     separatorLayout.current.update(container);
-  }, []);
+    if (container.shadowRoot?.querySelector("[data-line], [data-error-wrapper]")) onReady?.(true);
+  }, [onReady]);
+  useEffect(() => () => onReady?.(false), [onReady]);
   useEffect(() => () => {
     separatorLayout.current?.dispose();
     separatorLayout.current = null;
@@ -92,6 +96,11 @@ export const ReviewDiffViewer = memo(function ReviewDiffViewer({
     [diff, relative],
   );
   const virtualized = useMemo(() => virtualizeReviewDiff(diff), [diff]);
+  const hasText = !diff.binary && !diff.tooLarge && !!fileDiff &&
+    !!diff.unified && !!(diff.unified.additions || diff.unified.deletions);
+  useEffect(() => {
+    if (!hasText) onReady?.(true);
+  }, [hasText, onReady]);
   const ScrollContainer = virtualized ? Virtualizer : Fragment;
   useEffect(() => {
     setComment(null);

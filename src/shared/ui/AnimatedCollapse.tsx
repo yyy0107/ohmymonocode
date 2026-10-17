@@ -54,6 +54,7 @@ export function useCollapseMotion(expanded: boolean, durationMs = duration.colla
 
 type CollapseProps = {
   expanded: boolean;
+  ready?: boolean;
   className?: string;
   durationMs?: number;
   motion?: "grid" | "height";
@@ -64,9 +65,10 @@ type CollapseProps = {
 };
 
 export function AnimatedCollapse({
-  expanded, className, durationMs, animateContentResize = false,
+  expanded: requestedExpanded, ready = true, className, durationMs, animateContentResize = false,
   keepMounted = false, onEntered, children,
 }: CollapseProps) {
+  const expanded = requestedExpanded && ready;
   const parentVisible = useSurfaceVisibility();
   const reduced = useMotionPreference();
   const lifetime = useCollapseMotion(expanded, durationMs);
@@ -81,14 +83,14 @@ export function AnimatedCollapse({
     }
   }, [expanded, lifetime.foldState, onEntered]);
   const retained = keepMounted && hasOpened.current;
-  const content = (expanded || retained) && (
+  const content = (requestedExpanded || retained) && (
         <CollapseBody
           key="collapse"
           expanded={expanded}
           className={className}
           keepMounted={keepMounted}
           parentVisible={parentVisible}
-          hidden={!expanded && lifetime.foldState === "closed"}
+          hidden={!requestedExpanded && lifetime.foldState === "closed"}
           foldState={lifetime.foldState}
           reduced={reduced}
           durationMs={durationMs}
