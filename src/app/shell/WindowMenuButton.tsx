@@ -74,11 +74,11 @@ export function WindowMenuButton({
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth="1.7"
+          strokeWidth="1.75"
           strokeLinecap="round"
           aria-hidden="true"
         >
-          <path d="M3 5h18M3 12h13M3 19h7" />
+          <path d="M4 4h16M4 12h12M4 20h8" />
         </svg>
       </button>
       <PresenceBoundary>

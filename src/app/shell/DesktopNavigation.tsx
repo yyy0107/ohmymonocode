@@ -8,6 +8,7 @@ import {
   CodeXml,
   Folder,
   Inbox,
+  IconArtworkContext,
   Plus,
   Search,
   StickyNote,
@@ -20,6 +21,7 @@ import { TabVisitNav } from "./WindowChrome";
 import { useCommandShortcut } from "../commands/useCommandShortcut";
 import type { DesktopMode } from "../model/desktopMode";
 import type { ActivityBarProps } from "./ActivityBar";
+import { desktopTitlebarIconArtwork } from "../desktopIconArtwork";
 
 /** Keep window navigation outside the animated sidebar and main surface. */
 export function DesktopTitlebarNavigation({
@@ -33,20 +35,22 @@ export function DesktopTitlebarNavigation({
   const { t } = useTranslation();
   const visible = useSurfaceVisibility();
   return (
-    <nav
-      className="desktop-titlebar-navigation"
-      data-window-navigation={visible || undefined}
-      aria-label={t("Window navigation")}
-      data-tauri-drag-region="false"
-    >
-      {menu}
-      <TabVisitNav {...navigation} showProductIcon={false} />
-      <div className="desktop-titlebar-mode-slot">
-        <AnimatedCollapse expanded={Boolean(navigation.panelActive)} keepMounted>
-          {modeToggle}
-        </AnimatedCollapse>
-      </div>
-    </nav>
+    <IconArtworkContext.Provider value={desktopTitlebarIconArtwork}>
+      <nav
+        className="desktop-titlebar-navigation"
+        data-window-navigation={visible || undefined}
+        aria-label={t("Window navigation")}
+        data-tauri-drag-region="false"
+      >
+        {menu}
+        <TabVisitNav {...navigation} showProductIcon={false} />
+        <div className="desktop-titlebar-mode-slot">
+          <AnimatedCollapse expanded={Boolean(navigation.panelActive)} keepMounted>
+            {modeToggle}
+          </AnimatedCollapse>
+        </div>
+      </nav>
+    </IconArtworkContext.Provider>
   );
 }
 

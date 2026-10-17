@@ -527,3 +527,35 @@ export const desktopIconArtwork: Readonly<Record<string, ReactNode>> = {
     </>
   ),
 };
+
+/** Window chrome uses balanced 16 × 16 silhouettes within the 24px icon grid. */
+export const desktopTitlebarIconArtwork: Readonly<Record<string, ReactNode>> = {
+  ...desktopIconArtwork,
+  PanelLeft: (
+    <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="4" width="16" height="16" rx="2" strokeWidth="1.5" />
+      <path d="M9 4v16" strokeWidth="1.5" />
+    </g>
+  ),
+  ArrowLeft: (
+    <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m12 4-8 8 8 8M4 12h16" strokeWidth="1.5" />
+    </g>
+  ),
+  ArrowRight: (
+    <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m12 4 8 8-8 8M20 12H4" strokeWidth="1.5" />
+    </g>
+  ),
+  Chatting: (
+    <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 4H6a2 2 0 0 0-2 2v11l4-3h7a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z" strokeWidth="1.5" />
+      <path d="M8 17v1a2 2 0 0 0 2 2h10V10a2 2 0 0 0-1-1.73" strokeWidth="1.5" />
+    </g>
+  ),
+  CodeXml: (
+    <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m8 6-4 6 4 6m8-12 4 6-4 6M14 4l-4 16" strokeWidth="1.5" />
+    </g>
+  ),
+};
