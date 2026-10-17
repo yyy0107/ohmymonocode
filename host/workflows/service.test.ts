@@ -8,6 +8,8 @@ import type { HostProvider } from "../providers";
 import type { SendTurnInput } from "../../src/integrations/harness/core/types";
 import { extractResultBlock } from "./driver";
 import { runControlCli } from "../control";
+import { HostWorkflows } from "./service";
+import { reduceWorkflowRunsState } from "../../src/integrations/workflow/protocol/workflow-runs-reducer";
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -66,6 +68,64 @@ return { plan, out };
 `;
 
 describe("Host dynamic workflows", () => {
+  it.each(["shutdown", "cancel"] as const)("persists stopped workflow progress on %s", async action => {
+    const { engine, store, parentId, claude } = setup();
+    let finish = () => {};
+    vi.mocked(claude.send).mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+    vi.mocked(claude.stop).mockImplementation(async () => finish());
+    const submitted = await engine.workflows.submit(parentId, { script: 'const worker = agent("worker"); return await worker.ask("Wait");' }, "user");
+    const runId = (submitted as { runId: string }).runId;
+    await vi.waitFor(() => expect(claude.send).toHaveBeenCalled());
+    if (action === "shutdown") await engine.close();
+    else await engine.workflows.cancel(runId);
+    const stopReason = action === "shutdown" ? "interrupted" : "user";
+    expect(engine.workflows.journal.getRun(runId)).toMatchObject({ status: "stopped", stopReason });
+    const projected = store.session(parentId).session.workflowRuns?.runs.find(run => run.runId === runId);
+    expect(projected).toMatchObject({ status: "stopped", stopReason, resumable: true });
+    expect(projected?.nodes.every(node => node.phase === "settled")).toBe(true);
+    expect(projected?.actors.every(actor => actor.status === "completed")).toBe(true);
+  });
+
+  it.each([
+    ["running", false], ["stopped", true], ["stopped", false], ["completed", true], ["errored", true],
+  ] as const)("repairs stale parent progress from a %s journal (terminal event: %s)", async (status, terminalEvent) => {
+    const { engine, store, parentId } = setup();
+    await engine.workflows.ready;
+    await engine.workflows.close();
+    const journal = engine.workflows.journal;
+    const runId = "recovered-run";
+    journal.createRun({ runId, parentSessionId: parentId, status, caps: {}, spentTokens: 0,
+      ...(status === "stopped" ? { stopReason: "interrupted" as const } : {}) });
+    const initial = reduceWorkflowRunsState(undefined, { runId, eventType: "run-started", sequence: 0, payload: {} })!;
+    initial.runs[0].nodes = [
+      { siteId: "done", ordinal: 0, phase: "settled", outcome: "ok" },
+      { siteId: "last", ordinal: 0, phase: "executing" },
+    ];
+    store.save({ ...store.session(parentId), revision: store.session(parentId).revision + 1, session: { ...store.session(parentId).session, workflowRuns: initial } }, { type: "test" });
+    journal.appendEvent(runId, { type: "run-started", runId, caps: {} });
+    if (status === "completed") journal.appendEvent(runId, { type: "node-settled", instance: { siteId: "last", ordinal: 0 }, outcome: "ok" });
+    if (terminalEvent && status !== "running") journal.appendEvent(runId, { type: "run-settled", status, ...(status === "stopped" ? { stopReason: "interrupted" as const } : {}) });
+    const restore = () => {
+      const recovered = new HostWorkflows({
+        db: store.db, dataDir: join(store.attachmentDir, "recovery"),
+        session: id => store.sessionIfExists(id),
+        mutate: (id, change, event) => store.save({ ...change(store.session(id)), revision: store.session(id).revision + 1 }, event),
+        workers: { createWorker: vi.fn(), submit: vi.fn(), stop: vi.fn(async () => {}) }, providers: () => [],
+      });
+      cleanups.push(() => recovered.close());
+      return recovered;
+    };
+    await restore().ready;
+    const restored = store.session(parentId).session.workflowRuns!.runs[0];
+    expect(restored.status).toBe(status === "running" ? "stopped" : status);
+    expect(restored.nodes[0]).toMatchObject({ phase: "settled", outcome: "ok" });
+    expect(restored.nodes[1]).toMatchObject({ phase: "settled", outcome: status === "completed" ? "ok" : status === "errored" ? "failed" : "cancelled" });
+    const eventCount = journal.listEvents(runId).length;
+    await restore().ready;
+    expect(store.session(parentId).session.workflowRuns).toEqual({ ...initial, revision: expect.any(Number), runs: [restored] });
+    expect(journal.listEvents(runId)).toHaveLength(eventCount);
+  });
+
   it("lets an active parent await its trusted workflow workers on the same checkout", async () => {
     const { engine, store, parentId, claude, codex } = setup();
     let result: unknown;

@@ -89,6 +89,80 @@ describe("tool error disclosure", () => {
 });
 
 describe("tool row bodies", () => {
+  it.each([
+    { status: "in_progress", preview: { kind: "shell" as const, title: "echo first\necho second" } },
+    { status: "running", input: "echo first\necho second" },
+    { status: "pending", title: "echo first\necho second" },
+    { status: "running" },
+  ])("expands a running command before output arrives: %j", async (tool) => {
+    const command = "echo first\necho second";
+    const block: Block = {
+      id: "command",
+      role: "tool",
+      text: tool.preview || tool.input || tool.title ? "echo first" : command,
+      tool: { kind: "execute", ...tool },
+    };
+    act(() => root.render(createElement(AgentTranscript, {
+      blocks: [{ id: "user", role: "user", text: "Run it" }, block], busy: true,
+    })));
+    const trigger = container.querySelector<HTMLButtonElement>(
+      '[data-tool-renderer="execute"] button[aria-expanded]',
+    );
+    expect(trigger?.getAttribute("aria-expanded")).toBe("false");
+    expect(container.querySelector("[data-tool-command]")).toBeNull();
+    act(() => trigger?.click());
+    expect(trigger?.getAttribute("aria-expanded")).toBe("true");
+    expect(container.querySelector("[data-tool-command]")?.textContent).toBe(command);
+    expect(container.querySelector("[data-tool-output]")).toBeNull();
+
+    act(() => trigger?.click());
+    const closing = container.querySelector('[data-fold-state="closing"]');
+    expect(closing?.hasAttribute("inert")).toBe(true);
+    expect(closing?.textContent).toContain(command);
+    act(() => trigger?.click());
+    expect(trigger?.getAttribute("aria-expanded")).toBe("true");
+    expect(container.querySelector('[data-fold-state="closing"]')).toBeNull();
+    act(() => trigger?.click());
+    await act(async () => { await finishMotion(); });
+    expect(container.querySelector("[data-tool-command]")).toBeNull();
+  });
+
+  it("keeps the running command readable as output streams and respects a manual collapse", async () => {
+    const command = "echo first\necho second";
+    const render = (output?: string, status = "running") => act(() => root.render(
+      createElement(AgentTranscript, {
+        busy: true,
+        blocks: [
+          { id: "user", role: "user", text: "Run it" },
+          { id: "command", role: "tool", text: "echo first", tool: {
+            kind: "execute", status,
+            preview: { kind: "shell", title: command, output },
+          } },
+        ],
+      }),
+    ));
+    render();
+    const trigger = container.querySelector<HTMLButtonElement>(
+      '[data-tool-renderer="execute"] button[aria-expanded]',
+    );
+    act(() => trigger?.click());
+    render("first");
+    expect(trigger?.getAttribute("aria-expanded")).toBe("true");
+    expect(container.querySelector("[data-tool-command]")?.textContent).toBe(command);
+    expect(container.querySelector("[data-tool-output]")?.textContent).toBe("first");
+
+    act(() => trigger?.click());
+    await act(async () => { await finishMotion(); });
+    render("first\nsecond");
+    expect(trigger?.getAttribute("aria-expanded")).toBe("false");
+    expect(container.querySelector("[data-tool-output]")).toBeNull();
+    act(() => trigger?.click());
+    expect(container.querySelector("[data-tool-output]")?.textContent).toBe("first\nsecond");
+    render("first\nsecond", "completed");
+    expect(trigger?.getAttribute("aria-expanded")).toBe("true");
+    expect(container.querySelector("[data-tool-output]")?.textContent).toBe("first\nsecond");
+  });
+
   it("opens a finished command onto its output", () => {
     const blocks: Block[] = [
       { id: "user", role: "user", text: "Check git" },

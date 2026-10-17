@@ -1157,6 +1157,13 @@ export function useWorkspaceController({
     : gitCwd;
   const gitCwdRef = useRef(gitRootCwd);
   gitCwdRef.current = gitRootCwd;
+  const sourceControlBranches = useProjectBranches(
+    gitRootCwd,
+    Boolean(gitRootCwd) && gitRootCwd !== "~",
+  );
+  // Unborn and detached repositories also have a current branch or HEAD.
+  // A missing current value means the checkout is pending or is not a repo.
+  const sourceControlAvailable = Boolean(sourceControlBranches?.current);
   const projectBranches = useProjectBranches(
     sidebarCwd,
     Boolean(sidebarCwd) && sidebarCwd !== "~",
@@ -3840,7 +3847,7 @@ export function useWorkspaceController({
     "App: Search": onGoToFile,
     "View: Search Everywhere": () => onOpenSearch(),
     "App: Toggle Sidebar": onToggleSidebar,
-    "View: Toggle Changes": onToggleChanges,
+    "View: Toggle Changes": sourceControlAvailable ? onToggleChanges : undefined,
     "Terminal: Toggle Dock": onToggleProjectTerminal,
     "View: Toggle Menu Bar": IS_MAC
       ? undefined
@@ -4379,6 +4386,7 @@ export function useWorkspaceController({
     sidebarOpenSessionIds,
     sidebarTab,
     sidebarWorkflows,
+    sourceControlAvailable,
     surfaceModeToggle,
     tabVisitNav,
     tabs,

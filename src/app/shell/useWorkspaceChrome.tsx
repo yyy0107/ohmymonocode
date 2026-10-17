@@ -6,6 +6,7 @@ import type { LiveAgent } from "../../features/sessions/model/liveAgents";
 import { type Session } from "../../features/sessions/model/session";
 import { WorkflowSidebarSection } from "../../features/workflows/ui/WorkflowSidebarSection";
 import { HarnessIcon } from "../../features/sessions/ui/HarnessIcon";
+import { TerminalSpinner } from "../../features/sessions/ui/TerminalSpinner";
 import {
   leafIds,
   type WorkspaceTab,
@@ -237,6 +238,7 @@ export function useWorkspaceChrome({
     () => (
       <WorkflowSidebarSection
         renderHarnessIcon={(harness) => <HarnessIcon harness={harness} />}
+        runningIndicator={<TerminalSpinner className="inline-flex size-4 shrink-0 select-none items-center justify-center text-[16px] leading-none text-accent" />}
         activeSessionId={active?.id}
         onOpenSession={(sessionId) => void onSelectHistorySession(sessionId)}
         onOpenWorkflows={onOpenWorkflows}

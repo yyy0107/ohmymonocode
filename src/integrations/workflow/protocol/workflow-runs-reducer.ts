@@ -559,6 +559,14 @@ function applyWorkflowRunEvent(
       return withDerivedWorkflowActorStatuses({
         ...cleared,
         status: terminal ? status : "errored",
+        // Recovery may only have the run's terminal event. Any unfinished
+        // nodes were abandoned; never leave their executing/waiting markers
+        // alive, and never turn missing outcomes into successful work.
+        nodes: cleared.nodes.map((node): WorkflowRunNode => node.phase === "settled" ? node : {
+          ...node,
+          phase: "settled",
+          outcome: status === "completed" || status === "stopped" ? "cancelled" : "failed",
+        }),
         ...(carriedStopReason === undefined ? {} : { stopReason: carriedStopReason }),
         ...(supersededBy === undefined ? {} : { supersededBy }),
         ...(settledMessage === undefined

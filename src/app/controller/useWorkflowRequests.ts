@@ -146,12 +146,23 @@ export function useWorkflowRequests({
       sourceFileId?: string,
     ) => {
       void (async () => {
-        const hasSource = tabsRef.current.some((entry) =>
+        const tab = tabsRef.current.find((entry) =>
           entry.editorPanes.some((pane) =>
             pane.files.some((file) => file.id === sourceFileId),
           ),
-        );
-        if (!hasSource && !focusOpenSession(parentSessionId))
+        ) ?? tabsRef.current.find((entry) => leafIds(entry.layout).includes(parentSessionId));
+        if (tab) {
+          // Open and focus the destination in the same commit. Activating the
+          // parent first briefly restores its composer/hidden surface before
+          // the effect below switches focus to the workflow pane.
+          setTabs((prev) => prev.map((entry) => entry.id === tab.id
+            ? openEditorTab(entry, file, { afterFileId: sourceFileId })
+            : entry));
+          setActiveTabId(tab.id);
+          setComposerFocused(false);
+          return;
+        }
+        if (!focusOpenSession(parentSessionId))
           await onSelectHistorySession(parentSessionId);
         setWorkflowTabRequest({ parentSessionId, file, sourceFileId });
       })().catch(console.error);
@@ -191,6 +202,9 @@ export function useWorkflowRequests({
     focusOpenSession,
     onSelectHistorySession,
     onSelectRemoteSession,
+    setActiveTabId,
+    setComposerFocused,
+    setTabs,
   ]);
 
   return { openSubagentTab, workflowProjects, workflowActivity, workflowApp };

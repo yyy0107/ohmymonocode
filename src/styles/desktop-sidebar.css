@@ -520,6 +520,13 @@ html[data-skin] [data-desktop-sidebar] [data-workflow-conversation-select] {
   min-height: var(--desktop-sidebar-session-row);
   padding: 4px var(--desktop-sidebar-action-inset) 4px var(--desktop-sidebar-row-inset);
 }
+html[data-skin] [data-desktop-sidebar] [data-workflow-conversation] [data-workflow-run-lines] {
+  padding: 0 var(--desktop-sidebar-row-inset) 4px;
+}
+html[data-skin] [data-desktop-sidebar] [data-workflow-conversation] [data-workflow-run-line] {
+  margin-inline-start: 0;
+  padding-inline: 0;
+}
 html[data-skin] [data-desktop-sidebar] :is([data-session-group-row], [data-project-group-header]) {
   height: var(--desktop-sidebar-group-row);
   padding-block: 0;

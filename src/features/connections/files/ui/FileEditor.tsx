@@ -35,11 +35,8 @@ import {
   AlertCircle,
   Code,
   Eye,
-  ChevronDown,
-  ChevronUp,
   RotateCcw,
 } from "../../../../shared/ui/icons";
-import { formatInteger } from "../../../../shared/lib/numbers";
 import { minimalSetup } from "codemirror";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -90,11 +87,6 @@ import {
   type EditorSelectionTarget,
 } from "./EditorSelectionMenu";
 import {
-  diffActiveChunkIndex,
-  diffLineStatsForView,
-  diffNavigablePositions,
-  diffNavUpdateRelevant,
-  diffScrollToChunk,
   editorGit,
   setGitOriginal,
 } from "../editor/editorGit";
@@ -621,15 +613,8 @@ export function CodeMirrorEditor({
   const navigationTokenRef = useRef<number | undefined>(undefined);
   const pendingNavigationRef = useRef<EditorNavigationRequest | null>(null);
   const gitOriginalRef = useRef(gitOriginal);
-  const chunkNavPinnedRef = useRef<number | null>(null);
   const lockOverscroll = useLockOverscroll<HTMLDivElement>();
   const colorScheme = useColorScheme();
-  const [chunkNav, setChunkNav] = useState<{
-    positions: number[];
-    index: number;
-    additions: number;
-    deletions: number;
-  } | null>(null);
   const [commentTarget, setCommentTarget] =
     useState<DiffCommentComposerTarget | null>(null);
   const [selectionTarget, setSelectionTarget] =
@@ -649,69 +634,6 @@ export function CodeMirrorEditor({
   onDocChangeRef.current = onDocChange;
   valueRef.current = value;
   gitOriginalRef.current = gitOriginal;
-
-  const syncChunkNav = useCallback((view: EditorView, fromScroll = true) => {
-    const positions = diffNavigablePositions(view);
-    const { additions, deletions } = diffLineStatsForView(view);
-    if (positions.length === 0) {
-      setChunkNav((current) =>
-        current && current.positions.length === 0
-          ? current
-          : {
-              positions: [],
-              index: 0,
-              additions: 0,
-              deletions: 0,
-            },
-      );
-      chunkNavPinnedRef.current = null;
-      return;
-    }
-    let index = chunkNavPinnedRef.current;
-    if (
-      fromScroll ||
-      index === null ||
-      index < 0 ||
-      index >= positions.length
-    ) {
-      index = diffActiveChunkIndex(view, positions);
-    }
-    chunkNavPinnedRef.current = index;
-    setChunkNav((current) => {
-      if (
-        current &&
-        current.index === index &&
-        current.additions === additions &&
-        current.deletions === deletions &&
-        current.positions.length === positions.length &&
-        current.positions.every((pos, i) => pos === positions[i])
-      ) {
-        return current;
-      }
-      return { positions, index, additions, deletions };
-    });
-  }, []);
-
-  const stepChunkNav = useCallback(
-    (delta: number) => {
-      const view = viewRef.current;
-      if (!view || !chunkNav || chunkNav.positions.length === 0) return;
-      const next = Math.min(
-        chunkNav.positions.length - 1,
-        Math.max(0, chunkNav.index + delta),
-      );
-      if (next === chunkNav.index) return;
-      chunkNavPinnedRef.current = next;
-      diffScrollToChunk(view, chunkNav.positions[next]);
-      setChunkNav({
-        positions: chunkNav.positions,
-        index: next,
-        additions: chunkNav.additions,
-        deletions: chunkNav.deletions,
-      });
-    },
-    [chunkNav],
-  );
 
   const setDirty = (nextDirty: boolean) => {
     if (dirtyRef.current === nextDirty) return;
@@ -866,13 +788,6 @@ export function CodeMirrorEditor({
             pendingNavigationRef.current = null;
           },
         }),
-        showDiff
-          ? EditorView.updateListener.of((update) => {
-              if (!diffNavUpdateRelevant(update)) return;
-              chunkNavPinnedRef.current = null;
-              syncChunkNav(update.view);
-            })
-          : [],
       ],
     });
     const unsubscribePreferences = subscribeEditorPreferences(() => {
@@ -882,18 +797,8 @@ export function CodeMirrorEditor({
     dirtyRef.current = false;
     viewRef.current = view;
     lockOverscroll(view.scrollDOM as HTMLDivElement);
-    if (showDiff) {
-      if (gitOriginalRef.current) {
-        setGitOriginal(view, gitOriginalRef.current);
-      }
-      syncChunkNav(view);
-    } else {
-      setChunkNav({
-        positions: [],
-        index: 0,
-        additions: 0,
-        deletions: 0,
-      });
+    if (showDiff && gitOriginalRef.current != null) {
+      setGitOriginal(view, gitOriginalRef.current);
     }
     if (activeRef.current) view.focus();
 
@@ -911,11 +816,10 @@ export function CodeMirrorEditor({
       lockOverscroll(null);
       viewRef.current = null;
       savedDocumentRef.current = null;
-      setChunkNav(null);
       setSelectionTarget(null);
       view.destroy();
     };
-  }, [formatOnSave, lockOverscroll, path, showDiff, syncChunkNav]);
+  }, [formatOnSave, lockOverscroll, path, showDiff]);
 
   useEffect(() => {
     const view = viewRef.current;
@@ -936,25 +840,10 @@ export function CodeMirrorEditor({
   useEffect(() => {
     const view = viewRef.current;
     if (!view || !showDiff) return;
-    let changed = false;
     preserveEditorViewport(view, () => {
-      changed = setGitOriginal(view, gitOriginal);
+      setGitOriginal(view, gitOriginal);
     });
-    if (!changed) return;
-    chunkNavPinnedRef.current = null;
-    syncChunkNav(view);
-  }, [gitOriginal, showDiff, syncChunkNav]);
-
-  useEffect(() => {
-    const view = viewRef.current;
-    if (!view || !showDiff) return;
-    const onScroll = () => {
-      chunkNavPinnedRef.current = null;
-      syncChunkNav(view);
-    };
-    view.scrollDOM.addEventListener("scroll", onScroll, { passive: true });
-    return () => view.scrollDOM.removeEventListener("scroll", onScroll);
-  }, [showDiff, syncChunkNav, path]);
+  }, [gitOriginal, showDiff]);
 
   useEffect(() => {
     const view = viewRef.current;
@@ -965,11 +854,7 @@ export function CodeMirrorEditor({
     });
     savedDocumentRef.current = view.state.doc;
     setDirty(false);
-    if (showDiff) {
-      chunkNavPinnedRef.current = null;
-      syncChunkNav(view);
-    }
-  }, [showDiff, syncChunkNav, value]);
+  }, [value]);
 
   useEffect(() => {
     if (!navigation) {
@@ -1025,16 +910,6 @@ export function CodeMirrorEditor({
   return (
     <>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        {showDiff ? (
-          <DiffChunkNav
-            index={chunkNav?.index ?? 0}
-            total={chunkNav?.positions.length ?? 0}
-            additions={chunkNav?.additions ?? 0}
-            deletions={chunkNav?.deletions ?? 0}
-            onPrev={() => stepChunkNav(-1)}
-            onNext={() => stepChunkNav(1)}
-          />
-        ) : null}
         <div ref={hostRef} className="min-h-0 flex-1" />
       </div>
       <PresenceBoundary propagate>{commentTarget ? (
@@ -1090,82 +965,6 @@ function editorSelectionTarget(
       Math.max(1, coordinates.bottom - coordinates.top),
     ),
   };
-}
-
-function DiffChunkNav({
-  index,
-  total,
-  additions,
-  deletions,
-  onPrev,
-  onNext,
-}: {
-  index: number;
-  total: number;
-  additions: number;
-  deletions: number;
-  onPrev: () => void;
-  onNext: () => void;
-}) {
-  const { t: uiT } = useTranslation();
-  return (
-    <header
-      className="desktop-toolbar flex h-8 shrink-0 items-center justify-between gap-3 border-b border-stroke px-3 pr-1"
-      role="toolbar"
-      aria-label={uiT("Jump between changes")}
-    >
-      <DiffChunkStat additions={additions} deletions={deletions} />
-      <div className="flex items-center gap-0.5">
-        <button
-          type="button"
-          title={uiT("Previous change")}
-          aria-label={uiT("Previous change")}
-          disabled={total === 0 || index <= 0}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={onPrev}
-          className="grid size-6 place-items-center rounded text-content/70 hover:bg-content/6 hover:text-content disabled:opacity-35"
-        >
-          <ChevronUp className="size-3.5" />
-        </button>
-        <span className="min-w-10 px-0.5 text-center font-mono text-[10.5px] font-medium tabular-nums text-content/55 select-none">
-          {total === 0 ? "0/0" : `${index + 1}/${total}`}
-        </span>
-        <button
-          type="button"
-          title={uiT("Next change")}
-          aria-label={uiT("Next change")}
-          disabled={total === 0 || index >= total - 1}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={onNext}
-          className="grid size-6 place-items-center rounded text-content/70 hover:bg-content/6 hover:text-content disabled:opacity-35"
-        >
-          <ChevronDown className="size-3.5" />
-        </button>
-      </div>
-    </header>
-  );
-}
-
-function DiffChunkStat({
-  additions,
-  deletions,
-}: {
-  additions: number;
-  deletions: number;
-}) {
-  if (additions <= 0 && deletions <= 0) {
-    return <span className="min-w-0 flex-1" />;
-  }
-  return (
-    <span className="flex min-w-0 shrink-0 items-center gap-1.5 font-sans text-[11px] font-semibold tabular-nums">
-      {additions > 0 ? (
-        <span className="text-emerald-400">+{formatInteger(additions)}</span>
-      ) : null}
-      {deletions > 0 ? (
-        <span className="text-red-400">-{formatInteger(deletions)}</span>
-      ) : null}
-    </span>
-  );
 }
 
 function revealNavigation(view: EditorView, target: EditorNavigation) {

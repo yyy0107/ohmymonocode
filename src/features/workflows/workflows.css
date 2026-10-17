@@ -106,6 +106,12 @@
   transform: none;
   color: var(--color-foreground-subtle);
 }
+/* Keep the shared tail slot and status mounted. Visibility also avoids
+ * competing with the status entrance's inline opacity/transform. */
+.wf-pill-open:hover .wf-pill-status,
+.wf-pill-open:focus-visible .wf-pill-status {
+  visibility: hidden;
+}
 /* 产物药丸的方形瓦片：墨灰，悬停时抬到 hover 色、字形转前景色；不像头像那样
  * 放大——形状说「什么」，不抢颜色说「谁」的戏。 */
 .wf-pill-tile {

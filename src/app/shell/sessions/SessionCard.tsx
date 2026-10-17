@@ -12,6 +12,8 @@ import {
   OrchestrationSidebarAgents,
 } from "../../../features/orchestration/ui/OrchestrationSidebarAgents";
 import { SessionWorkflowRunLines } from "../../../features/workflows/ui/SessionWorkflowRunLines";
+import { useWorkflowActivity } from "../../../features/workflows/model/workflowActivity";
+import { isSessionWorkflowRunLive } from "../../../integrations/workflow/protocol/sessions-index-workflow-activity";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   Archive,
@@ -125,6 +127,8 @@ export const SessionCard = memo(function SessionCard({
   onDelete?: (sessionId: string) => void;
 }) {
   const { t: uiT } = useTranslation();
+  const workflow = useWorkflowActivity(session.id);
+  const running = busy || !!workflow?.activity.runs.some((run) => isSessionWorkflowRunLive(run.status));
   const inheritedReorder = useContext(SidebarEntryReorderContext);
   const revealPins = useContext(SidebarPinDropContext);
   const standaloneReorder = useAnimatedReorder(
@@ -172,7 +176,7 @@ export const SessionCard = memo(function SessionCard({
     waitingFor === "input" ? uiT("Needs input") : uiT("Need approval");
   const statusClass = waitingFor
     ? "text-amber-400"
-    : busy
+    : running
       ? "text-accent"
       : failed
         ? "text-destructive"
@@ -190,7 +194,7 @@ export const SessionCard = memo(function SessionCard({
           <CircleAlert className="size-3" />
           <span>{waitingLabel}</span>
         </>
-      ) : busy ? (
+      ) : running ? (
         <>
           <TerminalSpinner className="inline-flex size-4 shrink-0 select-none items-center justify-center text-[16px] leading-none text-accent" />
           <span>{uiT("Working...")}</span>
@@ -217,7 +221,7 @@ export const SessionCard = memo(function SessionCard({
     ? resolveModel(session.harness, session.model).name
     : undefined;
   const summaryStatus =
-    waitingFor || busy || failed || done || draft ? (
+    waitingFor || running || failed || done || draft ? (
       status
     ) : (
       <span className={`shrink-0 text-[11px] ${statusClass}`}>
@@ -229,7 +233,7 @@ export const SessionCard = memo(function SessionCard({
       aria-label={waitingLabel}
       className="size-3 shrink-0 text-amber-400"
     />
-  ) : busy ? (
+  ) : running ? (
     <span role="img" aria-label={uiT("Working...")} className="flex shrink-0">
       <TerminalSpinner className="inline-flex size-4 shrink-0 select-none items-center justify-center text-[16px] leading-none text-accent" />
     </span>

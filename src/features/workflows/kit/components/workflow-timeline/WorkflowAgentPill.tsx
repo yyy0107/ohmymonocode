@@ -21,8 +21,8 @@ export { agentColor, avatarColor } from "./WorkflowAgentFace.js";
  * 内描边、头像放大加深、尾槽里 ↗ 顶替状态标记），点一下直接开那个子代理的 transcript。不可
  * 打开的药丸没有悬停态；`inertTitle` 说明为什么。
  *
- * 尾槽（`wf-pill-tail`）是状态标记与 ↗ 共用的一格 14px：两者叠在同一格里，悬停时标记缩出、
- * 箭头缩入。所以子代理药丸与脚本药丸的状态标记落在同一条右缘上——↗ 从不占自己的位置
+ * 尾槽（`wf-pill-tail`）是状态标记与 ↗ 共用的一格 14px：两者叠在同一格里，悬停时隐藏标记、
+ * 显示箭头。所以子代理药丸与脚本药丸的状态标记落在同一条右缘上——↗ 从不占自己的位置
  * （↗ 隐身时不能仍占位：否则子代理的标记会比工作区的偏左一格）。
  */
 
@@ -63,7 +63,7 @@ export function PillStatusMark({ status }: { status: StepRunStatus | undefined }
     <motionElement.span {...workflowEntry()}
       aria-label={label}
       className={cn(
-        "flex size-3.5 shrink-0 items-center justify-center",
+        "wf-pill-status flex size-3.5 shrink-0 items-center justify-center",
         // 运行圆环使用中性色，避免正常加载被读成警告。
         status === "running" && "text-foreground-subtle",
         status === "done" && "text-foreground-subtle",

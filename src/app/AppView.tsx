@@ -244,6 +244,7 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
     sidebarOpenSessionIds,
     sidebarTab,
     sidebarWorkflows,
+    sourceControlAvailable,
     surfaceModeToggle,
     tabVisitNav,
     tabs,
@@ -498,7 +499,7 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
                         <SurfaceVisibilityContext.Provider
                           value={workspaceVisible}
                         >
-                          <WorkspaceToolsDock sidebar={sidebarProps} visible={workspaceVisible}>
+                          <WorkspaceToolsDock sidebar={sidebarProps} visible={workspaceVisible && sourceControlAvailable}>
                           <TerminalDockLayout
                             projectTerminals={projectTerminals}
                             currentDock={currentProjectDock}

@@ -234,14 +234,41 @@ export class HostWorkflows {
     if (this.deps.entry) this.launcherPath = await this.control.launcher(join(this.deps.dataDir, "workflow-control"), this.deps.entry, this.deps.node);
   }
 
-  /** A Host restart interrupts every run it owned; mark them resumable. */
+  /** Recover interrupted runs and terminal journal events missed by parent snapshots. */
   private recoverInterrupted(): void {
-    for (const record of this.journal.listUnsettledRuns()) {
-      this.journal.updateRunStatus(record.runId, "stopped", { stopReason: "interrupted" });
-      if (!record.parentSessionId) continue;
-      const sequence = this.journal.appendEvent(record.runId, { type: "run-settled", status: "stopped", stopReason: "interrupted" }).sequence;
-      this.project(record.parentSessionId, record.runId, { type: "run-settled", status: "stopped", stopReason: "interrupted" }, sequence, { resumable: true });
-      this.flush(record.parentSessionId);
+    for (const record of this.journal.listRunsForRecovery()) {
+      const interrupted = record.status === "pending" || record.status === "running";
+      const parentId = record.parentSessionId;
+      const previous = this.runState(record);
+      // Do not resurrect old runs evicted from the parent's bounded history.
+      if (!interrupted && (!previous || (previous.status !== "running" && previous.status !== "pending"
+        && previous.nodes.every(node => node.phase === "settled")))) continue;
+      if (interrupted) {
+        this.journal.updateRunStatus(record.runId, "stopped", { stopReason: "interrupted" });
+        this.journal.appendEvent(record.runId, { type: "run-settled", status: "stopped", stopReason: "interrupted" });
+      }
+      if (!parentId || !this.deps.session(parentId)) continue;
+      // Replay missing node outcomes before the terminal event so finished work
+      // remains successful, even if the final parent snapshot was never saved.
+      for (const { event, sequence } of this.journal.listEvents(record.runId, { afterSequence: previous?.lastEventSequence ?? -1 })) {
+        const actor = event.type === "actor-created" || event.type === "node-dispatched" ? event.actor : undefined;
+        this.project(parentId, record.runId, event, sequence,
+          event.type === "run-settled" && event.status === "stopped" && event.stopReason !== "superseded" ? { resumable: true } : {},
+          actor ? mintActorSessionId(record.runId, actor) : undefined);
+      }
+      const current = this.runState(record);
+      if (current && (current.status === "pending" || current.status === "running" || current.nodes.some(node => node.phase !== "settled"))) {
+        // Covers a crash between updating the journal row and appending its
+        // terminal event, and older terminal projections with live nodes.
+        const event: RunEvent = { type: "run-settled", status: interrupted ? "stopped" : record.status,
+          ...(interrupted ? { stopReason: "interrupted" } : record.stopReason ? { stopReason: record.stopReason } : {}),
+          ...(record.failure ? { error: record.failure } : {}),
+          ...(record.supersededBy ? { supersededBy: record.supersededBy } : {}) };
+        const { sequence } = this.journal.appendEvent(record.runId, event);
+        this.project(parentId, record.runId, event, sequence,
+          event.status === "stopped" && event.stopReason !== "superseded" ? { resumable: true } : {});
+      }
+      this.flush(parentId);
     }
   }
 
@@ -726,11 +753,11 @@ export class HostWorkflows {
       this.flushTimers.set(parentSessionId, setTimeout(() => this.flush(parentSessionId), PROGRESS_FLUSH_MS));
   }
 
-  private flush(parentSessionId: string): void {
+  private flush(parentSessionId: string, final = false): void {
     clearTimeout(this.flushTimers.get(parentSessionId));
     this.flushTimers.delete(parentSessionId);
     const state = this.states.get(parentSessionId);
-    if (!state || this.closing) return;
+    if (!state || (this.closing && !final)) return;
     try {
       this.deps.mutate(parentSessionId, (current) => current.session.workflowRuns === state ? current : { ...current, session: { ...current.session, workflowRuns: state } }, { type: "workflow.progress" });
     } catch (error) {
@@ -1108,6 +1135,9 @@ export class HostWorkflows {
     const live = [...this.live.values()];
     for (const run of live) run.abort.abort("interrupted");
     await Promise.all(live.map((run) => run.done.catch(() => undefined)));
+    // The store remains open until close() returns. Publish the final projection
+    // even though ordinary progress writes are suppressed during shutdown.
+    for (const parentId of this.states.keys()) this.flush(parentId, true);
     await this.control.close();
   }
 

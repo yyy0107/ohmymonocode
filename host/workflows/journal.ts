@@ -126,11 +126,10 @@ export class SqliteJournalStore implements JournalStorePort {
       .map((row) => JSON.parse(String(row.record)) as RunRecord);
   }
 
-  /** Runs whose journal says they were still active when the Host stopped. */
-  listUnsettledRuns(): RunRecord[] {
+  /** Startup recovery also checks terminal journals against their parent snapshots. */
+  listRunsForRecovery(): RunRecord[] {
     return this.db.prepare("SELECT record FROM workflow_runs").all()
-      .map((row) => JSON.parse(String(row.record)) as RunRecord)
-      .filter((record) => record.status === "pending" || record.status === "running");
+      .map((row) => JSON.parse(String(row.record)) as RunRecord);
   }
 
   createdAt(runId: string): number | undefined {

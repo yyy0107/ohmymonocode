@@ -62,7 +62,13 @@ export function ToolRow({
   // The question card beside the trail shows what was asked and answered.
   const bodyText =
     renderer === "question" ? undefined : toolBodyText(block, renderer);
-  const expandable = !pending && !!bodyText;
+  // Shell previews retain the full command even when the summary is shortened.
+  // Let readers inspect it before the process has printed any output.
+  const command = renderer === "execute" && running
+    ? (block.tool?.preview?.kind === "shell" ? block.tool.preview.title : undefined)
+      || block.tool?.input || block.tool?.title || block.text
+    : undefined;
+  const expandable = !pending && !!(command || bodyText);
   // A command you are watching run shows its output; it folds once it is done.
   const autoOpen = renderer === "execute" && live && running && !!bodyText;
   const open = expandable && (override ?? autoOpen);
@@ -161,11 +167,20 @@ export function ToolRow({
       {expandable ? (
         <AnimatedCollapse expanded={open}>
           {() => (
-            <ToolOutput
-              text={bodyText ?? ""}
-              live={live && running}
-              failed={failed}
-            />
+            <>
+              {command ? (
+                <pre data-tool-command="" className="zen-detail-panel max-h-60 overflow-auto whitespace-pre-wrap break-words">
+                  {command}
+                </pre>
+              ) : null}
+              {bodyText ? (
+                <ToolOutput
+                  text={bodyText}
+                  live={live && running}
+                  failed={failed}
+                />
+              ) : null}
+            </>
           )}
         </AnimatedCollapse>
       ) : null}

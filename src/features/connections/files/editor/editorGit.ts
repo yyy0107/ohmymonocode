@@ -195,29 +195,6 @@ export function diffNavigablePositions(view: EditorView): number[] {
   );
 }
 
-export function diffActiveChunkIndex(
-  view: EditorView,
-  positions: number[],
-): number {
-  return activeChunkIndex(view, positions);
-}
-
-export function diffScrollToChunk(view: EditorView, pos: number): void {
-  view.dispatch({
-    effects: EditorView.scrollIntoView(pos, { y: "start", yMargin: 48 }),
-    selection: { anchor: pos },
-  });
-  view.focus();
-}
-
-export function diffNavUpdateRelevant(update: ViewUpdate): boolean {
-  return (
-    update.docChanged ||
-    update.geometryChanged ||
-    update.state.field(chunksField) !== update.startState.field(chunksField)
-  );
-}
-
 export function diffLineStats(
   doc: Text,
   chunks: readonly Chunk[],
@@ -242,13 +219,6 @@ export function diffLineStats(
     }
   }
   return { additions, deletions };
-}
-
-export function diffLineStatsForView(view: EditorView): {
-  additions: number;
-  deletions: number;
-} {
-  return diffLineStatsFromState(view.state);
 }
 
 export function diffLineStatsFromState(state: EditorState): {
@@ -711,20 +681,6 @@ const gitGutter = gutter({
     update.startState.field(chunksField) !== update.state.field(chunksField),
 });
 
-function activeChunkIndex(view: EditorView, positions: number[]): number {
-  if (positions.length === 0) return -1;
-  const scrollTop = view.scrollDOM.scrollTop;
-  const centerY = scrollTop + view.scrollDOM.clientHeight * 0.35;
-  const block = view.lineBlockAtHeight(centerY);
-  const pos = block.from;
-  let index = 0;
-  for (let i = 0; i < positions.length; i++) {
-    if (positions[i] <= pos) index = i;
-    else break;
-  }
-  return index;
-}
-
 const gitOverview = ViewPlugin.fromClass(
   class {
     readonly dom: HTMLDivElement;
@@ -1064,9 +1020,9 @@ const gitTheme = EditorView.theme({
     position: "relative",
   },
   ".cm-gitGutter": {
-    width: "22px",
+    width: "18px",
     padding: "0",
-    minWidth: "22px",
+    minWidth: "18px",
     overflow: "visible",
   },
   ".cm-gitGutter .cm-gutterElement": {
@@ -1090,7 +1046,7 @@ const gitTheme = EditorView.theme({
     width: "100%",
   },
   ".cm-gitDeletedLine": {
-    padding: "0 12px 0 6px",
+    padding: "0 6px",
     backgroundColor: "color-mix(in srgb, #f87171 16%, transparent)",
     boxShadow: "inset 3px 0 0 #f87171",
     whiteSpace: "pre-wrap",

@@ -31,22 +31,22 @@ function editorThemeStyles(dark: boolean) {
     },
     ".cm-content": {
       minHeight: "100%",
-      padding: "8px 0 32px",
+      padding: "4px 0 32px",
       caretColor: "var(--color-content)",
     },
     ".cm-line": {
-      padding: "0 12px 0 6px",
+      padding: "0 6px",
     },
     ".cm-gutters": {
       backgroundColor: "transparent",
       color: "color-mix(in srgb, var(--color-content) 38%, transparent)",
       borderRight:
         "1px solid color-mix(in srgb, var(--color-content) 7%, transparent)",
-      paddingLeft: "4px",
+      paddingLeft: "2px",
     },
     ".cm-lineNumbers .cm-gutterElement": {
-      minWidth: "36px",
-      padding: "0 8px 0 4px",
+      minWidth: "2ch",
+      padding: "0 4px 0 2px",
     },
     ".cm-foldGutter": {
       width: "12px",

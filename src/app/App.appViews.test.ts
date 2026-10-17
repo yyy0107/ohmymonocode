@@ -32,6 +32,8 @@ import {
   saveNotesEnabled,
 } from "../features/settings/model/settings";
 import { loadSessionSidebarOpen } from "../features/settings/model/appearance";
+import { saveProjectSidebarTab } from "../features/settings/model/projectSidebarTab";
+import type { GitBranches } from "../platform/tauri/fs";
 import { activatePreferenceStore, SharedPreferenceStore, type PreferenceRequest, type PreferenceSnapshot } from "../features/settings/model/sharedPreferences";
 
 const mocks = vi.hoisted(() => ({
@@ -41,6 +43,7 @@ const mocks = vi.hoisted(() => ({
   notificationFocus: vi.fn(),
   fileOpen: vi.fn(),
   diffOpen: vi.fn(),
+  projectBranches: vi.fn<(cwd: string) => GitBranches | null>(),
   windowMinimize: vi.fn(async () => {}),
   windowMaximize: vi.fn(async () => {}),
   windowClose: vi.fn(async () => {}),
@@ -85,7 +88,7 @@ vi.mock("./hooks/useIdleSessionDetach", () => ({
   useIdleSessionDetach: () => {},
 }));
 vi.mock("../features/source-control/hooks/useProjectBranches", () => ({
-  useProjectBranches: () => null,
+  useProjectBranches: (cwd: string) => mocks.projectBranches(cwd),
 }));
 vi.mock("../features/inbox/hooks/useInboxUnseen", () => ({
   useInboxActivity: () => ({
@@ -809,6 +812,7 @@ beforeEach(() => {
     return [];
   });
   mocks.viewMounted.mockReset();
+  mocks.projectBranches.mockReset().mockReturnValue(null);
   mocks.paneRendered.mockReset();
   mocks.fileOpen.mockReset().mockImplementation(async (_cwd, path) => path);
   mocks.diffOpen.mockReset().mockImplementation(async (_cwd, path) => path);
@@ -1453,7 +1457,46 @@ describe("App workspace app views", () => {
     expect(container.querySelector(fileButton("recent"))?.getAttribute('aria-pressed')).toBe('true');
   });
 
-  it("keeps changes open while opening and closing the independent file explorer", async () => {
+  it.each([
+    null,
+    { current: null, detached: false, branches: [] },
+  ] satisfies (GitBranches | null)[])("hides saved changes panels and ignores the changes command without a repository: %j", async (branches) => {
+    mocks.projectBranches.mockReturnValue(branches);
+    saveProjectSidebarTab("/repo", "changes");
+    await mount();
+    expect(container.querySelector('.desktop-tools-layout')?.getAttribute('data-tools-open')).toBe('false');
+    expect(container.querySelector('[data-project-changes-content]')).toBeNull();
+    await click('[data-command="View: Toggle Changes"]');
+    expect(container.querySelector('.desktop-tools-layout')?.getAttribute('data-tools-open')).toBe('false');
+    expect(workspace().querySelector('[data-pane-id="first"]')).not.toBeNull();
+  });
+
+  it("closes changes in a non-repository and allows reopening after returning to a repository", async () => {
+    mocks.projectBranches.mockImplementation((cwd) => cwd === "/repo"
+      ? { current: "main", detached: false, branches: [] }
+      : { current: null, detached: false, branches: [] });
+    saveProjectSidebarTab("/repo", "changes");
+    saveProjectSidebarTab("/plain", "changes");
+    await mount(false, "bottom", { blocks: [{ id: "a", role: "user", text: "Repository chat" }] }, false,
+      { cwd: "/plain", blocks: [{ id: "b", role: "user", text: "Plain folder chat" }] });
+    expect(container.querySelector('.desktop-tools-layout')?.getAttribute('data-tools-open')).toBe('true');
+    await selectSession("recent");
+    await click('[data-command="View: Toggle Changes"]');
+    expect(container.querySelector('.desktop-tools-layout')?.getAttribute('data-tools-open')).toBe('false');
+    const transition = new Event("transitionend", { bubbles: true });
+    Object.defineProperty(transition, "propertyName", { value: "grid-template-columns" });
+    await act(async () => container.querySelector('.desktop-tools-layout')!.dispatchEvent(transition));
+    expect(container.querySelector<HTMLElement>('.desktop-tools-panel')?.hidden).toBe(true);
+    await selectSession("first");
+    await click('[data-command="View: Toggle Changes"]');
+    expect(container.querySelector('.desktop-tools-layout')?.getAttribute('data-tools-open')).toBe('true');
+  });
+
+  it.each([
+    { current: "main", detached: false, branches: [] },
+    { current: "a1b2c3d", detached: true, branches: [] },
+  ])("keeps changes open while opening and closing the independent file explorer: %j", async (branches) => {
+    mocks.projectBranches.mockReturnValue(branches);
     await mount();
     await click('[data-command="View: Toggle Changes"]');
     await click('[data-session-tool-toggle="files"]');

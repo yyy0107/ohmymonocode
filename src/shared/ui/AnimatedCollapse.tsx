@@ -96,6 +96,7 @@ export function AnimatedCollapse({
           durationMs={durationMs}
           animateContentResize={animateContentResize}
           finish={lifetime.finish}
+          restart={lifetime.restart}
         >{children}</CollapseBody>
       );
   return (
@@ -105,14 +106,33 @@ export function AnimatedCollapse({
 
 function CollapseBody({
   expanded, className, keepMounted, parentVisible, hidden, foldState,
-  durationMs, animateContentResize, finish, children,
+  durationMs, animateContentResize, finish, restart, children,
 }: Omit<CollapseProps, "onEntered" | "motion"> & {
   parentVisible: boolean; hidden: boolean;
   foldState: "open" | "opening" | "closing" | "closed";
-  reduced: boolean; finish: () => void;
+  reduced: boolean; finish: () => void; restart: () => void;
 }) {
   const [present, safeToRemove] = usePresence();
   const reduced = useMotionPreference();
+  const contentRef = useRef<HTMLDivElement>(null);
+  const measuredHeight = useRef<number>(undefined);
+  const [contentHeight, setContentHeight] = useState<number>();
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (!animateContentResize || !content || hidden || !parentVisible) return;
+    const updateHeight = (height: number) => {
+      if (measuredHeight.current === height) return;
+      if (measuredHeight.current !== undefined && expanded) restart();
+      measuredHeight.current = height;
+      setContentHeight(height);
+    };
+    updateHeight(content.getBoundingClientRect().height);
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) updateHeight(entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height);
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [animateContentResize, hidden, parentVisible, expanded, restart]);
   useLayoutEffect(() => {
     if (reduced && !present) { safeToRemove?.(); finish(); }
   }, [reduced, present, safeToRemove, finish]);
@@ -124,20 +144,19 @@ function CollapseBody({
       className={`zen-fold-item${className ? ` ${className}` : ""}`}
       data-fold-state={present ? foldState : "closing"}
       initial={reduced || foldState === "open" ? false : { height: 0 }}
-      animate={{ height: expanded ? "auto" : 0 }}
+      animate={{ height: expanded ? (animateContentResize ? contentHeight ?? "auto" : "auto") : 0 }}
       exit={{ height: 0 }}
       transition={reduced ? immediateTransition : {
         ...collapseTransition,
         ...(durationMs === undefined ? undefined : { duration: durationMs / 1000 }),
       }}
-      layout={animateContentResize ? "size" : false}
       style={{ overflow: expanded && present && foldState === "open" ? undefined : "hidden", display: hidden ? "none" : undefined }}
       hidden={hidden}
       aria-hidden={!visible || undefined}
       inert={!visible}
       onAnimationComplete={() => { finish(); if (!present) safeToRemove?.(); }}
     >
-      <div>
+      <div ref={contentRef}>
         <SurfaceVisibilityContext.Provider value={visible}>
           {keepMounted ? (
             <RetainedCollapseContent visible={visible}>{children}</RetainedCollapseContent>

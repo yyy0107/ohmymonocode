@@ -6,18 +6,20 @@ import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { Workflow } from "../../../shared/ui/icons";
 import { projectName } from "../../../shared/lib/paths";
 import { sessionDisplayTitle } from "../../sessions/model/session";
+import { isSessionWorkflowRunLive } from "../../../integrations/workflow/protocol/sessions-index-workflow-activity";
 import { TooltipProvider } from "../../../shared/ui/primitives/Tooltip";
 import { TaskWorkflowRunLines } from "../kit/components/workflow-run-line/TaskWorkflowRunLines";
 import { useWorkflowIntl } from "../kit/i18n/IntlProvider";
 import { WorkflowActivityContext, workflowActivityEntries, type WorkflowActivityEntry } from "../model/workflowActivity";
 import { useWorkflowApp } from "./workflowAppContext";
 
-export function WorkflowSidebarSection({ activeSessionId, onOpenSession, onOpenWorkflows, workflowsActive, renderHarnessIcon }: {
+export function WorkflowSidebarSection({ activeSessionId, onOpenSession, onOpenWorkflows, workflowsActive, renderHarnessIcon, runningIndicator }: {
   activeSessionId?: string;
   onOpenSession: (sessionId: string) => void;
   onOpenWorkflows: () => void;
   workflowsActive?: boolean;
   renderHarnessIcon: (harness: WorkflowActivityEntry["harness"]) => ReactNode;
+  runningIndicator: ReactNode;
 }) {
   const { t } = useTranslation();
   const { intl } = useWorkflowIntl();
@@ -42,9 +44,14 @@ export function WorkflowSidebarSection({ activeSessionId, onOpenSession, onOpenW
                 <span data-session-avatar className="shrink-0">
                   {renderHarnessIcon(entry.harness)}
                 </span>
-                <span className="desktop-sidebar-session-title min-w-0 truncate">
+                <span className="desktop-sidebar-session-title min-w-0 flex-1 truncate">
                   {sessionDisplayTitle(entry.title, entry.harness)}
                 </span>
+                {entry.activity.runs.some((run) => isSessionWorkflowRunLive(run.status)) ? (
+                  <span role="img" aria-label={t("Working...")} className="flex shrink-0">
+                    {runningIndicator}
+                  </span>
+                ) : null}
               </span>
               <span data-session-project title={entry.cwd}>
                 {entry.cwd === "~" ? t("Chats") : projectName(entry.cwd)}
