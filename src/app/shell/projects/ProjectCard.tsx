@@ -295,7 +295,7 @@ export function ProjectCard({
         className={
           compact
             ? "relative grid size-8 cursor-grab place-items-center"
-            : `flex min-w-0 flex-1 cursor-grab items-center gap-2 text-left ${tree ? "pl-2 group-hover:pr-12 group-has-[:focus-visible]:pr-12" : "transition-[padding] duration-150 motion-reduce:transition-none group-hover:pr-6 group-has-[:focus-visible]:pr-6"}`
+            : `flex min-w-0 flex-1 cursor-grab items-center gap-2 text-left ${tree ? "pl-2 group-hover:pr-14 group-has-[:focus-visible]:pr-14" : "transition-[padding] duration-150 motion-reduce:transition-none group-hover:pr-6 group-has-[:focus-visible]:pr-6"}`
         }
       >
         {compact ? (
