@@ -45,6 +45,15 @@ html[data-skin] [data-terminal-toolbar-actions] {
   gap: var(--desktop-pane-toolbar-gap);
   padding-inline-end: var(--desktop-pane-toolbar-inset);
 }
+/* Every workspace pane toolbar shares the file panel's action and icon size;
+   ungapped rows space their actions with the same toolbar gap. */
+html[data-skin] [data-surface-tab-strip] :is([data-ui="icon-button"][data-file-toolbar-action], [data-card-maximize], [data-surface-pane-drag], [data-session-tool-toggle], [data-session-overflow-menu], [data-surface-mode-toggle]) {
+  width: var(--desktop-pane-toolbar-action);
+  height: var(--desktop-pane-toolbar-action);
+  min-height: var(--desktop-pane-toolbar-action);
+  padding: 0;
+  margin: 0 var(--desktop-pane-toolbar-gap) 0 0;
+}
 html[data-skin] [data-terminal-toolbar-actions] [data-ui="icon-button"] {
   width: var(--desktop-pane-toolbar-action);
   height: var(--desktop-pane-toolbar-action);
@@ -52,6 +61,7 @@ html[data-skin] [data-terminal-toolbar-actions] [data-ui="icon-button"] {
   padding: 0;
   margin: 0;
 }
+html[data-skin] [data-surface-tab-strip] :is([data-ui="icon-button"][data-file-toolbar-action], [data-card-maximize], [data-surface-pane-drag], [data-session-tool-toggle], [data-session-overflow-menu], [data-surface-mode-toggle]) > svg,
 html[data-skin] [data-terminal-toolbar-actions] [data-ui="icon-button"] > svg {
   width: var(--desktop-pane-toolbar-icon);
   height: var(--desktop-pane-toolbar-icon);
@@ -263,16 +273,8 @@ html[data-skin][data-desktop-mode] .desktop-file-explorer [data-file-tab-id] > .
   height: 24px;
   min-height: 24px;
 }
-html[data-skin] .desktop-file-explorer :is([data-ui="icon-button"][data-file-toolbar-action], [data-card-maximize], [data-surface-pane-drag]) {
-  width: var(--desktop-pane-toolbar-action);
-  height: var(--desktop-pane-toolbar-action);
-  min-height: var(--desktop-pane-toolbar-action);
-  padding: 0;
+html[data-skin] .desktop-file-explorer [data-surface-tab-strip] :is([data-file-toolbar-action], [data-card-maximize], [data-surface-pane-drag], [data-session-tool-toggle], [data-session-overflow-menu], [data-surface-mode-toggle]) {
   margin: 0;
-}
-html[data-skin] .desktop-file-explorer :is([data-ui="icon-button"][data-file-toolbar-action], [data-card-maximize], [data-surface-pane-drag]) > svg {
-  width: var(--desktop-pane-toolbar-icon);
-  height: var(--desktop-pane-toolbar-icon);
 }
 .desktop-file-explorer-body {
   display: grid;
