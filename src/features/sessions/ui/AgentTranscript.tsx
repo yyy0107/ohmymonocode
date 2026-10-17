@@ -1,14 +1,11 @@
 import type { SessionExecutionState } from "../model/session";
-import { syncLiveFooterClip } from "./liveFooterClip";
 import "./AgentTranscript.css";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
-import { providerSessionAccessIssue } from "../../../integrations/harness/providers/sessionAccessErrors";
 import type { QuestionAnswer } from "../model/userQuestion";
 import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
 import {
   memo,
   createElement,
-  startTransition,
   useCallback,
   useContext,
   useEffect,
@@ -32,14 +29,7 @@ import {
   useSurfaceVisibility,
 } from "../../../shared/ui/SurfaceVisibility";
 import type { ApprovalDecision } from "../../../integrations/harness";
-import {
-  isHarnessAuthError,
-  supportsHarnessLogin,
-} from "../../../integrations/harness/core/authSupport";
 import { TranscriptPlatformContext } from "./TranscriptPlatform";
-import {
-  followsAfterScroll,
-} from "./transcript/useLivePhaseScroll";
 import {
   AfterTextReveal,
   useTranscriptRenderingPlatform,
@@ -57,7 +47,6 @@ import {
   type PlanBuildTarget,
 } from "../model/session";
 import {
-  innerScrollerTakes,
   useLockOverscroll,
 } from "../../../shared/hooks/useLockOverscroll";
 import { useTranscriptLayout } from "../hooks/useTranscriptLayout";
@@ -86,7 +75,7 @@ import {
   transcriptWordRanges,
 } from "../model/transcriptHighlights";
 import { confirmPrompt } from "./promptLaunch";
-import { animateToBottom, FOLLOW_GLIDE, isTranscriptEndVisible, jumpingScrollers, measureLastTurn, pinToBottom, type PriorTurn, promptParts, type PromptRise, promptRow, riseIntoAnchor, syncTranscriptViewport, turnUserBlock } from "./transcript/scrollAnchor";
+import { measureLastTurn, type PriorTurn, promptParts, type PromptRise, promptRow, riseIntoAnchor, syncTranscriptViewport, turnUserBlock } from "./transcript/scrollAnchor";
 import { type PrependScrollAnchor, useTurnScrollAnchor } from "./transcript/useTurnScrollAnchor";
 import { InitialThinking, LiveFoldTitle, LiveTurnFooter } from "./transcript/LiveTurn";
 import { formatWorkingDuration, TranscriptClockOffset } from "./transcript/transcriptClock";
@@ -94,17 +83,11 @@ import { ActivityPhases, SubagentStack } from "./transcript/activity/ActivityPha
 import { TranscriptBlock } from "./transcript/TranscriptBlock";
 import { FoldingRow, turnItemKey, TurnRow, WorkFoldLine } from "./transcript/TurnRows";
 import { TurnDuration } from "./transcript/TurnMetrics";
+import { useTranscriptFollow } from "./transcript/useTranscriptFollow";
+import { useTranscriptPaging } from "./transcript/useTranscriptPaging";
+import { visibleTranscriptBlocks } from "./transcript/visibleTranscriptBlocks";
 
 const NEAR_BOTTOM_PX = 16;
-const WHEEL_HOLD_MS = 150;
-const INITIAL_TURNS = 20;
-/**
- * Turns built before a transcript first paints. Every turn in the initial
- * window costs markdown work on open, so paint the latest few (more if they
- * leave the viewport short) and build the rest of the window after.
- */
-const FIRST_PAINT_TURNS = 3;
-const TURN_PAGE_SIZE = 20;
 
 type Props = {
   clockOffsetMs?: number;
@@ -233,39 +216,10 @@ function AgentTranscriptComponent({
   const { liveClockInFooter, openActivity, messageMotion } = useContext(TranscriptPlatformContext);
   const messageArrives = useMessageArrivals(sourceBlocks, visible, animateFrom, historyEntries);
   const clockInFooter = !!liveClockInFooter && !!cwd;
-  const blocks = useMemo(() => {
-    let turnHarness = harness;
-    let changed = false;
-    const visibleBlocks: Block[] = [];
-    for (const block of sourceBlocks) {
-      if (block.role === "user")
-        turnHarness = block.turnModel?.harness ?? harness;
-      if (
-        harness &&
-        supportsHarnessLogin(harness) &&
-        block.role === "system" &&
-        block.notice === "error" &&
-        isHarnessAuthError(block.text)
-      ) {
-        changed = true;
-        continue;
-      }
-      // Older Host histories did not tag startup errors; keep ownership notices outside folded work.
-      if (
-        turnHarness &&
-        block.role === "system" &&
-        !block.interjection &&
-        !block.notice &&
-        providerSessionAccessIssue(turnHarness, block.text)
-      ) {
-        visibleBlocks.push({ ...block, notice: "error" });
-        changed = true;
-      } else {
-        visibleBlocks.push(block);
-      }
-    }
-    return changed ? visibleBlocks : sourceBlocks;
-  }, [harness, sourceBlocks]);
+  const blocks = useMemo(
+    () => visibleTranscriptBlocks(sourceBlocks, harness),
+    [harness, sourceBlocks],
+  );
   const turnStartTimes = useMemo(() => userTurnStartTimes(blocks), [blocks]);
   const editableUserBlockId = useMemo(
     () => lastUserTurnBlock(blocks)?.id,
@@ -274,32 +228,9 @@ function AgentTranscriptComponent({
   const lockOverscroll = useLockOverscroll<HTMLDivElement>();
   const scroller = useRef<HTMLDivElement>(null);
   const transcriptEnd = useRef<HTMLDivElement>(null);
-  const stickToBottom = useRef(true);
-  // Initial placement pins before paint; subsequent content changes glide,
-  // including the first output and the final update after busy clears.
-  const glideFollow = useRef(false);
-  const followViewport = useRef(0);
-  const followWidth = useRef(0);
-  useEffect(() => {
-    const el = scroller.current;
-    glideFollow.current = visible;
-    return () => {
-      glideFollow.current = false;
-      if (el) jumpingScrollers.get(el)?.(false);
-    };
-  }, [visible]);
-  const showJumpRef = useRef(false);
-  const distanceFromBottom = useRef(0);
-  const scrollGeometry = useRef({ top: 0, height: 0, viewport: 0 });
-  const wheelHold = useRef(0);
-  const scrollDirection = useRef<"up" | "down" | undefined>(undefined);
-  const readerDragging = useRef(false);
-  const touchReadingUp = useRef(false);
-  const prependHeight = useRef<number | null>(null);
   const prependAnchor = useRef<PrependScrollAnchor | null>(null);
   const wasVisible = useRef(false);
   const [scrollerEl, setScrollerEl] = useState<HTMLDivElement | null>(null);
-  const [visibleTurnCount, setVisibleTurnCount] = useState(FIRST_PAINT_TURNS);
   // Turns whose folded work the reader has opened, by turn id.
   const [openWork, setOpenWork] = useState<Record<string, boolean>>({});
   // Live turns only: which rows each fold already held, and when rows joined it,
@@ -338,6 +269,25 @@ function AgentTranscriptComponent({
   );
   const transcriptLayout = useTranscriptLayout();
   const promptAnchor = useTranscriptAnchor();
+  const {
+    stickToBottom,
+    distanceFromBottom,
+    wheelHold,
+    setShowJump,
+    syncJumpVisibility,
+    rememberScroll,
+    pinTranscript,
+    followTranscript,
+  } = useTranscriptFollow({
+    scroller,
+    transcriptEnd,
+    scrollerEl,
+    visible,
+    touchScroll,
+    promptMotion,
+    onJumpToBottomChange,
+    onJumpToBottomReady,
+  });
   const lastUser = turnUserBlock(blocks, managed);
   const lastUserId = lastUser?.id;
   const lastUserSending = !!lastUser?.sending;
@@ -375,165 +325,6 @@ function AgentTranscriptComponent({
       block.role === "handoff" && block.handoff?.status === "preparing",
   );
 
-  const setShowJump = useCallback(
-    (show: boolean) => {
-      if (showJumpRef.current === show) return;
-      showJumpRef.current = show;
-      onJumpToBottomChange?.(show);
-    },
-    [onJumpToBottomChange],
-  );
-
-  const syncJumpVisibility = useCallback(
-    (el: HTMLElement) => {
-      if (!el.isConnected) return;
-      el.dataset.followLatest = String(stickToBottom.current);
-      syncLiveFooterClip(el);
-      setShowJump(
-        !stickToBottom.current &&
-          !isTranscriptEndVisible(el, transcriptEnd.current),
-      );
-    },
-    [setShowJump],
-  );
-
-  const rememberScroll = useCallback((el: HTMLElement) => {
-    el.dataset.followLatest = String(stickToBottom.current);
-    syncLiveFooterClip(el);
-    distanceFromBottom.current =
-      el.scrollHeight - el.scrollTop - el.clientHeight;
-    scrollGeometry.current = {
-      top: el.scrollTop,
-      height: el.scrollHeight,
-      viewport: el.clientHeight,
-    };
-  }, []);
-
-  const pinTranscript = useCallback(
-    (el: HTMLElement | null) => {
-      if (!el) return;
-      pinToBottom(el);
-      rememberScroll(el);
-    },
-    [rememberScroll],
-  );
-
-  const syncPinned = useCallback(
-    (el: HTMLElement) => {
-      // The jump animation owns the offset until it lands or is interrupted.
-      if (jumpingScrollers.has(el)) return;
-      const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
-      const previous = scrollGeometry.current;
-      const previousBottom = Math.max(0, previous.height - previous.viewport);
-      if (touchScroll) {
-        const layoutChanged =
-          previous.height !== el.scrollHeight ||
-          previous.viewport !== el.clientHeight;
-        // Reaching the end can precede both new output and its scroll event.
-        const reachedPreviousBottom =
-          el.scrollTop > previous.top + 1 &&
-          Math.abs(el.scrollTop - previousBottom) <= 1;
-        // Layout/focus adjustments after a tool result can move the offset
-        // without changing the final dimensions. On desktop, wheel, touch and
-        // keys release following explicitly; infer a scrollbar/selection drag
-        // only while the reader holds the pointer. Keep mobile's offset check.
-        if (
-          (promptMotion === "mobile" || readerDragging.current) &&
-          !layoutChanged &&
-          el.scrollTop < previous.top - 1 &&
-          !followsAfterScroll(
-            el,
-            previous.top,
-            stickToBottom.current,
-            previousBottom,
-          )
-        )
-          stickToBottom.current = false;
-        if (
-          !stickToBottom.current &&
-          !touchReadingUp.current &&
-          // A slight downward reversal inside the bottom margin is still
-          // reading history. Resume only after reaching the actual end.
-          (reachedPreviousBottom ||
-            (distance <= 1 &&
-              (scrollDirection.current === "down" ||
-                (!layoutChanged && el.scrollTop > previous.top + 1))))
-        )
-          stickToBottom.current = true;
-        scrollGeometry.current = {
-          top: el.scrollTop,
-          height: el.scrollHeight,
-          viewport: el.clientHeight,
-        };
-        distanceFromBottom.current = distance;
-        syncJumpVisibility(el);
-        return;
-      }
-      // Content growth can precede a queued event from the previous pin.
-      // Browser clamping after layout changes is not reading intent either.
-      stickToBottom.current = followsAfterScroll(
-        el,
-        previous.top,
-        stickToBottom.current,
-        previousBottom,
-      );
-      rememberScroll(el);
-      syncJumpVisibility(el);
-    },
-    [rememberScroll, syncJumpVisibility, touchScroll, promptMotion],
-  );
-
-  const followTranscript = useCallback(
-    (el: HTMLElement | null) => {
-      if (!el) return;
-      const widthChanged = followWidth.current !== el.clientWidth;
-      const resized = widthChanged || followViewport.current !== el.clientHeight;
-      followViewport.current = el.clientHeight;
-      followWidth.current = el.clientWidth;
-      // Keyboard motion already animates the mobile surface. Its layout
-      // handoff must pin before paint, including during a streamed row glide.
-      // Wrapping during a panel resize moves the scroll range on every frame.
-      // Settle an existing glide before it can chase those changing targets.
-      if (widthChanged || (promptMotion === "mobile" && resized))
-        jumpingScrollers.get(el)?.(true);
-      // The browser can apply a manual scroll before dispatching its event.
-      // Reconcile that offset before a streaming commit or observer pins it.
-      syncPinned(el);
-      // Directionless trackpad events can precede off-thread scrolling.
-      // Wait for the gesture to reveal its direction before pinning again.
-      if (!stickToBottom.current || performance.now() < wheelHold.current) return;
-      // Once visible, all new content glides, even a large reply or the final
-      // update. Any touch stops the glide where it is.
-      const gap = el.scrollHeight - el.clientHeight - el.scrollTop;
-      if (
-        !resized &&
-        glideFollow.current &&
-        gap > 0.5
-      )
-        animateToBottom(el, () => {
-          rememberScroll(el);
-          syncPinned(el);
-        }, FOLLOW_GLIDE);
-      else pinTranscript(el);
-    },
-    [pinTranscript, promptMotion, rememberScroll, syncPinned],
-  );
-
-  const jumpToBottom = useCallback(() => {
-    stickToBottom.current = true;
-    scrollDirection.current = undefined;
-    distanceFromBottom.current = 0;
-    setShowJump(false);
-    const el = scroller.current;
-    if (el) el.dataset.followLatest = "true";
-    syncTranscriptViewport(el);
-    animateToBottom(el, () => {
-      if (!el) return;
-      rememberScroll(el);
-      syncPinned(el);
-    });
-  }, [rememberScroll, setShowJump, syncPinned]);
-
   const setScroller = useCallback(
     (el: HTMLDivElement | null) => {
       scroller.current = el;
@@ -543,127 +334,10 @@ function AgentTranscriptComponent({
     [lockOverscroll],
   );
 
-  useEffect(() => {
-    onJumpToBottomReady?.(jumpToBottom);
-  }, [jumpToBottom, onJumpToBottomReady]);
-
-  // A pooled transcript outlives its pane; tell each new owner where it stands.
-  useEffect(() => {
-    onJumpToBottomChange?.(showJumpRef.current);
-  }, [onJumpToBottomChange]);
-
   useLayoutEffect(() => {
     onScrollerChange?.(scrollerEl);
     return () => onScrollerChange?.(null);
   }, [onScrollerChange, scrollerEl]);
-
-  useEffect(() => {
-    if (!visible || !scrollerEl) return;
-    syncPinned(scrollerEl);
-    const onScroll = () => {
-      if (scrollerEl.isConnected && scrollerEl.clientHeight > 0)
-        syncPinned(scrollerEl);
-    };
-    const onPointerDown = (event: PointerEvent) => {
-      if (event.button === 0) readerDragging.current = true;
-    };
-    const onPointerEnd = () => {
-      // Reconcile the last drag position before its queued scroll event.
-      if (readerDragging.current && scrollerEl.isConnected)
-        syncPinned(scrollerEl);
-      readerDragging.current = false;
-    };
-    let release: ReturnType<typeof setTimeout> | undefined;
-    const onWheel = (e: WheelEvent) => {
-      if (innerScrollerTakes(scrollerEl, e)) return;
-      touchReadingUp.current = false;
-      if (e.deltaY) scrollDirection.current = e.deltaY < 0 ? "up" : "down";
-      if (e.deltaY < 0) {
-        stickToBottom.current = false;
-        syncJumpVisibility(scrollerEl);
-      } else if (e.deltaY === 0) {
-        wheelHold.current = performance.now() + WHEEL_HOLD_MS;
-        clearTimeout(release);
-        release = setTimeout(() => {
-          if (scrollerEl.isConnected) followTranscript(scrollerEl);
-        }, WHEEL_HOLD_MS);
-      }
-    };
-    let touchY: number | undefined;
-    const onTouchStart = (event: TouchEvent) => {
-      if (promptMotion !== "mobile") readerDragging.current = true;
-      touchReadingUp.current = false;
-      touchY = event.touches[0]?.clientY;
-    };
-    const onTouchMove = (event: TouchEvent) => {
-      const next = event.touches[0]?.clientY;
-      if (next !== undefined && touchY !== undefined) {
-        if (next > touchY + 3) {
-          touchReadingUp.current = true;
-          scrollDirection.current = "up";
-          stickToBottom.current = false;
-          syncJumpVisibility(scrollerEl);
-        } else if (next < touchY - 3) {
-          touchReadingUp.current = false;
-          scrollDirection.current = "down";
-        }
-      }
-      touchY = next;
-    };
-    const onTouchEnd = () => {
-      if (promptMotion !== "mobile") onPointerEnd();
-      touchY = undefined;
-      touchReadingUp.current = false;
-      scrollDirection.current = undefined;
-    };
-    const onKey = (event: KeyboardEvent) => {
-      touchReadingUp.current = false;
-      if (["ArrowUp", "PageUp", "Home"].includes(event.key)) {
-        scrollDirection.current = "up";
-        stickToBottom.current = false;
-        syncJumpVisibility(scrollerEl);
-      } else if (["ArrowDown", "PageDown", "End"].includes(event.key))
-        scrollDirection.current = "down";
-    };
-    scrollerEl.addEventListener("scroll", onScroll, { passive: true });
-    scrollerEl.addEventListener("wheel", onWheel, { passive: true });
-    if (touchScroll) {
-      if (promptMotion !== "mobile") {
-        scrollerEl.addEventListener("pointerdown", onPointerDown, { passive: true });
-        window.addEventListener("pointerup", onPointerEnd, { passive: true });
-        window.addEventListener("pointercancel", onPointerEnd, { passive: true });
-      }
-      scrollerEl.addEventListener("touchstart", onTouchStart, {
-        passive: true,
-      });
-      scrollerEl.addEventListener("touchmove", onTouchMove, { passive: true });
-      scrollerEl.addEventListener("touchend", onTouchEnd, { passive: true });
-      scrollerEl.addEventListener("touchcancel", onTouchEnd, { passive: true });
-      scrollerEl.addEventListener("keydown", onKey);
-    }
-    return () => {
-      clearTimeout(release);
-      readerDragging.current = false;
-      scrollerEl.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("pointerup", onPointerEnd);
-      window.removeEventListener("pointercancel", onPointerEnd);
-      scrollerEl.removeEventListener("scroll", onScroll);
-      scrollerEl.removeEventListener("wheel", onWheel);
-      scrollerEl.removeEventListener("touchstart", onTouchStart);
-      scrollerEl.removeEventListener("touchmove", onTouchMove);
-      scrollerEl.removeEventListener("touchend", onTouchEnd);
-      scrollerEl.removeEventListener("touchcancel", onTouchEnd);
-      scrollerEl.removeEventListener("keydown", onKey);
-    };
-  }, [
-    scrollerEl,
-    followTranscript,
-    syncJumpVisibility,
-    syncPinned,
-    visible,
-    touchScroll,
-    promptMotion,
-  ]);
 
   useLayoutEffect(() => {
     stickToBottom.current = true;
@@ -838,104 +512,24 @@ function AgentTranscriptComponent({
       if (turns[index].some(isProseBlock)) return index;
     return -1;
   }, [turns]);
-  const firstVisibleTurn = Math.max(0, turns.length - visibleTurnCount);
-  const visibleTurns = turns.slice(firstVisibleTurn);
-  const turnsRef = useRef(turns);
-  turnsRef.current = turns;
-  const visibleTurnCountRef = useRef(visibleTurnCount);
-  visibleTurnCountRef.current = visibleTurnCount;
-
-  useLayoutEffect(() => {
-    const previousHeight = prependHeight.current;
-    const el = scroller.current;
-    if (!el) return;
-    if (previousHeight == null) {
-      // The opening window grows above the screen. Settle the offset in this
-      // commit: a scroll event queued by an earlier pin would otherwise read
-      // the taller transcript first and unpin it partway up. Inserting turns
-      // can also nudge scrollTop; a wheel or touch already releases the pin.
-      if (stickToBottom.current) {
-        syncTranscriptViewport(el);
-        if (performance.now() >= wheelHold.current) pinTranscript(el);
-      } else {
-        el.scrollTop =
-          el.scrollHeight - el.clientHeight - distanceFromBottom.current;
-        rememberScroll(el);
-      }
-      return;
-    }
-    prependHeight.current = null;
-    el.scrollTop += el.scrollHeight - previousHeight;
-    rememberScroll(el);
-    const anchor = prependAnchor.current;
-    if (anchor) {
-      // Hand the compensated position to the existing turn observer. Newly
-      // inserted content can lay out again before its first resize delivery.
-      anchor.top =
-        anchor.turn.getBoundingClientRect().top -
-        el.getBoundingClientRect().top + el.scrollTop;
-    }
-  }, [visibleTurnCount, pinTranscript, rememberScroll]);
-
-  // Short turns can leave the first paint with empty space above them, and
-  // the rest of the window arriving later would then push everything down.
-  // Top up before painting until the viewport is covered.
-  useLayoutEffect(() => {
-    const el = scroller.current;
-    if (!el || el.clientHeight === 0) return;
-    if (visibleTurnCount >= Math.min(INITIAL_TURNS, turns.length)) return;
-    if (el.scrollHeight > el.clientHeight) return;
-    setVisibleTurnCount((count) =>
-      Math.min(INITIAL_TURNS, count + FIRST_PAINT_TURNS),
-    );
-  }, [visibleTurnCount, turns.length]);
-
-  useEffect(() => {
-    // Interruptible, so switching away before it finishes costs nothing.
-    startTransition(() =>
-      setVisibleTurnCount((count) => Math.max(count, INITIAL_TURNS)),
-    );
-  }, []);
-
-  const prepareToPrepend = useCallback((preserveAnchor = true) => {
-    const el = scroller.current;
-    if (el) prependHeight.current = el.scrollHeight;
-    const turn = preserveAnchor ? el?.querySelector(".transcript-turn") : null;
-    prependAnchor.current = turn ? { turn, top: null } : null;
-    stickToBottom.current = false;
-  }, []);
-
-  const loadEarlier = () => {
-    prepareToPrepend();
-    setVisibleTurnCount((count) =>
-      Math.min(turns.length, count + TURN_PAGE_SIZE),
-    );
-  };
-
-  const revealBlock = useCallback(
-    (blockId: string): boolean => {
-      const all = turnsRef.current;
-      const index = all.findIndex((turn) =>
-        turn.some((block) => block.id === blockId),
-      );
-      if (index < 0) return false;
-      // Even an already-rendered search/outline target replaces the position
-      // retained by a preceding Load earlier click.
-      prependAnchor.current = null;
-      const needed = all.length - index;
-      if (needed <= visibleTurnCountRef.current) return true;
-      // Search and outline callers choose a new reading position themselves.
-      prepareToPrepend(false);
-      // Synchronous. The caller finds the turn in the DOM after this call.
-      flushSync(() => setVisibleTurnCount(needed));
-      return true;
-    },
-    [prepareToPrepend],
-  );
-
-  useEffect(() => {
-    onRevealReady?.(revealBlock);
-  }, [revealBlock, onRevealReady]);
+  const {
+    visibleTurnCount,
+    firstVisibleTurn,
+    visibleTurns,
+    turnsRef,
+    loadEarlier,
+    revealBlock,
+  } = useTranscriptPaging({
+    turns,
+    scroller,
+    prependAnchor,
+    stickToBottom,
+    distanceFromBottom,
+    wheelHold,
+    pinTranscript,
+    rememberScroll,
+    onRevealReady,
+  });
 
   const navigateToBlock = useCallback(
     (blockId: string | null, query = ""): boolean => {
