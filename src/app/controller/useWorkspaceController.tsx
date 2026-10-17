@@ -14,9 +14,7 @@ import {
 import { flushSync } from "react-dom";
 import { prefetchProjectFiles } from "../../features/connections/files/model/fileIndex";
 import { loadRemoteSession } from "../../features/connections/model/connections";
-import { useInboxActivity } from "../../features/inbox/hooks/useInboxUnseen";
 import type { CiRepairRequest } from "../../features/inbox/model/ciRepair";
-import { ciRepairSessions } from "../../features/inbox/model/ciRepairSessions";
 import {
   rebaseCiRepairs,
   trackCiRepair,
@@ -34,7 +32,6 @@ import {
   type DockSide,
   type ProjectTerminalDock as ProjectTerminal,
 } from "../../features/projects/model/projectTerminal";
-import { conversationRowsFrom } from "../../features/search/model/appSearch";
 import {
   HANDOFF_TITLE,
   appendReadyHandoff,
@@ -73,22 +70,16 @@ import {
   type WorktreeFocus,
 } from "../../features/source-control/model/worktreeFocus";
 import { newTerminalCwd } from "../../features/terminal/model/terminalTab";
-import { workflowActivityIndex } from "../../features/workflows/model/workflowActivity";
-import { type WorkflowAppActions } from "../../features/workflows/ui/workflowAppContext";
 import {
   focusedFileTab,
   isAppViewOnlyTab,
   isolateTerminalPanes,
   leafIds,
   newAgentTab,
-  newSubagentTab,
   newTab,
-  newWorkflowAgentTab,
-  newWorkflowRunTab,
   openEditorTab,
   replaceLeafId,
   splitPane,
-  type FilePaneTab,
   type WorkspaceTab,
 } from "../../features/workspace/model/layout";
 import { insertTabBesideActive } from "../../features/workspace/model/tabGroups";
@@ -227,7 +218,6 @@ import {
 import { applyAddToChatRequest } from "../../features/sessions/model/addChatToWorkspace";
 import {
   ADD_TO_CHAT_EVENT,
-  requestAddToChat,
   type AddToChatRequest,
 } from "../../features/sessions/model/quoteDraft";
 import {
@@ -276,9 +266,7 @@ import {
   saveWorkspaceSnapshot,
   shouldPersistSession,
   upsertSession,
-  type SessionSummary,
 } from "../../features/sessions/data/sessionStore";
-import { useStableSummaries } from "../../features/sessions/hooks/useStableSummaries";
 import { useUnseenFinishedSessions } from "../../features/sessions/hooks/useUnseenFinishedSessions";
 import { liveAgentsFromSessions } from "../../features/sessions/model/liveAgents";
 import {
@@ -345,7 +333,6 @@ import {
 } from "../../features/inbox/model/linkedWorkItemActivity";
 import type { InboxSessionPortal } from "../../features/inbox/ui/InboxDiscussionPanel";
 import { linkedWorkItemFromInboxItem } from "../../features/sessions/model/sessionWorkItem";
-import { type OpenSubagentRequest } from "../../features/sessions/ui/SubagentTabsContext";
 import {
   loadAutosave,
   loadCloseToTray,
@@ -359,12 +346,6 @@ import {
   subscribeNotesEnabled,
 } from "../../features/settings/model/settings";
 
-import {
-  allProjectHistoryWithLiveSessions,
-  historyWithLiveSessions,
-  sidebarLiveSessions,
-  summaryFromSession,
-} from "../../features/sessions/data/sessionHistory";
 import {
   CONTINUE_PROMPT,
   canAutoContinue,
@@ -389,6 +370,8 @@ import {
   reapWindowRuntime,
   setQuitWorkspace,
 } from "../model/appLifecycle";
+import { useWorkflowRequests } from "./useWorkflowRequests";
+import { useWorkspaceSummaries } from "./useWorkspaceSummaries";
 
 function setsEqual<T>(a: Set<T>, b: Set<T>): boolean {
   if (a.size !== b.size) return false;
@@ -3509,137 +3492,24 @@ export function useWorkspaceController({
     setActiveTabId(tab.id);
     setComposerFocused(false);
   }, [tabs, workerDetailRequest]);
-  // Workflow and provider subagent tabs open beside their source tab when available,
-  // otherwise beside the launching conversation like orchestration workers.
-  const [workflowTabRequest, setWorkflowTabRequest] = useState<{
-    parentSessionId: string;
-    file: FilePaneTab;
-    sourceFileId?: string;
-  } | null>(null);
-  const openSubagentTab = useCallback((request: OpenSubagentRequest) => {
-    const { parentSessionId, path, harness, title, cwd, sourceFileId } = request;
-    setWorkflowTabRequest({
-      parentSessionId,
-      file: newSubagentTab(title, cwd, { parentSessionId, path, harness }),
-      sourceFileId,
+  const { openSubagentTab, workflowProjects, workflowActivity, workflowApp } =
+    useWorkflowRequests({
+      tabs,
+      tabsRef,
+      setTabs,
+      sessions,
+      sessionsRef,
+      recents,
+      activeId: active?.id,
+      activeAppView,
+      setActiveTabId,
+      setComposerFocused,
+      onSubmit,
+      focusOpenSession,
+      onSelectHistorySession,
+      onSelectRemoteSession,
+      onNewInProject,
     });
-  }, []);
-  useEffect(() => {
-    if (!workflowTabRequest) return;
-    const { parentSessionId, file, sourceFileId } = workflowTabRequest;
-    const tab =
-      tabs.find((entry) =>
-        entry.editorPanes.some((pane) =>
-          pane.files.some((file) => file.id === sourceFileId),
-        ),
-      ) ??
-      tabs.find((entry) => leafIds(entry.layout).includes(parentSessionId));
-    if (!tab) {
-      if (!sessionsRef.current.some((entry) => entry.id === parentSessionId))
-        setWorkflowTabRequest(null);
-      return;
-    }
-    setWorkflowTabRequest(null);
-    setTabs((prev) =>
-      prev.map((entry) =>
-        entry.id === tab.id
-          ? openEditorTab(entry, file, { afterFileId: sourceFileId })
-          : entry,
-      ),
-    );
-    setActiveTabId(tab.id);
-    setComposerFocused(false);
-  }, [tabs, workflowTabRequest]);
-  const [workflowComposerRequest, setWorkflowComposerRequest] = useState<{
-    sessionId: string;
-    prompt: string;
-  } | null>(null);
-  useEffect(() => {
-    if (!workflowComposerRequest) return;
-    if (active?.id !== workflowComposerRequest.sessionId || activeAppView)
-      return;
-    // Wait until the destination pane is mounted and focused so its composer
-    // receives the text, including when onNewInProject reuses an empty chat.
-    setWorkflowComposerRequest(null);
-    requestAddToChat(workflowComposerRequest.prompt, "plain");
-  }, [active?.id, activeAppView, workflowComposerRequest]);
-  // Complete workflow instructions are sent once their conversation is ready.
-  const [workflowSendRequest, setWorkflowSendRequest] = useState<{
-    sessionId: string;
-    prompt: string;
-  } | null>(null);
-  useEffect(() => {
-    if (!workflowSendRequest) return;
-    if (!sessions.some((entry) => entry.id === workflowSendRequest.sessionId))
-      return;
-    setWorkflowSendRequest(null);
-    onSubmit(workflowSendRequest.sessionId, workflowSendRequest.prompt);
-  }, [onSubmit, sessions, workflowSendRequest]);
-  const workflowProjects = useMemo(
-    () =>
-      recents.map((project) => ({
-        workspacePath: project.path,
-        label: project.path.split(/[\\/]/).filter(Boolean).pop() ?? project.path,
-      })),
-    [recents],
-  );
-  const workflowActivity = useMemo(
-    () => workflowActivityIndex(sessions),
-    [sessions],
-  );
-  const workflowApp = useMemo<WorkflowAppActions>(() => {
-    const openBesideParent = (
-      parentSessionId: string,
-      file: FilePaneTab,
-      sourceFileId?: string,
-    ) => {
-      void (async () => {
-        const hasSource = tabsRef.current.some((entry) =>
-          entry.editorPanes.some((pane) =>
-            pane.files.some((file) => file.id === sourceFileId),
-          ),
-        );
-        if (!hasSource && !focusOpenSession(parentSessionId))
-          await onSelectHistorySession(parentSessionId);
-        setWorkflowTabRequest({ parentSessionId, file, sourceFileId });
-      })().catch(console.error);
-    };
-    return {
-      openRun: (request) =>
-        openBesideParent(
-          request.parentSessionId,
-          newWorkflowRunTab(request.workflowName ?? "Workflow", request.cwd, {
-            runId: request.runId,
-            parentSessionId: request.parentSessionId,
-            ...(request.toolCallId ? { toolCallId: request.toolCallId } : {}),
-            ...(request.workflowName
-              ? { workflowName: request.workflowName }
-              : {}),
-          }),
-        ),
-      openAgent: (request) =>
-        openBesideParent(
-          request.parentSessionId,
-          newWorkflowAgentTab(request.title, request.cwd, {
-            sessionId: request.sessionId,
-            parentSessionId: request.parentSessionId,
-            runId: request.runId,
-          }),
-          request.sourceFileId,
-        ),
-      openSession: (cwd, sessionId) => onSelectRemoteSession(cwd, sessionId),
-      createViaChat: (cwd, prompt, options) => {
-        const sessionId = onNewInProject(cwd, { reuseDraft: true });
-        if (options?.send) setWorkflowSendRequest({ sessionId, prompt });
-        else setWorkflowComposerRequest({ sessionId, prompt });
-      },
-    };
-  }, [
-    onNewInProject,
-    focusOpenSession,
-    onSelectHistorySession,
-    onSelectRemoteSession,
-  ]);
   const orchestrationWorkers = useMemo(
     () => ({
       selectedId: inspectedWorkerId,
@@ -3674,116 +3544,30 @@ export function useWorkspaceController({
   tabProjectsRef.current = new Map(
     deckProjectTabs.map((tab) => [tab.id, tabProjectName(tab, sessions)]),
   );
-  // `history` now spans every visited project; consumers that expect the
-  // current project only get this slice.
-  const projectHistory = useMemo(
-    () => history.filter((entry) => sameProjectPath(entry.cwd, sidebarCwd)),
-    [history, sidebarCwd],
-  );
-
-  // Quick Open's `#` mode: every project's unarchived sessions.
-  const paletteSessions = useMemo(
-    () =>
-      paletteOpen
-        ? conversationRowsFrom(
-            history.filter((entry) => !entry.archived),
-            sessions.filter((session) => !session.inboxAsk),
-          )
-        : [],
-    [paletteOpen, history, sessions],
-  );
-
-  const liveSidebarHistory = useMemo(
-    () =>
-      historyWithLiveSessions(
-        history,
-        sessions,
-        sidebarCwd,
-        {
-          ...(projectBranches?.current
-            ? { branch: projectBranches.current }
-            : {}),
-          ...(sidebarCwd && sidebarCwd !== "~"
-            ? { repo: projectName(sidebarCwd) }
-            : {}),
-        },
-        orchestrationRuns,
-      ),
-    [history, projectBranches, sessions, sidebarCwd, orchestrationRuns],
-  );
-  const liveTreeHistory = useMemo(() => {
-    return allProjectHistoryWithLiveSessions(
-      history,
-      sessions,
-      (cwd) =>
-        sameProjectPath(cwd, sidebarCwd)
-          ? { branch: projectBranches?.current ?? undefined }
-          : undefined,
-      orchestrationRuns,
-    );
-  }, [history, sessions, sidebarCwd, projectBranches, orchestrationRuns]);
-  const sidebarHistory = useStableSummaries(liveSidebarHistory);
-  const treeHistory = useStableSummaries(liveTreeHistory);
   const {
-    unseen: inboxUnseen,
+    projectHistory,
+    paletteSessions,
+    sidebarHistory,
+    treeHistory,
+    inboxUnseen,
     linkedSessionUpdateIds,
-    linkedSessionUpdates,
-  } = useInboxActivity(recents, sidebarCwd, sidebarHistory, {
-    onAppeared: onInboxAppeared,
+    inboxRelatedSessions,
+    repairSessions,
+    sidebarOpenSessionIds,
+    openProjectSessions,
+  } = useWorkspaceSummaries({
+    history,
+    storedLinkedSessions,
+    sessions,
+    tabs,
+    recents,
+    sidebarCwd,
+    projectBranches,
+    orchestrationRuns,
+    paletteOpen,
+    onInboxAppeared,
+    linkedSessionUpdatesRef,
   });
-  linkedSessionUpdatesRef.current = linkedSessionUpdates;
-  const liveInboxRelatedSessions = useMemo(() => {
-    const byId = new Map<string, SessionSummary>();
-    for (const session of storedLinkedSessions) byId.set(session.id, session);
-    for (const session of history) {
-      if (session.linkedWorkItem) byId.set(session.id, session);
-    }
-    for (const session of sessions) {
-      if (session.inboxAsk || !session.linkedWorkItem) continue;
-      const current = byId.get(session.id);
-      const summary = summaryFromSession(session);
-      byId.set(
-        session.id,
-        current
-          ? {
-              ...current,
-              harness: summary.harness,
-              model: summary.model,
-              runtimeMode: summary.runtimeMode,
-              title: summary.title,
-              cwd: summary.cwd,
-              linkedWorkItem: summary.linkedWorkItem,
-            }
-          : summary,
-      );
-    }
-    return [...byId.values()].sort(
-      (a, b) => b.updatedAt - a.updatedAt || a.id.localeCompare(b.id),
-    );
-  }, [history, sessions, storedLinkedSessions]);
-  const inboxRelatedSessions = useStableSummaries(liveInboxRelatedSessions);
-  const liveRepairSessions = useMemo(
-    () => ciRepairSessions(history, sessions),
-    [history, sessions],
-  );
-  const repairSessions = useStableSummaries(liveRepairSessions);
-  const sidebarOpenSessionIds = useMemo(() => openSessionIds(tabs), [tabs]);
-  const liveOpenProjectSessions = useMemo(
-    () =>
-      sidebarLiveSessions(sessions).map((session) =>
-        summaryFromSession(session, {
-          ...(sameProjectPath(session.cwd, sidebarCwd) &&
-          projectBranches?.current
-            ? { branch: projectBranches.current }
-            : {}),
-          ...(session.cwd && session.cwd !== "~"
-            ? { repo: projectName(session.cwd) }
-            : {}),
-        }),
-      ),
-    [projectBranches, sessions, sidebarCwd],
-  );
-  const openProjectSessions = useStableSummaries(liveOpenProjectSessions);
 
   const onToggleSidebar = useCallback(() => {
     // Saving synchronously notifies preference subscribers. Keep it outside a
