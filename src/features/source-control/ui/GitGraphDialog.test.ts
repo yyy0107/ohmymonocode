@@ -1,4 +1,10 @@
 // @vitest-environment happy-dom
+import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver";
+vi.mock("motion/react", async (original) => {
+  const actual = await original<typeof import("motion/react")>();
+  const { motionTestDriver } = await import("../../../../tests/helpers/motionDriver");
+  return { ...actual, ...motionTestDriver(actual, true) };
+});
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -101,6 +107,8 @@ function button(label: string) {
 }
 async function open() {
   await render();
+  // A pointer click focuses its button in browsers; happy-dom only dispatches it.
+  button("Open Git graph").focus();
   await act(async () => button("Open Git graph").click());
 }
 
@@ -108,16 +116,19 @@ it("uses the Settings dialog shell and drags from its header without stealing bu
   await open();
   const shell = document.querySelector<HTMLElement>("[data-app-view-dialog]")!;
   const dialog = shell.querySelector('[role="dialog"]')!;
-  expect(shell.style.top).toBe("40px");
+  expect(shell.style.top).toBe("42px");
   await act(async () => saveMenuBarVisible(true));
   expect(shell.style.top).toBe("36px");
-  const header = dialog.querySelector('[data-tauri-drag-region="deep"]')!;
+  const header = dialog.querySelector('[data-window-drag-region="deep"]')!;
   const press = (target: Element) => {
     const event = new MouseEvent("mousedown", {
       bubbles: true,
       cancelable: true,
       button: 0,
       detail: 1,
+      // Away from the window edges, which Linux leaves to native resizing.
+      clientX: 200,
+      clientY: 60,
     });
     act(() => target.dispatchEvent(event));
     return event;
@@ -136,6 +147,7 @@ it("uses the Settings dialog shell and drags from its header without stealing bu
   await act(async () => button("Refresh Git graph").click());
   expect(refreshTrees).toHaveBeenCalledOnce();
   await act(async () => button("Close").click());
+  await act(async () => completeMotionAnimation(document.body));
   expect(document.querySelector('[role="dialog"]')).toBeNull();
 });
 
@@ -159,6 +171,7 @@ it("opens the complete graph from a collapsed sidebar, localizes labels, and ope
     dialog.querySelector<HTMLButtonElement>("tbody button")!.click(),
   );
   expect(onOpenCommit).toHaveBeenCalledExactlyOnceWith(commit, true);
+  await act(async () => completeMotionAnimation(document.body));
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   expect(document.activeElement).toBe(button("打开 Git 图谱"));
 });
@@ -210,10 +223,12 @@ it("ignores an older refresh response and dismisses on Escape or repository chan
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     ),
   );
+  await act(async () => completeMotionAnimation(document.body));
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   expect(document.activeElement).toBe(button("Open Git graph"));
   await act(async () => button("Open Git graph").click());
   await render("/another-repo");
+  await act(async () => completeMotionAnimation(document.body));
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   await render("/repo", false);
   expect(button("Open Git graph").disabled).toBe(true);
