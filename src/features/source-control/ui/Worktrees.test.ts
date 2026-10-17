@@ -4,7 +4,7 @@ import { SurfaceVisibilityContext } from "../../../shared/ui/SurfaceVisibility";
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, onTestFinished, vi } from "vitest";
 
 vi.mock("../model/worktrees", async (original) => ({
   ...(await original<typeof import("../model/worktrees")>()),
@@ -730,6 +730,13 @@ it("retains the branch picker inert during exit and removes it when the owning s
 });
 
 it("caps the picker height without forcing short lists to fill it", async () => {
+  // Give popover frames their 1px top and bottom border; happy-dom has no layout.
+  const offsetHeight = vi
+    .spyOn(HTMLElement.prototype, "offsetHeight", "get")
+    .mockImplementation(function (this: HTMLElement) {
+      return this.matches("[data-popover-side]:not([role])") ? 2 : 0;
+    });
+  onTestFinished(() => offsetHeight.mockRestore());
   const request = deferred();
   vi.mocked(listWorktrees).mockReturnValue(request.promise);
   await act(async () =>

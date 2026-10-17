@@ -28,7 +28,7 @@ vi.mock("../../../integrations/harness/core/registry", async (importOriginal) =>
   refreshHarnessCatalogs: async () => {},
   isLiveHarness: () => true,
 }));
-vi.mock("../../sessions/ui/ModelPicker", () => ({ ModelPicker: () => null }));
+vi.mock("../../sessions/ui/ModelPicker", () => ({ ModelPicker: () => null, ModelControlPills: () => null }));
 vi.mock("../../sessions/ui/SessionReview", () => ({
   SessionReview: ({ undoLocked }: { undoLocked: boolean }) =>
     createElement("div", { "data-review-undo-locked": String(undoLocked) }),

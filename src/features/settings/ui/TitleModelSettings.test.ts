@@ -103,7 +103,7 @@ it("discards unsaved credentials when switching machines", async () => {
   );
   await act(async () => {
     container
-      .querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!
+      .querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]')!
       .click();
   });
   await act(async () => {

@@ -39,6 +39,11 @@ async function flush() {
     for (let i = 0; i < 20; i++) await Promise.resolve();
   });
 }
+/** Paced text arms its next tick after each commit, so let React commit between ticks. */
+async function advancePaced(ms: number) {
+  for (let elapsed = 0; elapsed < ms; elapsed += 25)
+    await act(async () => vi.advanceTimersByTime(Math.min(25, ms - elapsed)));
+}
 const text =
   "这是一段没有空格的助理回复，应该像普通会话一样逐字显示，而不是把整批文字直接放进气泡。";
 const reply = (streaming: boolean): BotMessage => ({
@@ -95,35 +100,39 @@ it.each([
   [true, true],
   [true, false],
 ])(
-  "shows the first Chinese batch immediately (mobile=%s, streaming=%s), including already completed replies",
+  "paces a streaming Chinese reply and shows a completed one at once (mobile=%s, streaming=%s)",
   async (mobile, streaming) => {
     const update = await mount(mobile);
     update([reply(streaming)]);
-    await act(async () => {
-      vi.advanceTimersByTime(250);
-    });
+    await advancePaced(250);
     await flush();
+    // The reply arrives with this poll; only streaming text is revealed gradually.
+    if (streaming) {
+      expect(shown().length).toBeGreaterThan(0);
+      expect(shown().length).toBeLessThan(text.length);
+      await advancePaced(500);
+    }
     expect(shown()).toBe(text);
     expect(!!node.querySelector(".assistant-message-meta")).toBe(!mobile && !streaming);
     if (streaming) {
       update([{ ...reply(false), revision: 2 }]);
-      await act(async () => vi.advanceTimersByTime(250));
+      await advancePaced(250);
       await flush();
       expect(!!node.querySelector(".assistant-message-meta")).toBe(!mobile);
     }
   },
 );
 it.each([false, true])(
-  "shows existing history and later additions immediately (mobile=%s)",
+  "shows existing history at once and paces later additions (mobile=%s)",
   async (mobile) => {
     const update = await mount(mobile, [reply(true)]);
     expect(shown()).toBe(text);
     const extra = "这里是后来到达的新增文字，也应该逐字展示。";
     update([{ ...reply(false), text: text + extra, revision: 2 }]);
-    await act(async () => {
-      vi.advanceTimersByTime(250);
-    });
+    await advancePaced(250);
     await flush();
+    expect(shown().length).toBeGreaterThanOrEqual(text.length);
+    await advancePaced(500);
     expect(shown()).toBe(text + extra);
   },
 );

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { setUiLanguage } from "../../shared/i18n/language";
 import {
   formatReleaseDate,
   formatUpdateReleaseDate,
@@ -79,6 +80,8 @@ describe("localized release notes", () => {
 
 describe("releaseNotesForVersion", () => {
   it("extracts only the requested release", () => {
+    // Node exposes the host locale as navigator.language; pin the UI language.
+    setUiLanguage("en");
     const release = releaseNotesForVersion("0.1.2", fixture);
 
     expect(release?.source).toEqual({ version: "0.1.2" });

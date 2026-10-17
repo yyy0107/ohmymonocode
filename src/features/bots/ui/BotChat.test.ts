@@ -249,9 +249,9 @@ it("updates one streaming bubble during a turn and settles it without interrupti
     vi.advanceTimersByTime(250);
   });
   await flush();
-  await act(async () => {
-    vi.advanceTimersByTime(500);
-  });
+  // Paced text arms its next tick after each commit, so let React commit between ticks.
+  for (let elapsed = 0; elapsed < 500; elapsed += 25)
+    await act(async () => vi.advanceTimersByTime(25));
   expect(bubble.hasAttribute("data-streaming")).toBe(false);
   expect(bubble.textContent).toContain("Hello world");
   expect(node.querySelector(".assistant-working")).toBeNull();
