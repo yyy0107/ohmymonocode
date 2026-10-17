@@ -9,8 +9,8 @@ import {
 import { flushSync } from "react-dom";
 import {
   OPEN_CONNECTIONS_EVENT,
+  OPEN_NEW_ENVIRONMENT_EVENT,
   OPEN_REMOTE_PROJECT_EVENT,
-  type OpenRemoteProjectDetail,
 } from "../../features/connections/model/connections";
 import type { ConnectableInboxSource } from "../../features/inbox/model/inboxFilters";
 import { type Session } from "../../features/sessions/model/session";
@@ -259,16 +259,17 @@ export function useWorkspaceAppViews(options: Options) {
     return () =>
       window.removeEventListener(OPEN_CONNECTIONS_EVENT, openConnections);
   }, [openSettings]);
-  const [remoteProjectDistribution, setRemoteProjectDistribution] = useState<string>();
-  const [remoteProjectDialogOpen, setRemoteProjectDialogOpen] = useState<boolean | "wsl">(false);
+  const [remoteProjectDialogOpen, setRemoteProjectDialogOpen] = useState(false);
   useEffect(() => {
-    const open = (event: Event) => {
-      const detail = (event as CustomEvent<OpenRemoteProjectDetail>).detail;
-      setRemoteProjectDistribution(detail?.environment === "wsl" ? detail.distribution : undefined);
-      setRemoteProjectDialogOpen(detail?.environment === "wsl" ? "wsl" : true);
-    };
+    const open = () => setRemoteProjectDialogOpen(true);
     window.addEventListener(OPEN_REMOTE_PROJECT_EVENT, open);
     return () => window.removeEventListener(OPEN_REMOTE_PROJECT_EVENT, open);
+  }, []);
+  const [newEnvironmentDialogOpen, setNewEnvironmentDialogOpen] = useState(false);
+  useEffect(() => {
+    const open = () => setNewEnvironmentDialogOpen(true);
+    window.addEventListener(OPEN_NEW_ENVIRONMENT_EVENT, open);
+    return () => window.removeEventListener(OPEN_NEW_ENVIRONMENT_EVENT, open);
   }, []);
 
   useEffect(() => {
@@ -386,8 +387,9 @@ export function useWorkspaceAppViews(options: Options) {
     notificationProjectPath,
     notificationSettingsRequest,
     remoteProjectDialogOpen,
-    remoteProjectDistribution,
     setRemoteProjectDialogOpen,
+    newEnvironmentDialogOpen,
+    setNewEnvironmentDialogOpen,
     assistantMachineId,
     onOpenAssistant,
   };

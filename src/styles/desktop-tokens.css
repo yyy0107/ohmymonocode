@@ -44,6 +44,12 @@
 }
 
 html[data-skin] {
+  --scrollbar-size: 7px;
+  --scrollbar-arrow-size: 6px;
+  --scrollbar-vertical-button-size: 9px;
+  --scrollbar-inset: 1.5px;
+  --scrollbar-edge-inset: 1px;
+  --scrollbar-button-display: block;
   --desktop-sidebar-session-row: 52px;
   --text-desktop-h1: var(--text-heading-xl);
   --text-desktop-h2: 22px;
@@ -102,6 +108,8 @@ html[data-skin] {
   --desktop-sidebar-action-inset: 2px;
   --desktop-sidebar-action-gap: 4px;
   --desktop-conversation-min-width: 420px;
+  /* Session status cards: width, edge inset and the gap kept before the conversation. */
+  --desktop-status-rail-reserve: calc(16.75rem + 24px);
   --desktop-pane-min-width: 280px;
   --desktop-transcript-edge-height: 20px;
   --desktop-transcript-edge-blur: 4px;

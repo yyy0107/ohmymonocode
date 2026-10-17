@@ -46,6 +46,7 @@ import {
 import { type ChildMessage, type ChildPayload, type ResponseMessage } from "./protocol.js";
 import { renderChildEntry } from "./child-source.js";
 import { writeChildEntryFile, type HarnessWarning } from "./child-entry-file.js";
+import { assertMachinePath, localMachineIO } from "../../machine-io";
 
 /** driver 工厂：harness 先建 sink（引擎的向上回报面），交给工厂造 driver，再以该 driver 建引擎。 */
 export type DriverFactory = (sink: WorkflowReportSink) => WorkflowDriver;
@@ -127,6 +128,8 @@ export interface RunWorkflowOptions {
   onWarning?: (warning: HarnessWarning) => void;
   /** 子进程工作目录，缺省 process.cwd()；同时作为 run 元数据落 dwf_run.cwd。 */
   cwd?: string;
+  /** Host-local directory for the VM process; workspace IO remains behind the driver. */
+  sandboxCwd?: string;
   /**
    * run 元数据，**原样**转交 `EngineConfig`（createRun 落 dwf_run）。全可选，harness
    * 不加工也不推断：`scriptHash` **由调用方计算**。harness 若哈希"它看到的文本"，在
@@ -237,7 +240,7 @@ export async function runWorkflowScript(options: RunWorkflowOptions): Promise<Ru
   options.control?.bind(engine);
 
   const maxOldSpaceSizeMb = options.maxOldSpaceSizeMb ?? DEFAULT_MAX_OLD_SPACE_MB;
-  const cwd = options.cwd ?? process.cwd();
+  const cwd = options.sandboxCwd ?? options.cwd ?? process.cwd();
   const payload: ChildPayload = {
     lowered,
     // 实参只在启动时过界一次（run 生命周期内是常量）。
@@ -252,6 +255,7 @@ export async function runWorkflowScript(options: RunWorkflowOptions): Promise<Ru
   // argv 只剩一条路径，长度与脚本大小无关。
   let child: ChildProcess;
   try {
+    assertMachinePath(cwd, localMachineIO);
     const entry = writeChildEntryFile({
       cwd,
       runId,

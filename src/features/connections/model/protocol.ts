@@ -8,6 +8,8 @@ import type { OrchestrationWorkspace, TaskStatus } from "../../orchestration/mod
 import type { ProposedTask } from "../../orchestration/model/orchestrationPlan";
 import type { SessionNotificationPreview } from "../../sessions/model/sessionActivity";
 import type { PersistedWorktreeCreation } from "../../source-control/model/worktreeCreation";
+import { isRemoteProvider, type RemoteProvider } from "../../../integrations/harness/core/provider";
+export { REMOTE_PROVIDERS, isRemoteProvider, type RemoteProvider } from "../../../integrations/harness/core/provider";
 
 /** Public run projection. Execution credentials and journals remain on Host. */
 export type HostOrchestrationView = {
@@ -56,19 +58,6 @@ export type HostOrchestrationCommand =
     };
 
 export const HOST_PROTOCOL_VERSION = 1;
-export const REMOTE_PROVIDERS = [
-  "codex",
-  "claude",
-  "cursor",
-  "grok",
-  "opencode",
-  "pi",
-  "omp",
-  "fx",
-  "hermes",
-  "antigravity",
-] as const;
-export type RemoteProvider = (typeof REMOTE_PROVIDERS)[number];
 /** Optional hardware metadata reported by a paired client. */
 export type HostDeviceInfo = {
   deviceType?: "desktop" | "mobile";
@@ -85,7 +74,7 @@ export type HostDescriptor = {
   capabilities: string[];
   platform?: "win32" | "darwin" | "linux";
 };
-export type HostProject = { id: string; cwd: string; name: string; kind?: "assistant" };
+export type HostProject = { id: string; cwd: string; name: string; kind?: "assistant"; machine?: import("../../../integrations/harness/core/machine").ProjectMachine };
 export type HostDirectory = {
   path: string;
   parent: string | null;
@@ -131,6 +120,8 @@ export type HostWorktree = {
   log?: string[];
 };
 export type HostSession = {
+  /** Execution differences such as a WSL-installed provider or filtered configuration. */
+  executionWarnings?: string[];
   /** A paired device created or sent a message in this conversation. */
   remoteControl?: boolean;
   /** Client-only estimate: Host time minus local time; never changes stored timestamps. */
@@ -415,13 +406,6 @@ export type SshSetup = {
   error?: string | null;
   machine?: RemoteMachine | null;
 };
-
-export function isRemoteProvider(value: unknown): value is RemoteProvider {
-  return (
-    typeof value === "string" &&
-    REMOTE_PROVIDERS.some((provider) => provider === value)
-  );
-}
 
 export function requireHostDescriptor(value: HostDescriptor): HostDescriptor {
   if (

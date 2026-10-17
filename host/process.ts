@@ -1,14 +1,29 @@
 import { createReadStream } from "node:fs";
+import { execFile } from "node:child_process";
 import { access, readFile, readlink, realpath, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import { homedir } from "node:os";
-import { delimiter, dirname, extname, join, basename } from "node:path";
+import { delimiter, dirname, extname, join, basename, isAbsolute } from "node:path";
+import { promisify } from "node:util";
 import type { RemoteProvider } from "../src/features/connections/model/protocol";
+import { isWindowsDesktopProviderPath, resolveWindowsDesktopProvider } from "./windows-provider-cli";
+import {
+  ensureProviderRuntime,
+  findManagedProviderRuntime,
+  parseProviderVersion,
+  providerRuntimePlatform,
+  supportsProviderRuntime,
+  retainProviderRuntime,
+  type ProviderPlatform,
+  type ProviderRuntimeArtifact,
+  type ProviderRuntimeOptions,
+} from "./provider-runtime";
 
 /** npm packages whose Windows .cmd shims MonoCode launches, by shim name. */
 const npmPackages: Record<string, string[]> = {
   codex: ["@openai/codex"],
   claude: ["@anthropic-ai/claude-code"],
+  opencode: ["opencode-ai", "@opencode/cli"],
   "pi-coding-agent": [
     "@earendil-works/pi-coding-agent",
     "@mariozechner/pi-coding-agent",
@@ -38,6 +53,7 @@ const providerDirectories = (provider: RemoteProvider): string[] => {
     ],
     grok: [join(home, ".grok", "bin")],
     opencode: [join(home, ".opencode", "bin")],
+    pi: [join(process.env.PI_CODING_AGENT_DIR || join(home, ".pi", "agent"), "bin")],
     fx: [join(home, ".fx", "bin")],
     hermes: [
       join(home, ".hermes", "hermes-agent", "venv", "bin"),
@@ -77,6 +93,8 @@ async function matchesProvider(
   }
   if (provider === "pi" && name === "pi")
     return (
+      (process.platform === "win32" && /\.(cmd|bat)$/i.test(candidate) &&
+        await npmBinMatches(await npmBinEntry(candidate, "pi"), npmPackages.pi)) ||
       (await npmBinMatches(candidate, [
         "@earendil-works/pi-coding-agent",
         "@mariozechner/pi-coding-agent",
@@ -162,10 +180,11 @@ async function fileContains(
   return false;
 }
 
-export async function resolveProvider(
+async function resolveInstalledProvider(
   provider: RemoteProvider,
 ): Promise<string> {
   const windows = process.platform === "win32";
+  const bundled: string[] = [];
   if (windows && provider === "antigravity")
     throw new Error("Antigravity ACP is not available on Windows");
   for (const directory of providerDirectories(provider)) {
@@ -183,6 +202,16 @@ export async function resolveProvider(
           if (!(await stat(candidate)).isFile()) continue;
           await providerLaunch(candidate, []);
           if (!(await matchesProvider(candidate, provider, name))) continue;
+          if (windows && (provider === "codex" || provider === "claude")) {
+            // A desktop GUI executable can have exactly the CLI's filename.
+            try {
+              if ((await stat(join(dirname(candidate), "resources/app.asar"))).isFile()) continue;
+            } catch { /* not an Electron launcher */ }
+            if (isWindowsDesktopProviderPath(await realpath(candidate))) {
+              bundled.push(candidate);
+              continue;
+            }
+          }
           return candidate;
         } catch {
           /* try the next installed launcher */
@@ -190,15 +219,96 @@ export async function resolveProvider(
       }
     }
   }
+  if (bundled.length) return bundled[0];
+  const desktop = await resolveWindowsDesktopProvider(provider);
+  if (desktop) return desktop;
   throw new Error(
     `${provider} is not installed on this host or is missing from its PATH. Install its native CLI or standard npm package.`,
   );
+}
+
+/** Discovery stays offline; desktop-owned Hosts may explicitly request installation. */
+export async function resolveProvider(provider: RemoteProvider): Promise<string> {
+  try { return await resolveInstalledProvider(provider); } catch (error) {
+    if (supportsProviderRuntime(provider)) {
+      const managed = await findManagedProviderRuntime(provider);
+      if (managed) { await retainProviderRuntime(managed); return managed.command; }
+    }
+    throw error;
+  }
+}
+
+export interface ResolvedProviderRuntime {
+  provider: RemoteProvider;
+  version: string;
+  command: string;
+  source: "configured" | "path" | "managed";
+  platform: ProviderPlatform;
+  installation?: ProviderRuntimeArtifact;
+}
+
+export interface ResolveProviderRuntimeOptions extends ProviderRuntimeOptions {
+  configuredPath?: string;
+  installMissing?: boolean;
+  platform?: ProviderPlatform;
+  /** Install this exact managed version; used for the matching WSL artifact. */
+  version?: string;
+}
+
+export async function resolveProviderRuntime(provider: RemoteProvider, options: ResolveProviderRuntimeOptions = {}): Promise<ResolvedProviderRuntime> {
+  const platform = options.platform ?? providerRuntimePlatform();
+  if (options.version) {
+    const installation = await ensureProviderRuntime(provider, options.version, platform, options);
+    await retainProviderRuntime(installation);
+    return { provider, platform, version: installation.version, command: installation.command, source: "managed", installation };
+  }
+  let command = options.configuredPath;
+  let source: ResolvedProviderRuntime["source"] = command ? "configured" : "path";
+  if (command) {
+    if (!isAbsolute(command) || !(await stat(command)).isFile()) throw new Error(`Invalid configured ${provider} CLI path`);
+  } else {
+    try { command = await resolveInstalledProvider(provider); } catch (error) {
+      const cached = await findManagedProviderRuntime(provider, platform, options);
+      const installation = cached ?? (options.installMissing
+        ? await ensureProviderRuntime(provider, "latest", platform, options)
+        : undefined);
+      if (!installation) throw error;
+      await retainProviderRuntime(installation);
+      return { provider, platform, version: installation.version, command: installation.command, source: "managed", installation };
+    }
+  }
+  const launch = await providerLaunch(command, ["--version"]);
+  const output = await promisify(execFile)(launch.command, launch.args, {
+    timeout: 15_000, maxBuffer: 1024 * 1024, windowsHide: true,
+  });
+  const version = parseProviderVersion(`${output.stdout}\n${output.stderr}`);
+  if (platform !== providerRuntimePlatform()) {
+    const installation = await ensureProviderRuntime(provider, version, platform, options);
+    await retainProviderRuntime(installation);
+    source = "managed";
+    return { provider, platform, version, command: installation.command, source, installation };
+  }
+  return { provider, platform, version, command, source };
 }
 
 /** The executable an npm package declares for `name`, beside its .cmd shim.
  * Packages move between a JS entry (`cli.js`) and a native `.exe`, so follow
  * the manifest instead of a fixed path. */
 async function npmBinEntry(shim: string, name: string): Promise<string> {
+  if (name === "pi" && basename(dirname(shim)).toLowerCase() === "bin") {
+    const install = join(dirname(dirname(shim)), "install");
+    try {
+      const version = (await readFile(join(install, "current-version"), "utf8")).trim();
+      if (/^[0-9][0-9A-Za-z._+-]*$/.test(version)) {
+        const root = join(install, "releases", version, "node_modules", "@earendil-works/pi-coding-agent");
+        const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+        const entry = typeof pkg.bin === "string" ? pkg.bin : pkg.bin?.pi;
+        if (pkg.name === "@earendil-works/pi-coding-agent" && typeof entry === "string" &&
+            !entry.split(/[\\/]/).includes("..") && !isAbsolute(entry) && (await stat(join(root, entry))).isFile())
+          return join(root, entry);
+      }
+    } catch { /* Try a standard npm shim next. */ }
+  }
   for (const pkg of npmPackages[name] ?? []) {
     const root = join(dirname(shim), "node_modules", ...pkg.split("/"));
     let manifest: { bin?: unknown };

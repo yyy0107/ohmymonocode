@@ -7,12 +7,18 @@ import {
 } from "react";
 import {
   Folder,
+  IconArtworkContext,
   Maximize2,
   MessageSquare,
   PanelRight,
+  SquareMenu,
   Terminal,
   X,
 } from "../../../shared/ui/icons";
+import {
+  saveStatusCardsVisible,
+  useStatusCardsVisible,
+} from "../../sessions/model/statusCardOrder";
 import {
   sessionDisplayTitle,
   type Session,
@@ -22,13 +28,33 @@ import type { EditorPane, FilePaneTab } from "../model/layout";
 import { SurfaceTabs } from "./SurfaceTabs";
 import { windowDragRegion } from "../../../app/shell/startWindowDrag";
 import { WindowNavigationSpace } from "../../../app/shell/WindowChrome";
-import { projectName } from "../../../shared/lib/paths";
 import { SessionRenamePopover } from "./SessionTitleMenu";
 import { SessionOverflowMenu } from "./SessionOverflowMenu";
 import { useSessionHeaderActions } from "./SessionHeaderActions";
 import { SessionWorktreeIcon } from "../../sessions/ui/SessionWorktreeIcon";
 
 export type SessionSurfaceMode = "split" | "unified";
+
+/** Match the window toolbar's square silhouettes without resizing tool buttons. */
+const sessionToolIconArtwork = {
+  SquareMenu: (
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="4" width="16" height="16" rx="2" strokeWidth="1.5" />
+      <path d="M8 8h8M8 12h8M8 16h8" strokeWidth="1.5" />
+    </g>
+  ),
+  Terminal: (
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="4" width="16" height="16" rx="2" strokeWidth="1.5" />
+      <path d="m8 9 3 3-3 3m5 0h3" strokeWidth="1.5" />
+    </g>
+  ),
+  Folder: (
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 4h5l2 3h5a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" strokeWidth="1.5" />
+    </g>
+  ),
+};
 
 export function SessionSurfaceActions({
   mode,
@@ -84,6 +110,7 @@ export function SessionSurfaceToolbar({
   onPaneDragStart,
   onClosePane,
   paneFocused,
+  tools = true,
 }: {
   session: Session;
   panes: EditorPane[];
@@ -102,6 +129,8 @@ export function SessionSurfaceToolbar({
   onPaneDragStart?: (event: ReactPointerEvent<HTMLElement>) => void;
   onClosePane?: () => void;
   paneFocused?: boolean;
+  /** False when the window's top bar carries this chat's tool toggles. */
+  tools?: boolean;
 }) {
   const { t } = useTranslation();
   const closePaneLabel = useShortcutLabel("Close Pane", "Pane: Close");
@@ -121,7 +150,6 @@ export function SessionSurfaceToolbar({
     panes.find((pane) => pane.id === focusedId)?.activeFileId ?? "";
   const chatActive = !showTools || focusedId === session.id;
   const title = sessionDisplayTitle(session.title, session.harness).trim();
-  const project = projectName(session.cwd);
 
   return (
     <div
@@ -188,15 +216,6 @@ export function SessionSurfaceToolbar({
                 </button>
               ) : null}
             </div>
-            {project && project !== "~" ? (
-              <span
-                data-session-project-chip
-                title={session.cwd}
-                className="ml-1 max-w-32 shrink-0 self-center truncate rounded border border-stroke bg-window px-1.5 py-0.5 text-ui-xs text-foreground-subtle"
-              >
-                {project}
-              </span>
-            ) : null}
           </>
         }
         onSelectFile={(fileId) => withOwner(fileId, onSelectFile)}
@@ -220,8 +239,12 @@ export function SessionSurfaceToolbar({
         }}
         trailing={
           <>
-            <SessionToolToggles session={session} />
-            <SessionOverflowMenu session={session} onRename={setRenameAnchor} />
+            {tools ? (
+              <>
+                <SessionToolToggles session={session} />
+                <SessionOverflowMenu session={session} onRename={setRenameAnchor} />
+              </>
+            ) : null}
             {windowControls}
           </>
         }
@@ -239,48 +262,100 @@ export function SessionSurfaceToolbar({
   );
 }
 
-/** Compact terminal and working-files switches beside the session title. */
+/**
+ * A chat's tool toggles and overflow menu on their own, for the window's top
+ * bar while full view puts the chat's tabs in the pane.
+ */
+export function SessionHeaderTools({ session }: { session: Session }) {
+  const [renameAnchor, setRenameAnchor] = useState<HTMLElement | null>(null);
+  const title = sessionDisplayTitle(session.title, session.harness).trim();
+  return (
+    <div
+      data-session-header-tools={session.id}
+      {...windowDragRegion()}
+      className="flex h-full min-w-0 items-center justify-end"
+    >
+      <SessionToolToggles session={session} />
+      <SessionOverflowMenu session={session} onRename={setRenameAnchor} />
+      <PresenceBoundary propagate>{renameAnchor ? (
+        <SessionRenamePopover
+          key={session.id}
+          sessionId={session.id}
+          title={title}
+          anchor={renameAnchor}
+          onClose={() => setRenameAnchor(null)}
+        />
+      ) : null}</PresenceBoundary>
+    </div>
+  );
+}
+
+/** Compact status-card, terminal and working-files switches beside the session title. */
 function SessionToolToggles({ session }: { session: Session }) {
   const { t } = useTranslation();
   const actions = useSessionHeaderActions();
+  const statusVisible = useStatusCardsVisible();
   if (!actions) return null;
   const filesOpen = actions.filesSessionId === session.id;
+  const terminalOpen = actions.terminalSessionId === session.id;
   const button = (active: boolean) =>
     `mr-1 grid size-7.5 shrink-0 self-center place-items-center rounded-md hover:bg-content/3 hover:text-content ${
       active ? "bg-content/8 text-content" : "text-content/60"
     }`;
   return (
-    <div className="flex shrink-0 items-stretch">
-      {actions.terminalAvailable ? (
-        <button
-          type="button"
-          data-session-tool-toggle="terminal"
-          data-tauri-drag-region="false"
-          aria-label={t("Terminal")}
-          aria-pressed={actions.terminalOpen}
-          title={t("Terminal")}
-          onClick={actions.toggleTerminal}
-          className={button(actions.terminalOpen)}
-        >
-          <Terminal className="size-4" />
-        </button>
-      ) : null}
-      {actions.toggleFiles && session.cwd && session.cwd !== "~" ? (
-        <button
-          type="button"
-          data-session-tool-toggle="files"
-          data-tauri-drag-region="false"
-          aria-label={t("Files")}
-          aria-pressed={filesOpen}
-          title={t("Files")}
-          onPointerDown={(event) => event.stopPropagation()}
-          onMouseDown={(event) => event.stopPropagation()}
-          onClick={() => actions.toggleFiles?.(session.id)}
-          className={button(filesOpen)}
-        >
-          <Folder className="size-4" />
-        </button>
-      ) : null}
-    </div>
+    <IconArtworkContext.Provider value={sessionToolIconArtwork}>
+      <div className="flex shrink-0 items-stretch">
+        {/* Status cards only show beside a conversation that has started. */}
+        {session.blocks.length ? (
+          <>
+            <button
+              type="button"
+              data-session-tool-toggle="status"
+              data-tauri-drag-region="false"
+              aria-label={t("Status")}
+              aria-pressed={statusVisible}
+              title={t("Status")}
+              onPointerDown={(event) => event.stopPropagation()}
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={() => saveStatusCardsVisible(!statusVisible)}
+              className={button(statusVisible)}
+            >
+              <SquareMenu className="size-4" />
+            </button>
+            <span aria-hidden="true" className="mr-1 h-4 w-px shrink-0 self-center bg-content/12" />
+          </>
+        ) : null}
+        {actions.terminalAvailable ? (
+          <button
+            type="button"
+            data-session-tool-toggle="terminal"
+            data-tauri-drag-region="false"
+            aria-label={t("Terminal")}
+            aria-pressed={terminalOpen}
+            title={t("Terminal")}
+            onClick={() => actions.toggleTerminal(session.id)}
+            className={button(terminalOpen)}
+          >
+            <Terminal className="size-4" />
+          </button>
+        ) : null}
+        {actions.toggleFiles && session.cwd && session.cwd !== "~" ? (
+          <button
+            type="button"
+            data-session-tool-toggle="files"
+            data-tauri-drag-region="false"
+            aria-label={t("Files")}
+            aria-pressed={filesOpen}
+            title={t("Files")}
+            onPointerDown={(event) => event.stopPropagation()}
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={() => actions.toggleFiles?.(session.id)}
+            className={button(filesOpen)}
+          >
+            <Folder className="size-4" />
+          </button>
+        ) : null}
+      </div>
+    </IconArtworkContext.Provider>
   );
 }

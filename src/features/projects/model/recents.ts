@@ -1,6 +1,7 @@
 import { preferenceStorage } from "../../settings/model/sharedPreferences";
 import { pathKey, prettyCwd, slash } from "../../../shared/lib/paths";
 import { REMOTE_PATH_PREFIX } from "../../../shared/lib/remotePaths";
+import { WSL_PATH_PREFIX } from "../../../shared/lib/wslPaths";
 import {
   clearProjectTreeExpanded,
   rebaseProjectTreeExpanded,
@@ -483,7 +484,7 @@ export function isRemoteProjectPath(path: string): boolean {
 /** A project folder on this computer: safe to index, search, or run git and
  * terminals in. Use `looksLikeProject` where a remote project also counts. */
 export function isLocalProject(path: string): boolean {
-  return looksLikeProject(path) && !isRemoteProjectPath(path);
+  return looksLikeProject(path) && !isRemoteProjectPath(path) && !path.startsWith(WSL_PATH_PREFIX);
 }
 
 export function looksLikeProject(path: string): boolean {

@@ -299,6 +299,11 @@
 .wf-ledge-lamp:focus-visible {
   transform: scale(1.25);
 }
+.wf-desktop-scrollbar {
+  position: absolute;
+  inset: auto 0 0;
+  height: var(--scrollbar-size);
+}
 .wf-sb {
   height: max(var(--scrollbar-min-size, 0px), calc(2px * var(--scrollbar-scale, 1)));
   opacity: 0;

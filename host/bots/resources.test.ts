@@ -3,8 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import { HostStore } from "../store";
-import { checkoutExecutionPrefix, checkoutPath, claimCheckoutResource, claimCheckoutWrite, withCheckoutIntegration, withCheckoutOwner, withCheckoutRemoval } from "../checkout-guards";
+import { checkoutExecutionPrefix, checkoutPath, claimCheckoutResource, claimCheckoutWrite, notifyCheckoutRelease, withCheckoutIntegration, withCheckoutOwner, withCheckoutRemoval } from "../checkout-guards";
 import { HostResourceGuard, HostResourceWaiter, withHostResources } from "./resources";
+import { WslMachineIO, withMachineIO } from "../machine-io";
 const cleanups: Array<() => void> = [];
 afterEach(() => { for (const cleanup of cleanups.splice(0).reverse()) cleanup(); vi.useRealTimers(); });
 function fixture() {
@@ -13,6 +14,19 @@ function fixture() {
   cleanups.push(() => { guard.close(); store.close(); rmSync(root, { force: true, recursive: true }); });
   return { root, path, store, guard };
 }
+it("retries each waiting checkout in its original machine after another machine releases a resource", async () => {
+  const f = fixture(), waiter = new HostResourceWaiter(f.store); cleanups.push(() => waiter.close());
+  const transport = { request: async <T>(): Promise<T> => { throw new Error("No filesystem call expected"); } };
+  const ubuntu = new WslMachineIO("Ubuntu", transport), debian = new WslMachineIO("Debian", transport);
+  f.store.db.prepare("INSERT INTO checkout_resources VALUES ('other-process', ?, 'integrating', ?)").run("wsl%3AUbuntu:/repo", process.pid);
+  const pending = withMachineIO(ubuntu, () => waiter.wait(f.guard, "ubuntu", { paths: ["/repo"] }, new AbortController().signal, () => {}));
+  withMachineIO(debian, () => {
+    f.store.db.prepare("DELETE FROM checkout_resources WHERE id='other-process'").run();
+    notifyCheckoutRelease(f.store);
+  });
+  await pending;
+  expect(f.store.db.prepare("SELECT path FROM checkout_resources").all()).toEqual([{ path: "wsl%3AUbuntu:/repo" }]);
+});
 it("shares parent and child workspaces with terminals and writes, but acquires computer access atomically", () => {
   const f = fixture(), other = new HostResourceGuard(f.store);
   const terminal = claimCheckoutWrite(f.store, "native:terminal", f.path);

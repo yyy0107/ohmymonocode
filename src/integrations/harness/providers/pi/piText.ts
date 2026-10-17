@@ -1,5 +1,6 @@
 import { modelsFor } from "../../../../features/sessions/model/models";
 import {
+  childUsesSelectedMachine,
   killChild,
   spawnChild,
   unwatchChild,
@@ -220,6 +221,7 @@ async function ensureLive(
   if (
     current &&
     !current.closed &&
+    childUsesSelectedMachine(flavor.textChildId) &&
     current.cwd === cwd &&
     current.model === model &&
     current.settingsKey === settingsKey

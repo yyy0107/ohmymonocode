@@ -21,7 +21,7 @@ import { TabVisitNav } from "./WindowChrome";
 import { useCommandShortcut } from "../commands/useCommandShortcut";
 import type { DesktopMode } from "../model/desktopMode";
 import type { ActivityBarProps } from "./ActivityBar";
-import { desktopTitlebarIconArtwork } from "../desktopIconArtwork";
+import { desktopNavigationIconArtwork, desktopTitlebarIconArtwork } from "../desktopIconArtwork";
 
 /** Keep window navigation outside the animated sidebar and main surface. */
 export function DesktopTitlebarNavigation({
@@ -136,41 +136,43 @@ export function DesktopNavigation({
     },
   ];
   return (
-    <nav className="desktop-navigation" aria-label={t("Main navigation")}>
-      <button
-        type="button"
-        className="desktop-search-trigger"
-        onClick={activity.onSearch}
-      >
-        <Search />
-        <span>{t("Search")}</span>
-        <kbd>{shortcut}</kbd>
-      </button>
-      <NavigationItem icon={<Plus />} onClick={onNew}>
-        {t(mode === "chat" ? "New chat" : "New task")}
-      </NavigationItem>
-      <NavigationItem icon={<Folder />} aria-current={projectsActive ? "page" : undefined} onClick={onProjects}>
-        {t("Projects")}
-      </NavigationItem>
-      <NavigationItem icon={<Bot />} aria-current={botsActive ? "page" : undefined} onClick={onBots}>
-        {t("Bots")}
-      </NavigationItem>
-      <NavigationItem icon={<ChevronRight style={{ rotate: expanded ? "90deg" : "0deg" }} />}
-        aria-expanded={expanded} aria-controls="desktop-more-navigation" onClick={() => setExpanded(value => !value)}>
-        {t("More")}
-      </NavigationItem>
-      <AnimatedCollapse expanded={expanded} keepMounted>
-        <div id="desktop-more-navigation" className="desktop-more-navigation">
-          {entries
-            .filter((entry) => entry.onClick)
-            .map(({ label, icon: Icon, onClick, active, dot }) => (
-              <NavigationItem key={label} icon={<Icon />} aria-current={active ? "page" : undefined} onClick={onClick}
-                trailing={dot ? <span data-ui="navigation-dot" aria-hidden="true" /> : undefined}>
-                {t(label)}
-              </NavigationItem>
-            ))}
-        </div>
-      </AnimatedCollapse>
-    </nav>
+    <IconArtworkContext.Provider value={desktopNavigationIconArtwork}>
+      <nav className="desktop-navigation" aria-label={t("Main navigation")}>
+        <button
+          type="button"
+          className="desktop-search-trigger"
+          onClick={activity.onSearch}
+        >
+          <Search />
+          <span>{t("Search")}</span>
+          <kbd>{shortcut}</kbd>
+        </button>
+        <NavigationItem icon={<Plus />} onClick={onNew}>
+          {t(mode === "chat" ? "New chat" : "New task")}
+        </NavigationItem>
+        <NavigationItem icon={<Folder />} aria-current={projectsActive ? "page" : undefined} onClick={onProjects}>
+          {t("Projects")}
+        </NavigationItem>
+        <NavigationItem icon={<Bot />} aria-current={botsActive ? "page" : undefined} onClick={onBots}>
+          {t("Bots")}
+        </NavigationItem>
+        <NavigationItem icon={<ChevronRight style={{ rotate: expanded ? "90deg" : "0deg" }} />}
+          aria-expanded={expanded} aria-controls="desktop-more-navigation" onClick={() => setExpanded(value => !value)}>
+          {t("More")}
+        </NavigationItem>
+        <AnimatedCollapse expanded={expanded} keepMounted>
+          <div id="desktop-more-navigation" className="desktop-more-navigation">
+            {entries
+              .filter((entry) => entry.onClick)
+              .map(({ label, icon: Icon, onClick, active, dot }) => (
+                <NavigationItem key={label} icon={<Icon />} aria-current={active ? "page" : undefined} onClick={onClick}
+                  trailing={dot ? <span data-ui="navigation-dot" aria-hidden="true" /> : undefined}>
+                  {t(label)}
+                </NavigationItem>
+              ))}
+          </div>
+        </AnimatedCollapse>
+      </nav>
+    </IconArtworkContext.Provider>
   );
 }

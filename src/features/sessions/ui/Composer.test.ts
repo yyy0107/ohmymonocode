@@ -5,6 +5,16 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mcpInvoke = vi.hoisted(() => vi.fn());
+vi.mock("../../../platform/tauri/wsl", () => ({
+  listWslDistributions: vi.fn().mockResolvedValue(["Ubuntu", "Debian"]),
+  pickWslFolder: vi.fn(),
+}));
+vi.mock("../../../shared/ui/StatusToast", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../../shared/ui/StatusToast")>(),
+  showStatusToast: vi.fn(),
+}));
+import { pickWslFolder } from "../../../platform/tauri/wsl";
+import { showStatusToast } from "../../../shared/ui/StatusToast";
 vi.mock("@tauri-apps/api/core", async (importOriginal) => {
   const original =
     await importOriginal<typeof import("@tauri-apps/api/core")>();
@@ -138,6 +148,69 @@ describe("Composer question focus", () => {
       },
     ],
   };
+
+  it("opens the environment picker from the workspace bar without disturbing the draft", async () => {
+    const onSubmit = vi.fn();
+    await renderComposer(undefined, vi.fn(), false, 0, "Keep my draft", undefined, onSubmit);
+    const trigger = container.querySelector<HTMLButtonElement>(".composer-environment-badge")!;
+    expect(trigger.tagName).toBe("BUTTON");
+    await act(async () => trigger.click());
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(document.querySelector('[aria-label="Environment options"]')).not.toBeNull();
+    expect(container.querySelector("textarea")!.value).toBe("Keep my draft");
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("selects WSL without opening folders, then chooses a WSL project separately while retaining the draft", async () => {
+    clearComposerDraft("environment-draft");
+    vi.mocked(pickWslFolder).mockReset().mockResolvedValue(null);
+    vi.mocked(showStatusToast).mockClear();
+    const onCwdChange = vi.fn();
+    const onSubmit = vi.fn();
+    const props = {
+      sessionId: "environment-draft", focused: true, harness: "claude" as const,
+      model: "claude-sonnet", runtimeMode: "supervised" as const,
+      cwd: "C:/code/app", executionCwd: "C:/code/app", initialDraft: "Keep my draft",
+      recents: [{ path: "C:/code/other" }, { path: "wsl://Ubuntu/home/ubuntu" }, { path: "wsl://Debian/home/dev" }],
+      onFocus: vi.fn(), onCwdChange, onModelChange: vi.fn(), onRuntimeModeChange: vi.fn(), onSubmit,
+    };
+    await act(async () => root.render(createElement(Composer, props)));
+    const option = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('[role="option"]')]
+      .find(node => node.textContent?.startsWith(label))!;
+    const environment = container.querySelector<HTMLButtonElement>(".composer-environment-badge")!;
+    await act(async () => environment.click());
+    await act(async () => option("WSL").click());
+    await act(async () => option("Debian").click());
+    expect(environment.textContent).toBe("WSL · Debian");
+    expect(pickWslFolder).not.toHaveBeenCalled();
+    expect(onCwdChange).not.toHaveBeenCalled();
+    const input = container.querySelector("textarea")!;
+    await act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(input.value).toBe("Keep my draft");
+    expect(showStatusToast).toHaveBeenCalledWith("Choose a project folder in the selected environment before sending.", "error");
+    const project = container.querySelector<HTMLButtonElement>('.composer-project-picker button[aria-haspopup="menu"]')!;
+    expect(project.textContent).toContain("Choose project");
+    await act(async () => project.click());
+    const menu = document.querySelector('[aria-label="Project picker"]')!;
+    expect(menu.textContent).toContain("dev");
+    expect(menu.textContent).not.toContain("ubuntu");
+    expect(menu.textContent).not.toContain("other");
+    const openFolder = () => [...document.querySelectorAll<HTMLButtonElement>('[data-cwd-picker] button')]
+      .find(node => node.textContent === "Open folder…" && !node.closest('[inert]'))!;
+    await act(async () => openFolder().click());
+    expect(pickWslFolder).toHaveBeenCalledWith("Debian", "Open a WSL project");
+    expect(onCwdChange).not.toHaveBeenCalled();
+    expect(environment.textContent).toBe("WSL · Debian");
+    vi.mocked(pickWslFolder).mockResolvedValueOnce("/home/dev");
+    await act(async () => project.click());
+    await act(async () => openFolder().click());
+    expect(onCwdChange).toHaveBeenCalledWith("wsl://Debian/home/dev");
+    await act(async () => root.render(createElement(Composer, { ...props, cwd: "wsl://Debian/home/dev", executionCwd: "wsl://Debian/home/dev" })));
+    await act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+    expect(onSubmit).toHaveBeenCalledWith("Keep my draft", [], expect.any(Object));
+    clearComposerDraft("environment-draft");
+  });
 
   it("fills a plain prompt into the composer without saving or sending it", async () => {
     const onSubmit = vi.fn();
@@ -1010,6 +1083,35 @@ describe("Composer question focus", () => {
     expect(onSubmit).toHaveBeenCalledWith("Continue this feature", [], {
       intent: "default",
     });
+  });
+
+  it("drops working-copy and branch controls once started, except to recover a removed worktree", async () => {
+    const props = {
+      harness: "claude" as const,
+      model: "claude-sonnet",
+      runtimeMode: "supervised" as const,
+      cwd: "/repo",
+      executionCwd: "/repo-worktrees/feature",
+      branch: "feature",
+      startedSession: true,
+      onFocus: vi.fn(),
+      onCwdChange: vi.fn(),
+      onModelChange: vi.fn(),
+      onRuntimeModeChange: vi.fn(),
+      onWorktreeChange: vi.fn(),
+      onSubmit: vi.fn(),
+    };
+    await act(async () =>
+      root.render(createElement(Composer, { ...props, worktreeRemoved: true })),
+    );
+    expect(container.querySelector('[aria-label="Choose working copy"]')).not.toBeNull();
+    await act(async () =>
+      root.render(createElement(Composer, { ...props, worktreeRemoved: false })),
+    );
+    expect(container.querySelector('[aria-label="Choose working copy"]')).toBeNull();
+    expect(container.querySelector('[aria-label^="Branch "]')).toBeNull();
+    expect(container.querySelector('[aria-label^="Workspace "]')).toBeNull();
+    expect(container.querySelector(".composer-project-picker")).toBeNull();
   });
 
   it("places the caret at the end of an initial draft", async () => {

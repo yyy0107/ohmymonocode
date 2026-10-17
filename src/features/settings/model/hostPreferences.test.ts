@@ -8,6 +8,7 @@ import { remoteRequest } from "../../connections/model/connections";
 import { loadRemoteHostDescriptor } from "../../connections/model/remoteHostMetadata";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("../../../platform/tauri/platform", () => ({ IS_WIN: true, IS_MAC: false }));
 vi.mock("../../connections/model/connections", () => ({ remoteRequest: vi.fn(), remoteSessionFor: () => undefined, REMOTE_MACHINES_CHANGED: "monocode:remote-machines" }));
 vi.mock("../../connections/model/remoteHostMetadata", () => ({ loadRemoteHostDescriptor: vi.fn() }));
 
@@ -78,6 +79,46 @@ it("does not upload the dev origin's legacy settings", async () => {
   expect(hosts["local-machine"].values["monocode.colorScheme"]).toBeUndefined();
   expect(hosts["local-machine"].values["monocode.recentProjects"]).toContain("@project:local:local-project");
   expect(localStorage.getItem("monocode.recentProjects")).toBeNull();
+});
+
+it("discovers WSL projects with their machine identity and repairs staged legacy rail paths", async () => {
+  vi.stubEnv("DEV", true);
+  configureSharedHost("local", [{ id: "wsl-project", cwd: "/home/wy/.claude", name: ".claude",
+    machine: { kind: "wsl", distribution: "Ubuntu-26.04" } }], "local-machine");
+  const recentKey = "monocode.recentProjects";
+  localStorage.setItem(`monocode.pending-project-lists.v1:local:${recentKey}`, JSON.stringify([
+    { path: "/home/wy/.claude", openedAt: 12 },
+    { path: "//wsl.localhost/Ubuntu-26.04/home/wy/.claude", openedAt: 10 },
+    { path: "wsl://Ubuntu-26.04/home/wy/.claude", openedAt: 8 },
+  ]));
+  await initializeHostPreferences();
+  await settle();
+  const recents = JSON.parse(preferenceStorage.getItem(recentKey)!);
+  expect(recents.filter((entry: { path: string }) => entry.path.includes(".claude"))).toEqual([
+    { path: "wsl://Ubuntu-26.04/home/wy/.claude", openedAt: 12 },
+  ]);
+  expect(localStorage.getItem(`monocode.pending-project-lists.v1:local:${recentKey}`)).toBeNull();
+  expect(hosts["local-machine"].values[recentKey]).toContain("@project:local:wsl-project");
+  await initializeHostPreferences();
+  await settle();
+  expect(JSON.parse(preferenceStorage.getItem(recentKey)!)).toEqual(recents);
+});
+
+it("does not assign a legacy Linux path to an arbitrary WSL distribution", async () => {
+  vi.stubEnv("DEV", true);
+  configureSharedHost("local", ["Ubuntu", "Debian"].map(distribution => ({
+    id: distribution, cwd: "/home/wy/app", name: "App", machine: { kind: "wsl" as const, distribution },
+  })), "local-machine");
+  const recentKey = "monocode.recentProjects";
+  localStorage.setItem(`monocode.pending-project-lists.v1:local:${recentKey}`, JSON.stringify([
+    { path: "/home/wy/app", openedAt: 12 },
+  ]));
+  await initializeHostPreferences();
+  await settle();
+  const paths = JSON.parse(preferenceStorage.getItem(recentKey)!).map((entry: { path: string }) => entry.path);
+  expect(paths).toContain("/home/wy/app");
+  expect(paths).toContain("wsl://Ubuntu/home/wy/app");
+  expect(paths).toContain("wsl://Debian/home/wy/app");
 });
 
 it("boots from the same verified Host cache on transport failure but rejects identity failures", async () => {

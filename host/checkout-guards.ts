@@ -3,6 +3,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { existsSync, realpathSync } from "node:fs";
 import { dirname, basename, resolve } from "node:path";
 import type { HostStore } from "./store";
+import { assertMachinePath, currentMachineIO } from "./machine-io";
 
 const resourceListeners = new WeakMap<HostStore, Set<() => void>>();
 export function onCheckoutRelease(store: HostStore, listener: () => void): () => void {
@@ -24,6 +25,13 @@ export function checkoutKindsConflict(request: string, held: string): boolean {
 }
 
 export function checkoutPath(path: string): string {
+  const machine = currentMachineIO();
+  assertMachinePath(path, machine);
+  if (machine.key !== "local") {
+    // Remote callers canonicalize paths over MachineIO before reserving them.
+    // Encoding the key separates identical Linux paths in different distros.
+    return `${encodeURIComponent(machine.key)}:${machine.path.resolve(path)}`;
+  }
   let current = resolve(path);
   const missing: string[] = [];
   while (!existsSync(current)) {

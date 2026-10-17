@@ -394,6 +394,9 @@ export function ProjectCard({
             />
           </span>
         ) : null}
+        {hostProject?.machine?.kind === "wsl" && !compact ? (
+          <span className="text-ui-xs text-content/50" title={hostProject.machine.distribution}>WSL</span>
+        ) : null}
         {muteStatus ? (
           <span
             role="img"

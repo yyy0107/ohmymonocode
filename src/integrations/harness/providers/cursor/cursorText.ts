@@ -1,5 +1,6 @@
 import { AcpClient } from "../../core/acp";
 import {
+  childUsesSelectedMachine,
   killChild,
   resolveCursorBinary,
   spawnChild,
@@ -131,6 +132,7 @@ async function ensureLive(
 ): Promise<LiveText> {
   const model = requestedModel?.trim() || TEXT_MODEL;
   const settingsKey = modelSettingsKey(modelSettings);
+  if (live && !childUsesSelectedMachine(TEXT_CHILD_ID)) await dropLive();
   if (live && !live.closed) {
     if (
       live.cwd === cwd &&

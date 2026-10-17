@@ -99,6 +99,31 @@ function imported(context: ReturnType<typeof setup>, legacy = false) {
 const texts = (context: ReturnType<typeof setup>, id: string) =>
   context.store.session(id).session.blocks.filter((block) => block.role === "user" || block.role === "assistant").map((block) => block.text);
 
+it("keeps WSL native identity lazy and rejects external conversation changes before taking ownership", async () => {
+  const context = setup({ autoSync: false });
+  const { id, nativeId, path, row } = imported(context);
+  const project = context.store.addProject("/workspace", "WSL", undefined, { kind: "wsl", distribution: "Ubuntu" });
+  const initial = context.store.session(id);
+  context.store.save({ ...initial, projectId: project.id, revision: initial.revision + 1,
+    session: { ...initial.session, nativeSession: undefined } }, { type: "test.wsl" });
+  context.engine.nativeSessions.recordLazy(id);
+  const binding = context.store.session(id).nativeBinding;
+  expect(binding).toMatchObject({ providerSessionId: nativeId, path: path.replaceAll("\\", "/") });
+  expect(await context.engine.nativeSessions.promoteIfChanged(id)).toBe(false);
+
+  appendFileSync(path, JSON.stringify({ type: "custom-title", sessionId: nativeId, customTitle: "External title" }) + "\n");
+  expect(await context.engine.nativeSessions.promoteIfChanged(id)).toBe(false);
+  const revision = context.store.session(id).nativeBinding?.hostRevision;
+  expect(revision).not.toBe(binding?.hostRevision);
+
+  appendFileSync(path, row("u2", "a1", "user", "External message"));
+  await expect(context.engine.nativeSessions.promoteIfChanged(id)).rejects.toThrow("native ownership across Windows and WSL is not supported yet");
+  expect(context.store.session(id).session.nativeSession).toBeUndefined();
+  expect(context.store.session(id).nativeBinding?.hostRevision).toBe(revision);
+  expect(context.provider.stop).not.toHaveBeenCalled();
+  expect(texts(context, id)).toEqual(["Imported question", "Imported answer"]);
+});
+
 describe.runIf(linux)("Host-managed native sessions", () => {
   it("migrates an older client's link once at startup and catches up without text pairing", async () => {
     const context = setup();

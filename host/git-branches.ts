@@ -1,7 +1,5 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { machineExec as exec } from "./machine-io";
 
-const exec = promisify(execFile);
 const options = (cwd: string) => ({
   cwd,
   windowsHide: true,

@@ -1,4 +1,5 @@
 import { MotionConfig } from "motion/react";
+import { observeNativeScrollbarEdges } from "../../shared/ui/nativeScrollbarEdges";
 import { defaultTransition } from "../../shared/motion/tokens";
 import { DESKTOP_SCHEME_KEY } from "../../shared/theme/desktopAppearance";
 import React from "react";
@@ -64,6 +65,12 @@ subscribeSharedPreferences(() => {
 });
 
 const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
+function QuickWindow() {
+  React.useLayoutEffect(() => observeNativeScrollbarEdges(document), []);
+  return new URLSearchParams(window.location.search).get("popup") === "git"
+    ? <QuickGitPopup onShown={applyAppearance} />
+    : <QuickComposer onShown={applyAppearance} />;
+}
 async function boot() {
   try {
     // This is an independent webview: it must bind its own verified settings
@@ -75,11 +82,7 @@ async function boot() {
     root.render(
       <React.StrictMode>
         <MotionConfig reducedMotion="user" transition={defaultTransition}>
-        {new URLSearchParams(window.location.search).get("popup") === "git" ? (
-          <QuickGitPopup onShown={applyAppearance} />
-        ) : (
-          <QuickComposer onShown={applyAppearance} />
-        )}
+        <QuickWindow />
       </MotionConfig>
       </React.StrictMode>,
     );

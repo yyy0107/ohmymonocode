@@ -1,6 +1,7 @@
 import { setRemoteCommandRunner } from "../../../platform/tauri/fs";
 import { remoteMachineFor, remoteRequest } from "./connections";
 import { parseRemotePath, remotePath } from "./remoteProjects";
+import { wslPath, type WslProjectMachine } from "../../../shared/lib/wslPaths";
 
 /** File commands a connected machine answers exactly as this computer does
  * (see host/workspace-commands.ts). */
@@ -73,15 +74,18 @@ export async function runRemoteCommand(
 ): Promise<unknown> {
   if (!HOST_COMMANDS.has(command)) throw new Error(UNAVAILABLE);
   let environmentId: string | undefined;
+  let executionMachine: WslProjectMachine | undefined;
   const toHost = (value: unknown): unknown => {
     if (Array.isArray(value)) return value.map(toHost);
     if (typeof value !== "string") return value;
     const parsed = parseRemotePath(value);
-    if (!parsed || (environmentId && parsed.environmentId !== environmentId))
+    if (!parsed || (environmentId && (parsed.environmentId !== environmentId ||
+        parsed.machine?.distribution !== executionMachine?.distribution)))
       throw new Error(
         "Files can only be copied or moved within one machine.",
       );
     environmentId = parsed.environmentId;
+    executionMachine = parsed.machine;
     return parsed.hostPath;
   };
   const hostArgs = Object.fromEntries(
@@ -104,13 +108,14 @@ export async function runRemoteCommand(
     result = await remoteRequest(machine.id, "workspace.run", {
       command,
       args: hostArgs,
+      ...(executionMachine ? { machine: executionMachine } : {}),
     });
   } catch (reason) {
     if (/Unsupported (host method|remote operation)/i.test(String(reason)))
       throw new Error(OUTDATED);
     throw reason;
   }
-  const fromHost = (path: string) => remotePath(env, path);
+  const fromHost = (path: string) => executionMachine ? wslPath(executionMachine.distribution, path) : remotePath(env, path);
   if (PATH_RESULTS.has(command) && typeof result === "string")
     return fromHost(result);
   if (ENTRY_RESULTS.has(command) && Array.isArray(result))

@@ -596,8 +596,9 @@ export function useWorkspaceController({
     notificationProjectPath,
     notificationSettingsRequest,
     remoteProjectDialogOpen,
-    remoteProjectDistribution,
     setRemoteProjectDialogOpen,
+    newEnvironmentDialogOpen,
+    setNewEnvironmentDialogOpen,
     assistantMachineId,
     onOpenAssistant,
   } = useWorkspaceAppViews({
@@ -2020,6 +2021,7 @@ export function useWorkspaceController({
     onMovePane,
     onMoveDockToPane,
     onMovePaneToDock,
+    onToggleSessionTerminal,
     onPlaceSessionOnPane,
     onFitPaneLayout,
     onRatio,
@@ -4018,8 +4020,12 @@ export function useWorkspaceController({
       },
       splitRight: onSplitSession,
       terminalAvailable: supportsProjectTerminal(projectCwd),
-      terminalOpen: dockVisible,
-      toggleTerminal: onToggleProjectTerminal,
+      terminalSessionId: activeTab?.terminalPanes?.some((pane) => leafIds(activeTab.layout).includes(pane.id))
+        ? active?.id : undefined,
+      toggleTerminal: (sessionId) => {
+        const session = sessionsRef.current.find((entry) => entry.id === sessionId);
+        onToggleSessionTerminal(sessionId, session ? sessionWorkCwd(session) : terminalCwd);
+      },
       filesSessionId: activeTab?.editorPanes.some((pane) => pane.files.some((file) => file.explorer))
         ? active?.id : undefined,
       toggleFiles: (sessionId) => {
@@ -4057,13 +4063,13 @@ export function useWorkspaceController({
       onFocusPane,
       onSplitSession,
       setSidebarTab,
-      dockVisible,
       onArchiveHistorySession,
       onCloseFile,
       onOpenAllChanges,
       onRenameHistorySession,
       onSelectProviderAccount,
-      onToggleProjectTerminal,
+      onToggleSessionTerminal,
+      terminalCwd,
       openSettings,
       projectCwd,
       sessionDefaults?.cwd,
@@ -4345,7 +4351,7 @@ export function useWorkspaceController({
     refreshHistory,
     reminderNoticesHeight,
     remoteProjectDialogOpen,
-    remoteProjectDistribution,
+    newEnvironmentDialogOpen,
     renderAppView,
     repairSessions,
     searchFocusToken,
@@ -4362,6 +4368,7 @@ export function useWorkspaceController({
     setProviderSignInRequest,
     setReminderNoticesHeight,
     setRemoteProjectDialogOpen,
+    setNewEnvironmentDialogOpen,
     setSessionDeleteDialog,
     setSidebarTab,
     setWhatsNewVersion,

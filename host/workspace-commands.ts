@@ -1,18 +1,6 @@
-import {
-  cp,
-  lstat,
-  mkdir,
-  readFile,
-  realpath,
-  rename,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
-import { basename, dirname, extname, isAbsolute, relative, resolve } from "node:path";
-import { execFile } from "node:child_process";
+import { machineExec as exec, machineFs, machinePath, machineEnvironment, currentMachineIO } from "./machine-io";
+import { projectMachineKey } from "../src/integrations/harness/core/machine";
 import { randomUUID } from "node:crypto";
-import { promisify } from "node:util";
 import type { FileMtime, FsEntry, GitPr, ProjectFile } from "../src/platform/tauri/fs";
 import { hostWorktrees } from "./git-worktrees";
 import { createHostBranch, hostBranches, switchHostBranch } from "./git-branches";
@@ -30,7 +18,6 @@ import {
   workspacePath,
 } from "./workspace";
 
-const exec = promisify(execFile);
 
 /** Local file commands the host answers for a remote project, with the same
  * names, arguments and results as this app's Tauri commands, so the same UI
@@ -131,11 +118,11 @@ export class WorkspaceCommands {
     const inputs = name === "copy_path" ? [input.destParent]
       : name === "move_path" ? [input.from, input.destParent]
       : name === "create_path" ? [input.parent, typeof input.name === "string" && typeof input.parent === "string" ? joined(input.parent, input.name) : input.parent]
-      : name === "rename_path" ? [input.path, typeof input.name === "string" && typeof input.path === "string" ? joined(dirname(input.path), input.name) : input.path]
+      : name === "rename_path" ? [input.path, typeof input.name === "string" && typeof input.path === "string" ? joined(machinePath.dirname(input.path), input.name) : input.path]
       : [input.cwd ?? input.path];
     const locations = await Promise.all(inputs.map(async (input) => {
       const location = await this.locate(input);
-      return { ...location, path: resolve(location.root, location.relative) };
+      return { ...location, path: machinePath.resolve(location.root, location.relative) };
     }));
     const projects = [...new Set(locations.map(({ root }) => this.projectForRoot(root).id))].sort();
     const exclusive = name.startsWith("git_");
@@ -160,12 +147,14 @@ export class WorkspaceCommands {
   async resourcePath(input: unknown): Promise<string> {
     this.invalidateRoots();
     const located = await this.locate(input);
-    return resolve(located.root, located.relative);
+    return machinePath.resolve(located.root, located.relative);
   }
 
   private projectForRoot(root: string) {
-    const project = this.store.projects().find((candidate) => candidate.cwd === root)
-      ?? this.store.projects().find((candidate) => this.roots.get(candidate.cwd)?.roots.includes(root));
+    const key = currentMachineIO().key;
+    const projects = this.store.projects().filter((candidate) => projectMachineKey(candidate.machine) === key);
+    const project = projects.find((candidate) => candidate.cwd === root)
+      ?? projects.find((candidate) => this.roots.get(`${key}:${candidate.cwd}`)?.roots.includes(root));
     if (!project) throw new Error("Project is unavailable");
     return project;
   }
@@ -269,7 +258,10 @@ export class WorkspaceCommands {
     const generation = this.rootsGeneration;
     const out: string[] = [];
     for (const project of this.store.projects()) {
-      const cached = this.roots.get(project.cwd);
+      const key = currentMachineIO().key;
+      if (projectMachineKey(project.machine) !== key) continue;
+      const cacheKey = `${key}:${project.cwd}`;
+      const cached = this.roots.get(cacheKey);
       if (cached && Date.now() - cached.at < ROOTS_TTL_MS) {
         out.push(...cached.roots);
         continue;
@@ -283,7 +275,7 @@ export class WorkspaceCommands {
         ])
         .catch(() => [project.cwd]);
       if (generation === this.rootsGeneration)
-        this.roots.set(project.cwd, { at: Date.now(), roots });
+        this.roots.set(cacheKey, { at: Date.now(), roots });
       out.push(...roots);
     }
     return out;
@@ -293,29 +285,29 @@ export class WorkspaceCommands {
   private async locate(input: unknown): Promise<Located> {
     if (
       typeof input !== "string" ||
-      !isAbsolute(input) ||
+      !machinePath.isAbsolute(input) ||
       input.length > 4096 ||
       input.includes("\0")
     )
       throw new Error("Invalid workspace path");
-    let actual = resolve(input);
+    let actual = machinePath.resolve(input);
     let missing = "";
     // Resolve symlinks on the nearest existing ancestor, then re-append the
     // part that does not exist yet (a file about to be created or written).
     for (;;) {
-      const real = await realpath(actual).catch(() => undefined);
+      const real = await machineFs.realpath(actual).catch(() => undefined);
       if (real) {
-        actual = missing ? resolve(real, missing) : real;
+        actual = missing ? machinePath.resolve(real, missing) : real;
         break;
       }
-      const parent = dirname(actual);
+      const parent = machinePath.dirname(actual);
       if (parent === actual) break;
-      missing = missing ? `${basename(actual)}/${missing}` : basename(actual);
+      missing = missing ? `${machinePath.basename(actual)}/${missing}` : machinePath.basename(actual);
       actual = parent;
     }
     for (const root of (await this.allowedRoots()).sort((left, right) => right.length - left.length)) {
-      const rel = relative(root, actual);
-      if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel)))
+      const rel = machinePath.relative(root, actual);
+      if (rel === "" || (!rel.startsWith("..") && !machinePath.isAbsolute(rel)))
         return { root, relative: rel };
     }
     throw new Error("Path is outside this machine’s projects");
@@ -347,13 +339,13 @@ export class WorkspaceCommands {
 
   private async file(input: unknown, limit: number, tooLarge: string) {
     const { path } = await this.existing(input);
-    const info = await stat(path);
+    const info = await machineFs.stat(path);
     if (!info.isFile()) throw new Error("Not a file");
     if (info.size > limit)
       throw new Error(
         `File is too large to ${tooLarge} (maximum ${limit / 1024 / 1024} MB).`,
       );
-    return readFile(path);
+    return machineFs.readFile(path);
   }
 
   private async readText(input: unknown): Promise<string> {
@@ -375,19 +367,19 @@ export class WorkspaceCommands {
   private async readBinary(input: unknown): Promise<string> {
     if (
       typeof input !== "string" ||
-      !isAbsolute(input) ||
+      !machinePath.isAbsolute(input) ||
       input.length > 4096 ||
       input.includes("\0")
     )
       throw new Error("Invalid workspace path");
-    const path = await realpath(resolve(input));
-    const info = await stat(path);
+    const path = await machineFs.realpath(machinePath.resolve(input));
+    const info = await machineFs.stat(path);
     if (!info.isFile()) throw new Error("Not a file");
     if (info.size > MAX_PREVIEW_FILE)
       throw new Error(
         `File is too large to preview (maximum ${MAX_PREVIEW_FILE / 1024 / 1024} MB).`,
       );
-    return (await readFile(path)).toString("base64");
+    return (await machineFs.readFile(path)).toString("base64");
   }
 
   private async preview(
@@ -416,13 +408,13 @@ export class WorkspaceCommands {
       );
     const { root, relative: rel } = await this.locate(input);
     const path = workspacePath(root, rel);
-    if (await stat(path).then((info) => info.isDirectory(), () => false))
+    if (await machineFs.stat(path).then((info) => info.isDirectory(), () => false))
       throw new Error("Cannot save text to a directory.");
     // Replace atomically, as the local command does.
     const temporary = `${path}.monocode-${process.pid}-${Date.now()}`;
-    await writeFile(temporary, content, "utf8");
-    await rename(temporary, path).catch(async (reason) => {
-      await rm(temporary, { force: true });
+    await machineFs.writeFile(temporary, content, "utf8");
+    await machineFs.rename(temporary, path).catch(async (reason) => {
+      await machineFs.rm(temporary, { force: true });
       throw reason;
     });
   }
@@ -433,7 +425,7 @@ export class WorkspaceCommands {
     return Promise.all(
       input.map(async (path) => {
         const mtimeMs = await this.existing(path)
-          .then(({ path: actual }) => stat(actual))
+          .then(({ path: actual }) => machineFs.stat(actual))
           .then((info) => (info.isFile() ? Math.floor(info.mtimeMs) : null))
           .catch(() => null);
         return { path: String(path), mtimeMs };
@@ -466,34 +458,34 @@ export class WorkspaceCommands {
     )
       throw new Error("A file or folder name must be provided.");
     const { root, path: from } = await this.existing(input);
-    const target = joined(dirname(input as string), name);
+    const target = joined(machinePath.dirname(input as string), name);
     const { root: targetRoot, relative: rel } = await this.locate(target);
     if (targetRoot !== root)
       throw new Error("Cannot move a file between working copies.");
     const to = workspacePath(root, rel);
     if (to === from) return input as string;
-    if (await lstat(to).then(() => true, () => false))
+    if (await machineFs.lstat(to).then(() => true, () => false))
       throw new Error(alreadyExists(name));
-    if (!relative(from, to).startsWith(".."))
+    if (!machinePath.relative(from, to).startsWith(".."))
       throw new Error("Cannot move a folder into itself.");
-    await mkdir(dirname(to), { recursive: true });
-    await rename(from, to);
+    await machineFs.mkdir(machinePath.dirname(to), { recursive: true });
+    await machineFs.rename(from, to);
     return target;
   }
 
   private async delete(input: unknown): Promise<void> {
     const { path } = await this.existing(input);
-    await rm(path, { recursive: true });
+    await machineFs.rm(path, { recursive: true });
   }
 
   private async destination(from: unknown, destParent: unknown) {
     const source = await this.existing(from);
     const parent = await this.existing(destParent, true);
-    if (!(await stat(parent.path)).isDirectory())
+    if (!(await machineFs.stat(parent.path)).isDirectory())
       throw new Error(`${String(destParent)} is not a folder`);
     if (
-      (await stat(source.path)).isDirectory() &&
-      !relative(source.path, parent.path).startsWith("..")
+      (await machineFs.stat(source.path)).isDirectory() &&
+      !machinePath.relative(source.path, parent.path).startsWith("..")
     )
       throw new Error("Cannot paste a folder into itself.");
     return { source: source.path, parent: parent.path };
@@ -501,33 +493,33 @@ export class WorkspaceCommands {
 
   private async copy(from: unknown, destParent: unknown): Promise<string> {
     const { source, parent } = await this.destination(from, destParent);
-    const name = basename(source);
-    const ext = extname(name);
+    const name = machinePath.basename(source);
+    const ext = machinePath.extname(name);
     const stem = ext ? name.slice(0, -ext.length) : name;
     for (let n = 0; ; n++) {
       const candidate =
         n === 0 ? name : n === 1 ? `${stem} copy${ext}` : `${stem} copy ${n}${ext}`;
-      const to = resolve(parent, candidate);
-      if (await lstat(to).then(() => true, () => false)) continue;
-      await cp(source, to, { recursive: true, errorOnExist: true });
+      const to = machinePath.resolve(parent, candidate);
+      if (await machineFs.lstat(to).then(() => true, () => false)) continue;
+      await machineFs.cp(source, to, { recursive: true, errorOnExist: true });
       return joined(destParent as string, candidate);
     }
   }
 
   private async move(from: unknown, destParent: unknown): Promise<string> {
     const { source, parent } = await this.destination(from, destParent);
-    const name = basename(source);
-    const to = resolve(parent, name);
+    const name = machinePath.basename(source);
+    const to = machinePath.resolve(parent, name);
     if (to === source) return from as string;
-    if (await lstat(to).then(() => true, () => false))
+    if (await machineFs.lstat(to).then(() => true, () => false))
       throw new Error(alreadyExists(name));
-    await rename(source, to);
+    await machineFs.rename(source, to);
     return joined(destParent as string, name);
   }
 
   private async gitRoot(input: unknown): Promise<string> {
     const { path } = await this.existing(input, true);
-    if (!(await stat(path)).isDirectory()) throw new Error("Not a working copy");
+    if (!(await machineFs.stat(path)).isDirectory()) throw new Error("Not a working copy");
     return path;
   }
 
@@ -564,7 +556,7 @@ export class WorkspaceCommands {
       timeout: 30_000,
       maxBuffer: 4 * 1024 * 1024,
       encoding: "utf8",
-      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+      env: { ...machineEnvironment(), GIT_TERMINAL_PROMPT: "0" },
     })).stdout;
   }
 
@@ -587,7 +579,7 @@ export class WorkspaceCommands {
       timeout: 30_000,
       maxBuffer: 1024 * 1024,
       encoding: "utf8",
-      env: { ...process.env, GH_PROMPT_DISABLED: "1", GIT_TERMINAL_PROMPT: "0" },
+      env: { ...machineEnvironment(), GH_PROMPT_DISABLED: "1", GIT_TERMINAL_PROMPT: "0" },
     })).stdout.trim();
   }
 
@@ -687,7 +679,7 @@ export class WorkspaceCommands {
   private async gitCommitFileDiff(cwd: unknown, shaInput: unknown, input: unknown) {
     const sha = await this.gitCommitSha(cwd, shaInput);
     const root = await this.gitRoot(cwd);
-    const path = relative(root, workspacePath(root, input)).replace(/\\/g, "/");
+    const path = machinePath.relative(root, workspacePath(root, input)).replace(/\\/g, "/");
     const parent = await this.gitCommand(root, ["rev-parse", "--verify", `${sha}^`]).catch(() => "");
     const [original, current] = await Promise.all([
       parent ? this.gitBlob(root, `${parent.trim()}:${path}`) : Promise.resolve({ bytes: Buffer.alloc(0), tooLarge: false }),
@@ -742,7 +734,7 @@ export class WorkspaceCommands {
         staged: false, unstaged: false };
     });
     for (const path of untracked.split("\0").filter(Boolean)) {
-      const text = await readFile(resolve(root, path), "utf8").catch(() => "");
+      const text = await machineFs.readFile(machinePath.resolve(root, path), "utf8").catch(() => "");
       files.push({ path, relative: path, status: "untracked",
         additions: text.includes("\0") ? 0 : text.split("\n").length - (text.endsWith("\n") ? 1 : 0),
         deletions: 0, staged: false, unstaged: false });
@@ -755,12 +747,12 @@ export class WorkspaceCommands {
     const { commit } = await this.gitReviewBase(cwd, base);
     const root = await this.gitRoot(cwd);
     const absolute = workspacePath(root, input);
-    const path = relative(root, absolute).replace(/\\/g, "/");
+    const path = machinePath.relative(root, absolute).replace(/\\/g, "/");
     const prefix = (await this.gitCommand(cwd, ["rev-parse", "--show-prefix"]).catch(() => "")).trim();
     const [original, current] = await Promise.all([
       this.gitBlob(root, `${commit}:${prefix}${path}`),
-      stat(absolute).then(
-        async () => ({ bytes: await readFile(absolute), tooLarge: false, exists: true }),
+      machineFs.stat(absolute).then(
+        async () => ({ bytes: await machineFs.readFile(absolute), tooLarge: false, exists: true }),
         () => ({ bytes: Buffer.alloc(0), tooLarge: false, exists: false }),
       ),
     ]);
@@ -782,7 +774,7 @@ export class WorkspaceCommands {
         timeout: 30_000,
         maxBuffer: Infinity,
         encoding: "buffer",
-        env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+        env: { ...machineEnvironment(), GIT_TERMINAL_PROMPT: "0" },
       });
       return { bytes: Buffer.isBuffer(stdout) ? stdout : Buffer.from(stdout), tooLarge: false };
     } catch (reason) {

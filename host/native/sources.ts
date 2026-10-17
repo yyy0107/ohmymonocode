@@ -119,8 +119,19 @@ export function nativeSources(context: SourceEnvironment = {}): NativeSource[] {
     out.push(jsonl("claude", dir, join(dir, "projects"), 1, id));
   const claude = envDir("CLAUDE_CONFIG_DIR") ?? join(home, ".claude");
   out.push(jsonl("claude", claude, join(claude, "projects"), 1));
-  const omp = join(home, ".omp/agent");
-  out.push(jsonl("omp", omp, join(omp, "sessions"), 4));
+  const profile = (env.OMP_PROFILE ?? env.PI_PROFILE)?.trim();
+  const namedProfile = profile && profile !== "default" ? profile : undefined;
+  if (!namedProfile || /^[a-z0-9][a-z0-9._-]{0,63}$/.test(namedProfile) && !namedProfile.endsWith(".") && !/^(?:con|prn|aux|nul|com[0-9]|lpt[0-9])(?:\.|$)/i.test(namedProfile)) {
+    const root = join(home, env.PI_CONFIG_DIR || ".omp");
+    const defaultAgent = namedProfile ? join(root, "profiles", namedProfile, "agent") : join(root, "agent");
+    const omp = namedProfile ? defaultAgent : (envDir("PI_CODING_AGENT_DIR")?.replace(/^~(?=[\\/]|$)/, home) ?? defaultAgent);
+    // OMP only adopts an existing XDG data directory on Linux/macOS when using
+    // its default agent directory. Windows always records sessions in the agent directory.
+    const xdg = envDir("XDG_DATA_HOME");
+    const xdgData = xdg ? join(xdg, "omp", ...(namedProfile ? ["profiles", namedProfile] : [])) : undefined;
+    const data = process.platform !== "win32" && omp === defaultAgent && xdgData && existsSync(xdgData) ? xdgData : omp;
+    out.push(jsonl("omp", omp, join(data, "sessions"), 4));
+  }
   const data = envDir("XDG_DATA_HOME") ?? join(home, ".local/share");
   out.push({
     provider: "opencode",
@@ -131,7 +142,7 @@ export function nativeSources(context: SourceEnvironment = {}): NativeSource[] {
   // An environment override may point at an account profile; list each location once.
   const seen = new Set<string>();
   return out.filter((source) => {
-    const key = canonical(source.root);
+    const key = `${source.provider}\0${canonical(source.root)}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -464,10 +475,11 @@ export async function listNativeSessions(context: SourceEnvironment = {}): Promi
 }
 
 /** The configured source containing a canonical path. */
-export function sourceFor(path: string, context: SourceEnvironment = {}): NativeSource {
-  const target = canonical(path);
+export function sourceFor(path: string, context: SourceEnvironment = {}, provider?: NativeSessionProvider): NativeSource {
+  const target = slash(canonical(path));
   const found = nativeSources(context).find((source) => {
-    const root = canonical(source.root);
+    if (provider && source.provider !== provider) return false;
+    const root = slash(canonical(source.root));
     return source.storage.kind === "jsonl"
       ? target.startsWith(`${root}/`) && extname(target) === ".jsonl"
       : target === root;
@@ -481,8 +493,9 @@ export function sourceFile(
   path: string,
   providerSessionId: string,
   context: SourceEnvironment = {},
+  provider?: NativeSessionProvider,
 ): NativeSessionFile & { dataDir: string } {
-  const source = sourceFor(path, context);
+  const source = sourceFor(path, context, provider);
   const out: NativeListing = { sessions: [], warnings: [] };
   if (source.storage.kind === "sqlite") {
     listOpenCode(source, out, providerSessionId);

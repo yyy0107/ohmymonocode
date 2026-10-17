@@ -4,6 +4,8 @@ import { mkdir, writeFile, chmod } from "node:fs/promises";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
 import { botErrorCode } from "./bots/thread/errors";
+import { currentMachineIO } from "./machine-io";
+import { wslControlLauncher } from "./wsl-control";
 
 const ACTIONS = ["list", "delegate", "get", "message", "retry", "cancel", "wait", "review", "finish", "steer", "respond", "answer"];
 export const CONTROL_HELP = `MonoCode Host control — supervise this orchestration run.
@@ -139,6 +141,7 @@ export class HostControl {
   }
   async launcher(directory: string, entry: string, node = process.execPath): Promise<string> {
     await this.ready;
+    if (currentMachineIO().key !== "local") return wslControlLauncher(currentMachineIO());
     await mkdir(directory, { recursive: true, mode: 0o700 });
     const path = join(directory, process.platform === "win32" ? "monocode-control.cmd" : "monocode-control");
     const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;

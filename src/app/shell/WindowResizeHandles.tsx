@@ -44,6 +44,7 @@ const INTERACTIVE_TARGETS = [
   "[role='separator']",
   ".cm-editorScrollbar",
   ".xterm .scrollbar",
+  "[data-ui='scrollbar']",
 ].join(",");
 
 function resizeDirection(x: number, y: number, edge: number, corner: number): ResizeDirection | null {

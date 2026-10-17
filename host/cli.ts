@@ -16,10 +16,10 @@ import { createServer as createSocketServer } from "node:net";
 import type { AddressInfo } from "node:net";
 import { randomBytes } from "node:crypto";
 import {
-  configureChildBackend,
   acquireHarnessBridge,
 } from "../src/integrations/harness/core/child";
 import { HostChildBackend } from "./child-backend";
+import { HostMachines } from "./host-machines";
 import { HostStore } from "./store";
 import { acquireHostOwner } from "./owner";
 import { HostEngine } from "./engine";
@@ -273,14 +273,26 @@ Connect another computer using an SSH forward to the loopback port.`);
   }
   const releaseOwner = await acquireHostOwner(directory);
   const backend = new HostChildBackend({}, join(directory, "desktop-owner.json"), store);
-  let cleanup = () => {
-    rmSync(statePath, { force: true });
-    store.close();
-    releaseOwner();
-  };
+  const machines = new HostMachines(store, backend);
+  let release = () => {};
+  let closeEngine: () => Promise<void> = async () => {};
+  let closeServer = () => {};
+  let closeSocket = () => {};
+  let closeAdapters = () => {};
+  let shutdown: Promise<void> | undefined;
+  const closeResources = (): Promise<void> => shutdown ??= (async () => {
+    const errors: unknown[] = [];
+    // Every resource is attempted even if an earlier cleanup fails. Stop entry
+    // points first, then engine work, remote processes and the shared bridge.
+    for (const close of [closeAdapters, closeSocket, closeServer, closeEngine,
+      () => machines.close(), () => backend.close(), release,
+      () => rmSync(statePath, { force: true }), () => store.close(), releaseOwner]) {
+      try { await close(); } catch (error) { errors.push(error); }
+    }
+    if (errors.length) throw new AggregateError(errors, "Host resource cleanup failed");
+  })();
   try {
-    configureChildBackend(backend);
-    const release = await acquireHarnessBridge();
+    release = await acquireHarnessBridge();
     const discoverAvailableProviders = async (): Promise<RemoteProvider[]> => {
       const detected = await Promise.all(
         REMOTE_PROVIDERS.map(async (provider) => {
@@ -297,14 +309,14 @@ Connect another computer using an SSH forward to the loopback port.`);
       );
     };
     const available = await discoverAvailableProviders();
-    const engine = new HostEngine(store, hostProviders, undefined, { entry: fileURLToPath(import.meta.url) });
-    backend.configureSessionEnvironment((id) => ({ ...engine.workflows.environment(id), ...engine.orchestration.environment(id), ...engine.bots.environment(id) }));
+    const engine = new HostEngine(store, hostProviders, undefined, { entry: fileURLToPath(import.meta.url), machines });
+    closeEngine = () => engine.close();
+    // User environment variables first, so Host control variables always win.
+    backend.configureSessionEnvironment((id) => ({ ...engine.environmentVariables(id), ...engine.workflows.environment(id), ...engine.orchestration.environment(id), ...engine.bots.environment(id) }));
     await engine.ready;
     const secret = randomBytes(32).toString("base64url");
     let stopping = false;
     let stop: () => Promise<void>;
-    let closeAdapters = () => {};
-    let closeSocket = () => {};
     let boundPort = port;
     let adaptersListening = false;
     // A separate local administrative credential cannot be used as a paired
@@ -350,17 +362,14 @@ Connect another computer using an SSH forward to the loopback port.`);
         }
       });
     }, discoverAvailableProviders);
+    closeServer = () => { try { server.close(() => {}); } finally { server.closeAllConnections(); } };
     stop = async () => {
       if (stopping) return;
       stopping = true;
-      closeAdapters();
-      closeSocket();
-      server.close();
-      server.closeAllConnections();
-      await engine.close();
-      await backend.close();
-      release();
-      cleanup();
+      await closeResources().catch(error => {
+        console.error(error instanceof Error ? error.message : "Host resource cleanup failed");
+        process.exitCode = 1;
+      });
     };
     await new Promise<void>((resolve, reject) => {
       server.once("error", reject);
@@ -373,18 +382,14 @@ Connect another computer using an SSH forward to the loopback port.`);
       mkdirSync(dirname(socketPath), { recursive: true, mode: 0o700 });
       rmSync(socketPath, { force: true });
       const socketServer = createSocketServer((socket) => server.emit("connection", socket));
+      closeSocket = () => {
+        try { socketServer.close(() => {}); } finally { rmSync(socketPath, { force: true }); }
+      };
       await new Promise<void>((resolve, reject) => {
         socketServer.once("error", reject);
         socketServer.listen(socketPath, resolve);
-      }).catch((error) => {
-        server.close();
-        throw error;
       });
       chmodSync(socketPath, 0o600);
-      closeSocket = () => {
-        socketServer.close();
-        rmSync(socketPath, { force: true });
-      };
     }
     if (listenAdapters) {
       closeAdapters = listenOnAdapters(server, boundPort);
@@ -407,14 +412,10 @@ Connect another computer using an SSH forward to the loopback port.`);
     console.log(
       `Providers: ${available.join(", ") || "none found; install and authenticate a supported provider on this host"}`,
     );
-    cleanup = () => {
-      rmSync(statePath, { force: true });
-      store.close();
-      releaseOwner();
-    };
   } catch (error) {
-    await backend.close();
-    cleanup();
+    await closeResources().catch(cleanupError => {
+      console.error(cleanupError instanceof Error ? cleanupError.message : "Host resource cleanup failed");
+    });
     throw error;
   }
 }

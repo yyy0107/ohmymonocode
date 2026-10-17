@@ -559,3 +559,58 @@ export const desktopTitlebarIconArtwork: Readonly<Record<string, ReactNode>> = {
     </g>
   ),
 };
+
+function outlinedDesktopGlyph(children: ReactNode) {
+  return <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">{children}</g>;
+}
+
+/** Square action silhouettes; custom project logos and pixel mascots keep their artwork. */
+export const desktopProjectMenuIconArtwork: Readonly<Record<string, ReactNode>> = {
+  ...desktopIconArtwork,
+  ImagePlus: outlinedDesktopGlyph(<>
+    <path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6M4 17l5-5 4 4 3-3 4 4M17 4v6m-3-3h6" strokeWidth="1.5" />
+    <circle cx="8" cy="8" r="1" strokeWidth="1.5" />
+  </>),
+  FolderTree: outlinedDesktopGlyph(<>
+    <rect x="12" y="4" width="8" height="6" rx="1" strokeWidth="1.5" />
+    <rect x="12" y="14" width="8" height="6" rx="1" strokeWidth="1.5" />
+    <path d="M4 4v13h8M4 7h8" strokeWidth="1.5" />
+  </>),
+  Pin: outlinedDesktopGlyph(<path d="M8 4h8l-1 7 5 4v1H4v-1l5-4-1-7ZM12 16v4" strokeWidth="1.5" />),
+  PinOff: outlinedDesktopGlyph(<path d="M11 4h5l-1 6m2 3 3 2v1h-4M9 11l-5 4v1h8m0 0v4M4 4l16 16" strokeWidth="1.5" />),
+  FolderOpen: outlinedDesktopGlyph(<path d="M4 20V6a2 2 0 0 1 2-2h5l2 3h3a2 2 0 0 1 2 2v1M4 20l3-10h13l-3 10H4Z" strokeWidth="1.5" />),
+  AppWindow: outlinedDesktopGlyph(<>
+    <rect x="4" y="4" width="16" height="16" rx="2" strokeWidth="1.5" />
+    <path d="M4 9h16M7 6.5h.01M10 6.5h.01" strokeWidth="1.5" />
+  </>),
+  BellOff: outlinedDesktopGlyph(<path d="M9 5a5 5 0 0 1 8 4v3M7 8v4l-2 5h12m-7 2a2.5 2.5 0 0 0 4 0M12 4v1M4 4l16 16" strokeWidth="1.5" />),
+  Settings: outlinedDesktopGlyph(<>
+    <path d="M10 4h4l.5 2 2 1 2-.5 1.5 3.5-1.5 1.5v1L20 14l-1.5 3.5-2-.5-2 1-.5 2h-4l-.5-2-2-1-2 .5L4 14l1.5-1.5v-1L4 10l1.5-3.5 2 .5 2-1 .5-2Z" strokeWidth="1.5" />
+    <circle cx="12" cy="12" r="3" strokeWidth="1.5" />
+  </>),
+  Archive: outlinedDesktopGlyph(<>
+    <rect x="4" y="4" width="16" height="4" rx="1" strokeWidth="1.5" />
+    <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8M9 12h6" strokeWidth="1.5" />
+  </>),
+  Trash2: outlinedDesktopGlyph(<path d="M4 6h16M9 6V4h6v2M6 6v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6M10 10v6m4-6v6" strokeWidth="1.5" />),
+};
+
+/** Main navigation shares the same square silhouette and stroke scale as window tools. */
+export const desktopNavigationIconArtwork: Readonly<Record<string, ReactNode>> = {
+  ...desktopIconArtwork,
+  Plus: outlinedDesktopGlyph(<path d="M12 4v16M4 12h16" strokeWidth="1.5" />),
+  Folder: outlinedDesktopGlyph(<path d="M6 4h5l2 3h5a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" strokeWidth="1.5" />),
+  Bot: outlinedDesktopGlyph(<>
+    <rect x="5" y="7" width="14" height="13" rx="2" strokeWidth="1.5" />
+    <path d="M12 7V4h-2M4 12h1m14 0h1M9 11v2m6-2v2m-6 4h6" strokeWidth="1.5" />
+  </>),
+  ChevronRight: outlinedDesktopGlyph(<path d="m8 4 8 8-8 8" strokeWidth="1.5" />),
+  Inbox: outlinedDesktopGlyph(<path d="M8 4h8l4 8v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6L8 4ZM4 12h5l1 3h4l1-3h5" strokeWidth="1.5" />),
+  StickyNote: outlinedDesktopGlyph(<path d="M6 4h12a2 2 0 0 1 2 2v8l-6 6H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2ZM14 20v-6h6M8 8h8M8 12h4" strokeWidth="1.5" />),
+  Zap: outlinedDesktopGlyph(<path d="m13 4-9 9h7l-1 7L20 9h-7V4Z" strokeWidth="1.5" />),
+  Workflow: outlinedDesktopGlyph(<>
+    <rect x="4" y="4" width="6" height="6" rx="1" strokeWidth="1.5" />
+    <rect x="14" y="14" width="6" height="6" rx="1" strokeWidth="1.5" />
+    <path d="M10 7h7v7M7 10v7h7" strokeWidth="1.5" />
+  </>),
+};

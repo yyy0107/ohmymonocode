@@ -38,6 +38,7 @@ export class OpenCodeClient {
   constructor(
     readonly baseUrl: string,
     readonly directory: string,
+    private readonly childId?: string,
   ) {}
 
   async getSession(sessionID: string): Promise<OpenCodeSession> {
@@ -211,6 +212,7 @@ export class OpenCodeClient {
     const url = this.url(path, opts?.query);
     const hasBody = opts?.body !== undefined;
     const response = await harnessHttp({
+      ...(this.childId ? { sessionId: this.childId } : {}),
       url,
       method,
       headers: this.headers(hasBody),

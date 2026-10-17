@@ -1,4 +1,5 @@
 import { RemoteSnapshotReporter } from "../model/remoteSnapshotReporter";
+import { executionWarningText } from "../../../integrations/harness/core/executionWarnings";
 import { sessionComposerConfiguration } from "../../sessions/model/composerConfiguration";
 import { requestedProviderAccountId, supportsProviderAccounts } from "../../providers/model/providerAccounts";
 import { MessageQueue } from "../../sessions/ui/MessageQueue";
@@ -78,7 +79,7 @@ import {
 } from "../model/connections";
 import {
   parseRemotePath,
-  remotePath,
+  projectPath,
   remoteProjectFor,
   ensureSharedProject,
   type RemoteProject,
@@ -392,7 +393,7 @@ function ConnectedRemoteSession({
   const [catalogError, setCatalogError] = useState("");
   const [catalogRefresh, setCatalogRefresh] = useState(0);
   const [selectedCwd, setSelectedCwd] = useState(
-    () => remotePendingWorktree(shell.id) ?? (project.local ? shell.worktreeCwd : undefined) ?? project.cwd,
+    () => remotePendingWorktree(shell.id) ?? (project.local && shell.worktreeCwd ? parseRemotePath(shell.worktreeCwd)?.hostPath ?? shell.worktreeCwd : undefined) ?? project.cwd,
   );
   const [draftWorkspaceMode, setDraftWorkspaceMode] =
     useState<WorkspaceMode>("current");
@@ -476,7 +477,7 @@ function ConnectedRemoteSession({
   useEffect(() => () => snapshotReporter.dispose(), [snapshotReporter]);
   const executionCwd = hostSession?.cwd ?? selectedCwd;
   const { branches } = useProjectBranchesState(
-    project.local ? executionCwd : remotePath(machine.environmentId, executionCwd),
+    projectPath(project, executionCwd),
     online,
   );
   const activeSessionId = hostSession?.id ?? sessionId;
@@ -1003,8 +1004,8 @@ function ConnectedRemoteSession({
 
   const openSession = (id: string) => {
     if (project.local) {
-      sharedSessionBackend()?.rememberSession(id, project.cwd);
-      sharedSessionBackend()?.rememberSession(shell.id, project.cwd);
+      sharedSessionBackend()?.rememberSession(id, project.key);
+      sharedSessionBackend()?.rememberSession(shell.id, project.key);
     }
     boundSession.current = id;
     rememberRemoteSession(shell.id, id, project);
@@ -1429,11 +1430,11 @@ function ConnectedRemoteSession({
       usageLimitKey && usageLimitKey !== dismissedUsageLimit
         ? viewSession?.usageLimit
         : undefined,
-    cwd: project.local ? project.cwd : remotePath(machine.environmentId, project.cwd),
+    cwd: projectPath(project, project.cwd),
     worktreeCwd:
       executionCwd === project.cwd
         ? undefined
-        : project.local ? executionCwd : remotePath(machine.environmentId, executionCwd),
+        : projectPath(project, executionCwd),
     workspaceMode: hostSession ? undefined : draftWorkspaceMode,
     worktreeBase: hostSession ? undefined : draftWorktreeBase,
     worktreeCreation,
@@ -1529,9 +1530,9 @@ function ConnectedRemoteSession({
             : undefined;
 
   const selectWorktree = async (tree: Worktree) => {
-    const parsed = project.local ? { hostPath: tree.path, environmentId: machine.environmentId }
+    const parsed = project.local && !project.machine ? { hostPath: tree.path, environmentId: machine.environmentId, machine: undefined }
       : parseRemotePath(tree.path);
-    if (!parsed || parsed.environmentId !== machine.environmentId)
+    if (!parsed || parsed.environmentId !== machine.environmentId || parsed.machine?.distribution !== project.machine?.distribution)
       throw new Error("Choose a worktree on this machine");
     if (sessionId)
       throw new Error(
@@ -1664,7 +1665,7 @@ function ConnectedRemoteSession({
     if (!view) return [];
     return [{ ...view, cwd: project.key, workspace: view.workspace && {
       ...view.workspace, projectCwd: project.key,
-      checkoutCwd: project.local ? view.workspace.checkoutCwd : remotePath(project.environmentId, view.workspace.checkoutCwd),
+      checkoutCwd: projectPath(project, view.workspace.checkoutCwd),
     } }];
   }, [snapshot?.orchestration, project]);
   const orchestrationRuntime = useMemo<OrchestrationRuntime>(() => ({
@@ -1742,7 +1743,7 @@ function ConnectedRemoteSession({
   useEffect(() => {
     if (!checkpointEnabled || !hostSessionId) return;
     const toWindow = (path: string) =>
-      project.local ? path : remotePath(machine.environmentId, path);
+      projectPath(project, path);
     const unregister = registerHostCheckpointRoute(shell.id, async <T,>(
       action: "status" | "diff" | "undo" | "keep",
       relative?: string,
@@ -1786,7 +1787,7 @@ function ConnectedRemoteSession({
       /^[A-Za-z]:[\\/]/.test(path)
         ? path
         : `${executionCwd.replace(/[\\/]+$/, "")}/${path.replace(/^\.\//, "")}`;
-    return project.local ? absolute : remotePath(machine.environmentId, absolute);
+    return projectPath(project, absolute);
   };
 
   // Inline callbacks below would be new on every host update; stable
@@ -1931,6 +1932,11 @@ function ConnectedRemoteSession({
                 {notice.action.label}
               </button>
             ) : null}
+          </div>
+        ) : null}
+        {snapshot?.executionWarnings?.length ? (
+          <div role="status" className="desktop-toolbar shrink-0 border-b border-stroke px-4 py-2 text-[12px] text-content/65">
+            {snapshot.executionWarnings.map((warning, index) => <p key={`${index}:${warning}`}>{executionWarningText(warning, uiT)}</p>)}
           </div>
         ) : null}
         <div data-pane-background-geometry className="min-h-0 flex-1">{render(overrides)}</div>

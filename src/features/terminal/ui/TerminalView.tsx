@@ -1,3 +1,4 @@
+import { attachTerminalScrollbar } from "./terminalScrollbar";
 import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { Terminal } from "@xterm/xterm";
 import { useEffect, useRef, useState } from "react";
@@ -244,6 +245,7 @@ function createLiveTerminal(
   // zero width. Hidden tabs are measured again when their host becomes visible.
   initialHost.appendChild(node);
   term.open(node);
+  const detachScrollbar = attachTerminalScrollbar(term, node);
   deduplicateTerminalDimensionStyles(term);
   const stopCompositionGuard = guardTerminalComposition(term.textarea);
   let closed = false;
@@ -449,6 +451,7 @@ function createLiveTerminal(
     oscBg.dispose();
     oscCursor.dispose();
     renderSub.dispose();
+    detachScrollbar();
     bufferSub.dispose();
     const stopping = starting
       .catch(() => undefined)

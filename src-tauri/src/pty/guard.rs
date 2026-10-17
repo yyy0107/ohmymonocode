@@ -284,10 +284,15 @@ impl Terminal {
             .map_err(|e| e.to_string())?;
         let reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
         let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
-        let (shell, args) = default_shell();
+        let wsl = crate::wsl_path::parse(&cwd.to_string_lossy())?;
+        let (shell, args) = wsl
+            .as_ref()
+            .map_or_else(default_shell, |target| target.shell());
         let mut command = CommandBuilder::new(shell);
         command.args(args);
-        command.cwd(cwd);
+        if wsl.is_none() {
+            command.cwd(cwd);
+        }
         for (name, value) in [
             ("TERM", "xterm-256color"),
             ("COLORTERM", "truecolor"),

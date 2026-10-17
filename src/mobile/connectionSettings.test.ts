@@ -53,7 +53,8 @@ const host = vi.hoisted(() => ({
   providerAccounts: vi.fn(async () => ({})),
   activity: vi.fn(async () => ({ environmentId: "host", sessions: [] })),
 }));
-vi.mock("./client", () => ({
+vi.mock("./client", async (importOriginal) => ({
+  ...await importOriginal<typeof import("./client")>(),
   MobileClient: vi.fn(function () {
     return host;
   }),
@@ -61,6 +62,13 @@ vi.mock("./client", () => ({
 vi.mock("./MobileAppUpdates", () => ({
   useMobileAppUpdates: () => ({}),
   MobileAppUpdates: () => null,
+}));
+vi.mock("./MobileQrScanner", () => ({
+  MobileQrScanner: ({ active, onDetected }: { active: boolean; onDetected: (text: string) => void }) =>
+    createElement("button", {
+      className: "mobile-qr-scanner", disabled: !active,
+      onClick: () => onDetected("monocode://pair?host=http://computer:3774&token=XD5J-2J3U"),
+    }, "Scan test QR code"),
 }));
 
 let root: Root;
@@ -530,7 +538,7 @@ describe("mobile connection settings", () => {
     expect(active("#mobile-theme")!.textContent).toBe("Light");
   });
 
-  it("retains failed connection input for retry and closes only after success", async () => {
+  it("retains failed connection input for retry and confirms success until Done", async () => {
     await render();
     act(() => button("Connections").click());
     await open();
@@ -550,11 +558,75 @@ describe("mobile connection settings", () => {
     ).toBe("device-token");
     act(() => setUiLanguage("zh-CN"));
     await submit();
+    const success = active('[role="dialog"] [role="status"]')!;
+    expect(success.textContent).toContain("配对成功");
+    expect(success.textContent).toContain("已连接到 My computer。");
+    expect(active('input.mobile-pairing-code, [role="tablist"], .mobile-qr-scanner')).toBeNull();
+    act(() => button("完成").click());
     expect(active('.mobile-sheet-backdrop:not([aria-hidden="true"]) [role="dialog"]')).toBeNull();
     // A successful connection opens Home on the connected computer.
     expect(active(".mobile-app")?.getAttribute("data-view")).toBe("home");
     expect(active("header strong")!.textContent).toBe("MonoCode");
     await act(async () => button("菜单").click());
     expect(active(".mobile-drawer-device")!.textContent).toBe("My computer");
+  });
+
+  it("stops scanning during pairing and replaces the camera with a success card", async () => {
+    let finish!: () => void;
+    host.connect.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
+    await render();
+    act(() => button("Connections").click());
+    act(() => button("Add connection").click());
+    await act(async () => vi.dynamicImportSettled());
+    act(() => {
+      button("Scan test QR code").click();
+      button("Scan test QR code").click();
+    });
+    expect(host.connect).toHaveBeenCalledExactlyOnceWith("http://computer:3774", "XD5J-2J3U");
+    expect(button("Scan test QR code").disabled).toBe(true);
+    expect(active('[role="dialog"] [role="status"]')).toBeNull();
+    await act(async () => finish());
+    expect(active(".mobile-qr-scanner")).toBeNull();
+    expect(active('[role="dialog"] [role="status"]')!.textContent).toContain("Pairing successful");
+    expect(active('[role="dialog"] [role="status"]')!.textContent).toContain("access this computer from your phone");
+    const dialog = active('[role="dialog"]')!;
+    act(() => button("Done").click());
+    await finishClosingSheet(dialog);
+    act(() => button("Menu").click());
+    act(() => button("Settings").click());
+    act(() => button("Connections").click());
+    await open();
+    expect(active('input.mobile-pairing-code')).not.toBeNull();
+    expect(active('[role="dialog"] [role="status"]')).toBeNull();
+  });
+
+  it("explains a consumed pairing code without showing success", async () => {
+    await render();
+    act(() => button("Connections").click());
+    await open();
+    input('input[type="url"]', "http://computer:3774");
+    input('input.mobile-pairing-code', "XD5J-2J3U");
+    host.connect.mockRejectedValueOnce(new Error("Pairing code has already been used. Generate a new code on the computer."));
+    act(() => setUiLanguage("zh-CN"));
+    await submit();
+    expect(active('[role="dialog"] [role="alert"]')!.textContent).toBe("此配对码已使用，请在电脑上生成新的配对码。");
+    expect(active('[role="dialog"] [role="status"]')).toBeNull();
+  });
+
+  it("confirms pairing before project loading completes and lets Done close the card", async () => {
+    let finish!: (projects: { id: string; name: string; cwd: string }[]) => void;
+    host.projects.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    await render();
+    act(() => button("Connections").click());
+    await open();
+    input('input[type="url"]', "http://computer:3774");
+    input('input.mobile-pairing-code', "XD5J-2J3U");
+    await submit();
+    expect(active('[role="dialog"] [role="status"]')!.textContent).toContain("Pairing successful");
+    expect(button("Done").disabled).toBe(false);
+    act(() => button("Done").click());
+    expect(active('.mobile-sheet-backdrop:not([aria-hidden="true"]) [role="dialog"]')).toBeNull();
+    await act(async () => finish([]));
+    expect(active(".mobile-app")?.getAttribute("data-view")).toBe("home");
   });
 });

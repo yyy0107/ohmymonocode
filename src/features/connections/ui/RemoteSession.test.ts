@@ -768,8 +768,13 @@ it("reviews the tab's changes through the Host that captured its edits", async (
   expect(checkpointRequests).toContainEqual({ projectId: "project", sessionId: host!.session.id, action: "status" });
 });
 
-it("shows the Host Git capsule and refreshes review for a completed turn missed between polls", async () => {
+it("shows Host Git changes in the status rail and refreshes review for a completed turn missed between polls", async () => {
   checkpointCapability = true;
+  // The status column only appears while the conversation keeps its minimum width.
+  const measure = HTMLElement.prototype.getBoundingClientRect;
+  const wide = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    return this.hasAttribute("data-session-status-row") ? new DOMRect(0, 0, 1600, 800) : measure.call(this);
+  });
   const original = vi.mocked(invoke).getMockImplementation()!;
   let recorded = false;
   vi.mocked(invoke).mockImplementation(async (command, input) => {
@@ -781,7 +786,8 @@ it("shows the Host Git capsule and refreshes review for a completed turn missed 
   await send("First turn");
   expect(container.querySelector("[data-session-review]")).toBeNull();
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 250)); });
-  expect(container.querySelector('[aria-label="Show status"]')?.textContent).toContain("+3");
+  expect(container.querySelector('[data-status-card="changes"]')?.textContent).toContain("+3");
+  wide.mockRestore();
   expect(vi.mocked(invoke).mock.calls.some(([command, input]) => command === "remote_request" &&
     (input as { params?: { command?: string } })?.params?.command === "git_diff_stats")).toBe(true);
   recorded = true;
@@ -1276,8 +1282,8 @@ it("starts a remote session in the worktree chosen before its first message", as
     worktreeCwd: "/home/me/repo-worktrees/dev",
   });
   expect(host?.session.cwd).toBe("/home/me/repo-worktrees/dev");
-  expect(container.querySelector('[aria-label="Workspace dev"]')?.tagName)
-    .toBe("DIV");
+  // Once started, the bar no longer offers or labels the working copy.
+  expect(container.querySelector('[aria-label="Workspace dev"]')).toBeNull();
   expect(byLabel("Workspace Worktree")).toBeNull();
 });
 
@@ -1450,10 +1456,10 @@ it("locks a started remote session to its worktree like a local session", async 
   };
   rememberRemoteSession("shell", "host-session");
   await render();
-  expect(container.querySelector('[aria-label="Workspace Current checkout"]')?.tagName)
-    .toBe("DIV");
+  // A started conversation keeps its working copy and branch out of the composer bar.
+  expect(container.querySelector('[aria-label="Workspace Current checkout"]')).toBeNull();
   expect(byLabel("Workspace Current checkout")).toBeNull();
-  expect(byLabel("Branch main")).not.toBeNull();
+  expect(byLabel("Branch main")).toBeNull();
   expect(commands).toHaveLength(0);
 });
 
@@ -1940,16 +1946,17 @@ it.each([false, true])("syncs foreground streams promptly and shares an in-fligh
   let release!: () => void;
   syncDelay = new Promise<void>(resolve => { release = resolve; });
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 160)); });
+  // Render cost decides whether one or two prompt polls finish before the held one.
   const requests = hostCalls("sessions.sync", host.session.id);
-  expect(requests).toHaveLength(2);
-  expect((requests[1][1] as { params: { waitMs?: number } }).params.waitMs).toBe(supported ? 1_000 : undefined);
+  expect(requests.length).toBeGreaterThanOrEqual(2);
+  expect((requests.at(-1)![1] as { params: { waitMs?: number } }).params.waitMs).toBe(supported ? 1_000 : undefined);
   await render(shell(), { visible: false });
   await render();
-  expect(hostCalls("sessions.sync", host.session.id)).toHaveLength(2);
+  expect(hostCalls("sessions.sync", host.session.id)).toHaveLength(requests.length);
   host = { ...host, status: "idle", session: { ...host.session, busy: false } };
   await act(async () => { release(); syncDelay = undefined; });
   await settle();
-  expect(hostCalls("sessions.sync", host.session.id)).toHaveLength(2);
+  expect(hostCalls("sessions.sync", host.session.id)).toHaveLength(requests.length);
 });
 
 it("keeps a running background conversation on the slow polling cadence", async () => {

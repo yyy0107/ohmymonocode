@@ -203,7 +203,7 @@ describe("codex live turn sequence", () => {
 
   it("delivers a trusted Bot Soul as developer instructions and leaves reference text in turn input", async () => {
     const { turn } = await startTurn("bot-native", { botContext: { scope: { botId: "bot", threadId: "thread", runId: "run" }, systemInstructions: "Identity and Soul", contextFingerprint: "stable", agentsMcp: { command: "/host-node", args: ["/host-entry", "agents-mcp"] } } });
-    expect(spawned.at(-1)).toContain('mcp_servers."mc_agents_thread".command="/host-node"');
+    expect(spawned.at(-1)).toContain('mcp_servers.mc_agents_thread.command="/host-node"');
     expect(parse().find(m => m.method === "thread/start")!.params).toMatchObject({ developerInstructions: "Identity and Soul" });
     const prompt = JSON.stringify(parse().find(m => m.method === "turn/start")!.params);
     expect(prompt).toContain("summarize the changelog");

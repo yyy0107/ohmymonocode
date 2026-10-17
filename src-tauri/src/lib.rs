@@ -58,6 +58,7 @@ mod window_transfer;
 mod windows;
 mod worktree_lifecycle;
 mod worktrees;
+mod wsl_path;
 
 // Phase 1 seam: spawn / kill harness children per MonoCode thread.
 // Adapters own the protocol; this host only supervises processes.
@@ -285,7 +286,6 @@ pub fn run() {
             fonts::list_system_fonts,
             remote::remote_machines,
             remote_wsl::wsl_distributions,
-            remote::remote_wsl_connect,
             remote::remote_connect,
             remote::remote_disconnect,
             remote::remote_request,

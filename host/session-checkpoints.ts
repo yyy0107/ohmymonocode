@@ -1,9 +1,7 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { machineExec as exec, machineFs, machinePath, machineEnvironment, currentMachineIO, localMachineIO, withMachineIO, assertLocalMachinePath } from "./machine-io";
 import { lstatSync, readFileSync } from "node:fs";
 import {
   chmod,
-  lstat,
   mkdir,
   readFile,
   readdir,
@@ -12,7 +10,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { dirname, join } from "node:path";
 import type {
   CheckpointFile,
   CheckpointFileDiff,
@@ -21,7 +19,6 @@ import type {
 import { TurnCheckpoints } from "./turn-checkpoints";
 import { workspacePath } from "./workspace";
 
-const exec = promisify(execFile);
 const MAX_SNAPSHOT_FILES = 500;
 /** Same limit as the desktop checkpoint store. */
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
@@ -34,6 +31,7 @@ type FileState =
   | { kind: "skipped" };
 
 type StoredManifest = {
+  machine?: string;
   cwd: string;
   files: Record<string, SnapshotKind>;
   touched: string[];
@@ -50,6 +48,7 @@ type StoredManifest = {
 };
 
 type Manifest = {
+  machine: string;
   cwd: string;
   files: Map<string, SnapshotKind>;
   touched: Set<string>;
@@ -93,7 +92,7 @@ export class SessionCheckpoints {
       const root = await projectRoot(cwd);
       const dir = this.sessionDir(sessionId);
       const manifest = await readManifest(dir);
-      if (manifest && sameCwd(manifest.cwd, root)) return;
+      if (manifest && manifest.machine === currentMachineIO().key && sameCwd(manifest.cwd, root)) return;
       await rm(dir, { recursive: true, force: true });
       await mkdir(join(dir, "files"), { recursive: true });
       await writeManifest(dir, emptyManifest(root));
@@ -108,7 +107,7 @@ export class SessionCheckpoints {
       const root = await projectRoot(cwd);
       const dir = this.sessionDir(sessionId);
       const manifest = await readManifest(dir);
-      if (manifest && sameCwd(manifest.cwd, root)) return;
+      if (manifest && manifest.machine === currentMachineIO().key && sameCwd(manifest.cwd, root)) return;
       await rm(dir, { recursive: true, force: true });
       await mkdir(join(dir, "files"), { recursive: true });
       await writeManifest(dir, emptyManifest(root));
@@ -124,21 +123,23 @@ export class SessionCheckpoints {
    * read now, before the provider can write, and recorded in queue order. */
   prepare(sessionId: string, cwd: string, paths: string[]): Promise<void> {
     if (!paths.length) return Promise.resolve();
-    const root = resolve(cwd);
-    const before = new Map<string, FileState>();
+    const root = machinePath.resolve(cwd);
+    const before = new Map<string, FileState | Promise<FileState>>();
     for (const path of paths) {
       const relativePath = relativeTo(root, path);
       if (relativePath && !before.has(relativePath))
-        before.set(relativePath, readWorktreeSync(root, relativePath));
+        before.set(relativePath, currentMachineIO().key === "local"
+          ? readWorktreeSync(root, relativePath) : readWorktree(root, relativePath));
     }
     if (!before.size) return Promise.resolve();
     return this.exclusive(async () => {
       if (await this.turns.has(sessionId, cwd)) return;
       const dir = this.sessionDir(sessionId);
       const manifest = await readManifest(dir);
-      if (!manifest || !sameCwd(manifest.cwd, root)) return;
+      if (!manifest || !(manifest.machine === currentMachineIO().key && sameCwd(manifest.cwd, root))) return;
       let dirty = false;
-      for (const [relativePath, state] of before) {
+      for (const [relativePath, pendingState] of before) {
+        const state = await pendingState;
         // Keep the original pre-edit snapshot across later edits by this
         // session. The first tool-start event owns the safe undo boundary.
         if (manifest.touched.has(relativePath) && manifest.prepared.has(relativePath)) {
@@ -175,7 +176,7 @@ export class SessionCheckpoints {
       const root = await projectRoot(cwd);
       const dir = this.sessionDir(sessionId);
       const manifest = await readManifest(dir);
-      if (!manifest || !sameCwd(manifest.cwd, root)) return;
+      if (!manifest || !(manifest.machine === currentMachineIO().key && sameCwd(manifest.cwd, root))) return;
       let dirty = false;
       for (const path of paths) {
         if (manifest.touched.size >= MAX_SNAPSHOT_FILES) break;
@@ -217,7 +218,7 @@ export class SessionCheckpoints {
       const root = await projectRoot(cwd);
       const dir = this.sessionDir(sessionId);
       const manifest = await readManifest(dir);
-      if (!manifest || !sameCwd(manifest.cwd, root))
+      if (!manifest || !(manifest.machine === currentMachineIO().key && sameCwd(manifest.cwd, root)))
         throw new Error("Session changes are no longer available");
       const relativePath = relativeTo(root, input);
       if (!relativePath || !manifest.touched.has(relativePath) || !manifest.prepared.has(relativePath))
@@ -253,7 +254,7 @@ export class SessionCheckpoints {
       const root = await projectRoot(cwd);
       const dir = this.sessionDir(sessionId);
       const manifest = await readManifest(dir);
-      if (!manifest || !sameCwd(manifest.cwd, root)) return { files: [] };
+      if (!manifest || !(manifest.machine === currentMachineIO().key && sameCwd(manifest.cwd, root))) return { files: [] };
       const changed = await this.currentStatus(sessionId, cwd);
       if (input !== undefined) {
         const relativePath = relativeTo(root, input);
@@ -286,7 +287,7 @@ export class SessionCheckpoints {
       const root = await projectRoot(cwd);
       const dir = this.sessionDir(sessionId);
       const manifest = await readManifest(dir);
-      if (!manifest || !sameCwd(manifest.cwd, root)) return { files: [] };
+      if (!manifest || !(manifest.machine === currentMachineIO().key && sameCwd(manifest.cwd, root))) return { files: [] };
       if (input === undefined) {
         await rm(dir, { recursive: true, force: true });
         return { files: [] };
@@ -310,7 +311,7 @@ export class SessionCheckpoints {
     const root = await projectRoot(cwd);
     const dir = this.sessionDir(sessionId);
     const manifest = await readManifest(dir);
-    if (!manifest || !sameCwd(manifest.cwd, root)) return { files: [] };
+    if (!manifest || !(manifest.machine === currentMachineIO().key && sameCwd(manifest.cwd, root))) return { files: [] };
     const foreign = await this.foreignTouched(root, sessionId);
     const dirty = await gitDirty(root);
     const files: CheckpointFile[] = [];
@@ -349,7 +350,7 @@ export class SessionCheckpoints {
     for (const entry of entries) {
       if (!entry.isDirectory() || entry.name === except) continue;
       const manifest = await readManifest(join(this.root, entry.name)).catch(() => undefined);
-      if (!manifest || !sameCwd(manifest.cwd, root)) continue;
+      if (!manifest || !(manifest.machine === currentMachineIO().key && sameCwd(manifest.cwd, root))) continue;
       for (const path of manifest.touched)
         if (manifest.prepared.has(path)) paths.add(path);
     }
@@ -360,6 +361,7 @@ export class SessionCheckpoints {
 function emptyManifest(cwd: string): Manifest {
   return {
     cwd,
+    machine: currentMachineIO().key,
     files: new Map(),
     touched: new Set(),
     tracked: new Set(),
@@ -390,6 +392,7 @@ async function readManifest(dir: string): Promise<Manifest | undefined> {
   const value = JSON.parse(raw) as StoredManifest;
   return {
     cwd: value.cwd,
+    machine: value.machine ?? "local",
     files: new Map(Object.entries(value.files ?? {})),
     touched: new Set(value.touched ?? []),
     tracked: new Set(value.tracked ?? []),
@@ -403,6 +406,7 @@ async function readManifest(dir: string): Promise<Manifest | undefined> {
 async function writeManifest(dir: string, manifest: Manifest) {
   const value: StoredManifest = {
     cwd: manifest.cwd,
+    machine: manifest.machine,
     files: Object.fromEntries(manifest.files),
     touched: [...manifest.touched],
     tracked: [...manifest.tracked],
@@ -420,14 +424,14 @@ async function writeManifest(dir: string, manifest: Manifest) {
 async function projectRoot(cwd: string): Promise<string> {
   const trimmed = cwd.trim();
   if (!trimmed || trimmed === "~") throw new Error("cwd is required");
-  const root = resolve(trimmed);
-  if (!(await stat(root).catch(() => undefined))?.isDirectory())
+  const root = machinePath.resolve(trimmed);
+  if (!(await machineFs.stat(root).catch(() => undefined))?.isDirectory())
     throw new Error(`${root}: Not a directory`);
   return root;
 }
 
 function sameCwd(saved: string, root: string): boolean {
-  return resolve(saved) === root;
+  return machinePath.resolve(saved) === root;
 }
 
 /** A tool's path relative to the checkout, or undefined outside it. */
@@ -435,14 +439,14 @@ function relativeTo(root: string, path: string): string | undefined {
   if (typeof path !== "string" || !path.trim()) return undefined;
   try {
     const absolute = workspacePath(root, path.trim());
-    return relative(root, absolute).split(sep).join("/");
+    return machinePath.relative(root, absolute).split(machinePath.sep).join("/");
   } catch {
     return undefined;
   }
 }
 
 function clientPath(root: string, relativePath: string): string {
-  return join(root, relativePath).split(sep).join("/");
+  return machinePath.join(root, relativePath).split(machinePath.sep).join("/");
 }
 
 function blobPath(blobRoot: string, relativePath: string): string {
@@ -456,7 +460,8 @@ function blobPath(blobRoot: string, relativePath: string): string {
 }
 
 function readWorktreeSync(root: string, relativePath: string): FileState {
-  const path = join(root, ...relativePath.split("/"));
+  const path = machinePath.join(root, ...relativePath.split("/"));
+  assertLocalMachinePath(root);
   try {
     const info = lstatSync(path);
     if (info.isSymbolicLink() || !info.isFile() || info.size > MAX_FILE_BYTES)
@@ -470,12 +475,12 @@ function readWorktreeSync(root: string, relativePath: string): FileState {
 }
 
 async function readWorktree(root: string, relativePath: string): Promise<FileState> {
-  const path = join(root, ...relativePath.split("/"));
+  const path = machinePath.join(root, ...relativePath.split("/"));
   try {
-    const info = await lstat(path);
+    const info = await machineFs.lstat(path);
     if (info.isSymbolicLink() || !info.isFile() || info.size > MAX_FILE_BYTES)
       return { kind: "skipped" };
-    return { kind: "contents", bytes: await readFile(path), mode: info.mode & 0o777 };
+    return { kind: "contents", bytes: await machineFs.readFile(path), mode: info.mode & 0o777 };
   } catch (error) {
     return (error as NodeJS.ErrnoException).code === "ENOENT"
       ? { kind: "missing" }
@@ -495,6 +500,14 @@ async function writeBlob(
   await writeFile(path, state.kind === "contents" ? state.bytes : Buffer.alloc(0));
   if (state.kind === "contents" && state.mode !== undefined && process.platform !== "win32")
     await chmod(path, state.mode);
+  // A Windows metadata directory cannot preserve a Linux executable bit in
+  // its own file mode. Keep that small piece of snapshot metadata separately.
+  if (state.kind === "contents" && state.mode !== undefined &&
+    currentMachineIO().pathStyle !== localMachineIO.pathStyle) {
+    const modePath = blobPath(`${blobRoot}.modes`, `${relativePath}.json`);
+    await mkdir(dirname(modePath), { recursive: true });
+    await writeFile(modePath, JSON.stringify(state.mode));
+  }
   return state.kind;
 }
 
@@ -508,7 +521,11 @@ async function readBlob(
   const path = blobPath(blobRoot, relativePath);
   try {
     const [bytes, info] = await Promise.all([readFile(path), stat(path)]);
-    return { kind: "contents", bytes, mode: info.mode & 0o777 };
+    const storedMode = await readFile(blobPath(`${blobRoot}.modes`, `${relativePath}.json`), "utf8")
+      .then((value) => JSON.parse(value) as unknown, () => undefined);
+    const mode = typeof storedMode === "number" && Number.isInteger(storedMode)
+      ? storedMode & 0o777 : info.mode & 0o777;
+    return { kind: "contents", bytes, mode };
   } catch {
     return { kind: "missing" };
   }
@@ -579,11 +596,11 @@ async function sessionStats(
   const before = manifest.files.get(relativePath);
   const after = manifest.after.get(relativePath);
   if (!before || !after || before === "skipped" || after === "skipped") return undefined;
-  const counts = await numstat(
+  const counts = await withMachineIO(localMachineIO, () => numstat(
     blobPath(join(dir, "files"), relativePath),
     blobPath(join(dir, "after"), relativePath),
     dir,
-  );
+  ));
   if (!counts) return undefined;
   return { status: changeStatus(before, after), ...counts };
 }
@@ -596,7 +613,7 @@ async function git(root: string, args: string[]): Promise<string> {
       timeout: 10_000,
       maxBuffer: 16 * 1024 * 1024,
       encoding: "utf8",
-      env: { ...process.env, GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0", LC_ALL: "C" },
+      env: { ...machineEnvironment(), GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0", LC_ALL: "C" },
     })
   ).stdout;
 }
@@ -654,12 +671,12 @@ async function gitDirty(root: string): Promise<Set<string>> {
   return paths;
 }
 
-function pathContainsSymlink(root: string, relativePath: string): boolean {
+async function pathContainsSymlink(root: string, relativePath: string): Promise<boolean> {
   let current = root;
   for (const part of relativePath.split("/")) {
-    current = join(current, part);
+    current = machinePath.join(current, part);
     try {
-      if (lstatSync(current).isSymbolicLink()) return true;
+      if ((await machineFs.lstat(current)).isSymbolicLink()) return true;
     } catch (error) {
       return (error as NodeJS.ErrnoException).code !== "ENOENT";
     }
@@ -668,10 +685,10 @@ function pathContainsSymlink(root: string, relativePath: string): boolean {
 }
 
 async function restoreOne(dir: string, root: string, manifest: Manifest, relativePath: string) {
-  if (pathContainsSymlink(root, relativePath))
+  if (await pathContainsSymlink(root, relativePath))
     throw new Error(`Cannot write through symbolic link ${relativePath}`);
   const kind = manifest.files.get(relativePath);
-  const target = join(root, ...relativePath.split("/"));
+  const target = machinePath.join(root, ...relativePath.split("/"));
   const unstage = () => git(root, ["reset", "-q", "HEAD", "--", relativePath]).catch(() => undefined);
   if (kind === "skipped") return;
   if (!kind) {
@@ -691,17 +708,17 @@ async function restoreOne(dir: string, root: string, manifest: Manifest, relativ
   }
   const snapshot = await readBlob(join(dir, "files"), relativePath, kind);
   if (snapshot.kind !== "contents") return;
-  if ((await stat(target).catch(() => undefined))?.isDirectory())
+  if ((await machineFs.stat(target).catch(() => undefined))?.isDirectory())
     throw new Error(`${target} is a directory`);
-  await mkdir(dirname(target), { recursive: true });
-  await writeFile(target, snapshot.bytes);
-  if (snapshot.mode !== undefined && process.platform !== "win32")
-    await chmod(target, snapshot.mode);
+  await machineFs.mkdir(machinePath.dirname(target), { recursive: true });
+  await machineFs.writeFile(target, snapshot.bytes);
+  if (snapshot.mode !== undefined && currentMachineIO().pathStyle !== "win32")
+    await machineFs.chmod(target, snapshot.mode);
   await unstage();
 }
 
 async function removeFile(path: string) {
-  const info = await lstat(path).catch(() => undefined);
+  const info = await machineFs.lstat(path).catch(() => undefined);
   if (!info) return;
-  await rm(path, { recursive: info.isDirectory(), force: true });
+  await machineFs.rm(path, { recursive: info.isDirectory(), force: true });
 }

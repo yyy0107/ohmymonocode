@@ -791,7 +791,8 @@ html.has-user-accent .mobile-app .mobile-desktop-transcript .user-message-bubble
   margin-top: 16px;
   color: var(--color-m-ink-tertiary);
 }
- .mobile-native-readonly {
+ .mobile-native-readonly,
+ .mobile-execution-notice {
   margin: 0;
   padding: 8px 14px;
   font-size: var(--mobile-font-sm);

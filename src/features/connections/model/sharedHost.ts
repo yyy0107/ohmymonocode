@@ -28,6 +28,8 @@ import {
   ensureSharedProject,
   sharedHostEnvironment,
   sharedProjects,
+  sharedProjectKey,
+  projectPath,
 } from "./remoteProjects";
 import {
   normalizeProjectPath,
@@ -50,7 +52,7 @@ import type {
 type PreparedHost = {
   machine: RemoteMachine;
   projects: HostProject[];
-  sessions: { id: string; cwd: string; deleted?: boolean }[];
+  sessions: { id: string; cwd: string; deleted?: boolean; projectId?: string }[];
   retiredSessionIds?: string[];
 };
 
@@ -126,7 +128,9 @@ function pendingOutboxIds(): Set<string> {
 export async function initializeSharedHost(): Promise<void> {
   await loadRemoteOutbox();
   const { prepared, offline } = await prepareSharedHost();
-  const projectByPath = new Map(prepared.projects.map(project => [normalizeProjectPath(project.cwd), project]));
+  const projectByPath = new Map(prepared.projects.map(project => [sharedProjectKey(project), project]));
+  const projectForPreparedSession = (row: PreparedHost["sessions"][number]) =>
+    row.projectId ? prepared.projects.find((project) => project.id === row.projectId) : projectByPath.get(normalizeProjectPath(row.cwd));
   // Older bindings stored only a wire ID. A saved local workspace supplies
   // positive identity evidence; an unknown alias is kept for its own Host.
   const legacyShellIds = new Set<string>();
@@ -174,10 +178,10 @@ export async function initializeSharedHost(): Promise<void> {
     prepared.machine.id,
   );
   const paths = new Map(
-    prepared.sessions.map((row) => [row.id, normalizeProjectPath(row.cwd)]),
+    prepared.sessions.map((row) => [row.id, projectForPreparedSession(row) ? sharedProjectKey(projectForPreparedSession(row)!) : normalizeProjectPath(row.cwd)]),
   );
   for (const row of prepared.sessions) {
-    const project = projectByPath.get(normalizeProjectPath(row.cwd));
+    const project = projectForPreparedSession(row);
     if (!row.deleted && !remoteSessionFor(row.id) && project)
       rememberRemoteSession(row.id, row.id, { environmentId: prepared.machine.environmentId, projectId: project.id });
   }
@@ -194,18 +198,18 @@ export async function initializeSharedHost(): Promise<void> {
       if (!project) return null;
       hostOrchestrationClient.bindShell({ machineId: prepared.machine.id, project }, snapshot.session.id, id);
       hostOrchestrationClient.accept({ machineId: prepared.machine.id, project }, snapshot);
-      paths.set(snapshot.session.id, project.cwd);
-      paths.set(id, project.cwd);
+      paths.set(snapshot.session.id, project.key);
+      paths.set(id, project.key);
       if (!remoteSessionFor(id)) rememberRemoteSession(id, snapshot.session.id, project);
       return {
         ...snapshot.session,
         nativeSyncStatus: snapshot.nativeStatus,
         id,
-        cwd: project.cwd,
+        cwd: project.key,
         worktreeCwd:
           snapshot.session.cwd === project.cwd
             ? undefined
-            : snapshot.session.cwd,
+            : projectPath(project, snapshot.session.cwd),
       };
     } catch (error) {
       if (String(error).includes("Session not found")) return null;
@@ -238,10 +242,10 @@ export async function initializeSharedHost(): Promise<void> {
         }
         return rows.map((row) => {
           hostOrchestrationClient.accept({ machineId: prepared.machine.id, project }, row);
-          paths.set(row.id, project.cwd);
+          paths.set(row.id, project.key);
           return {
             ...row,
-            cwd: project.cwd,
+            cwd: project.key,
             model: row.model ?? "",
             runtimeMode: row.runtimeMode ?? "supervised",
             providerSessionId: row.providerSessionId ?? undefined,
@@ -266,7 +270,7 @@ export async function initializeSharedHost(): Promise<void> {
       const scope = remoteSessionScopeFor(id);
       if (scope && scope.environmentId !== prepared.machine.environmentId) return false;
       const cwd = paths.get(id) ?? paths.get(hostId(id));
-      if (scope && cwd && sharedProjects().find(project => normalizeProjectPath(project.cwd) === normalizeProjectPath(cwd))?.projectId !== scope.projectId) return false;
+      if (scope && cwd && sharedProjects().find(project => normalizeProjectPath(project.key) === normalizeProjectPath(cwd))?.projectId !== scope.projectId) return false;
       return paths.has(id) || (scope?.environmentId === prepared.machine.environmentId || legacyShellIds.has(id)) && paths.has(hostId(id));
     },
     rememberSession: (id, cwd) => {
@@ -298,10 +302,10 @@ export async function initializeSharedHost(): Promise<void> {
       import: async (sourceId) => {
         const value = await remoteRequest<HostSession>(prepared.machine.id, "nativeSources.import", { sourceId });
         const project = await ensureSharedProject(value.session.cwd);
-        paths.set(value.session.id, normalizeProjectPath(project.cwd));
+        paths.set(value.session.id, normalizeProjectPath(project.key));
         if (!remoteSessionFor(value.session.id))
           rememberRemoteSession(value.session.id, value.session.id, { environmentId: prepared.machine.environmentId, projectId: value.projectId });
-        rememberImportedProject(project.cwd);
+        rememberImportedProject(project.key);
         return value.session.id;
       },
       syncAll: async () => {

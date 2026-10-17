@@ -1,10 +1,12 @@
 import { IS_WIN } from "../../platform/tauri/platform";
+import { parseWslPath } from "./wslPaths";
 
 function windowsPath(path: string): boolean {
   return /^[A-Za-z]:[\\/]/.test(path) || path.startsWith("\\\\") || path.startsWith("//");
 }
 
 export function slash(path: string): string {
+  if (path.startsWith("wsl://")) return path;
   return windowsPath(path) || (IS_WIN && !path.startsWith("/"))
     ? path.replace(/\\/g, "/") : path;
 }
@@ -33,6 +35,8 @@ export function pathKey(path: string): string {
 }
 
 export function prettyCwd(cwd: string): string {
+  const wsl = parseWslPath(cwd);
+  if (wsl) return `WSL · ${wsl.machine.distribution} · ${prettyCwd(wsl.hostPath)}`;
   const trimmed = trimSlash(cwd);
   if (trimmed === "~") return "~";
 
@@ -54,6 +58,7 @@ export function prettyCwd(cwd: string): string {
 
 export function parentPath(path: string): string {
   const trimmed = trimSlash(path);
+  if (/^wsl:\/\/[^/]+$/.test(trimmed)) return `${trimmed}/`;
   if (/^\/\/[^/]+\/[^/]+$/.test(trimmed)) return trimmed;
   if (/^[A-Za-z]:$/.test(trimmed)) return `${trimmed}/`;
   const i = trimmed.lastIndexOf("/");
@@ -127,7 +132,7 @@ export function setHomeDir(path: string | undefined): void {
  * only be expanded when the project's own cwd sits under a recognisable home.
  */
 function homeDirFromCwd(cwd: string): string | undefined {
-  const remoteRoot = /^remote:\/\/[^/]+\//.exec(cwd)?.[0];
+  const remoteRoot = /^(?:remote|wsl):\/\/[^/]+\//.exec(cwd)?.[0];
   const trimmed = trimSlash(remoteRoot ? `/${cwd.slice(remoteRoot.length)}` : cwd);
   if (trimmed === "~") return undefined;
   const parts = trimmed.split("/").filter(Boolean);

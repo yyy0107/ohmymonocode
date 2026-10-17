@@ -51,7 +51,7 @@ export function encodeProjectPreferencePath(path: string): string {
   if (parseProjectPreferenceIdentity(path)) return path;
   if (!absolute(path)) return path;
   let project = remoteProjectFor(path);
-  if (!project?.projectId) project = sharedProjects().find((entry) => pathKey(entry.cwd) === pathKey(path));
+  if (!project?.projectId) project = sharedProjects().find((entry) => pathKey(entry.key) === pathKey(path));
   if (!project?.projectId) throw new Error("Open this project on its Host before saving shared project settings.");
   return projectPreferenceIdentity(project.environmentId, project.projectId);
 }
@@ -62,7 +62,7 @@ export function decodeProjectPreferencePath(value: string): string | undefined {
   const local = identity.environmentId === sharedHostEnvironment();
   const projects = local ? sharedProjects() : remoteProjectsOn(identity.environmentId);
   const project = projects.find((entry) => entry.projectId === identity.projectId);
-  return project ? local ? project.cwd : remoteProjectKey(identity.environmentId, project.cwd) : undefined;
+  return project ? local ? project.key : remoteProjectKey(identity.environmentId, project.cwd) : undefined;
 }
 
 const casePreservingMaps = new Set([

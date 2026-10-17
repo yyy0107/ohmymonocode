@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { readMobileDeviceInfo } from "./deviceInfo";
+import { setUiLanguage } from "../shared/i18n/language";
 import {
   MobileClient,
   normalizeHostUrl,
@@ -13,6 +14,7 @@ import type {
   HostCommand,
   HostSessionSummary,
 } from "../features/connections/model/protocol";
+import { REMOTE_PROVIDERS } from "../features/connections/model/protocol";
 import {
   readSessionCache, saveSessionCache, SESSION_CACHE_KEY,
   SESSION_CACHE_PROJECT_LIMIT, SESSION_CACHE_SESSION_LIMIT, SESSION_CACHE_SIZE_LIMIT,
@@ -92,6 +94,7 @@ const send: HostCommand = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  setUiLanguage("en");
   vi.mocked(readMobileDeviceInfo).mockResolvedValue(undefined);
 });
 describe("mobile session summary cache", () => {
@@ -462,6 +465,62 @@ describe("mobile session summary cache", () => {
   });
 });
 describe("mobile Host transport", () => {
+  it("exchanges a pairing code and restores only its private credential", async () => {
+    const store = memory();
+    const privateToken = "private-device-credential";
+    const rpc = vi.fn<RpcTransport>(async (_endpoint, credential, request) => {
+      const input = request as { method: string };
+      if (input.method === "devices.pair") {
+        expect(credential).toBe("XD5J-2J3U");
+        return { id: "phone", token: privateToken, host: descriptor };
+      }
+      expect(input.method).toBe("environment.describe");
+      expect(credential).toBe(privateToken);
+      return descriptor;
+    });
+    const client = new MobileClient(store, rpc);
+    await client.connect(endpoint, "XD5J-2J3U");
+    expect(client.connection?.token).toBe(privateToken);
+    expect(await store.get("connection")).not.toContain("XD5J-2J3U");
+    expect(await store.get("connections")).not.toContain("XD5J-2J3U");
+    const restored = new MobileClient(store, rpc);
+    expect(await restored.restore()).toBe(true);
+    expect(rpc.mock.calls.map((call) => (call[2] as { method: string }).method))
+      .toEqual(["devices.pair", "environment.describe"]);
+  });
+
+  it("preserves a pairing code when a pending request belongs to another Host", async () => {
+    const store = memory();
+    await store.set("pending", JSON.stringify({ endpoint: "https://previous.example", environmentId: "previous", command: send }));
+    const rpc = vi.fn<RpcTransport>();
+    const client = new MobileClient(store, rpc);
+    await expect(client.connect(endpoint, "XD5J-2J3U")).rejects.toThrow("previous Host");
+    expect(rpc).not.toHaveBeenCalled();
+    expect(client.connection).toBeUndefined();
+  });
+
+  it("checks the pending Host identity before exchanging a code", async () => {
+    const store = memory();
+    await store.set("pending", JSON.stringify({ endpoint, environmentId: "previous", command: send }));
+    const rpc = vi.fn<RpcTransport>(async () => {
+      throw new HostRequestError("Host identity changed; reconnect this machine explicitly", 400);
+    });
+    const client = new MobileClient(store, rpc);
+    await expect(client.connect(endpoint, "XD5J-2J3U")).rejects.toThrow("Host identity changed");
+    expect(rpc).toHaveBeenCalledExactlyOnceWith(endpoint, "XD5J-2J3U", {
+      version: 1, method: "devices.pair", params: { expectedEnvironmentId: "previous", supportedProviders: REMOTE_PROVIDERS },
+    });
+    expect(await store.get("connection")).toBeNull();
+  });
+
+  it("does not save an invalid pairing response", async () => {
+    const store = memory();
+    const client = new MobileClient(store, async () => ({ id: "phone" }));
+    await expect(client.connect(endpoint, "XD5J-2J3U")).rejects.toThrow("Invalid Host response");
+    expect(client.connection).toBeUndefined();
+    expect(await store.get("connection")).toBeNull();
+  });
+
   it("uses native POST /rpc without browser Origin, disables redirects, and unwraps the Host envelope", async () => {
     http.post.mockResolvedValue({ status: 200, data: { result: descriptor } });
     expect(
@@ -649,11 +708,12 @@ describe("mobile client synchronization", () => {
     await client.sessionPreviews("session");
     expect(imageRequests).toBe(1);
   });
-  it("reads image bytes through the Host workspace protocol", async () => {
+  it.each([undefined, "wsl-project"])("reads image bytes through the Host workspace protocol with project %s", async (projectId) => {
     const rpc = vi.fn(
       transport((method, params) => {
         expect(method).toBe("workspace.run");
         expect(params).toEqual({
+          ...(projectId ? { projectId } : {}),
           command: "read_binary_file",
           args: { path: "/project/image.png" },
         });
@@ -663,7 +723,7 @@ describe("mobile client synchronization", () => {
     const client = new MobileClient(memory(), rpc);
     await client.connect(endpoint, token);
     expect(
-      Array.from(await client.readBinaryFile("/project/image.png")),
+      Array.from(await client.readBinaryFile("/project/image.png", projectId)),
     ).toEqual([65, 66, 67]);
   });
   it("applies streamed deltas without losing existing blocks and preserves unchanged snapshots", async () => {

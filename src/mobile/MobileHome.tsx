@@ -337,7 +337,7 @@ function useMobileHomeController({
         <Folder size={23} />
         <span>
           <strong>{item.name}</strong>
-          {!overview && <small>{item.cwd}</small>}
+          {!overview && <small>{item.machine?.kind === "wsl" ? `WSL · ${item.machine.distribution} · ${item.cwd}` : item.cwd}</small>}
         </span>
         {overview?.hostName && <small className="mobile-home-project-host">{overview.hostName}</small>}
         {projectActivity(history, !!overview)}

@@ -1,3 +1,4 @@
+import type { PopoverAnchor } from "../../../shared/ui/Popover";
 import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { NativePopupHost } from "../../../shared/ui/NativePopupHost";
@@ -30,7 +31,7 @@ import {
 import { GitPickerTrigger } from "../../source-control/ui/GitPickerTrigger";
 import { BranchMenuScrollArea, branchMenuLayout } from "../../source-control/ui/branchMenu";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
-import { Popover } from "../../../shared/ui/Popover";
+import { MenuPanel } from "../../../shared/ui/primitives/MenuPanel";
 import { MenuHover } from "../../../shared/ui/MenuHover";
 import { LAYER } from "../../../shared/lib/layers";
 import {
@@ -372,7 +373,7 @@ function WorkspaceModePicker({
         </button>
       ) : null}
       <PresenceBoundary propagate>{open ? (
-        <Popover
+        <MenuPanel
           anchor={anchor}
           side={popoverSide}
           width={240}
@@ -476,10 +477,10 @@ function WorkspaceModePicker({
               </button>
             </div>
           ) : null}
-        </Popover>
+        </MenuPanel>
       ) : null}</PresenceBoundary>
       <PresenceBoundary propagate>{open && worktreeMenu ? (
-        <Popover
+        <MenuPanel
           anchor={worktreeAnchor}
           side="right"
           gap={SUBMENU_GAP}
@@ -552,7 +553,7 @@ function WorkspaceModePicker({
               {pickError || loadError}
             </p>
           ) : null}
-        </Popover>
+        </MenuPanel>
       ) : null}</PresenceBoundary>
     </div>
   );
@@ -573,6 +574,7 @@ export function WorktreeBasePicker({
   onClose,
   onOpenChange,
   popoverSide = "top",
+  menuAnchor,
   initialOpen = false,
   className,
   compactLabel = false,
@@ -585,6 +587,7 @@ export function WorktreeBasePicker({
   onClose?: () => void;
   initialOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
+  menuAnchor?: PopoverAnchor;
   popoverSide?: "top" | "bottom" | "right";
   className?: string;
   compactLabel?: boolean;
@@ -595,7 +598,7 @@ export function WorktreeBasePicker({
   useEffect(() => {
     onOpenChange?.(open);
   }, [open, onOpenChange]);
-  useEffect(() => () => onOpenChange?.(false), [onOpenChange]);
+  useEffect(() => () => { if (!menuAnchor) onOpenChange?.(false); }, [onOpenChange, menuAnchor]);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const anchor = useRef<HTMLDivElement>(null);
@@ -713,7 +716,7 @@ export function WorktreeBasePicker({
       ref={anchor}
       className={`relative flex min-w-0 shrink-0${className ? ` ${className}` : ""}`}
     >
-      <GitPickerTrigger
+      {!menuAnchor ? <GitPickerTrigger
         disabled={!enabled}
         title={uiT("Create from {value0}", { value0: String(selected) })}
         aria-label={uiT("Create worktree from {value0}", {
@@ -732,16 +735,20 @@ export function WorktreeBasePicker({
             : uiT("From {value0}", { value0: String(selected) })
         }
         loading={loading}
-      />
+      /> : null}
       <PresenceBoundary propagate>
         {open ? (
-          <Popover
-            anchor={anchor}
+          <MenuPanel
+            anchor={menuAnchor ?? anchor}
+            submenu={!!menuAnchor}
             side={popoverSide}
             width={width}
             minHeight={desktop ? 0 : 160}
             maxHeight={maxHeight}
-            onDismiss={dismiss}
+            onDismiss={() => {
+              if (menuAnchor) { setOpen(false); setQuery(""); }
+              else dismiss();
+            }}
             role="dialog"
             aria-label={uiT("Worktree base branch")}
             data-menu-density={desktop ? "compact" : undefined}
@@ -790,7 +797,7 @@ export function WorktreeBasePicker({
             ) : (
               branchList
             )}
-          </Popover>
+          </MenuPanel>
         ) : null}
       </PresenceBoundary>
     </div>

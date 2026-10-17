@@ -1,3 +1,5 @@
+import { observeNativeScrollbarEdges } from "../../../shared/ui/nativeScrollbarEdges";
+import scrollbarCSS from "../../../shared/ui/scrollbar.css?raw";
 import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 // Adapted from ZCode (Apache-2.0).
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
@@ -47,7 +49,7 @@ const viewerStyle = {
   "--diffs-gap-inline": "8px",
   "--diffs-gap-block": "4px",
   "--diffs-scrollbar-gutter-override":
-    "max(var(--scrollbar-min-size, 0px), calc(6px * var(--scrollbar-scale, 1)))",
+    "var(--scrollbar-size, max(var(--scrollbar-min-size, 0px), calc(6px * var(--scrollbar-scale, 1))))",
 } as CSSProperties;
 
 const virtualMetrics = {
@@ -78,15 +80,22 @@ export const ReviewDiffViewer = memo(function ReviewDiffViewer({
   const workerPool = useWorkerPool();
   const visible = useSurfaceVisibility();
   const separatorLayout = useRef<ReturnType<typeof createReviewSeparatorLayout> | null>(null);
+  const scrollbarRoots = useRef(new Map<ShadowRoot, () => void>());
   const onPostRender = useCallback((container: HTMLElement) => {
     separatorLayout.current ??= createReviewSeparatorLayout();
     separatorLayout.current.update(container);
+    const root = container.getRootNode();
+    if (root instanceof ShadowRoot && !scrollbarRoots.current.has(root)) {
+      scrollbarRoots.current.set(root, observeNativeScrollbarEdges(root));
+    }
     if (container.shadowRoot?.querySelector("[data-line], [data-error-wrapper]")) onReady?.(true);
   }, [onReady]);
   useEffect(() => () => onReady?.(false), [onReady]);
   useEffect(() => () => {
     separatorLayout.current?.dispose();
     separatorLayout.current = null;
+    for (const cleanup of scrollbarRoots.current.values()) cleanup();
+    scrollbarRoots.current.clear();
   }, []);
   const [comment, setComment] = useState<DiffCommentComposerTarget | null>(
     null,
@@ -182,28 +191,7 @@ export const ReviewDiffViewer = memo(function ReviewDiffViewer({
         [data-overflow="wrap"] [data-code] {
           overflow: clip;
         }
-        [data-code]::-webkit-scrollbar {
-          width: 0;
-          height: var(--diffs-scrollbar-gutter-override);
-        }
-        [data-code]::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        [data-code]::-webkit-scrollbar-thumb {
-          background: color-mix(in srgb, var(--color-content) ${themeType === "dark" ? 24 : 55}%, var(--diffs-bg));
-          background-clip: padding-box;
-          border: 1px solid transparent;
-          border-radius: 3px;
-        }
-        [data-code]::-webkit-scrollbar-thumb:hover {
-          background-color: color-mix(in srgb, var(--color-content) ${themeType === "dark" ? 36 : 65}%, var(--diffs-bg));
-        }
-        @supports (-moz-appearance: none) {
-          [data-code] {
-            scrollbar-color: color-mix(in srgb, var(--color-content) ${themeType === "dark" ? 24 : 55}%, var(--diffs-bg))
-              transparent;
-          }
-        }
+        ${scrollbarCSS}
       `,
       theme: REVIEW_THEMES,
       themeType,

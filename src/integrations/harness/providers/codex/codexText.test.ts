@@ -18,6 +18,7 @@ function receive(message: unknown) {
 }
 
 vi.mock("../../core/child", () => ({
+  childUsesSelectedMachine: () => true,
   resolveCodexBinary: async () => ({ path: "/fake/codex" }),
   spawnChild: async () => undefined,
   killChild: async () => undefined,

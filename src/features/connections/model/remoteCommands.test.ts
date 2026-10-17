@@ -13,12 +13,32 @@ vi.mock("./connections", () => ({ remoteRequest, remoteMachineFor }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeLocal }));
 
 import { runRemoteCommand } from "./remoteCommands";
-import { parseRemotePath, remotePath } from "./remoteProjects";
+import { parseRemotePath, remotePath, configureSharedHost } from "./remoteProjects";
 import { listDir, readBinaryFile, readTextFile, statFiles, writeTextFile } from "../../../platform/tauri/fs";
 
 beforeEach(() => {
   remoteRequest.mockReset();
   invokeLocal.mockReset();
+  configureSharedHost(undefined, []);
+});
+
+it("routes WSL files through the desktop Host with explicit distribution and never native Windows IO", async () => {
+  configureSharedHost("env", [], "machine");
+  remoteRequest.mockResolvedValue([{ path: "/home/dev/repo/a.txt", mtimeMs: 1 }]);
+  expect(await statFiles(["wsl://Ubuntu/home/dev/repo/a.txt"])).toEqual([
+    { path: "wsl://Ubuntu/home/dev/repo/a.txt", mtimeMs: 1 },
+  ]);
+  expect(remoteRequest).toHaveBeenCalledWith("machine", "workspace.run", {
+    command: "stat_files", args: { paths: ["/home/dev/repo/a.txt"] }, machine: { kind: "wsl", distribution: "Ubuntu" },
+  });
+  expect(invokeLocal).not.toHaveBeenCalled();
+});
+
+it("rejects copies between WSL distributions or WSL and the Windows host", async () => {
+  configureSharedHost("env", [], "machine");
+  for (const destParent of ["wsl://Debian/home/dev", "remote://env/C:/work"])
+    await expect(runRemoteCommand("copy_path", { from: "wsl://Ubuntu/home/dev/a", destParent })).rejects.toThrow("one machine");
+  expect(remoteRequest).not.toHaveBeenCalled();
 });
 
 it("keeps local writes local when their content mentions a remote path", async () => {

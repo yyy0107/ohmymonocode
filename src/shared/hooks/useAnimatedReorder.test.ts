@@ -192,6 +192,27 @@ describe("workspace tab gestures", () => {
     expect(onReorder).not.toHaveBeenCalled();
   });
 
+  it("makes room for an item's own size when neighbours differ in height", () => {
+    const { press, tabs, onReorder } = setup(false, "y", undefined, undefined, [
+      { top: 0, height: 36 },
+      { top: 46, height: 60 },
+      { top: 116, height: 120 },
+    ]);
+    press(2);
+    pointer("pointermove", 32);
+    vi.advanceTimersByTime(16);
+    // The shorter card moves past the whole tall card, not by its own height.
+    expect(tabs[1].style.transform).toBe("translate3d(0, 130px, 0)");
+    expect(tabs[0].style.transform).toBe("translate3d(0, 0px, 0)");
+    pointer("pointerup", 32);
+    expect(tabs[2].style.transform).toBe("translate3d(0, -70px, 0)");
+    vi.runAllTimers();
+    expect(onReorder).toHaveBeenCalledExactlyOnceWith(
+      ["sessions", "explorer", "changes"],
+      "explorer",
+    );
+  });
+
   it("previews and reorders vertical project rows", () => {
     const { press, tabs, onReorder } = setup(false, "y");
     press();

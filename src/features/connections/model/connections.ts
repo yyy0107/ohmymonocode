@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import { connectWslDistribution } from "../../../platform/tauri/wsl";
 import { useEffect, useMemo, useState } from "react";
 import {
   applySessionSync,
@@ -41,7 +40,7 @@ let machineRequest: Promise<RemoteMachine[]> | undefined;
 let machineRevision = 0;
 export const OPEN_CONNECTIONS_EVENT = "monocode:open-connections";
 export const OPEN_REMOTE_PROJECT_EVENT = "monocode:open-remote-project";
-export type OpenRemoteProjectDetail = { environment?: "wsl"; distribution?: string };
+export const OPEN_NEW_ENVIRONMENT_EVENT = "monocode:open-new-environment";
 export const refreshRemoteMachines = () =>
   window.dispatchEvent(new Event(CHANGE));
 const TAB_KEY = "monocode.remote-tabs.v2";
@@ -440,15 +439,6 @@ export async function connectMachine(
   return machine;
 }
 
-export async function connectWslMachine(distribution: string): Promise<RemoteMachine> {
-  const machine = await connectWslDistribution(distribution);
-  machineRevision++;
-  cachedMachines = [...cachedMachines.filter((entry) => entry.id !== machine.id), machine];
-  machinesLoaded = true;
-  window.dispatchEvent(new Event(CHANGE));
-  return machine;
-}
-
 export async function disconnectMachine(machineId: string): Promise<void> {
   const machine = cachedMachines.find((entry) => entry.id === machineId);
   if (machineId === sharedHostMachineId() || (machine && isSharedHostMachine(machine)))
@@ -731,7 +721,7 @@ export function prefetchRemoteProjectSessions(project: string): Promise<void> {
         throw new Error("Remote machine is not connected");
       }
       request.machineId = machine.id;
-      const hostProject = remote.local ? await ensureSharedProject(remote.cwd) : remote;
+      const hostProject = remote.local ? await ensureSharedProject(remote.key) : remote;
       if (sessionRequests.get(key) !== request ||
           sessionProjectIdentity(project) !== identity ||
           knownRemoteMachine(remote.environmentId)?.id !== machine.id) return;

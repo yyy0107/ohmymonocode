@@ -8,6 +8,7 @@ import { act, createElement, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SessionSurfaceToolbar } from "./SessionSurfaceToolbar";
+import { loadStatusCardsVisible } from "../../sessions/model/statusCardOrder";
 import {
   SessionHeaderActionsContext,
   type SessionHeaderActions,
@@ -92,7 +93,6 @@ beforeEach(() => {
     archive: vi.fn(),
     splitRight: vi.fn(),
     terminalAvailable: true,
-    terminalOpen: false,
     toggleTerminal: vi.fn(),
     toggleFiles: vi.fn(),
     changesOpen: false,
@@ -217,6 +217,23 @@ it("places the sole action trigger after tools and before window controls", asyn
       order.every((index, i) => index >= 0 && (!i || index > order[i - 1])),
     ).toBe(true);
   }
+});
+
+it("toggles the status cards from a started conversation's toolbar", async () => {
+  sessions[0] = { ...sessions[0], blocks: [{ id: "ask", role: "user", text: "Hi" }] };
+  await render();
+  expect(container.querySelector('[data-session-surface-tabs="right"] [data-session-tool-toggle="status"]')).toBeNull();
+  const toggle = () =>
+    container.querySelector<HTMLButtonElement>('[data-session-surface-tabs="left"] [data-session-tool-toggle="status"]')!;
+  const header = container.querySelector('[data-session-surface-tabs="left"]')!;
+  const buttons = [...header.querySelectorAll("button")];
+  expect(buttons.indexOf(toggle())).toBeLessThan(buttons.indexOf(header.querySelector("[data-session-tool-toggle=terminal]")!));
+  expect(toggle().getAttribute("aria-pressed")).toBe("true");
+  act(() => toggle().click());
+  expect(toggle().getAttribute("aria-pressed")).toBe("false");
+  expect(loadStatusCardsVisible()).toBe(false);
+  act(() => toggle().click());
+  expect(loadStatusCardsVisible()).toBe(true);
 });
 
 it("opens the owning session's files without routing through a different focused pane", async () => {

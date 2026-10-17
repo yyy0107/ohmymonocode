@@ -2,6 +2,7 @@ import { manualSessionTitle } from "../src/features/sessions/model/titlePolicy";
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID, createHash, randomBytes } from "node:crypto";
 import { dirname, join } from "node:path";
+import { parseProjectMachine, projectMachineKey, type ProjectMachine } from "../src/integrations/harness/core/machine";
 import type {
   CommandReceipt,
   HostDeviceInfo,
@@ -27,6 +28,8 @@ export type HostDevice = HostDeviceInfo & {
   name: string;
   admin: boolean;
   createdAt?: number;
+  /** A newly issued pairing code has been exchanged for a device credential. */
+  pairedAt?: number;
   lastSeen?: number;
   /** Made a request within the last {@link DEVICE_ONLINE_MS}. */
   online?: boolean;
@@ -38,10 +41,18 @@ export const DEVICE_ONLINE_MS = 30_000;
 // Crockford-style alphabet without 0/O/1/I; 32 symbols keep each byte unbiased.
 const PAIRING_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-/** A phone-friendly device token such as `XD5J-2J3U`, typed or scanned on mobile. */
+/** A phone-friendly single-use pairing code such as `XD5J-2J3U`. */
 export function pairingCode(): string {
   const symbols = [...randomBytes(8)].map((byte) => PAIRING_ALPHABET[byte % 32]).join("");
   return `${symbols.slice(0, 4)}-${symbols.slice(4)}`;
+}
+
+export class PairingCodeError extends Error {
+  constructor(readonly code: "PAIRING_CODE_USED" | "PAIRING_CODE_INVALID") {
+    super(code === "PAIRING_CODE_USED"
+      ? "Pairing code has already been used. Generate a new code on the computer."
+      : "Pairing code is invalid or revoked. Generate a new code on the computer.");
+  }
 }
 
 export class HostStore {
@@ -87,8 +98,24 @@ export class HostStore {
     if (!deviceColumns.some(column => column.name === "manufacturer")) this.db.exec("ALTER TABLE devices ADD COLUMN manufacturer TEXT");
     if (!deviceColumns.some(column => column.name === "device_type")) this.db.exec("ALTER TABLE devices ADD COLUMN device_type TEXT");
     if (!deviceColumns.some(column => column.name === "hostname")) this.db.exec("ALTER TABLE devices ADD COLUMN hostname TEXT");
+    if (!deviceColumns.some(column => column.name === "pairing_hash")) this.db.exec("ALTER TABLE devices ADD COLUMN pairing_hash TEXT");
+    if (!deviceColumns.some(column => column.name === "paired_at")) this.db.exec("ALTER TABLE devices ADD COLUMN paired_at INTEGER");
+    this.db.exec("CREATE UNIQUE INDEX IF NOT EXISTS devices_pairing_hash ON devices(pairing_hash)");
     const columns = this.db.prepare("PRAGMA table_info(sessions)").all();
     if (!this.db.prepare("PRAGMA table_info(projects)").all().some(column => column.name === "kind")) this.db.exec("ALTER TABLE projects ADD COLUMN kind TEXT");
+    if (!this.db.prepare("PRAGMA table_info(projects)").all().some(column => column.name === "machine")) {
+      // Keep raw Linux cwd values; uniqueness belongs to (execution machine, cwd).
+      // Foreign keys keep referring to projects while only its table is rebuilt.
+      this.db.exec("PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE");
+      try {
+        this.db.exec(`CREATE TABLE projects_machine_upgrade (id TEXT PRIMARY KEY, cwd TEXT NOT NULL, name TEXT NOT NULL, kind TEXT, machine TEXT NOT NULL DEFAULT 'local', UNIQUE(machine,cwd));
+          INSERT INTO projects_machine_upgrade(id,cwd,name,kind) SELECT id,cwd,name,kind FROM projects;
+          DROP TABLE projects;
+          ALTER TABLE projects_machine_upgrade RENAME TO projects;
+          COMMIT`);
+      } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+      finally { this.db.exec("PRAGMA foreign_keys=ON"); }
+    }
     if (!columns.some((column) => column.name === "summary"))
       this.db.exec("ALTER TABLE sessions ADD COLUMN summary TEXT");
     // `summary` follows the large `snapshot` column, so reading it from the
@@ -148,22 +175,24 @@ export class HostStore {
   project(id: string): HostProject {
     const row = this.db.prepare("SELECT * FROM projects WHERE id=?").get(id);
     if (!row) throw new Error("Project is not registered on this machine");
-    return { id: String(row.id), cwd: String(row.cwd), name: String(row.name), ...(row.kind === "assistant" ? { kind: "assistant" as const } : {}) };
+    return { id: String(row.id), cwd: String(row.cwd), name: String(row.name), ...(row.kind === "assistant" ? { kind: "assistant" as const } : {}),
+      ...(String(row.machine).startsWith("wsl:") ? { machine: { kind: "wsl" as const, distribution: String(row.machine).slice(4) } } : {}) };
   }
 
   projects(): HostProject[] {
     return this.db
       .prepare("SELECT * FROM projects WHERE kind IS NULL ORDER BY name")
-      .all().map(row => ({ id: String(row.id), cwd: String(row.cwd), name: String(row.name) }));
+      .all().map(row => this.project(String(row.id)));
   }
 
-  addProject(cwd: string, name: string, kind?: "assistant"): HostProject {
+  addProject(cwd: string, name: string, kind?: "assistant", machine?: ProjectMachine): HostProject {
+    const machineKey = projectMachineKey(parseProjectMachine(machine));
     this.db
-      .prepare("INSERT OR IGNORE INTO projects(id,cwd,name,kind) VALUES (?, ?, ?, ?)")
-      .run(randomUUID(), cwd, name, kind ?? null);
+      .prepare("INSERT OR IGNORE INTO projects(id,cwd,name,kind,machine) VALUES (?, ?, ?, ?, ?)")
+      .run(randomUUID(), cwd, name, kind ?? null, machineKey);
     const row = this.db
-      .prepare("SELECT * FROM projects WHERE cwd=?")
-      .get(cwd)!;
+      .prepare("SELECT * FROM projects WHERE cwd=? AND machine=?")
+      .get(cwd, machineKey)!;
     return this.project(String(row.id));
   }
 
@@ -463,6 +492,7 @@ export class HostStore {
 
   invalidateSession(id: string): void {
     this.cache.delete(id);
+    this.assistantSessions.delete(id);
     this.queuedSessions?.delete(id);
   }
 
@@ -533,6 +563,41 @@ export class HostStore {
     return { id, token };
   }
 
+  /** The displayed code can only exchange credentials; it never authorizes RPC. */
+  issuePairingDevice(name: string): { id: string; token: string } {
+    return this.transaction(() => {
+      let code: string;
+      do { code = pairingCode(); }
+      while (this.hasPairingCode(code) || this.authenticated(code));
+      const device = this.issueDevice(name);
+      this.db.prepare("UPDATE devices SET pairing_hash=? WHERE id=?")
+        .run(this.hash(code), device.id);
+      return { id: device.id, token: code };
+    });
+  }
+
+  hasPairingCode(code: string): boolean {
+    return !!this.db.prepare("SELECT 1 FROM devices WHERE pairing_hash=?").get(this.hash(code));
+  }
+
+  /** Serialize redemption with the credential change so only one phone wins. */
+  redeemPairingCode(code: string): { id: string; token: string } {
+    return this.transaction(() => {
+      const row = this.db.prepare("SELECT id, paired_at FROM devices WHERE pairing_hash=?").get(this.hash(code));
+      if (!row) {
+        // Existing phones keep their previously issued permanent credentials.
+        const legacy = this.db.prepare("SELECT id FROM devices WHERE hash=?").get(this.hash(code));
+        if (legacy) return { id: String(legacy.id), token: code };
+        throw new PairingCodeError("PAIRING_CODE_INVALID");
+      }
+      if (row.paired_at != null) throw new PairingCodeError("PAIRING_CODE_USED");
+      const token = randomBytes(32).toString("base64url");
+      this.db.prepare("UPDATE devices SET hash=?, paired_at=? WHERE id=?")
+        .run(this.hash(token), Date.now(), row.id);
+      return { id: String(row.id), token };
+    });
+  }
+
   markAdminDevice(id: string): void {
     this.db.prepare("UPDATE devices SET admin=1 WHERE id=?").run(id);
   }
@@ -545,7 +610,7 @@ export class HostStore {
 
   devices(now = Date.now()): HostDevice[] {
     return this.db
-      .prepare("SELECT id, name, admin, created_at, last_seen, hash, model, manufacturer, device_type, hostname FROM devices ORDER BY created_at, name")
+      .prepare("SELECT id, name, admin, created_at, paired_at, last_seen, hash, model, manufacturer, device_type, hostname FROM devices ORDER BY created_at, name")
       .all()
       .map((row) => ({
         id: String(row.id),
@@ -556,6 +621,7 @@ export class HostStore {
         ...(row.device_type === "desktop" || row.device_type === "mobile" ? { deviceType: row.device_type } : {}),
         ...(row.hostname ? { hostname: String(row.hostname) } : {}),
         createdAt: row.created_at == null ? undefined : Number(row.created_at),
+        ...(row.paired_at == null ? {} : { pairedAt: Number(row.paired_at) }),
         lastSeen: row.last_seen == null ? undefined : Number(row.last_seen),
         online: now - (this.activeAt.get(String(row.hash)) ?? 0) < DEVICE_ONLINE_MS,
       }));

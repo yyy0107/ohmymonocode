@@ -383,12 +383,13 @@ describe("native window resize handles", () => {
     },
   );
 
-  it.each(["cm-editorScrollbar", "xterm"])(
+  it.each(["cm-editorScrollbar", "xterm", "shared"])(
     "preserves the %s custom scrollbar",
     async (kind) => {
       await render();
       const wrapper = document.createElement("div");
       wrapper.className = kind;
+      if (kind === "shared") wrapper.dataset.ui = "scrollbar";
       const thumb = document.createElement("div");
       if (kind === "xterm") {
         const track = document.createElement("div");

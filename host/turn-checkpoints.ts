@@ -1,19 +1,14 @@
-import { execFile } from "node:child_process";
+import { machineExec, machineFs, machinePath, machineEnvironment, currentMachineIO } from "./machine-io";
 import { randomUUID } from "node:crypto";
-import { lstatSync } from "node:fs";
 import {
-  lstat,
   mkdir,
   open,
   readFile,
   readdir,
-  realpath,
   rename,
-  rm,
-  unlink,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, join } from "node:path";
 import type {
   CheckpointFile,
   CheckpointFileDiff,
@@ -42,6 +37,7 @@ type RecordedTurn = {
 };
 
 type TurnReview = {
+  machine?: string;
   cwd: string;
   repo: string;
   active: RecordedTurn | null;
@@ -85,8 +81,8 @@ export class TurnCheckpoints {
     }
     let review = await readReview(dir);
     if (discoverError?.includes("not a git repository") && !review) return false;
-    if (review && review.cwd !== clientPath(root)) review = undefined;
-    review ??= { cwd: clientPath(root), repo: "", active: null, latest: null };
+    if (review && (review.cwd !== clientPath(root) || (review.machine ?? "local") !== currentMachineIO().key)) review = undefined;
+    review ??= { machine: currentMachineIO().key, cwd: clientPath(root), repo: "", active: null, latest: null };
     const pending = review.active && review.active.before && !review.active.error
       ? review.active
       : undefined;
@@ -153,7 +149,7 @@ export class TurnCheckpoints {
         turn.error = message(error);
       }
     }
-    await writeJson(join(dir, "turns", `${id}.json`), { cwd: review.cwd, repo: review.repo, turn });
+    await writeJson(join(dir, "turns", `${id}.json`), { machine: review.machine, cwd: review.cwd, repo: review.repo, turn });
     review.latest = turn;
     await writeReview(dir, review);
     if (turn.error) throw new Error(turn.error);
@@ -170,7 +166,7 @@ export class TurnCheckpoints {
     if (!review) return false;
     // Late tool events must not change the last completed turn.
     if (!review.active) return true;
-    const workspace = resolve(cwd.trim());
+    const workspace = machinePath.resolve(cwd.trim());
     const edited = new Set(review.active.edited);
     for (const path of paths) {
       const relativePath = resolveEditPath(workspace, review.cwd, path);
@@ -275,7 +271,7 @@ export class TurnCheckpoints {
     for (const change of restoring) {
       if (change.before)
         await runGit(root, ["restore", "--source", turn.before!, "--worktree", "--", change.relative]);
-      else await unlink(join(root, ...change.relative.split("/")));
+      else await machineFs.unlink(machinePath.join(root, ...change.relative.split("/")));
     }
     return this.keep(sessionId, cwd, relativePath);
   }
@@ -284,6 +280,8 @@ export class TurnCheckpoints {
     const dir = this.sessionDir(sessionId);
     const repos = new Set<string>();
     const review = await readReview(dir);
+    if (review && (review.machine ?? "local") !== currentMachineIO().key)
+      throw new Error("Checkpoint belongs to a different machine");
     if (review?.repo) repos.add(review.repo);
     for (const entry of await readdir(join(dir, "turns")).catch(() => [])) {
       const saved = JSON.parse(await readFile(join(dir, "turns", entry), "utf8")) as { repo?: string };
@@ -291,7 +289,7 @@ export class TurnCheckpoints {
     }
     const prefix = `refs/monocode/checkpoints/${sessionId}/`;
     for (const repo of repos) {
-      if (!(await lstat(repo).catch(() => undefined))?.isDirectory()) continue;
+      if (!(await machineFs.lstat(repo).catch(() => undefined))?.isDirectory()) continue;
       const refs = (await runGit(repo, ["for-each-ref", "--format=%(refname)", prefix])).toString("utf8");
       for (const reference of refs.split("\n"))
         if (reference.startsWith(prefix)) await runGit(repo, ["update-ref", "-d", reference]);
@@ -300,7 +298,7 @@ export class TurnCheckpoints {
 
   private async matching(sessionId: string, cwd: string): Promise<TurnReview | undefined> {
     const review = await readReview(this.sessionDir(sessionId));
-    if (!review) return undefined;
+    if (!review || (review.machine ?? "local") !== currentMachineIO().key) return undefined;
     return review.cwd === clientPath(await canonicalRoot(cwd)) ? review : undefined;
   }
 
@@ -311,7 +309,7 @@ export class TurnCheckpoints {
       if (!entry.isDirectory() || entry.name === except) continue;
       const dir = join(this.root, entry.name);
       const review = await readReview(dir).catch(() => undefined);
-      if (review?.active && pathsOverlap(root, review.cwd)) active.push([dir, review]);
+      if (review?.active && (review.machine ?? "local") === currentMachineIO().key && pathsOverlap(root, review.cwd)) active.push([dir, review]);
     }
     return active;
   }
@@ -343,11 +341,11 @@ function message(error: unknown): string {
 async function canonicalRoot(cwd: string): Promise<string> {
   const trimmed = cwd.trim();
   if (!trimmed || trimmed === "~") throw new Error("cwd is required");
-  return realpath(resolve(trimmed));
+  return machineFs.realpath(machinePath.resolve(trimmed));
 }
 
 function clientPath(path: string): string {
-  return path.split(sep).join("/");
+  return path.split(machinePath.sep).join("/");
 }
 
 function joinClient(root: string, relativePath: string): string {
@@ -356,14 +354,14 @@ function joinClient(root: string, relativePath: string): string {
 
 function pathsOverlap(left: string, right: string): boolean {
   const within = (parent: string, child: string) => {
-    const rel = relative(parent, child);
+    const rel = machinePath.relative(parent, child);
     return rel === "" || isInsidePath(rel);
   };
   return within(left, right) || within(right, left);
 }
 
 function isInsidePath(path: string): boolean {
-  return !!path && path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path);
+  return !!path && path !== ".." && !path.startsWith(`..${machinePath.sep}`) && !machinePath.isAbsolute(path);
 }
 
 // Git's NUL-delimited output already contains literal paths. Never trim them
@@ -372,9 +370,9 @@ function resolveTurnPath(relativePath: string): string {
   if (
     !relativePath ||
     relativePath.includes("\0") ||
-    isAbsolute(relativePath) ||
+    machinePath.isAbsolute(relativePath) ||
     relativePath.split("/").some((part) => !part || part === "." || part === ".." || part === ".git") ||
-    (sep === "\\" && relativePath.includes("\\"))
+    (machinePath.sep === "\\" && relativePath.includes("\\"))
   )
     throw new Error("Invalid checkpoint path");
   return relativePath;
@@ -383,9 +381,9 @@ function resolveTurnPath(relativePath: string): string {
 function resolveEditPath(workspace: string, root: string, path: string): string | undefined {
   if (typeof path !== "string" || !path) return undefined;
   let candidate = path;
-  if (isAbsolute(candidate)) {
+  if (machinePath.isAbsolute(candidate)) {
     const inside = [workspace, root]
-      .map((base) => relative(base, candidate))
+      .map((base) => machinePath.relative(base, candidate))
       .find(isInsidePath);
     if (!inside) return undefined;
     candidate = inside;
@@ -397,34 +395,23 @@ function resolveEditPath(workspace: string, root: string, path: string): string 
   }
 }
 
-function runGit(root: string, args: string[], env: Record<string, string> = {}): Promise<Buffer> {
-  const base = { ...process.env };
-  for (const name of ["GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE"]) delete base[name];
-  return new Promise((done, fail) => {
-    execFile(
-      "git",
-      ["--no-pager", "-C", root, "-c", "core.fsmonitor=false", ...args],
-      {
-        windowsHide: true,
-        encoding: "buffer",
-        maxBuffer: 64 * 1024 * 1024,
-        env: { ...base, GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0", GIT_LITERAL_PATHSPECS: "1",
-          // Messages are matched below, e.g. "not a git repository".
-          LC_ALL: "C", ...env },
-      },
-      (error, stdout, stderr) => {
-        if (error) fail(Object.assign(new Error(stderr.toString("utf8").trim() || error.message), { stderr }));
-        else done(stdout);
-      },
-    );
+async function runGit(root: string, args: string[], env: Record<string, string> = {}): Promise<Buffer> {
+  const base = { ...machineEnvironment() };
+  // Undefined clears inherited Git overrides in both the native subprocess and
+  // the remote environment overlay; a Linux daemon may inherit shell settings.
+  for (const name of ["GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE"]) base[name] = undefined;
+  const result = await machineExec("git", ["--no-pager", "-C", root, "-c", "core.fsmonitor=false", ...args], {
+    cwd: root, windowsHide: true, encoding: "buffer", maxBuffer: 64 * 1024 * 1024,
+    env: { ...base, GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0", GIT_LITERAL_PATHSPECS: "1", LC_ALL: "C", ...env },
   });
+  return result.stdout;
 }
 
 async function captureWorkspace(root: string, reference: string): Promise<string> {
   const sparse = await runGit(root, ["config", "--bool", "core.sparseCheckout"]).catch(() => Buffer.alloc(0));
   if (sparse.toString("utf8").startsWith("true"))
     throw new Error("Workspace checkpoints are unavailable for sparse checkouts");
-  const index = join(tmpdir(), `monocode-checkpoint-${randomUUID()}`);
+  const index = machinePath.join(currentMachineIO().key === "local" ? tmpdir() : "/tmp", `monocode-checkpoint-${randomUUID()}`);
   const env = {
     GIT_INDEX_FILE: index,
     GIT_AUTHOR_NAME: "MonoCode",
@@ -444,8 +431,8 @@ async function captureWorkspace(root: string, reference: string): Promise<string
     await run([...durable, "update-ref", reference, commit]);
     return commit;
   } finally {
-    await rm(index, { force: true });
-    await rm(`${index}.lock`, { force: true });
+    await machineFs.rm(index, { force: true });
+    await machineFs.rm(`${index}.lock`, { force: true });
   }
 }
 
@@ -522,12 +509,12 @@ async function resolvedTurnPaths(
     .map((change) => change.relative);
 }
 
-function pathContainsSymlink(root: string, relativePath: string): boolean {
+async function pathContainsSymlink(root: string, relativePath: string): Promise<boolean> {
   let current = root;
   for (const part of relativePath.split("/")) {
-    current = join(current, part);
+    current = machinePath.join(current, part);
     try {
-      if (lstatSync(current).isSymbolicLink()) return true;
+      if ((await machineFs.lstat(current)).isSymbolicLink()) return true;
     } catch (error) {
       return (error as NodeJS.ErrnoException).code !== "ENOENT";
     }
@@ -537,18 +524,18 @@ function pathContainsSymlink(root: string, relativePath: string): boolean {
 
 async function restorable(root: string, change: Change): Promise<boolean> {
   if (
-    pathContainsSymlink(root, change.relative) ||
+    await pathContainsSymlink(root, change.relative) ||
     [change.before, change.after].some((blob) => blob && blob.mode !== "100644" && blob.mode !== "100755")
   )
     return false;
-  const info = await lstat(join(root, ...change.relative.split("/"))).catch(
+  const info = await machineFs.lstat(machinePath.join(root, ...change.relative.split("/"))).catch(
     (error: NodeJS.ErrnoException) => (error.code === "ENOENT" ? null : undefined),
   );
   if (!change.after) return info === null;
   if (!info?.isFile()) return false;
-  const mode = process.platform !== "win32" && info.mode & 0o111 ? "100755" : "100644";
+  const mode = currentMachineIO().pathStyle !== "win32" && info.mode & 0o111 ? "100755" : "100644";
   // Windows has no executable bit; compare contents only there.
-  if (process.platform !== "win32" && mode !== change.after.mode) return false;
+  if (currentMachineIO().pathStyle !== "win32" && mode !== change.after.mode) return false;
   const oid = await runGit(root, ["hash-object", `--path=${change.relative}`, "--", change.relative]).then(
     (bytes) => bytes.toString("utf8").trim(),
     () => "",

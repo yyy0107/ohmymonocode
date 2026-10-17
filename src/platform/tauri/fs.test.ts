@@ -37,6 +37,26 @@ describe("pickFolders", () => {
     vi.mocked(open).mockResolvedValueOnce(null);
     await expect(pickFolders()).resolves.toEqual([]);
   });
+
+  it.each([
+    String.raw`\\wsl.localhost\Ubuntu-26.04\home\wy\.claude`,
+    String.raw`\\wsl$\Ubuntu-26.04\home\wy\.claude`,
+    String.raw`\\?\UNC\wsl.localhost\Ubuntu-26.04\home\wy\.claude`,
+  ])("opens a Linux picker folder as a WSL project: %s", async (path) => {
+    vi.mocked(open).mockResolvedValueOnce(path);
+    await expect(pickFolders()).resolves.toEqual(["wsl://Ubuntu-26.04/home/wy/.claude"]);
+  });
+
+  it("preserves Linux case and keeps ordinary Windows and network folders local", async () => {
+    vi.mocked(open).mockResolvedValueOnce([
+      String.raw`\\WSL.LOCALHOST\Ubuntu Work\home\Dev\项目 A`,
+      String.raw`C:\Projects`, String.raw`\\server\share\Folder`,
+      "//wsl$/Debian/",
+    ]);
+    await expect(pickFolders()).resolves.toEqual([
+      "wsl://Ubuntu%20Work/home/Dev/项目 A", "C:/Projects", "//server/share/Folder", "wsl://Debian/",
+    ]);
+  });
 });
 
 describe("isCheckoutBlockedByChanges", () => {

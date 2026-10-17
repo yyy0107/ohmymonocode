@@ -1,3 +1,4 @@
+import { menuPanelWidth } from "../../../shared/ui/primitives/MenuPanel";
 // @vitest-environment happy-dom
 import { act, createElement, useState, type CSSProperties, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -58,6 +59,7 @@ vi.mock("../../../shared/ui/Popover", () => ({
             ? "true"
             : "false",
         "data-side": props.side,
+        "data-submenu": (props as Record<string, unknown>)["data-submenu"],
         "aria-label": props["aria-label"],
         "data-model-picker": props["data-model-picker"] ? "" : undefined,
       },
@@ -65,7 +67,7 @@ vi.mock("../../../shared/ui/Popover", () => ({
     ),
 }));
 
-import { composerModelMenuWidth, ModelControlPills, ModelPicker } from "./ModelPicker";
+import { ModelControlPills, ModelPicker } from "./ModelPicker";
 import { SurfaceVisibilityContext } from "../../../shared/ui/SurfaceVisibility";
 
 it("shares the desktop composer menu width across Chat and Code", () => {
@@ -73,12 +75,12 @@ it("shares the desktop composer menu width across Chat and Code", () => {
   try {
     root.dataset.skin = "daylight";
     root.dataset.desktopMode = "chat";
-    expect(composerModelMenuWidth("composer", 280)).toBe(242);
+    expect(menuPanelWidth("composer", 280)).toBe(242);
     root.dataset.desktopMode = "code";
-    expect(composerModelMenuWidth("composer", 320)).toBe(242);
-    expect(composerModelMenuWidth(undefined, 320)).toBe(320);
+    expect(menuPanelWidth("composer", 320)).toBe(242);
+    expect(menuPanelWidth(undefined, 320)).toBe(320);
     delete root.dataset.skin;
-    expect(composerModelMenuWidth("composer", 280)).toBe(280);
+    expect(menuPanelWidth("composer", 280)).toBe(280);
   } finally {
     delete root.dataset.skin;
     delete root.dataset.desktopMode;
@@ -186,7 +188,7 @@ function inputText(input: HTMLInputElement, value: string) {
 }
 
 describe("model picker", () => {
-  it.each(["Model", "Reasoning"])("clears the %s list highlight when hovering Back", (label) => {
+  it.each(["Model", "Reasoning"])("opens %s beside its row and returns focus without changing the selection", (label) => {
     const settings: ModelSetting[] = [{
       id: "reasoningEffort", label: "Reasoning", kind: "select", value: "high",
       options: [
@@ -210,41 +212,20 @@ describe("model picker", () => {
     const menu = container.querySelector<HTMLElement>("[data-model-picker]")!;
     press([...menu.querySelectorAll<HTMLButtonElement>("button")]
       .find((button) => button.textContent?.startsWith(label))!);
-    const back = menu.querySelector<HTMLButtonElement>('button[aria-label="Back"]')!;
-    const options = [...menu.querySelectorAll<HTMLButtonElement>(
-      label === "Model" ? '[role="option"]' : '[role="menuitemradio"]',
-    )];
-    const rows = options.map((option) => label === "Model" ? option.parentElement! : option);
-    const hover = (target: HTMLElement, relatedTarget: HTMLElement | null = null) => act(() => {
-      relatedTarget?.dispatchEvent(new MouseEvent("mouseout", { bubbles: true, relatedTarget: target }));
-      target.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, relatedTarget }));
-    });
-    const expectNoHighlight = () => {
-      expect(rows.filter((row) => row.classList.contains("bg-selection"))).toHaveLength(0);
-      expect(options[2].getAttribute(label === "Model" ? "aria-selected" : "aria-checked")).toBe("true");
-    };
-
-    hover(back);
-    expectNoHighlight();
-    for (const option of options.slice(0, 2)) {
-      hover(option, back);
-      expect(rows[options.indexOf(option)].classList.contains("bg-selection")).toBe(true);
-      hover(back, option);
-      expectNoHighlight();
-    }
+    const flyout = container.querySelector<HTMLElement>('[data-submenu="true"]')!;
+    expect(flyout.getAttribute("data-side")).toBe("right");
+    expect(flyout.getAttribute("data-anchor-element")).toBe("true");
+    expect(menu.getAttribute("aria-label")).toBe("Model and settings");
+    expect(menu.querySelector('[aria-expanded="true"]')).not.toBeNull();
+    expect(flyout.querySelector('[aria-label="Back"]')).toBeNull();
+    keyDown(flyout, "ArrowLeft");
+    expect(container.querySelector('[data-submenu="true"]')).toBeNull();
+    const row = [...menu.querySelectorAll<HTMLButtonElement>("button")]
+      .find((button) => button.textContent?.startsWith(label))!;
+    expect(document.activeElement).toBe(row);
+    expect(row.getAttribute("aria-expanded")).toBe("false");
     expect(onChange).not.toHaveBeenCalled();
     expect(onSettingsChange).not.toHaveBeenCalled();
-
-    // Clearing the hover must retain the last row for keyboard navigation.
-    keyDown(menu, "ArrowUp");
-    expect(rows[0].classList.contains("bg-selection")).toBe(true);
-    hover(back);
-    expectNoHighlight();
-    keyDown(menu, "ArrowDown");
-    expect(rows[1].classList.contains("bg-selection")).toBe(true);
-    keyDown(menu, "Enter");
-    if (label === "Model") expect(onChange).toHaveBeenCalledWith("codex", "codex:second");
-    else expect(onSettingsChange).toHaveBeenCalledWith({ reasoningEffort: "medium" });
   });
 
   it.each(["pointer", "keyboard"])("keeps the combined picker open for consecutive settings and model changes by %s", (input) => {
@@ -288,15 +269,16 @@ describe("model picker", () => {
     const choose = (label: string, option: string) => {
       press(row(label));
       const submenu = container.querySelector<HTMLElement>(`[role="menu"][aria-label="${label}"]`)!;
-      expect(submenu).toBe(menu);
+      expect(submenu).not.toBe(menu);
+      expect(submenu.getAttribute("data-side")).toBe("right");
       const choices = [...submenu.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')];
       const selected = choices.find((button) => button.textContent === option)!;
       if (input === "pointer") act(() => selected.click());
       else {
         const from = choices.findIndex((button) => button.getAttribute("aria-checked") === "true");
         const to = choices.indexOf(selected);
-        for (let i = 0; i < Math.abs(to - from); i++) keyDown(menu, to > from ? "ArrowDown" : "ArrowUp");
-        keyDown(menu, "Enter");
+        for (let i = 0; i < Math.abs(to - from); i++) keyDown(submenu, to > from ? "ArrowDown" : "ArrowUp");
+        keyDown(submenu, "Enter");
       }
       // Choosing an option returns to the settings menu without closing it.
       expect(trigger.getAttribute("aria-expanded")).toBe("true");
@@ -313,11 +295,8 @@ describe("model picker", () => {
     onSettingsChange.mockClear();
     for (const label of ["Model", "Reasoning"]) {
       press(row(label));
-      const back = container.querySelector<HTMLButtonElement>(
-        '[data-model-picker] button[aria-label="Back"]',
-      )!;
-      expect(back).not.toBeNull();
-      press(back);
+      const flyout = container.querySelector<HTMLElement>('[data-submenu="true"]')!;
+      keyDown(flyout, "ArrowLeft");
       expect(menu.getAttribute("aria-label")).toBe("Model and settings");
       expect(trigger.getAttribute("aria-expanded")).toBe("true");
       expect(trigger.textContent).toContain("First");
@@ -330,13 +309,15 @@ describe("model picker", () => {
     // Switching provider tabs stays in the model list.
     const tab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-selected="true"]')!;
     press(tab);
-    expect(menu.getAttribute("aria-label")).toBe("Models");
+    const modelMenu = container.querySelector<HTMLElement>('[data-submenu="true"][aria-label="Models"]')!;
+    expect(modelMenu).not.toBeNull();
+    expect(menu.getAttribute("aria-label")).toBe("Model and settings");
     const second = [...container.querySelectorAll<HTMLButtonElement>('[role="option"]')]
       .find((button) => button.textContent === "Second")!;
     if (input === "pointer") act(() => second.click());
     else {
-      keyDown(menu, "ArrowDown");
-      keyDown(menu, "Enter");
+      keyDown(modelMenu, "ArrowDown");
+      keyDown(modelMenu, "Enter");
     }
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
     expect(trigger.textContent).toContain("Second");

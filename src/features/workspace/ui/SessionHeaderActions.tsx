@@ -19,8 +19,9 @@ export type SessionHeaderActions = {
   ) => void;
   manageProviderAccounts?: (provider: ProviderAccountProvider) => void;
   terminalAvailable: boolean;
-  terminalOpen: boolean;
-  toggleTerminal: () => void;
+  /** The session whose layout shows the project's terminals. */
+  terminalSessionId?: string;
+  toggleTerminal: (sessionId: string) => void;
   /** The session whose working files are visible in the shared tools panel. */
   filesSessionId?: string;
   toggleFiles?: (sessionId: string) => void;

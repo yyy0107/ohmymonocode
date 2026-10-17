@@ -1,3 +1,4 @@
+import type { PopoverAnchor } from "../../../shared/ui/Popover";
 import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useIsPresent } from "motion/react";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
@@ -24,7 +25,7 @@ import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
 import { useProjectBranchesState } from "../hooks/useProjectBranches";
 import { CreateBranchDialog } from "./CreateBranchDialog";
 import { GitPickerTrigger } from "./GitPickerTrigger";
-import { Popover } from "../../../shared/ui/Popover";
+import { MenuPanel } from "../../../shared/ui/primitives/MenuPanel";
 import { SwitchBranchDialog } from "./SwitchBranchDialog";
 import { BranchMenuScrollArea, branchMenuLayout } from "./branchMenu";
 
@@ -38,6 +39,7 @@ type Props = {
   onChange?: () => void;
   onClose?: () => void;
   onOpenChange?: (open: boolean) => void;
+  menuAnchor?: PopoverAnchor;
   popoverSide?: "top" | "bottom" | "right";
 };
 
@@ -62,6 +64,7 @@ export function BranchPicker({
   onClose,
   onOpenChange,
   popoverSide = "top",
+  menuAnchor,
 }: Props) {
   const { t: uiT } = useTranslation();
   const menu = branchMenuLayout();
@@ -88,7 +91,7 @@ export function BranchPicker({
   useEffect(() => {
     onOpenChange?.(surfaceOpen);
   }, [surfaceOpen, onOpenChange]);
-  useEffect(() => () => onOpenChange?.(false), [onOpenChange]);
+  useEffect(() => () => { if (!menuAnchor) onOpenChange?.(false); }, [onOpenChange, menuAnchor]);
 
   const inProject = Boolean(cwd) && cwd !== "~";
   const { branches: projectBranches, settled: branchesSettled } =
@@ -357,7 +360,7 @@ export function BranchPicker({
       inert={!present}
       className="relative flex min-w-0 shrink"
     >
-      <GitPickerTrigger
+      {!menuAnchor ? <GitPickerTrigger
         title={title}
         aria-label={
           awaitingBranch
@@ -381,7 +384,7 @@ export function BranchPicker({
         label={label}
         loading={awaitingBranch}
         worktree={worktree}
-      />
+      /> : null}
       <PresenceBoundary>
         {blocked ? (
           <SwitchBranchDialog
@@ -427,14 +430,15 @@ export function BranchPicker({
           />
         ) : null}
       </PresenceBoundary>
-      <Popover
+      <MenuPanel
         open={open}
-        anchor={root}
+        anchor={menuAnchor ?? root}
+        submenu={!!menuAnchor}
         side={popoverSide}
         width={menu.width}
         minHeight={menu.desktop ? 0 : MENU_MIN_HEIGHT}
         maxHeight={menu.maxHeight}
-        onDismiss={(reason) => dismiss(reason === "escape")}
+        onDismiss={(reason) => dismiss(reason === "escape" && !menuAnchor)}
         role="dialog"
         aria-label={uiT("Branch picker")}
         data-branch-picker
@@ -481,7 +485,7 @@ export function BranchPicker({
           </p>
         ) : null}
         {menu.desktop ? null : createAction}
-      </Popover>
+      </MenuPanel>
     </div>
   );
 }

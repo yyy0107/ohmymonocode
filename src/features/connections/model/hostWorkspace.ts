@@ -21,7 +21,7 @@ export type WorkspaceRecord = {
   updatedAt: number;
 };
 export type WorkspaceLocation = { environmentId: string; projectId: string; sessionId?: string };
-type ProjectReference = { environmentId: string; projectId: string; cwd: string };
+type ProjectReference = { environmentId: string; projectId: string; cwd: string; machine?: HostProject["machine"] };
 type SharedWorkspace = {
   version: 1;
   workspace: WorkspaceSnapshot;
@@ -133,7 +133,8 @@ export async function encodeHostWorkspace(snapshot: WorkspaceSnapshot): Promise<
     let project = remoteProjectFor(cwd);
     if (project?.local && !project.projectId) project = await ensureSharedProject(cwd);
     if (project?.projectId && !projects.some((entry) => entry.environmentId === project.environmentId && entry.projectId === project.projectId))
-      projects.push({ environmentId: project.environmentId, projectId: project.projectId, cwd: project.cwd });
+      projects.push({ environmentId: project.environmentId, projectId: project.projectId, cwd: project.cwd,
+        ...(project.machine ? { machine: project.machine } : {}) });
   }
   const bindings = snapshot.sessions.flatMap((stub) => {
     const project = remoteProjectFor(stub.cwd);
@@ -163,10 +164,12 @@ export function decodeHostWorkspace(raw: unknown): WorkspaceSnapshot | null {
   const value = raw as Partial<SharedWorkspace> | null;
   if (!value || value.version !== 1 || !Array.isArray(value.projects) || !Array.isArray(value.bindings)) return null;
   const environmentId = sharedHostEnvironment();
-  const localProjects = sharedProjects().map((project): HostProject => ({ id: project.projectId, cwd: project.cwd, name: project.cwd }));
+  const localProjects = sharedProjects().map((project): HostProject => ({ id: project.projectId, cwd: project.cwd, name: project.cwd,
+    ...(project.machine ? { machine: project.machine } : {}) }));
   for (const project of value.projects) {
     if (!project || typeof project.environmentId !== "string" || typeof project.projectId !== "string" || typeof project.cwd !== "string") continue;
-    const entry = { id: project.projectId, cwd: project.cwd, name: project.cwd };
+    const entry = { id: project.projectId, cwd: project.cwd, name: project.cwd,
+      ...(project.machine ? { machine: project.machine } : {}) };
     if (project.environmentId === environmentId) {
       if (!localProjects.some((known) => known.id === entry.id)) localProjects.push(entry);
     } else rememberRemoteProject(project.environmentId, entry);
@@ -178,7 +181,7 @@ export function decodeHostWorkspace(raw: unknown): WorkspaceSnapshot | null {
   }
   const snapshot = parseWorkspaceSnapshot(mapPaths(value.workspace, (path) => {
     const remote = parseRemotePath(path);
-    return remote && remote.environmentId === environmentId ? remote.hostPath : path;
+    return remote && !remote.machine && remote.environmentId === environmentId ? remote.hostPath : path;
   }));
   if (!snapshot) return null;
   // Terminal IDs address a window-owned PTY. Restore its configuration with a new ID.

@@ -25,8 +25,7 @@
 // 在脚本里是一个可 `catch` 的 promise——门控习语 `try { await artifact.file(…) } catch { … }`
 // 的前提就是这些拒绝到得了脚本手上。
 
-import { realpath } from "node:fs/promises";
-import { basename } from "node:path";
+import { machineFs, machinePath } from "../machine-io";
 import {
   isFileSystemPortError,
   type FileSystemPort,
@@ -290,7 +289,7 @@ async function resolveWorkspaceFile(
   let realCwd: string;
   let real: string;
   try {
-    realCwd = await realpath(deps.cwd);
+    realCwd = await machineFs.realpath(deps.cwd);
   } catch (cause) {
     throw new WorkflowError(
       "DriverError",
@@ -299,7 +298,7 @@ async function resolveWorkspaceFile(
     );
   }
   try {
-    real = await realpath(resolved);
+    real = await machineFs.realpath(resolved);
   } catch (cause) {
     // ENOENT（含中途某一段不存在）走这里：路径不存在与"指向一个不存在的软链目标"是同一件事。
     throw sourceMissing(given, cause);
@@ -506,7 +505,7 @@ const CONTENT_TYPE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*\/[A-Za-z0-9][A-Z
  * `Makefile`、`.gitignore`（点开头无后缀）与 `report.v2 final` 一律无扩展名。
  */
 function fileExtension(path: string): string | undefined {
-  const name = basename(path);
+  const name = machinePath.basename(path);
   const dot = name.lastIndexOf(".");
   if (dot <= 0 || dot === name.length - 1) return undefined;
   const ext = name.slice(dot + 1).toLowerCase();

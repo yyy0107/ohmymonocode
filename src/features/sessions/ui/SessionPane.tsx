@@ -506,6 +506,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
   }, []);
   const jumpToBottomRef = useRef<(() => void) | null>(null);
   const transcriptScope = useRef<HTMLDivElement>(null);
+  const statusRow = useRef<HTMLDivElement>(null);
   const transcriptWidthRef = useInlineBreakpoints(TRANSCRIPT_BREAKPOINTS, "rem");
   const setTranscriptScope = useCallback((node: HTMLDivElement | null) => {
     transcriptScope.current = node;
@@ -730,6 +731,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
         !!session.inboxAsk ||
         (hideProjectPicker ? !showDeckProjectPicker : false)
       }
+      startedSession={!isEmpty}
       hideBranchPicker={!!session.inboxAsk || managed || isChatFolder(session.cwd)}
       hideTopBar={!!session.inboxAsk}
       context={session.context}
@@ -956,11 +958,14 @@ const LocalSessionPane = memo(function LocalSessionPane({
         </div>
       ) : null}
       <div className="desktop-conversation-body relative flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* Status cards float on the right; the transcript and composer lane keep clear of them. */}
+        <div ref={statusRow} data-session-status-row className="relative flex min-h-0 min-w-0 flex-1">
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         <div
           ref={setTranscriptScope}
           data-transcript-inline-size
           data-transcript-viewport={!isEmpty && !hostSessionLoading || undefined}
-          className="relative min-h-0 flex-1"
+          className="relative min-h-0 min-w-0 flex-1"
         >
           <AnimatePresence>{visible && focused && !session.inboxAsk ? (
             <LinkedWorkItemUpdateNotice
@@ -987,22 +992,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
               onDeleteSession={
                 onDeleteSession ? () => onDeleteSession(session.id) : undefined
               }
-            />
-          ) : null}</AnimatePresence>
-          <AnimatePresence>{visible &&
-          !isEmpty &&
-          !hostSessionLoading &&
-          !session.inboxAsk &&
-          !linkedNoticeShown ? (
-            <SessionStatusPanel
-              sessionId={session.id}
-              blocks={session.blocks}
-              backgroundTasks={session.backgroundTasks}
-              busy={!!session.busy}
-              git={statusGit}
-              scope={transcriptScope}
-              onNavigate={navigateBlock}
-              onOpenAgent={openSubagent}
             />
           ) : null}</AnimatePresence>
           {hostSessionLoading ? null : isEmpty ? (
@@ -1172,7 +1161,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
                 revealBlock={revealBlock}
               />
               {showJumpToBottom ? (
-                <div className="pointer-events-none absolute inset-x-0 bottom-2 z-30 flex justify-center">
+                <div className="desktop-jump-lane pointer-events-none absolute inset-x-0 bottom-2 z-30 flex justify-center">
                   <button
                     type="button"
                     title={uiT("Jump to latest")}
@@ -1189,6 +1178,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
           )}
         </div>
         {dockComposer ? (
+          <div className="desktop-composer-lane shrink-0">
           <div
             ref={composerDockMotion.dockedRef}
             data-session-composer
@@ -1197,7 +1187,28 @@ const LocalSessionPane = memo(function LocalSessionPane({
           >
             {composer}
           </div>
+          </div>
         ) : null}
+        </div>
+          <AnimatePresence>{visible &&
+          !isEmpty &&
+          !hostSessionLoading &&
+          !session.inboxAsk &&
+          !linkedNoticeShown ? (
+            <SessionStatusPanel
+              blocks={session.blocks}
+              backgroundTasks={session.backgroundTasks}
+              busy={!!session.busy}
+              git={statusGit}
+              cwd={session.cwd}
+              branch={statusBranch}
+              context={session.context}
+              scope={statusRow}
+              onNavigate={navigateBlock}
+              onOpenAgent={openSubagent}
+            />
+          ) : null}</AnimatePresence>
+        </div>
         <BtwSheet
           btw={btw}
           cwd={workCwd}

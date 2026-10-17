@@ -104,11 +104,12 @@ pub fn shared_host_prepare(
     crate::legacy_orchestration::finish(&store, &manifest)?;
     let machine = crate::remote::remote_connect(
         app,
-        state,
+        state.clone(),
         String::new(),
         prepared.endpoint,
         prepared.token,
     )?;
+    state.remember_shared_host(&machine)?;
     Ok(SharedHost {
         machine,
         projects: prepared.projects,
@@ -283,6 +284,9 @@ fn host_database() -> Option<PathBuf> {
 }
 
 fn resource_path(path: &Path) -> String {
+    if let Ok(Some(target)) = crate::wsl_path::parse(&path.to_string_lossy()) {
+        return target.resource_key();
+    }
     let mut ancestor = path.to_path_buf();
     let mut suffix = Vec::new();
     while !ancestor.exists() {

@@ -3,7 +3,7 @@ import { normalizeHostUrl } from "./client";
 /**
  * Host credentials read from a pairing QR code:
  * `monocode://pair?host=<Host URL>&token=<pairing code>`. The pairing code is
- * the device token issued by MonoCode Host.
+ * exchanged once for a private device credential issued by MonoCode Host.
  */
 export type PairingOffer = { host: string; token: string };
 

@@ -110,6 +110,41 @@ async function setup() {
 }
 
 describe("mobile client against the real MonoCode Host", () => {
+  it("pairs only one phone per QR and restores its private credential without reusing the code", async () => {
+    const s = await setup();
+    const issued = s.store.issuePairingDevice("New phone");
+    const pairingTransport: RpcTransport = async (endpoint, token, request, options) => {
+      if ((request as { method: string }).method === "environment.describe")
+        throw new Error("A second descriptor request is unavailable");
+      return s.transport(endpoint, token, request, options);
+    };
+    const phones = Array.from({ length: 2 }, () => {
+      const values = new Map<StorageKey, string>();
+      const storage: MobileStorage = {
+        get: async key => values.get(key) ?? null,
+        set: async (key, value) => { values.set(key, value); },
+        remove: async key => { values.delete(key); },
+      };
+      return { client: new MobileClient(storage, pairingTransport), storage, values };
+    });
+    const attempts = await Promise.allSettled(phones.map(phone => phone.client.connect(s.endpoint, issued.token)));
+    expect(attempts.filter(attempt => attempt.status === "fulfilled")).toHaveLength(1);
+    const winner = phones[attempts.findIndex(attempt => attempt.status === "fulfilled")];
+    const loser = phones[attempts.findIndex(attempt => attempt.status === "rejected")];
+    const rejected = attempts.find(attempt => attempt.status === "rejected") as PromiseRejectedResult;
+    expect(rejected.reason).toMatchObject({ status: 409, message: expect.stringContaining("already been used") });
+    const saved = JSON.parse(winner.values.get("connection")!);
+    expect(saved.token).not.toBe(issued.token);
+    expect(s.store.authenticated(saved.token)).toBe(true);
+    expect(JSON.stringify([...winner.values])).not.toContain(issued.token);
+    expect(loser.values.has("connection")).toBe(false);
+    expect(await winner.client.projects()).toContainEqual(s.project);
+    const restored = new MobileClient(winner.storage, s.transport);
+    expect(await restored.restore()).toBe(true);
+    expect(await restored.projects()).toContainEqual(s.project);
+    await expect(loser.client.connect(s.endpoint, issued.token)).rejects.toThrow("already been used");
+  });
+
   it("loads Host skills, expands them once for execution and preserves original text across queue, steering and a lost receipt", async () => {
     const s = await setup();
     s.provider.steer = vi.fn(async () => {});

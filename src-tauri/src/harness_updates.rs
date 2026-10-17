@@ -7,8 +7,8 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::harness::{
-    binaries_on_search_path, exec_output, exec_update_output, is_resolved_harness_binary,
-    resolve_harness_binary,
+    binaries_on_search_path, desktop_cli_owner, exec_output, exec_update_output,
+    is_resolved_harness_binary, resolve_harness_binary,
 };
 
 mod npm;
@@ -54,6 +54,9 @@ pub enum InstallSource {
 }
 
 fn install_source(real: &Path) -> (InstallSource, Option<String>) {
+    if let Some(owner) = desktop_cli_owner(real) {
+        return (InstallSource::Bundled, Some(owner.to_string()));
+    }
     let normalized = real.to_string_lossy().replace('\\', "/");
     let lower = normalized.to_lowercase();
     if lower.contains("/node_modules/") {
@@ -315,6 +318,21 @@ mod tests {
     #[test]
     fn classifies_install_sources_by_real_path() {
         let source = |path: &str| install_source(Path::new(path));
+        for (path, owner) in [
+            (
+                r"C:\Users\u\AppData\Local\OpenAI\Codex\bin\hash\codex.exe",
+                "Codex",
+            ),
+            (
+                r"C:\Users\u\AppData\Local\Packages\Claude_publisher\LocalCache\Roaming\Claude\claude-code\2.1.100\hash\claude.exe",
+                "Claude",
+            ),
+        ] {
+            assert_eq!(
+                source(path),
+                (InstallSource::Bundled, Some(owner.to_string()))
+            );
+        }
         assert_eq!(
             source("/usr/lib/chatgpt/resources/codex"),
             (InstallSource::Bundled, Some("ChatGPT".to_string()))

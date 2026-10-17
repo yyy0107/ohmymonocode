@@ -24,6 +24,13 @@ import type { McpTag } from "./mcpPicker";
 import type { Attachment } from "./session";
 
 const drafts = new Map<string, string>();
+const environments = new Map<string, { cwd: string; distribution: string | null }>();
+
+export const getComposerEnvironment = (sessionId: string) => environments.get(sessionId);
+export function setComposerEnvironment(sessionId: string, value: { cwd: string; distribution: string | null } | undefined) {
+  if (value) environments.set(sessionId, value);
+  else environments.delete(sessionId);
+}
 const mcpTags = new Map<string, McpTag[]>();
 const attachmentCounts = new Map<string, number>();
 const attachmentReads = new Map<string, number>();
@@ -126,6 +133,7 @@ export function clearComposerDraft(sessionId: string): void {
     }
   }
   drafts.delete(sessionId);
+  environments.delete(sessionId);
   mcpTags.delete(sessionId);
   attachmentCounts.delete(sessionId);
   attachmentReads.delete(sessionId);

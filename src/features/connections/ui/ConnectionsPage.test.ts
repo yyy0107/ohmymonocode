@@ -7,6 +7,9 @@ import { configureSharedHost } from "../model/remoteProjects";
 import { ConnectionsPage } from "./ConnectionsPage";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("../../../shared/ui/StatusToast", () => ({
+  withStatusToast: (task: () => Promise<unknown>) => task(),
+}));
 
 let container: HTMLDivElement;
 let root: Root;
@@ -40,6 +43,7 @@ afterEach(() => {
   container.remove();
   configureSharedHost(undefined, []);
   localStorage.clear();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -131,4 +135,80 @@ it("shows the unavailable service state without requesting devices", async () =>
   expect(refreshButton().disabled).toBe(true);
   expect(button("Add").disabled).toBe(true);
   expect(invoke).not.toHaveBeenCalled();
+});
+
+async function createPairingCode() {
+  await render();
+  await act(async () => button("Add").click());
+  const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]')!;
+  const name = dialog.querySelector<HTMLInputElement>("input")!;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(name, "New phone");
+    name.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await act(async () => dialog.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+  return dialog;
+}
+
+function mockPairingRequests(list: () => unknown | Promise<unknown>) {
+  const fallback = vi.mocked(invoke).getMockImplementation()!;
+  vi.mocked(invoke).mockImplementation(async (command, input) => {
+    const { method } = input as { method: string };
+    if (command === "remote_request" && method === "devices.issue")
+      return { id: "issued", token: "ABCD-EFGH" };
+    if (command === "remote_request" && method === "devices.pairingHosts")
+      return { hosts: [{ url: "http://192.168.1.5:3774", kind: "lan", reachable: true }] };
+    if (command === "remote_request" && method === "devices.list") return list();
+    return fallback(command, input);
+  });
+}
+
+it("retires the QR and code after that exact device pairs, then stops polling", async () => {
+  vi.useFakeTimers();
+  let paired = false;
+  mockPairingRequests(() => ({ devices: [
+    { ...phone, pairedAt: 100 },
+    { id: "issued", name: "New phone", admin: false, pairedAt: paired ? 200 : undefined },
+  ] }));
+  const dialog = await createPairingCode();
+  expect(dialog.querySelector('[aria-label="Pairing QR code"]')).not.toBeNull();
+  expect(dialog.textContent).toContain("ABCD-EFGH");
+  expect(dialog.textContent).toContain("Each code can pair only one device.");
+  expect(dialog.textContent).not.toContain("Pairing successful");
+
+  paired = true;
+  await act(async () => vi.advanceTimersByTimeAsync(1_000));
+  expect(dialog.querySelector('[role="status"]')?.textContent).toContain("Pairing successful");
+  expect(dialog.textContent).toContain("This pairing code has been used and cannot pair another device.");
+  expect(dialog.querySelector('[aria-label="Pairing QR code"]')).toBeNull();
+  expect(dialog.querySelector("code")).toBeNull();
+  expect(dialog.textContent).not.toContain("ABCD-EFGH");
+  const calls = vi.mocked(invoke).mock.calls.length;
+  await act(async () => vi.advanceTimersByTimeAsync(2_000));
+  expect(invoke).toHaveBeenCalledTimes(calls);
+});
+
+it("retries pairing status failures and ignores the pending response after unmount", async () => {
+  vi.useFakeTimers();
+  let requests = 0;
+  let finish!: (value: unknown) => void;
+  mockPairingRequests(() => {
+    requests += 1;
+    if (requests <= 2) return { devices: [] };
+    if (requests === 3) throw new Error("Host unavailable");
+    return new Promise((resolve) => { finish = resolve; });
+  });
+  const dialog = await createPairingCode();
+  expect(dialog.querySelector('[role="alert"]')?.textContent).toContain("Host unavailable");
+  await act(async () => vi.advanceTimersByTimeAsync(1_000));
+  expect(requests).toBe(4);
+  // A slow request does not start another concurrent status check.
+  await act(async () => vi.advanceTimersByTimeAsync(2_000));
+  expect(requests).toBe(4);
+  await act(async () => root.unmount());
+  root = createRoot(container);
+  await act(async () => finish({ devices: [{ id: "issued", pairedAt: 200 }] }));
+  await act(async () => vi.advanceTimersByTimeAsync(2_000));
+  expect(requests).toBe(4);
+  expect(document.body.querySelector('[role="dialog"]')).toBeNull();
 });

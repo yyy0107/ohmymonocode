@@ -14,7 +14,7 @@ import { Tabs as TabsPrimitive } from "radix-ui";
 
 import { cn } from "../../lib/cn";
 
-const TabsMotionContext = React.createContext({ value: "", scope: "" });
+const TabsMotionContext = React.createContext({ value: "", scope: "", animated: true });
 
 function Tabs({
   className,
@@ -22,13 +22,17 @@ function Tabs({
   value: controlledValue,
   defaultValue = "",
   onValueChange,
+  animated = true,
   ...props
-}: React.ComponentProps<typeof TabsPrimitive.Root>) {
+}: React.ComponentProps<typeof TabsPrimitive.Root> & {
+  /** Switches the indicator and panel instantly when false. */
+  animated?: boolean;
+}) {
   const [localValue, setLocalValue] = React.useState(defaultValue);
   const value = controlledValue ?? localValue;
   const scope = React.useId();
   return (
-    <TabsMotionContext.Provider value={{ value, scope }}>
+    <TabsMotionContext.Provider value={{ value, scope, animated }}>
       <TabsPrimitive.Root
         data-slot="tabs"
         data-orientation={orientation}
@@ -80,8 +84,8 @@ function TabsTrigger({
   children,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.Trigger>) {
-  const { value, scope } = React.useContext(TabsMotionContext);
-  const reduced = useMotionPreference();
+  const { value, scope, animated } = React.useContext(TabsMotionContext);
+  const reduced = useMotionPreference() || !animated;
   return (
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
@@ -96,7 +100,7 @@ function TabsTrigger({
     >
       {value === props.value && (
         <motion.span
-          layoutId={scope}
+          layoutId={animated ? scope : undefined}
           initial={false}
           transition={reduced ? immediateTransition : panelTransition}
           aria-hidden
@@ -115,8 +119,18 @@ function TabsContent({
   children,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.Content>) {
-  const { value } = React.useContext(TabsMotionContext);
+  const { value, animated } = React.useContext(TabsMotionContext);
   const reduced = useMotionPreference();
+  if (!animated)
+    return (
+      <TabsPrimitive.Content
+        {...props}
+        data-slot="tabs-content"
+        className={cn("flex-1 text-ui-base outline-none", className)}
+      >
+        {children}
+      </TabsPrimitive.Content>
+    );
   const content = value === props.value && (
     <MotionPresenceItem key={props.value}>
       <TabsPrimitive.Content

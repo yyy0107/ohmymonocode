@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { HostStore } from "./store";
-import type { HostConnectionDefinition, HostConnections, HostPreferences, HostStateValue, HostWorkspace, HostWorkspaceKind } from "../src/features/connections/model/hostState";
+import type { HostConnectionDefinition, HostConnections, HostEnvironmentDefinition, HostEnvironments, HostPreferences, HostStateValue, HostWorkspace, HostWorkspaceKind } from "../src/features/connections/model/hostState";
+import { parseProjectMachine, type ProjectMachine } from "../src/integrations/harness/core/machine";
 import { isSharedPreferenceKey, validateSharedPreferenceValue } from "../src/features/settings/model/sharedPreferenceSchema";
 
 const MAX_PREFERENCES_BYTES = 2 * 1024 * 1024;
@@ -59,6 +60,48 @@ function connection(id: string, input: unknown): HostConnectionDefinition {
     || /[\s/@?#\\]/.test(input.hostname))) throw new Error("Invalid connection hostname");
   if (input.port !== undefined && (!Number.isInteger(input.port) || Number(input.port) < 1 || Number(input.port) > 65535)) throw new Error("Invalid connection port");
   return json(input, 2048) as HostConnectionDefinition;
+}
+
+const MAX_ENVIRONMENT_BYTES = 256 * 1024;
+const VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
+
+function environment(id: string, input: unknown): HostEnvironmentDefinition {
+  if (!object(input) || input.id !== id || typeof input.name !== "string" || !input.name.trim() || input.name.length > 200
+    || !Array.isArray(input.folders) || input.folders.length > 32 || !object(input.variables))
+    throw new Error("Invalid environment definition");
+  const allowed = new Set(["id", "name", "machine", "folders", "variables"]);
+  if (Object.keys(input).some((key) => !allowed.has(key))) throw new Error("Invalid environment definition");
+  const machine = input.machine === undefined ? undefined : parseProjectMachine(input.machine);
+  const folders = input.folders.map((folder) => {
+    if (typeof folder !== "string" || !folder.trim() || folder.length > 4096 || folder.includes("\0")
+      || (machine ? !folder.startsWith("/") : !/^(?:[A-Za-z]:[\\/]|\/|\\\\)/.test(folder)))
+      throw new Error("Environment folders must be absolute paths on its machine");
+    return folder;
+  });
+  const variables: Record<string, string> = {};
+  const entries = Object.entries(input.variables);
+  if (entries.length > 256) throw new Error("Too many environment variables");
+  for (const [name, value] of entries) {
+    if (!VARIABLE_NAME.test(name) || /^MONOCODE_/i.test(name)) throw new Error(`Invalid environment variable name: ${name}`);
+    if (typeof value !== "string" || value.length > 32_768 || value.includes("\0")) throw new Error(`Invalid value for ${name}`);
+    variables[name] = value;
+  }
+  return json({ id, name: input.name.trim(), ...(machine ? { machine } : {}), folders, variables }, MAX_ENVIRONMENT_BYTES) as HostEnvironmentDefinition;
+}
+
+/** Folder containment on the environment's own machine. Windows paths compare
+ * case-insensitively with either separator; WSL paths are POSIX. */
+function folderDepth(folder: string, cwd: string, posix: boolean): number {
+  const normalize = (path: string) => {
+    let value = posix ? path : path.replace(/\//g, "\\").toLowerCase();
+    const sep = posix ? "/" : "\\";
+    while (value.length > 1 && value.endsWith(sep) && !/^[a-z]:\\$/.test(value)) value = value.slice(0, -1);
+    return value;
+  };
+  const root = normalize(folder);
+  const path = normalize(cwd);
+  const sep = posix ? "/" : "\\";
+  return path === root || path.startsWith(root.endsWith(sep) ? root : root + sep) ? root.length : -1;
 }
 
 /** Transactional shared client state. Receipt payloads survive both retries and Host restarts. */
@@ -185,5 +228,39 @@ export class HostClientState {
       if (params.importRelease) this.write("connections:imported", 0, true);
       return this.connectionsList()!;
     });
+  }
+
+  environmentsList(params: Record<string, unknown> = {}): HostEnvironments | null {
+    const current = this.read("environments", {} as Record<string, HostEnvironmentDefinition>);
+    if (revision(params.revision) === current.revision) return null;
+    return { revision: current.revision, environments: Object.values(current.value).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)) };
+  }
+
+  environmentsPatch(params: Record<string, unknown>): HostEnvironments {
+    if (!object(params.changes) || Object.keys(params.changes).length > 64) throw new Error("Invalid environment changes");
+    const changes = Object.fromEntries(Object.entries(params.changes).map(([id, value]) => [identity(id, "environment ID"), value === null ? null : environment(id, value)]));
+    return this.mutate("environments.patch", params, () => {
+      const current = this.read("environments", {} as Record<string, HostEnvironmentDefinition>);
+      for (const [id, value] of Object.entries(changes)) {
+        if (value === null) delete current.value[id];
+        else current.value[id] = value;
+      }
+      if (Object.keys(current.value).length > 128) throw new Error("Too many environments");
+      this.write("environments", current.revision, current.value);
+      return this.environmentsList()!;
+    });
+  }
+
+  /** Variables of the environment whose folder most specifically contains `cwd`. */
+  environmentVariables(cwd: string, machine?: ProjectMachine): Record<string, string> {
+    let best: { depth: number; variables: Record<string, string> } | undefined;
+    for (const entry of Object.values(this.read("environments", {} as Record<string, HostEnvironmentDefinition>).value)) {
+      if ((entry.machine?.distribution ?? "") !== (machine?.distribution ?? "")) continue;
+      for (const folder of entry.folders) {
+        const depth = folderDepth(folder, cwd, !!machine || process.platform !== "win32");
+        if (depth >= 0 && (!best || depth > best.depth)) best = { depth, variables: entry.variables };
+      }
+    }
+    return { ...best?.variables };
   }
 }

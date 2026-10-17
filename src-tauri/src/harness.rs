@@ -2255,6 +2255,9 @@ fn resolve_codex() -> Option<PathBuf> {
     let home = dirs_home().map(PathBuf::from);
     let mut candidates: Vec<PathBuf> = Vec::new();
 
+    #[cfg(windows)]
+    candidates.extend(binaries_on_search_path("codex"));
+    #[cfg(not(windows))]
     if let Some(from_shell) = which_via_login_shell("codex") {
         candidates.push(from_shell);
     }
@@ -2280,7 +2283,7 @@ fn resolve_codex() -> Option<PathBuf> {
         "/Applications/Codex.app/Contents/Resources/codex",
     ));
 
-    first_binary(candidates)
+    resolve_provider_candidates("codex", candidates)
 }
 
 fn resolve_opencode() -> Option<PathBuf> {
@@ -2316,6 +2319,9 @@ fn resolve_claude() -> Option<PathBuf> {
     let home = dirs_home().map(PathBuf::from);
     let mut candidates: Vec<PathBuf> = Vec::new();
 
+    #[cfg(windows)]
+    candidates.extend(binaries_on_search_path("claude"));
+    #[cfg(not(windows))]
     if let Some(from_shell) = which_via_login_shell("claude") {
         candidates.push(from_shell);
     }
@@ -2332,7 +2338,80 @@ fn resolve_claude() -> Option<PathBuf> {
     candidates.push(PathBuf::from("/usr/bin/claude"));
     candidates.push(PathBuf::from("/snap/bin/claude"));
 
-    first_binary(candidates)
+    resolve_provider_candidates("claude", candidates)
+}
+
+/// Desktop-extracted CLIs update with their owner, never via the CLI updater.
+pub(crate) fn desktop_cli_owner(path: &Path) -> Option<&'static str> {
+    let path = path.to_string_lossy().replace('\\', "/").to_lowercase();
+    if path.contains("/openai/codex/bin/") {
+        Some("Codex")
+    } else if path.contains("/claude/claude-code/") {
+        Some("Claude")
+    } else {
+        None
+    }
+}
+
+fn resolve_provider_candidates(provider: &str, candidates: Vec<PathBuf>) -> Option<PathBuf> {
+    #[cfg(windows)]
+    {
+        let mut bundled = Vec::new();
+        for candidate in candidates {
+            let Some(path) = existing_binary(candidate) else {
+                continue;
+            };
+            // Electron GUI launchers share the CLI's name on Windows.
+            if path.parent()?.join("resources/app.asar").is_file() {
+                continue;
+            }
+            let real = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
+            let normalized = real.to_string_lossy().replace('\\', "/").to_lowercase();
+            if desktop_cli_owner(&real).is_some()
+                || normalized.contains("/resources/")
+                || normalized.contains("/windowsapps/openai.codex_")
+                || normalized.contains("/windowsapps/claude_")
+            {
+                bundled.push(path);
+            } else {
+                return Some(path);
+            }
+        }
+        first_binary(bundled).or_else(|| resolve_windows_desktop_cli(provider))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = provider;
+        first_binary(candidates)
+    }
+}
+
+#[cfg(windows)]
+fn resolve_windows_desktop_cli(provider: &str) -> Option<PathBuf> {
+    if !matches!(provider, "codex" | "claude") {
+        return None;
+    }
+    let script = include_str!("../../src/platform/windows/desktop-provider-cli.ps1");
+    let powershell = PathBuf::from(std::env::var_os("SystemRoot")?)
+        .join("System32/WindowsPowerShell/v1.0/powershell.exe");
+    let output = exec_output(
+        &powershell.to_string_lossy(),
+        &[
+            "-NoLogo".into(),
+            "-NoProfile".into(),
+            "-NonInteractive".into(),
+            "-Command".into(),
+            format!("& {{\n{script}\n}} -Provider {provider}"),
+        ],
+        None,
+        Duration::from_secs(5),
+    )
+    .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let path = PathBuf::from(String::from_utf8(output.stdout).ok()?.trim());
+    path.is_absolute().then(|| existing_binary(path)).flatten()
 }
 
 fn resolve_pi() -> Option<PathBuf> {
@@ -2811,6 +2890,41 @@ fn existing_binary(path: PathBuf) -> Option<PathBuf> {
 #[cfg(all(test, windows))]
 mod windows_launcher_tests {
     use super::*;
+
+    #[test]
+    fn independent_cli_wins_over_desktop_payload_on_path() {
+        let dir =
+            std::env::temp_dir().join(format!("monocode-desktop-cli-{}", uuid::Uuid::new_v4()));
+        for (provider, relative) in [
+            ("codex", "OpenAI/Codex/bin/hash/codex.exe"),
+            ("claude", "Claude/claude-code/2.1.100/hash/claude.exe"),
+        ] {
+            let bundled = dir.join(relative);
+            let independent = dir.join(format!("standalone/{provider}.exe"));
+            let gui = dir.join(format!("app/{provider}.exe"));
+            for path in [
+                &bundled,
+                &independent,
+                &gui,
+                &dir.join("app/resources/app.asar"),
+            ] {
+                std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+                std::fs::write(path, b"must not execute").unwrap();
+            }
+            assert_eq!(
+                resolve_provider_candidates(
+                    provider,
+                    vec![gui, bundled.clone(), independent.clone()]
+                ),
+                Some(independent)
+            );
+            assert_eq!(
+                resolve_provider_candidates(provider, vec![bundled.clone()]),
+                Some(bundled)
+            );
+        }
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 
     #[test]
     fn npm_shell_shim_does_not_hide_windows_launcher() {

@@ -4,8 +4,9 @@
 
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
-import { join, matchesGlob, relative, resolve, sep } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join, resolve, sep } from "node:path";
+import { assertMachinePath, currentMachineIO, machineFs, machinePath } from "../machine-io";
 
 export type FileSystemPortErrorCode = "not_found" | "is_directory" | "not_file" | "too_large" | "io";
 
@@ -86,10 +87,10 @@ const SKIPPED_DIRECTORIES = new Set([".git", "node_modules", ".monocode", "targe
 const MAX_GREP_FILE_BYTES = 2 * 1024 * 1024;
 
 async function* walk(root: string): AsyncGenerator<string> {
-  let entries: import("node:fs").Dirent[];
-  try { entries = await readdir(root, { withFileTypes: true }); } catch { return; }
+  let entries: import("../machine-io").MachineEntry[];
+  try { entries = await machineFs.readdir(root, { withFileTypes: true }); } catch { return; }
   for (const entry of entries) {
-    const path = join(root, entry.name);
+    const path = machinePath.join(root, entry.name);
     if (entry.isDirectory()) {
       if (!SKIPPED_DIRECTORIES.has(entry.name)) yield* walk(path);
     } else if (entry.isFile()) yield path;
@@ -97,13 +98,13 @@ async function* walk(root: string): AsyncGenerator<string> {
 }
 
 function portable(path: string): string {
-  return sep === "/" ? path : path.split(sep).join("/");
+  return machinePath.sep === "/" ? path : path.split(machinePath.sep).join("/");
 }
 
 function globMatches(root: string, path: string, pattern: string): boolean {
-  const rel = portable(relative(root, path));
+  const rel = portable(machinePath.relative(root, path));
   // A pattern without a slash matches basenames anywhere, as ripgrep's --glob does.
-  return matchesGlob(rel, pattern) || (!pattern.includes("/") && matchesGlob(rel.split("/").at(-1)!, pattern));
+  return machinePath.matchesGlob(rel, pattern) || (!pattern.includes("/") && machinePath.matchesGlob(rel.split("/").at(-1)!, pattern));
 }
 
 export const nodeFileSystemPort: FileSystemPort = {
@@ -117,17 +118,19 @@ export const nodeFileSystemPort: FileSystemPort = {
     return { files, truncated: false };
   },
   async readTextFile({ path }) {
-    return { content: await readFile(path, "utf8") };
+    return { content: await machineFs.readFile(path, "utf8") };
   },
   async readBinaryFile({ path, maxBytes }) {
     let info;
-    try { info = await stat(path); } catch (cause) {
+    try { info = await machineFs.stat(path); } catch (cause) {
       throw new FileSystemPortError("not_found", `${path} does not exist`, { cause });
     }
     if (info.isDirectory()) throw new FileSystemPortError("is_directory", `${path} is a directory`);
     if (!info.isFile()) throw new FileSystemPortError("not_file", `${path} is not a regular file`);
     if (maxBytes !== undefined && info.size > maxBytes) throw new FileSystemPortError("too_large", `${path} is too large`);
-    return { content: new Uint8Array(await readFile(path)) };
+    const content = maxBytes === undefined ? await machineFs.readFile(path) : await machineFs.readPrefix(path, maxBytes + 1);
+    if (maxBytes !== undefined && content.length > maxBytes) throw new FileSystemPortError("too_large", `${path} is too large`);
+    return { content: new Uint8Array(content) };
   },
   async searchText({ path, pattern, glob, headLimit }) {
     const expression = new RegExp(pattern);
@@ -136,8 +139,9 @@ export const nodeFileSystemPort: FileSystemPort = {
       if (glob !== undefined && !globMatches(path, file, glob)) continue;
       let text: string;
       try {
-        if ((await stat(file)).size > MAX_GREP_FILE_BYTES) continue;
-        text = await readFile(file, "utf8");
+        if ((await machineFs.stat(file)).size > MAX_GREP_FILE_BYTES) continue;
+        text = (await machineFs.readPrefix(file, MAX_GREP_FILE_BYTES + 1)).toString("utf8");
+        if (Buffer.byteLength(text) > MAX_GREP_FILE_BYTES) continue;
       } catch { continue; }
       if (text.includes("\u0000")) continue;
       const lines = text.split(/\r?\n/);
@@ -152,8 +156,26 @@ export const nodeFileSystemPort: FileSystemPort = {
 };
 
 export const nodeExecutionPort: ExecutionPort = {
-  run({ command, cwd, timeoutMs, outputLimit }) {
+  async run({ command, cwd, timeoutMs, outputLimit }) {
     const limit = outputLimit?.maxInlineBytes ?? 1024 * 1024;
+    const io = currentMachineIO();
+    assertMachinePath(cwd, io);
+    if (io.key !== "local") {
+      const stream = (value: unknown): ExecutionStream => {
+        const bytes = Buffer.isBuffer(value) ? value : Buffer.from(typeof value === "string" ? value : "");
+        return { text: bytes.subarray(0, limit).toString("utf8"), bytes: bytes.length, truncated: bytes.length > limit };
+      };
+      try {
+        const result = await io.exec(command.file, command.args, { cwd, timeout: timeoutMs, maxBuffer: Math.max(limit + 1, 64 * 1024 * 1024), encoding: "buffer" });
+        return { status: "completed", exitCode: 0, stdout: stream(result.stdout), stderr: stream(result.stderr) };
+      } catch (error) {
+        const failure = error as { code?: string | number; stdout?: unknown; stderr?: unknown; message?: string };
+        return { status: failure.code === "ETIMEDOUT" ? "timed_out" : typeof failure.code === "number" ? "failed" : "spawn_error",
+          ...(typeof failure.code === "number" ? { exitCode: failure.code } : {}),
+          stdout: stream(failure.stdout), stderr: stream(failure.stderr),
+          ...(typeof failure.code !== "number" ? { error: { message: failure.message ?? String(error) } } : {}) };
+      }
+    }
     return new Promise((resolveRun) => {
       const stdout: Buffer[] = [], stderr: Buffer[] = [];
       let stdoutBytes = 0, stderrBytes = 0, timedOut = false, settled = false;

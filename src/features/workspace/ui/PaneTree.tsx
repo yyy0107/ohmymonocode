@@ -75,6 +75,7 @@ import { SessionPane, type SessionPaneProps } from "../../sessions/ui/SessionPan
 import type { TranscriptPool } from "../../sessions/ui/TranscriptPool";
 import type { Worktree } from "../../source-control/model/worktrees";
 import {
+  SessionHeaderTools,
   SessionSurfaceToolbar,
   type SessionSurfaceMode,
 } from "./SessionSurfaceToolbar";
@@ -499,7 +500,11 @@ function PaneTreeComponent({
   // A lone chat, or full view, owns a full-width top bar (title, tools,
   // window controls). The shell can lift a single chat's header into its title
   // row; otherwise split columns keep their own headers.
-  const promoteHeader = !!sessionHeaderHost && visible && hasOwnerSession && (!unified || !inSplit);
+  const liftHost = !!sessionHeaderHost && visible && hasOwnerSession;
+  const promoteHeader = liftHost && (!unified || !inSplit);
+  // Full view keeps the chat's tabs in the pane; its tool toggles and menu
+  // stay fixed in the window's top bar.
+  const liftTools = liftHost && unified && inSplit;
   const ownerTopBar = hasOwnerSession && (unified || !inSplit || promoteHeader);
   // Split view draws every column as a card on a tinted gutter, each with its
   // own header: chats side by side, and a chat beside its documents.
@@ -925,6 +930,7 @@ function PaneTreeComponent({
         {...toolbarProps}
         session={ownerSession}
         showTools={unified}
+        tools={!liftTools}
         onPaneDragStart={
           inSplit && !unified ? paneDragStartFor(ownerSession.id) : undefined
         }
@@ -935,6 +941,14 @@ function PaneTreeComponent({
   return (
     <div className="relative flex h-full min-h-0 min-w-0 flex-col">
       {promoteHeader ? createPortal(ownerHeader, sessionHeaderHost) : ownerHeader}
+      {liftTools && ownerSession
+        ? createPortal(
+            <SurfaceVisibilityContext.Provider value={parentVisible && visible}>
+              <SessionHeaderTools session={ownerSession} />
+            </SurfaceVisibilityContext.Provider>,
+            sessionHeaderHost,
+          )
+        : null}
       <motion.div
         initial={false}
         animate={gridControls}

@@ -2,6 +2,7 @@ import { invoke as invokeLocal } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { slash } from "../../shared/lib/paths";
 import { REMOTE_PATH_PREFIX } from "../../shared/lib/remotePaths";
+import { WSL_PATH_PREFIX, parseWslPath, parseWslUncPath, wslPath } from "../../shared/lib/wslPaths";
 import type { InterjectionMeta } from "../../features/sessions/model/session";
 
 export { REMOTE_PATH_PREFIX } from "../../shared/lib/remotePaths";
@@ -19,7 +20,7 @@ export function setRemoteCommandRunner(runner: RemoteCommandRunner) {
 
 const isRemotePath = (value: unknown): boolean =>
   typeof value === "string"
-    ? value.startsWith(REMOTE_PATH_PREFIX)
+    ? value.startsWith(REMOTE_PATH_PREFIX) || value.startsWith(WSL_PATH_PREFIX)
     : Array.isArray(value) && value.some(isRemotePath);
 const PATH_ARGS = ["path", "cwd", "parent", "from", "destParent", "paths"];
 
@@ -572,10 +573,11 @@ export async function pickFolders(title = "Open projects"): Promise<string[]> {
     multiple: true,
     title,
   });
-  if (Array.isArray(selected)) {
-    return selected.filter((path) => !!path).map(slash);
-  }
-  return typeof selected === "string" && selected ? [slash(selected)] : [];
+  const paths = Array.isArray(selected) ? selected : typeof selected === "string" ? [selected] : [];
+  return paths.filter(Boolean).map((path) => {
+    const wsl = parseWslUncPath(path);
+    return wsl ? wslPath(wsl.machine.distribution, wsl.hostPath) : slash(path);
+  });
 }
 
 export async function pickFiles(title = "Attach files"): Promise<string[] | null> {
@@ -619,7 +621,8 @@ export function statFiles(paths: string[]): Promise<FileMtime[]> {
   if (paths.length === 0) return Promise.resolve([]);
   const groups = new Map<string, string[]>();
   for (const path of paths) {
-    const machine = path.startsWith(REMOTE_PATH_PREFIX)
+    const wsl = parseWslPath(path);
+    const machine = wsl ? `${WSL_PATH_PREFIX}${wsl.machine.distribution}` : path.startsWith(REMOTE_PATH_PREFIX)
       ? path.slice(REMOTE_PATH_PREFIX.length).split("/", 1)[0]
       : "";
     const group = groups.get(machine) ?? [];

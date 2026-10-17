@@ -40,6 +40,7 @@ import {
   recentOpenedFiles,
 } from "../../connections/files/model/fileIndex";
 import { prettyCwd, projectName } from "../../../shared/lib/paths";
+import { parseWslPath } from "../../../shared/lib/wslPaths";
 import {
   isLocalProject,
   type RecentProject,
@@ -62,6 +63,7 @@ const SCOPES: { id: SearchScope; label: string }[] = [
   { id: "files", label: "Files" },
   { id: "projects", label: "Projects" },
 ];
+const searchableProject = (cwd: string) => isLocalProject(cwd) || !!parseWslPath(cwd);
 
 type Props = {
   /** Whether this workspace view owns keyboard focus. Content stays mounted. */
@@ -141,7 +143,7 @@ export function SearchView({
   }, [open]);
 
   useEffect(() => {
-    if (!isLocalProject(cwd)) {
+    if (!searchableProject(cwd)) {
       setFiles([]);
       return;
     }
@@ -162,7 +164,7 @@ export function SearchView({
   );
   const fileHits = useMemo(
     () =>
-      trimmed && isLocalProject(cwd)
+      trimmed && searchableProject(cwd)
         ? hitsFromFileRanks(
             rankProjectFiles(files, trimmed, recentOpenedFiles(cwd), 40),
           )
@@ -239,7 +241,7 @@ export function SearchView({
         setSessionTruncated(false);
       }
 
-      if (wantFiles && isLocalProject(cwd)) {
+      if (wantFiles && searchableProject(cwd)) {
         const searchId = crypto.randomUUID();
         activeProjectSearchId.current = searchId;
         setLoading(true);
@@ -287,7 +289,7 @@ export function SearchView({
       }
       const searchId = activeProjectSearchId.current;
       activeProjectSearchId.current = null;
-      if (searchId && isLocalProject(cwd)) {
+      if (searchId && searchableProject(cwd)) {
         void cancelProjectSearch(cwd, searchId).catch(() => undefined);
       }
     };

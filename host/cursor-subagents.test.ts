@@ -10,7 +10,7 @@ afterEach(() => {
   for (const path of roots.splice(0))
     rmSync(path, { recursive: true, force: true });
 });
-it("reads full child histories, associates exact parents and observes live WAL updates", () => {
+it("reads full child histories, associates exact parents and observes live WAL updates", async () => {
   const root = mkdtempSync(join(tmpdir(), "monocode-child-test-"));
   roots.push(root);
   const directory = join(root, "acp-sessions", "child");
@@ -70,7 +70,7 @@ it("reads full child histories, associates exact parents and observes live WAL u
       ],
     });
     const args = { sessionId: "parent", toolCallIds: ["fc_123456"] };
-    const run = readCursorSubagents(args, root)[0];
+    const run = (await readCursorSubagents(args, root))[0];
     expect(run.prompt).toHaveLength(4000);
     expect(run.steps).toHaveLength(306);
     expect(run.steps[0].text).toHaveLength(5000);
@@ -80,23 +80,23 @@ it("reads full child histories, associates exact parents and observes live WAL u
       output: "output".repeat(2000),
     });
     expect(
-      readCursorSubagents(
+      await readCursorSubagents(
         { ...args, knownRevisions: { child: run.revision } },
         root,
       ),
     ).toEqual([]);
     expect(
-      readCursorSubagents({ ...args, sessionId: "unrelated" }, root),
+      await readCursorSubagents({ ...args, sessionId: "unrelated" }, root),
     ).toEqual([]);
     insert("late", {
       role: "assistant",
       content: [{ type: "text", text: "Latest" }],
     });
     expect(
-      readCursorSubagents(
+      (await readCursorSubagents(
         { ...args, knownRevisions: { child: run.revision } },
         root,
-      )[0].steps.at(-1)?.text,
+      ))[0].steps.at(-1)?.text,
     ).toBe("Latest");
   } finally {
     db.close();

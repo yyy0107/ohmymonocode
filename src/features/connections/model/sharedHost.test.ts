@@ -109,6 +109,21 @@ afterEach(() => {
   setSharedSessionBackend();
   configureSharedHost(undefined, []);
 });
+it("restores a WSL session by project identity when distributions share a Linux cwd", async () => {
+  const projects = ["Ubuntu", "Debian"].map((distribution) => ({ ...project, id: distribution, machine: { kind: "wsl" as const, distribution } }));
+  value = { ...value, projectId: "Debian" };
+  const implementation = vi.mocked(invoke).getMockImplementation()!;
+  vi.mocked(invoke).mockImplementation(async (command, args: any) => {
+    if (command === "shared_host_prepare") return { machine, projects, sessions: [{ id: "history", cwd: project.cwd, projectId: "Debian" }] };
+    if (command === "remote_request" && args.method === "projects.list") return projects;
+    return implementation(command, args);
+  });
+  await initializeSharedHost();
+  const session = await getSession("history");
+  expect(session?.cwd).toBe("wsl://Debian/home/me/repo");
+  expect(remoteProjectFor(session!.cwd)?.projectId).toBe("Debian");
+  expect((await listSessionsByProject("wsl://Ubuntu/home/me/repo"))[0].cwd).toBe("wsl://Ubuntu/home/me/repo");
+});
 it("routes desktop history, changes and search to the Host while retaining native paths", async () => {
   await initializeSharedHost();
   expect(remoteProjectFor(project.cwd)).toMatchObject({

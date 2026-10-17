@@ -42,8 +42,8 @@
   scrollbar-width: var(--readonly-scrollbar-width, thin);
 }
 .readonly-text-view .cm-scroller::-webkit-scrollbar {
-  width: max(var(--scrollbar-min-size, 0px), calc(10px * var(--scrollbar-scale, 1)));
-  height: max(var(--scrollbar-min-size, 0px), calc(10px * var(--scrollbar-scale, 1)));
+  width: var(--scrollbar-size, max(var(--scrollbar-min-size, 0px), calc(10px * var(--scrollbar-scale, 1))));
+  height: var(--scrollbar-size, max(var(--scrollbar-min-size, 0px), calc(10px * var(--scrollbar-scale, 1))));
 }
 .mobile-detail-section > .readonly-text-view {
   margin-top: 6px;

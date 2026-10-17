@@ -49,6 +49,25 @@ function NestedSurface() {
     : null;
 }
 
+it("repositions and flips a retained flyout when its anchor moves before reopening", () => {
+  let left = 100;
+  vi.spyOn(anchor, "getBoundingClientRect").mockImplementation(() => new DOMRect(left, 200, 20, 24));
+  const anchorRef = { current: anchor };
+  const render = (open: boolean) => act(() => root.render(createElement(Popover, {
+    open, anchor: anchorRef, side: "right", width: 240, gap: 4, "data-flyout": "",
+  }, "Choices")));
+  render(true);
+  const flyout = document.querySelector<HTMLElement>("[data-flyout]")!;
+  expect(flyout.dataset.popoverSide).toBe("right");
+  render(false);
+  act(() => vi.advanceTimersByTime(70));
+  left = window.innerWidth - 100;
+  render(true);
+  expect(document.querySelector("[data-flyout]")).toBe(flyout);
+  expect(flyout.dataset.popoverSide).toBe("left");
+  expect(flyout.parentElement?.style.left).toBe(`${left - 244}px`);
+});
+
 describe.each([false, true])(
   "animated popover with native host: %s",
   (native) => {

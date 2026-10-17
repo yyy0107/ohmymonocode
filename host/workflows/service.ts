@@ -5,10 +5,10 @@
 // bootstrap dynamic-workflow run service (Apache-2.0).
 
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { currentMachineIO, machineFs, machinePath, withMachineIO, type MachineIO } from "../machine-io";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join, resolve } from "node:path";
-import { writeFile, mkdir, rm } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { writeFile, mkdir } from "node:fs/promises";
 import type { DatabaseSync } from "node:sqlite";
 import {
   FACADE_DTS,
@@ -64,6 +64,8 @@ import EXAMPLES_MD from "./skill/examples.md?raw";
 export interface HostWorkflowsDeps {
   db: DatabaseSync;
   dataDir: string;
+  /** Restores the project machine for control requests and resumed runs. */
+  machineIO?(sessionId: string): MachineIO;
   session(id: string): HostSession | undefined;
   mutate(id: string, change: (value: HostSession) => HostSession, event: unknown): HostSession;
   workers: WorkflowWorkerPort;
@@ -217,14 +219,17 @@ export class HostWorkflows {
     this.recoverInterrupted();
   }
 
+  private inSession<T>(sessionId: string, operation: () => T): T {
+    return withMachineIO(this.deps.machineIO?.(sessionId) ?? currentMachineIO(), operation);
+  }
+
   private async prepare(): Promise<void> {
     await mkdir(this.skillDir, { recursive: true, mode: 0o700 });
-    const skill = SKILL_MD.replace(/<!-- facade-dts:start -->[\s\S]*?<!-- facade-dts:end -->/, `<!-- facade-dts:start -->\n\`\`\`ts\n${FACADE_DTS.trim()}\n\`\`\`\n<!-- facade-dts:end -->`)
-      .replaceAll("${MONOCODE_WORKFLOW_SKILL_DIR}", this.skillDir);
+    const skill = SKILL_MD.replace(/<!-- facade-dts:start -->[\s\S]*?<!-- facade-dts:end -->/, `<!-- facade-dts:start -->\n\`\`\`ts\n${FACADE_DTS.trim()}\n\`\`\`\n<!-- facade-dts:end -->`);
     await Promise.all([
       writeFile(join(this.skillDir, "SKILL.md"), skill),
-      writeFile(join(this.skillDir, "patterns.md"), PATTERNS_MD.replaceAll("${MONOCODE_WORKFLOW_SKILL_DIR}", this.skillDir)),
-      writeFile(join(this.skillDir, "examples.md"), EXAMPLES_MD.replaceAll("${MONOCODE_WORKFLOW_SKILL_DIR}", this.skillDir)),
+      writeFile(join(this.skillDir, "patterns.md"), PATTERNS_MD),
+      writeFile(join(this.skillDir, "examples.md"), EXAMPLES_MD),
     ]);
     if (this.deps.entry) this.launcherPath = await this.control.launcher(join(this.deps.dataDir, "workflow-control"), this.deps.entry, this.deps.node);
   }
@@ -263,7 +268,7 @@ export class HostWorkflows {
     return [
       "<monocode-workflows>",
       "The user wants this done as a MonoCode dynamic workflow: a TypeScript script that orchestrates subagents, each running on a MonoCode provider (Pi, Codex, Claude Code, omp, OpenCode…) with its own model, thinking level and speed.",
-      `Before writing the script, read the authoring guide: ${join(this.skillDir, "SKILL.md")} (patterns.md and examples.md beside it go deeper).`,
+      "Before writing the script, read the authoring guide at $MONOCODE_WORKFLOW_SKILL_DIR/SKILL.md (patterns.md and examples.md beside it go deeper).",
       `Submit and manage runs with the workflow CLI: "$MONOCODE_WORKFLOW_CLI" workflow --help. Run \`"$MONOCODE_WORKFLOW_CLI" workflow providers --json '{}'\` to see installed providers and their models.`,
       "The run appears as a card in this conversation and in MonoCode's Workflows sidebar.",
       "Once a workflow works and the user wants to keep it, save it with `workflow save` (scope \"project\" or \"global\"); it then appears in MonoCode's saved workflows.",
@@ -276,6 +281,10 @@ export class HostWorkflows {
   // ———————————————————————————— Control CLI ————————————————————————————
 
   private async handleControl(sessionId: string, action: string, input: Record<string, unknown>): Promise<unknown> {
+    return this.inSession(sessionId, () => this.handleMachineControl(sessionId, action, input));
+  }
+
+  private async handleMachineControl(sessionId: string, action: string, input: Record<string, unknown>): Promise<unknown> {
     await this.ready;
     const value = this.deps.session(sessionId);
     if (!value) throw new Error("This conversation is no longer available");
@@ -336,7 +345,7 @@ export class HostWorkflows {
   }
 
   private async models(cwd: string, harness: HarnessId): Promise<AgentModel[]> {
-    const key = `${cwd}\0${harness}`;
+    const key = `${currentMachineIO().key}\0${cwd}\0${harness}`;
     const cached = this.catalogs.get(key);
     if (cached) return cached;
     const source = this.modelSource ?? this.deps.models;
@@ -357,7 +366,7 @@ export class HostWorkflows {
         if (!workspaceAllowed(params.workspacePath)) throw new Error("This folder is not an open project on this machine");
         return params.workspacePath;
       }
-      if (params.scope === "global") return homedir();
+      if (params.scope === "global") return currentMachineIO().key === "local" ? homedir() : "/";
       if (typeof params.sessionId === "string") {
         const value = this.deps.session(params.sessionId);
         if (value) return value.session.worktreeCwd || value.session.cwd;
@@ -377,29 +386,29 @@ export class HostWorkflows {
     const scope = (): SavedWorkflowScope => params.scope === "global" ? "global" : "project";
     switch (action) {
       case "saved.list": {
-        const listed = listSavedWorkflows({ cwd: cwd(), ...(params.scope === "global" || params.scope === "project" ? { scope: params.scope } : {}) });
-        return { workflows: listed.entries, invalid: listed.invalid, dir: savedWorkflowRoot(cwd(), scope()).dir };
+        const listed = await listSavedWorkflows({ cwd: cwd(), ...(params.scope === "global" || params.scope === "project" ? { scope: params.scope } : {}) });
+        return { workflows: listed.entries, invalid: listed.invalid, dir: (await savedWorkflowRoot(cwd(), scope())).dir };
       }
       case "saved.get": {
-        const resolved = resolveSavedWorkflow({ cwd: cwd(), name: String(params.name ?? ""), ...(params.scope === "global" || params.scope === "project" ? { scope: params.scope } : {}) });
+        const resolved = await resolveSavedWorkflow({ cwd: cwd(), name: String(params.name ?? ""), ...(params.scope === "global" || params.scope === "project" ? { scope: params.scope } : {}) });
         if (!resolved.ok) return resolved;
         return { ok: true, name: resolved.name, path: resolved.path, scope: resolved.scope, meta: resolved.meta, script: resolved.script };
       }
       case "saved.analyze": return this.savedGet(cwd(), String(params.name ?? ""), params.scope === "global" || params.scope === "project" ? params.scope : undefined);
       case "saved.updateMeta": {
         const name = String(params.name ?? "");
-        const resolved = resolveSavedWorkflow({ cwd: cwd(), name, scope: scope() });
+        const resolved = await resolveSavedWorkflow({ cwd: cwd(), name, scope: scope() });
         if (!resolved.ok) return resolved;
         const meta = SavedWorkflowMetaSchema.parse(params.meta);
-        const saved = saveSavedWorkflow({ cwd: cwd(), name, scope: scope(), meta, script: resolved.script });
+        const saved = await saveSavedWorkflow({ cwd: cwd(), name, scope: scope(), meta, script: resolved.script });
         return { ok: true, path: saved.path };
       }
       case "saved.save": return this.saveFromInput(cwd(), params);
       case "saved.delete": {
         const name = String(params.name ?? "");
-        const resolved = resolveSavedWorkflow({ cwd: cwd(), name, scope: scope() });
+        const resolved = await resolveSavedWorkflow({ cwd: cwd(), name, scope: scope() });
         if (!resolved.ok) return resolved;
-        await rm(resolved.path, { force: true });
+        await machineFs.rm(resolved.path, { force: true });
         return { ok: true, path: resolved.path };
       }
       case "saved.move": return moveSavedWorkflow({ cwd: cwd(), name: String(params.name ?? "") });
@@ -449,12 +458,16 @@ export class HostWorkflows {
 
   /** Resolve the script source, analyze it and either start it or hold it for approval. */
   async submit(parentSessionId: string, input: WorkflowSubmitInput, launchedBy: "agent" | "user", amend?: AmendLaunch): Promise<WorkflowSubmitResult> {
+    return this.inSession(parentSessionId, () => this.submitOnMachine(parentSessionId, input, launchedBy, amend));
+  }
+
+  private async submitOnMachine(parentSessionId: string, input: WorkflowSubmitInput, launchedBy: "agent" | "user", amend?: AmendLaunch): Promise<WorkflowSubmitResult> {
     const amends = amend?.predecessorId;
     await this.ready;
     const parent = this.deps.session(parentSessionId);
     if (!parent) throw new Error("The launching conversation was not found");
     const cwd = parent.session.worktreeCwd || parent.session.cwd;
-    const source = this.resolveSource(cwd, input);
+    const source = await this.resolveSource(cwd, input);
     if (!source.ok) return source;
     const { script, args, name, scriptPath: givenPath, lineOffset, kind } = source;
     let scriptPath = givenPath;
@@ -516,21 +529,21 @@ export class HostWorkflows {
     };
   }
 
-  private resolveSource(cwd: string, input: WorkflowSubmitInput):
+  private async resolveSource(cwd: string, input: WorkflowSubmitInput): Promise<
     | { ok: true; script: string; args?: Record<string, unknown>; name: string; scriptPath?: string; lineOffset: number; kind: WorkflowRunSource }
-    | { ok: false; reason: string; message: string } {
+    | { ok: false; reason: string; message: string }> {
     if (input.script !== undefined) return { ok: true, script: input.script, name: input.name?.trim() || "Workflow", lineOffset: 0, kind: { kind: "inline" } };
     if (input.saved) {
-      const resolved = resolveSavedWorkflow({ cwd, name: input.saved.name, ...(input.saved.scope ? { scope: input.saved.scope } : {}) });
+      const resolved = await resolveSavedWorkflow({ cwd, name: input.saved.name, ...(input.saved.scope ? { scope: input.saved.scope } : {}) });
       if (!resolved.ok) return { ok: false, reason: `saved_${resolved.reason}`, message: `Saved workflow "${input.saved.name}" could not be used: ${resolved.reason}${"detail" in resolved && resolved.detail ? ` (${resolved.detail})` : ""}` };
       const workflow = resolved;
       const checked = validateWorkflowArgs(workflow.meta.args, input.saved.args);
       if (!checked.ok) return { ok: false, reason: "invalid_args", message: checked.errors.join("; ") };
       return { ok: true, script: workflow.script, args: checked.args, name: input.name?.trim() || workflow.name, scriptPath: workflow.path, lineOffset: workflow.bodyLineOffset, kind: { kind: "saved", name: workflow.name, scope: workflow.scope } };
     }
-    const path = isAbsolute(input.path!) ? input.path! : resolve(cwd, input.path!);
-    if (!existsSync(path)) return { ok: false, reason: "path_not_found", message: `${path} does not exist` };
-    const source = readFileSync(path, "utf8");
+    const path = machinePath.isAbsolute(input.path!) ? input.path! : machinePath.resolve(cwd, input.path!);
+    if (!await machineFs.stat(path).then(() => true, () => false)) return { ok: false, reason: "path_not_found", message: `${path} does not exist` };
+    const source = await machineFs.readFile(path, "utf8");
     const parsed = parseSavedWorkflow(source);
     if (parsed.ok) {
       const checked = validateWorkflowArgs(parsed.meta.args, input.args);
@@ -593,12 +606,16 @@ export class HostWorkflows {
       return resolveWorkflowRuntime({
         layers: [override, personaRuntime(persona), current.defaults],
         session,
-        catalog: (harness) => this.catalogs.get(`${prepared.cwd}\0${harness}`),
+        catalog: (harness) => this.catalogs.get(`${currentMachineIO().key}\0${prepared.cwd}\0${harness}`),
       });
     };
   }
 
   private start(prepared: PreparedRun, compiled: ReturnType<typeof compileOnce>, resume?: { importedCache?: ImportedRunCache; inheritedTokens?: number }): void {
+    return this.inSession(prepared.parentSessionId, () => this.startOnMachine(prepared, compiled, resume));
+  }
+
+  private startOnMachine(prepared: PreparedRun, compiled: ReturnType<typeof compileOnce>, resume?: { importedCache?: ImportedRunCache; inheritedTokens?: number }): void {
     const abort = new AbortController();
     const settingsRef = { current: prepared.settings };
     const resolveRuntime = this.runtimeResolver(prepared, () => settingsRef.current);
@@ -624,6 +641,7 @@ export class HostWorkflows {
       validate: validateFn,
       caps: { maxConcurrency: prepared.settings.maxConcurrency ?? workflowConcurrencyCeiling() },
       cwd: prepared.cwd,
+      ...(currentMachineIO().key !== "local" ? { sandboxCwd: this.deps.dataDir } : {}),
       name: prepared.name,
       parentSessionId: prepared.parentSessionId,
       toolCallId: `workflow-${prepared.runId}`,
@@ -744,6 +762,10 @@ export class HostWorkflows {
   // ———————————————————————————— Amend, resume, cancel, retune ————————————————————————————
 
   async amend(parentSessionId: string, predecessorId: string, input: Record<string, unknown>, launchedBy: "agent" | "user"): Promise<WorkflowSubmitResult | { ok: true; runId: string; retuned: true }> {
+    return this.inSession(parentSessionId, () => this.amendOnMachine(parentSessionId, predecessorId, input, launchedBy));
+  }
+
+  private async amendOnMachine(parentSessionId: string, predecessorId: string, input: Record<string, unknown>, launchedBy: "agent" | "user"): Promise<WorkflowSubmitResult | { ok: true; runId: string; retuned: true }> {
     await this.ready;
     const record = this.journal.getRun(predecessorId);
     if (!record) return { ok: false, reason: "run_not_found", message: `Run ${predecessorId} was not found` };
@@ -766,9 +788,9 @@ export class HostWorkflows {
     let path = block?.scriptPath;
     if (input.script !== undefined) script = String(input.script);
     else if (input.path !== undefined) {
-      path = isAbsolute(String(input.path)) ? String(input.path) : resolve(record.cwd ?? ".", String(input.path));
-      if (!existsSync(path)) return { ok: false, reason: "path_not_found", message: `${path} does not exist` };
-      const source = readFileSync(path, "utf8");
+      path = machinePath.isAbsolute(String(input.path)) ? String(input.path) : machinePath.resolve(record.cwd ?? ".", String(input.path));
+      if (!await machineFs.stat(path).then(() => true, () => false)) return { ok: false, reason: "path_not_found", message: `${path} does not exist` };
+      const source = await machineFs.readFile(path, "utf8");
       const parsed = parseSavedWorkflow(source);
       script = parsed.ok ? parsed.script : source;
     }
@@ -791,7 +813,7 @@ export class HostWorkflows {
     return this.submit(parentSessionId, {
       name: optionalString(input, "name") ?? record.name ?? "Workflow",
       ...(path && input.script === undefined ? { path } : { script }),
-      ...(record.args && path && input.script === undefined && parseSavedWorkflow(readFileSync(path, "utf8")).ok ? { args: record.args } : {}),
+      ...(record.args && path && input.script === undefined && parseSavedWorkflow(await machineFs.readFile(path, "utf8")).ok ? { args: record.args } : {}),
       ...(settings.maxConcurrency ? { maxConcurrency: settings.maxConcurrency } : {}),
       ...(settings.defaults ? { defaults: settings.defaults } : {}),
       ...(settings.agents ? { agents: settings.agents } : {}),
@@ -984,10 +1006,22 @@ export class HostWorkflows {
 
   /** Run history for the saved-workflows hub: runs in a project (or all), optionally by name. */
   savedRuns(cwd: string | undefined, name: string | undefined, limit: number) {
-    const rows = this.deps.db.prepare(`SELECT record, created_at FROM workflow_runs
+    const maximum = Math.max(1, Math.min(50, limit));
+    const rows: Array<{ record: string; created_at: number }> = [];
+    const candidates = this.deps.db.prepare(`SELECT record, created_at FROM workflow_runs
       WHERE (? IS NULL OR json_extract(record, '$.cwd') = ?) AND (? IS NULL OR json_extract(record, '$.name') = ?)
-      ORDER BY created_at DESC LIMIT ?`).all(cwd ?? null, cwd ?? null, name ?? null, name ?? null, Math.max(1, Math.min(50, limit)) + 1);
-    const runs = rows.slice(0, Math.min(50, limit)).map((row) => {
+      ORDER BY created_at DESC`).iterate(cwd ?? null, cwd ?? null, name ?? null, name ?? null);
+    for (const row of candidates) {
+      const record = JSON.parse(String(row.record)) as RunRecord;
+      if (cwd !== undefined && this.deps.machineIO) {
+        try {
+          if (!record.parentSessionId || this.deps.machineIO(record.parentSessionId).key !== currentMachineIO().key) continue;
+        } catch { continue; }
+      }
+      rows.push({ record: String(row.record), created_at: Number(row.created_at) });
+      if (rows.length > maximum) break;
+    }
+    const runs = rows.slice(0, maximum).map((row) => {
       const record = JSON.parse(String(row.record)) as RunRecord;
       const createdAt = Number(row.created_at);
       const last = this.journal.listEvents(record.runId).at(-1);
@@ -1009,13 +1043,13 @@ export class HostWorkflows {
     return { runs, ...(rows.length > runs.length ? { truncated: true } : {}) };
   }
 
-  savedList(cwd: string): { workflows: (SavedWorkflowEntry & { script?: string })[]; invalid: { path: string; reason: string }[] } {
-    const listed = listSavedWorkflows({ cwd });
+  async savedList(cwd: string): Promise<{ workflows: (SavedWorkflowEntry & { script?: string })[]; invalid: { path: string; reason: string }[] }> {
+    const listed = await listSavedWorkflows({ cwd });
     return { workflows: listed.entries, invalid: listed.invalid };
   }
 
-  savedGet(cwd: string, name: string, scope?: SavedWorkflowScope) {
-    const resolved = resolveSavedWorkflow({ cwd, name, ...(scope ? { scope } : {}) });
+  async savedGet(cwd: string, name: string, scope?: SavedWorkflowScope) {
+    const resolved = await resolveSavedWorkflow({ cwd, name, ...(scope ? { scope } : {}) });
     if (!resolved.ok) throw new Error(`Saved workflow "${name}" could not be read: ${resolved.reason}`);
     const analyzed = analyze(resolved.script);
     return { ...resolved, ...(analyzed.graph ? { graph: analyzed.graph } : {}), ...(analyzed.phaseNames ? { phases: analyzed.phaseNames } : {}) };
@@ -1032,8 +1066,8 @@ export class HostWorkflows {
     let script = optionalString(input, "script");
     if ((script === undefined) === (scriptPath === undefined)) throw new Error("Pass exactly one of script or scriptPath");
     if (scriptPath) {
-      const path = isAbsolute(scriptPath) ? scriptPath : resolve(cwd, scriptPath);
-      const source = readFileSync(path, "utf8");
+      const path = machinePath.isAbsolute(scriptPath) ? scriptPath : machinePath.resolve(cwd, scriptPath);
+      const source = await machineFs.readFile(path, "utf8");
       const parsed = parseSavedWorkflow(source);
       script = parsed.ok ? parsed.script : source;
     }
@@ -1041,15 +1075,15 @@ export class HostWorkflows {
     const analyzed = analyze(script!);
     if (!analyzed.analysis.ok) return { ok: false, reason: "diagnostics", diagnostics: formatDiagnostics(analyzed.analysis.diagnostics) };
     const whenToUse = optionalString(input, "whenToUse");
-    const root = savedWorkflowRoot(cwd, scope);
-    const existed = existsSync(savedWorkflowPath(root, name));
-    const saved = saveSavedWorkflow({ cwd, name, scope, meta: { description: description.trim(), ...(whenToUse ? { whenToUse } : {}), ...(args ? { args } : {}) }, script: script! });
+    const root = await savedWorkflowRoot(cwd, scope);
+    const existed = await machineFs.stat(savedWorkflowPath(root, name)).then(() => true, () => false);
+    const saved = await saveSavedWorkflow({ cwd, name, scope, meta: { description: description.trim(), ...(whenToUse ? { whenToUse } : {}), ...(args ? { args } : {}) }, script: script! });
     return { ok: true, name, scope, path: saved.path, overwritten: existed };
   }
 
   async savedDelete(cwd: string, name: string, scope: SavedWorkflowScope): Promise<{ deleted: true }> {
     if (!isValidSavedWorkflowName(name)) throw new Error("Invalid workflow name");
-    await rm(savedWorkflowPath(savedWorkflowRoot(cwd, scope), name), { force: true });
+    await machineFs.rm(savedWorkflowPath(await savedWorkflowRoot(cwd, scope), name), { force: true });
     return { deleted: true };
   }
 
@@ -1057,7 +1091,7 @@ export class HostWorkflows {
     const code = optionalString(input, "code");
     const path = optionalString(input, "path");
     if ((code === undefined) === (path === undefined)) throw new Error("Pass exactly one of code or path");
-    const source = code ?? readFileSync(isAbsolute(path!) ? path! : resolve(cwd, path!), "utf8");
+    const source = code ?? await machineFs.readFile(machinePath.isAbsolute(path!) ? path! : machinePath.resolve(cwd, path!), "utf8");
     const timeoutMs = Math.max(1_000, Math.min(600_000, typeof input.timeoutMs === "number" ? input.timeoutMs : 60_000));
     const result = await evalSnippet({ cwd, code: source, timeoutMs, ...(recordInput(input, "args") ? { args: recordInput(input, "args") } : {}) });
     return result.kind === "diagnostics" ? { kind: "diagnostics", diagnostics: formatDiagnostics(result.diagnostics, path) } : result;

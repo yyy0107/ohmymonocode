@@ -12,6 +12,7 @@ import { HostClientState } from "./client-state";
 import { readAttachmentChunk, writeAttachmentChunk } from "./attachments";
 import type { HarnessBotContext } from "../src/integrations/harness/core/botContext";
 import { providerBotCapabilities } from "../src/integrations/harness/providers/botCapabilities";
+import { checkoutPath } from "./checkout-guards";
 
 const cleanups: Array<() => Promise<void> | void> = [];
 afterEach(async () => {
@@ -122,7 +123,7 @@ describe("headless session ownership", () => {
   it("persists resource wait reasons, cancels before dispatch, and starts a later request once", async () => {
     const { engine, store, turns, id, directory } = setup("pi");
     await engine.ready;
-    store.db.prepare("INSERT INTO checkout_resources VALUES ('exclusive', ?, 'integrating', ?)").run(directory, process.pid);
+    store.db.prepare("INSERT INTO checkout_resources VALUES ('exclusive', ?, 'integrating', ?)").run(checkoutPath(directory), process.pid);
     engine.command({ type: "send", commandId: "waiting", sessionId: id, text: "Wait" });
     await vi.waitFor(() => expect(store.session(id).session.executionState).toMatchObject({ phase: "waiting-resource", reason: "integrating", blockers: [{ id: "exclusive" }] }));
     expect(turns).toHaveLength(0);
@@ -215,7 +216,7 @@ describe("headless session ownership", () => {
     engine.command({ type: "send", commandId: "api-title", sessionId: id, text: "First request" });
     await vi.waitFor(() => expect(store.session(id).session.title).toBe(`${harness} · API title`));
     expect(generate).toHaveBeenCalledExactlyOnceWith("First request");
-    expect(provider.send).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(provider.send).toHaveBeenCalledTimes(1));
     turns[0].finish();
     await vi.waitFor(() => expect(store.session(id).status).toBe("idle"));
   });
@@ -1637,7 +1638,7 @@ describe("projectless chats", () => {
     const { directory, engine, store } = setup();
     const home = join(directory, "home");
     const chat = await engine.createChat(home);
-    expect(chat.cwd).toMatch(
+    expect(chat.cwd.replaceAll("\\", "/")).toMatch(
       /\/home\/Documents\/ohmymonocode\/\d{4}-\d{2}-\d{2}\/chat-\d{6}-[a-z0-9]{6}$/,
     );
     expect(statSync(chat.cwd).isDirectory()).toBe(true);

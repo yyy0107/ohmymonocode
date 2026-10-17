@@ -29,7 +29,9 @@ import { botAgentsMcpName, type HarnessBotContext } from "../../core/botContext"
 export function buildCodexAppServerArgs(context?: HarnessBotContext): string[] {
   const args = ["app-server"];
   if (!context?.agentsMcp) return args;
-  const prefix = `mcp_servers.${JSON.stringify(botAgentsMcpName(context))}`;
+  // Codex splits the left-hand key on dots; it does not parse quoted TOML
+  // key segments. Both names are sanitized by the Host context contract.
+  const prefix = `mcp_servers.${botAgentsMcpName(context)}`;
   const values: Record<string, unknown> = {
     command: context.agentsMcp.command,
     args: context.agentsMcp.args,
@@ -37,7 +39,7 @@ export function buildCodexAppServerArgs(context?: HarnessBotContext): string[] {
     tool_timeout_sec: 250,
   };
   for (const [key, value] of Object.entries(values)) args.push("-c", `${prefix}.${key}=${JSON.stringify(value)}`);
-  for (const [key, value] of Object.entries(context.agentsMcp.env ?? {})) args.push("-c", `${prefix}.env.${JSON.stringify(key)}=${JSON.stringify(value)}`);
+  for (const [key, value] of Object.entries(context.agentsMcp.env ?? {})) args.push("-c", `${prefix}.env.${key}=${JSON.stringify(value)}`);
   return args;
 }
 

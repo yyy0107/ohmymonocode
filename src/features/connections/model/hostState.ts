@@ -50,6 +50,25 @@ export type HostConnectionsPatch = {
   importRelease?: boolean;
 };
 
+/** A named execution environment: project folders on one machine plus the
+ * variables added to provider processes whose working directory is inside
+ * one of those folders. Values can be secrets, so only this computer's
+ * desktop may read or change them. */
+export type HostEnvironmentDefinition = {
+  id: string;
+  name: string;
+  /** Omitted for this computer. */
+  machine?: { kind: "wsl"; distribution: string };
+  /** Absolute folder paths on that machine. */
+  folders: string[];
+  variables: Record<string, string>;
+};
+export type HostEnvironments = { revision: number; environments: HostEnvironmentDefinition[] };
+export type HostEnvironmentsPatch = {
+  operationId: string;
+  changes: Record<string, HostEnvironmentDefinition | null>;
+};
+
 export type HostPreferenceAssetUpload = {
   id: string;
   offset: number;
@@ -68,4 +87,6 @@ export interface HostStateMethods {
   "workspaces.save": { params: HostWorkspaceSave; result: HostWorkspace };
   "connections.list": { params: { revision?: number }; result: HostConnections | null };
   "connections.patch": { params: HostConnectionsPatch; result: HostConnections };
+  "environments.list": { params: { revision?: number }; result: HostEnvironments | null };
+  "environments.patch": { params: HostEnvironmentsPatch; result: HostEnvironments };
 }

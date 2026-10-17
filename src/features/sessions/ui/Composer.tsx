@@ -1,9 +1,14 @@
+import { MenuPanel } from "../../../shared/ui/primitives/MenuPanel";
 import { useInlineBreakpoints } from "../../../shared/hooks/useInlineBreakpoints";
 import { MessageInput } from "../../../shared/ui/messaging/MessageInput";
 import { motion } from "motion/react";
 import { panelTransition, immediateTransition } from "../../../shared/motion/tokens";
 import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { MessageQueue } from "./MessageQueue";
+import { ComposerEnvironmentPicker } from "./ComposerEnvironmentPicker";
+import { useComposerEnvironment } from "./useComposerEnvironment";
+import { parseWslPath } from "../../../shared/lib/wslPaths";
+import { showStatusToast } from "../../../shared/ui/StatusToast";
 import { MenuHover } from "../../../shared/ui/MenuHover";
 import type { SessionModelSettings } from "../model/models";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
@@ -15,8 +20,6 @@ import {
   FilePlus,
   Folder,
   Link,
-  Laptop,
-  Internet,
   Plus,
   Share,
   Terminal,
@@ -76,6 +79,7 @@ import {
 import type { HandoffComposerCard } from "../model/handoff";
 import {
   looksLikeProject,
+  isRemoteProjectPath,
   type RecentProject,
 } from "../../projects/model/recents";
 import type {
@@ -151,7 +155,6 @@ import {
 } from "../../notes";
 import { resolveTabGroupLogo } from "../../workspace/model/tabGroups";
 import { useComposerSkills } from "./useComposerSkills";
-import { ComposerPopover } from "./ComposerPopover";
 import { UsageLimitNotice } from "./UsageLimitNotice";
 import { AnimatedCollapse } from "../../../shared/ui/AnimatedCollapse";
 import { consumePlanCommand, PLAN_COMMAND } from "../model/plan";
@@ -223,6 +226,11 @@ type Props = {
   branch?: string;
   recents?: RecentProject[];
   hideProjectPicker?: boolean;
+  /**
+   * A started conversation keeps its machine, folder and working copy, so the
+   * bar drops those pickers; only a removed worktree keeps its recovery picker.
+   */
+  startedSession?: boolean;
   hideBranchPicker?: boolean;
   hideTopBar?: boolean;
   /** Queue presentation supplied by the owning runtime. */
@@ -333,6 +341,7 @@ export function Composer({
   branch,
   recents = EMPTY_RECENTS,
   hideProjectPicker = false,
+  startedSession = false,
   hideBranchPicker = false,
   hideTopBar = false,
   messageQueue,
@@ -398,6 +407,8 @@ export function Composer({
   children,
 }: Props) {
   const { t: uiT } = useTranslation();
+  const composerEnvironment = useComposerEnvironment(sessionId, cwd ?? executionCwd, onCwdChange);
+  const needsEnvironmentProject = !remoteSession && !startedSession && composerEnvironment.needsProject;
   const ref = useRef<HTMLTextAreaElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const surfaceWidthRef = useInlineBreakpoints(COMPOSER_BREAKPOINTS, "px", !compact);
@@ -1319,6 +1330,10 @@ export function Composer({
     }
     const value = ref.current?.value ?? submittedValue;
     if (disabled || worktreeRemoved) return;
+    if (needsEnvironmentProject) {
+      showStatusToast(uiT("Choose a project folder in the selected environment before sending."), "error");
+      return;
+    }
     if (isMcpCommand(value)) {
       mcpInsertAt.current = 0;
       if (ref.current) {
@@ -1756,7 +1771,7 @@ export function Composer({
   const workspaceBar = useMemo(
     () => {
       if (hideTopBar) return null;
-      const projectPicker = !remote && (!hideProjectPicker || !compact);
+      const projectPicker = !remote && !startedSession && (!hideProjectPicker || !compact);
       const draftGit =
         draftWorkspace && !!onWorkspaceModeChange && !!onWorktreeBaseChange;
       // A removed worktree keeps its recovery picker in the bar.
@@ -1794,7 +1809,7 @@ export function Composer({
               }
               onHold={hold}
               onClose={close}
-              renderPicker={({ onOpenChange, onFinish }) =>
+              renderPicker={({ anchor, onOpenChange, onFinish }) =>
                 worktreeMode ? (
                   <WorktreeBasePicker
                     branches={draftBranches?.branches ?? []}
@@ -1802,6 +1817,7 @@ export function Composer({
                     loading={!draftBranchesSettled}
                     enabled={gitEnabled && !!draftBranches}
                     initialOpen
+                    menuAnchor={anchor}
                     popoverSide="right"
                     onChange={(base) => onWorktreeBaseChange?.(base)}
                     onOpenChange={onOpenChange}
@@ -1813,6 +1829,7 @@ export function Composer({
                     branch={branch}
                     enabled={gitEnabled}
                     initialOpen
+                    menuAnchor={anchor}
                     popoverSide="right"
                     onChange={onBranchChange}
                     onOpenChange={onOpenChange}
@@ -1834,30 +1851,31 @@ export function Composer({
         : undefined;
       return (
         <div className="composer-workspace-bar flex min-w-0 items-center gap-2.5 px-3 pt-2.5">
-          {!compact ? <span className="composer-environment-badge hidden" title={uiT(remote ? "Remote connection" : "Local")}>
-            {remote ? <Internet /> : <Laptop />}<span>{uiT(remote ? "Remote" : "Local")}</span>
-          </span> : null}
+          {!compact && !startedSession ? <ComposerEnvironmentPicker remote={remote} cwd={cwd ?? executionCwd} onCwdChange={onCwdChange}
+            selectedDistribution={remote ? undefined : composerEnvironment.distribution}
+            onEnvironmentChange={composerEnvironment.select} /> : null}
           {projectPicker ? (
             <div className="composer-project-picker" data-picker-hidden={hideProjectPicker || undefined}>
             <CwdPicker
-              cwd={cwd}
-              recents={recents}
-              projectLogoPath={projectLogoPath}
+              cwd={needsEnvironmentProject ? "~" : cwd}
+              recents={recents.filter(item => !isRemoteProjectPath(item.path) && (parseWslPath(item.path)?.machine.distribution ?? null) === composerEnvironment.distribution)}
+              projectLogoPath={needsEnvironmentProject ? undefined : projectLogoPath}
               enabled={enabled}
               buttonClassName={
                 compact ? undefined : "composer-workspace-trigger"
               }
               chevron={!compact}
-              shortLabel={!compact ? projectName(cwd ?? executionCwd) : undefined}
+              shortLabel={!compact && !needsEnvironmentProject ? projectName(cwd ?? executionCwd) : undefined}
               openFolder={!compact}
-              menuFooter={gitMenuRows}
+              onOpenFolder={composerEnvironment.distribution ? () => void composerEnvironment.pickFolder() : undefined}
+              menuFooter={needsEnvironmentProject ? undefined : gitMenuRows}
               onCwdChange={onCwdChange}
-              onClear={() => onCwdChange("~")}
+              onClear={composerEnvironment.distribution ? undefined : () => onCwdChange("~")}
               onClose={() => ref.current?.focus()}
             />
             </div>
           ) : null}
-          {hideBranchPicker || foldGit ? null : draftWorkspace &&
+          {hideBranchPicker || foldGit || needsEnvironmentProject ? null : draftWorkspace &&
             onWorkspaceModeChange &&
             onWorktreeBaseChange ? (
             <div className="composer-git-controls">
@@ -1896,7 +1914,7 @@ export function Composer({
               onManage={onManageWorktrees}
               onClose={() => ref.current?.focus()}
             />
-          ) : (
+          ) : startedSession ? null : (
             <>
               {onWorktreeChange ? (
                 <WorkspaceIdentity
@@ -1934,10 +1952,13 @@ export function Composer({
       focusInput,
       hideBranchPicker,
       hideProjectPicker,
+      startedSession,
       hideTopBar,
       onBranchChange,
       onCompactContext,
       onCwdChange,
+      composerEnvironment,
+      needsEnvironmentProject,
       onManageWorktrees,
       onWorkspaceModeChange,
       onWorktreeBaseChange,
@@ -2460,9 +2481,9 @@ export function Composer({
                 >
                   <Plus className="size-4" />
                 </ToolButton>
-                <ComposerPopover
+                <MenuPanel
                   open={plusOpen}
-                  enabled={!compact}
+                  inset={!compact}
                   anchor={plusRef}
                   side="top"
                   align="start"
@@ -2696,7 +2717,7 @@ export function Composer({
                       ) : null}
                     </button>
                   ) : null}
-                </ComposerPopover>
+                </MenuPanel>
               </div>
               {compact ? footerControls : null}
               <motion.div

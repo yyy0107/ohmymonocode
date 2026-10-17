@@ -1,5 +1,6 @@
-import { AnimatePresence, motion } from "motion/react";
-import { panelTransition, immediateTransition, motionGeometry, motionDistance } from "../../../shared/motion/tokens";
+import { MenuPanel } from "../../../shared/ui/primitives/MenuPanel";
+import { motion } from "motion/react";
+import { panelTransition, immediateTransition, motionGeometry } from "../../../shared/motion/tokens";
 import { reducedMotionQuery } from "../../../shared/lib/reducedMotion";
 import { RotatingIcon } from "../../../shared/ui/RotatingIcon";
 import { MenuHover } from "../../../shared/ui/MenuHover";
@@ -10,7 +11,6 @@ import { useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import {
   Check,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Gauge,
   Loader,
@@ -62,8 +62,6 @@ import { modelGroups } from "../model/modelGroups";
 import { HARNESSES, HARNESS_TITLE, type HarnessId } from "../model/session";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
 import { HarnessIcon } from "./HarnessIcon";
-import { ComposerPopover } from "./ComposerPopover";
-import { ComposerMenuPanel } from "./ComposerMenuPanel";
 import type { PopoverAlign } from "../../../shared/lib/popover";
 import { MOD } from "../../../platform/tauri/platform";
 import { keybindingPressed } from "../../settings/model/settings";
@@ -91,19 +89,17 @@ type Props = {
 
 type MenuEntry = { kind: "setting"; setting: ModelSetting } | { kind: "model" };
 
-/** Sub-views replace the menu content in place; there are no side flyouts. */
+/** Nested choices stay beside their root menu row. */
 type Submenu = { kind: "setting"; setting: ModelSetting } | { kind: "models" };
-type ViewMotion = "forward" | "back";
 
 type RecentMenu = { models: AgentModel[] };
 
-/** Root menu and its in-place sub-views share one width. */
+/** Menu widths retain the established composer density. */
 const MENU_WIDTH = 280;
 const MODEL_MENU_WIDTH = 320;
 const SETTING_MENU_WIDTH = 210;
 const SELF = "[data-model-picker]";
 
-export { composerMenuPanelWidth as composerModelMenuWidth } from "./ComposerMenuPanel";
 
 /** Long catalogs scroll, while short lists keep their intrinsic height. */
 const MODEL_MENU_MAX_HEIGHT = 380;
@@ -297,12 +293,18 @@ export function ModelPicker({
   const [recentMenu, setRecentMenu] = useState<RecentMenu | null>(null);
   const [recentActive, setRecentActive] = useState(0);
   const [submenu, setSubmenu] = useState<Submenu | null>(null);
-  const [viewMotion, setViewMotion] = useState<ViewMotion | null>(null);
+  const entryAnchors = useRef(new Map<string, { current: HTMLButtonElement | null }>());
+  const entryAnchor = (key: string) => {
+    let anchor = entryAnchors.current.get(key);
+    if (!anchor) { anchor = { current: null }; entryAnchors.current.set(key, anchor); }
+    return anchor;
+  };
   const [query, setQuery] = useState("");
   const [favorites, setFavorites] = usePreferenceState(loadFavoriteModels);
   const recentMenuId = useId();
   const button = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
+  const submenuMenu = useRef<HTMLDivElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const onCloseRef = useRef(onClose);
   const openRef = useRef(open);
@@ -423,7 +425,6 @@ export function ModelPicker({
       // Beside-picker mode leaves only the Model row; open its list directly
       // instead of making it one more step.
       setSubmenu(hideSettings ? { kind: "models" } : null);
-      setViewMotion(null);
       setActive(0);
       setQuery("");
       setOpen(true);
@@ -500,6 +501,12 @@ export function ModelPicker({
     setActiveSetting(index >= 0 ? index : 0);
     setListNavigated(false);
   }, [submenu, values]);
+
+  useEffect(() => {
+    if (!open || submenu?.kind !== "setting") return;
+    const frame = requestAnimationFrame(() => submenuMenu.current?.focus({ preventScroll: true }));
+    return () => cancelAnimationFrame(frame);
+  }, [open, submenu]);
 
   useEffect(() => {
     if (!visible) return;
@@ -623,26 +630,16 @@ export function ModelPicker({
   };
 
   const enterView = (next: Submenu) => {
-    setViewMotion("forward");
     setSubmenu(next);
   };
 
   const goBack = () => {
     if (hideSettings || submenu == null) return false;
-    setViewMotion("back");
     setSubmenu(null);
+    entryAnchor(submenu.kind === "models" ? "model" : `setting:${submenu.setting.id}`).current?.focus({ preventScroll: true });
     return true;
   };
   backRef.current = goBack;
-
-  // Leaving a sub-view unmounts whatever held focus (the search field, an
-  // option row); return it to the menu so arrows and Escape keep working.
-  useEffect(() => {
-    if (!open || hideSettings || submenu != null || viewMotion !== "back") {
-      return;
-    }
-    menu.current?.focus({ preventScroll: true });
-  }, [open, hideSettings, submenu, viewMotion]);
 
   const showEntrySubmenu = (entry: MenuEntry) => {
     if (entry.kind === "model") {
@@ -655,23 +652,25 @@ export function ModelPicker({
   };
 
   const moveEntry = (direction: 1 | -1) => {
+    setSubmenu(null);
     setActive((index) => (index + direction + entries.length) % entries.length);
   };
 
   const onMenuKey = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const activeSubmenu = event.currentTarget.hasAttribute("data-submenu") ? submenu : null;
     // The model browser handles its own search field and list keys.
     if (event.defaultPrevented || event.target instanceof HTMLInputElement) {
       return;
     }
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      if (submenu?.kind === "models") {
+      if (activeSubmenu?.kind === "models") {
         navigateModel((index) =>
           Math.min(visibleModels.length - 1, index + 1),
         );
-      } else if (submenu?.kind === "setting") {
+      } else if (activeSubmenu?.kind === "setting") {
         navigateSetting((index) =>
-          Math.min(submenu.setting.options.length - 1, index + 1),
+          Math.min(activeSubmenu.setting.options.length - 1, index + 1),
         );
       } else {
         moveEntry(1);
@@ -680,9 +679,9 @@ export function ModelPicker({
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      if (submenu?.kind === "models") {
+      if (activeSubmenu?.kind === "models") {
         navigateModel((index) => Math.max(0, index - 1));
-      } else if (submenu?.kind === "setting") {
+      } else if (activeSubmenu?.kind === "setting") {
         navigateSetting((index) => Math.max(0, index - 1));
       } else {
         moveEntry(-1);
@@ -690,7 +689,7 @@ export function ModelPicker({
       return;
     }
     if (event.key === "ArrowRight") {
-      if (submenu != null) return;
+      if (activeSubmenu != null) return;
       event.preventDefault();
       const entry = entries[active];
       if (entry) showEntrySubmenu(entry);
@@ -701,10 +700,10 @@ export function ModelPicker({
       return;
     }
     if (event.key !== "Enter") return;
-    // Back buttons and favorite toggles keep native activation.
+    // Favorite toggles keep native activation.
     if (
       event.target instanceof HTMLButtonElement &&
-      submenu != null &&
+      activeSubmenu != null &&
       !["option", "menuitemradio"].includes(
         event.target.getAttribute("role") ?? "",
       )
@@ -712,14 +711,14 @@ export function ModelPicker({
       return;
     }
     event.preventDefault();
-    if (submenu?.kind === "models") {
+    if (activeSubmenu?.kind === "models") {
       const item = visibleModels[activeModel];
       if (item) pickModel(item);
       return;
     }
-    if (submenu?.kind === "setting") {
-      const option = submenu.setting.options[activeSetting];
-      if (option) setSetting(submenu.setting, option.value);
+    if (activeSubmenu?.kind === "setting") {
+      const option = activeSubmenu.setting.options[activeSetting];
+      if (option) setSetting(activeSubmenu.setting, option.value);
       return;
     }
     const entry = entries[active];
@@ -731,13 +730,6 @@ export function ModelPicker({
     const value = settingValue(entry.setting, values);
     setSetting(entry.setting, value === "true" ? "false" : "true");
   };
-
-  const viewKey =
-    submenu == null
-      ? "root"
-      : submenu.kind === "models"
-        ? "models"
-        : `setting:${submenu.setting.id}`;
 
   return (
     <>
@@ -817,55 +809,126 @@ export function ModelPicker({
         />
       ) : null}
 
-      {!hideSettings ? (
-        <ComposerMenuPanel
-          ref={menu}
-          open={open}
-          appearance={appearance}
-          enabled={appearance === "composer"}
-          anchor={button}
-          side="top"
-          align={align}
-          width={MENU_WIDTH}
-          maxHeight={
-            submenu?.kind === "models" ? MODEL_MENU_MAX_HEIGHT : undefined
-          }
-          autoFocus
-          dismissOnEscape={false}
-          ignore={SELF}
-          onDismiss={() => dismiss(false)}
-          role={submenu?.kind === "models" ? "dialog" : "menu"}
-          aria-label={
-            submenu?.kind === "models"
-              ? uiT("Models")
-              : submenu?.kind === "setting"
-                ? settingLabel(submenu.setting)
-                : uiT("Model and settings")
-          }
-          tabIndex={-1}
-          onKeyDown={onMenuKey}
-          data-model-picker
-          data-view-motion={viewMotion ?? undefined}
-          className={`font-sans ${
-            submenu?.kind === "models"
-              ? "flex min-h-0 flex-col overflow-hidden"
-              : "p-1"
-          }`}
+      {!hideSettings ? <>
+        <MenuPanel
+          ref={menu} open={open} appearance={appearance}
+          anchor={button} side="top" align={align} width={MENU_WIDTH}
+          autoFocus dismissOnEscape={false} ignore={SELF}
+          onDismiss={() => dismiss(false)} role="menu"
+          aria-label={uiT("Model and settings")} tabIndex={-1}
+          onKeyDown={onMenuKey} data-model-picker className="p-1 font-sans"
         >
-          <AnimatePresence mode="popLayout"><motion.div
-            key={viewKey}
-            initial={reducedMotionQuery().matches ? false : { opacity: 0, x: viewMotion === "back" ? -motionDistance.pop : motionDistance.pop }}
-            animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: viewMotion === "back" ? motionDistance.pop : -motionDistance.pop }}
-            transition={reducedMotionQuery().matches ? immediateTransition : panelTransition}
-            className={
-              submenu?.kind === "models" ? "flex min-h-0 flex-1 flex-col" : ""
-            }
-          >
+          {entries.map((entry, index) => {
+                const highlighted = index === active;
+                if (entry.kind === "model") {
+                  return (
+                    <button
+                      ref={entryAnchor("model")}
+                      key="model"
+                      type="button"
+                      role="menuitem"
+                      aria-haspopup="dialog"
+                      aria-expanded={submenu?.kind === "models"}
+                      data-menu-row="single"
+                      data-highlighted={highlighted || undefined}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onMouseEnter={() => { setActive(index); showEntrySubmenu(entry); }}
+                      onClick={() => {
+                        setActive(index);
+                        showEntrySubmenu(entry);
+                      }}
+                      className={`relative isolate flex min-h-8 w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[14px] leading-5 ${
+                        highlighted
+                          ? "bg-selection text-content"
+                          : "text-content hover:bg-content/3"
+                      }`}
+                    >
+                      <MenuHover />
+                      <span data-menu-title className="min-w-0 flex-1">{uiT("Model")}</span>
+                      <span className="flex min-w-0 max-w-36 items-center gap-1 text-content/55">
+                        <HarnessIcon
+                          harness={current.harness}
+                          className="size-3.5 shrink-0"
+                        />
+                        <span className="min-w-0 truncate">{current.name}</span>
+                      </span>
+                      <ChevronRight data-menu-arrow className="size-4 shrink-0 text-content/45" />
+                    </button>
+                  );
+                }
+
+                const setting = entry.setting;
+                const value = settingValue(setting, values);
+                const isToggle = setting.kind === "toggle";
+                return (
+                  <button
+                    ref={entryAnchor(`setting:${setting.id}`)}
+                    key={setting.id}
+                    type="button"
+                    role={isToggle ? "menuitemcheckbox" : "menuitem"}
+                    aria-checked={isToggle ? value === "true" : undefined}
+                    aria-haspopup={isToggle ? undefined : "menu"}
+                    aria-expanded={isToggle ? undefined : submenu?.kind === "setting" && submenu.setting.id === setting.id}
+                    data-menu-row="single"
+                    data-highlighted={highlighted || undefined}
+                    title={setting.description}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onMouseEnter={() => { setActive(index); if (isToggle) setSubmenu(null); else showEntrySubmenu(entry); }}
+                    onClick={() => {
+                      setActive(index);
+                      if (isToggle) {
+                        setSetting(setting, value === "true" ? "false" : "true");
+                      } else {
+                        showEntrySubmenu(entry);
+                      }
+                    }}
+                    className={`relative isolate flex min-h-8 w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[14px] leading-5 ${
+                      highlighted
+                        ? "bg-selection text-content"
+                        : "text-content hover:bg-content/3"
+                    }`}
+                  >
+                    <MenuHover />
+                    <span data-menu-title className="min-w-0 flex-1">
+                      {settingLabel(setting)}
+                    </span>
+                    {isToggle ? (
+                      <span
+                        aria-hidden="true"
+                        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+                          value === "true" ? "bg-content/35" : "bg-content/15"
+                        }`}
+                      >
+                        <motion.span initial={false} animate={{ x: value === "true" ? motionGeometry.toggleTravel : 0 }} transition={reducedMotionQuery().matches ? immediateTransition : panelTransition} className="absolute left-0.5 top-0.5 size-4 rounded-full bg-content shadow-sm" />
+                      </span>
+                    ) : (
+                      <>
+                        <span className="min-w-0 max-w-28 truncate text-content/55">
+                          {settingValueLabel(setting, values)}
+                        </span>
+                        <ChevronRight data-menu-arrow className="size-4 shrink-0 text-content/45" />
+                      </>
+                    )}
+                  </button>
+                );
+              })}
+        </MenuPanel>
+        <MenuPanel
+          ref={submenuMenu}
+          open={open && submenu != null} appearance={appearance} submenu
+          anchor={submenu ? entryAnchor(submenu.kind === "models" ? "model" : `setting:${submenu.setting.id}`) : null}
+          width={submenu?.kind === "models" ? MODEL_MENU_WIDTH : SETTING_MENU_WIDTH}
+          maxHeight={submenu?.kind === "models" ? MODEL_MENU_MAX_HEIGHT : undefined}
+          autoFocus dismissOnEscape={false} ignore={SELF}
+          onDismiss={() => goBack()}
+          role={submenu?.kind === "models" ? "dialog" : "menu"}
+          aria-label={submenu?.kind === "setting" ? settingLabel(submenu.setting) : uiT("Models")}
+          tabIndex={-1} onKeyDown={onMenuKey} data-model-picker
+          className={submenu?.kind === "models" ? "flex min-h-0 flex-col overflow-hidden font-sans" : "p-1 font-sans"}
+        >
             {submenu?.kind === "models" ? (
               <ModelBrowser
                 autoFocusSearch
-                onBack={goBack}
-                onBackHover={() => setListNavigated(false)}
                 harnesses={pickerHarnesses}
                 tab={visibleTab}
                 models={visibleModels}
@@ -883,11 +946,6 @@ export function ModelPicker({
               />
             ) : submenu?.kind === "setting" ? (
               <>
-                <BackHeader
-                  label={settingLabel(submenu.setting)}
-                  onBack={goBack}
-                  onHover={() => setListNavigated(false)}
-                />
                 {submenu.setting.options.map((option, index) => {
                   const selected =
                     option.value === settingValue(submenu.setting, values);
@@ -932,106 +990,14 @@ export function ModelPicker({
                   );
                 })}
               </>
-            ) : (
-              entries.map((entry, index) => {
-                const highlighted = index === active;
-                if (entry.kind === "model") {
-                  return (
-                    <button
-                      key="model"
-                      type="button"
-                      role="menuitem"
-                      aria-haspopup="menu"
-                      data-menu-row="single"
-                      data-highlighted={highlighted || undefined}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onMouseEnter={() => setActive(index)}
-                      onClick={() => {
-                        setActive(index);
-                        showEntrySubmenu(entry);
-                      }}
-                      className={`relative isolate flex min-h-8 w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[14px] leading-5 ${
-                        highlighted
-                          ? "bg-selection text-content"
-                          : "text-content hover:bg-content/3"
-                      }`}
-                    >
-                      <MenuHover />
-                      <span data-menu-title className="min-w-0 flex-1">{uiT("Model")}</span>
-                      <span className="flex min-w-0 max-w-36 items-center gap-1 text-content/55">
-                        <HarnessIcon
-                          harness={current.harness}
-                          className="size-3.5 shrink-0"
-                        />
-                        <span className="min-w-0 truncate">{current.name}</span>
-                      </span>
-                      <ChevronRight data-menu-arrow className="size-4 shrink-0 text-content/45" />
-                    </button>
-                  );
-                }
+            ) : null}
+        </MenuPanel>
+      </> : null}
 
-                const setting = entry.setting;
-                const value = settingValue(setting, values);
-                const isToggle = setting.kind === "toggle";
-                return (
-                  <button
-                    key={setting.id}
-                    type="button"
-                    role={isToggle ? "menuitemcheckbox" : "menuitem"}
-                    aria-checked={isToggle ? value === "true" : undefined}
-                    aria-haspopup={isToggle ? undefined : "menu"}
-                    data-menu-row="single"
-                    data-highlighted={highlighted || undefined}
-                    title={setting.description}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onMouseEnter={() => setActive(index)}
-                    onClick={() => {
-                      setActive(index);
-                      if (isToggle) {
-                        setSetting(setting, value === "true" ? "false" : "true");
-                      } else {
-                        showEntrySubmenu(entry);
-                      }
-                    }}
-                    className={`relative isolate flex min-h-8 w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[14px] leading-5 ${
-                      highlighted
-                        ? "bg-selection text-content"
-                        : "text-content hover:bg-content/3"
-                    }`}
-                  >
-                    <MenuHover />
-                    <span data-menu-title className="min-w-0 flex-1">
-                      {settingLabel(setting)}
-                    </span>
-                    {isToggle ? (
-                      <span
-                        aria-hidden="true"
-                        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-                          value === "true" ? "bg-content/35" : "bg-content/15"
-                        }`}
-                      >
-                        <motion.span initial={false} animate={{ x: value === "true" ? motionGeometry.toggleTravel : 0 }} transition={reducedMotionQuery().matches ? immediateTransition : panelTransition} className="absolute left-0.5 top-0.5 size-4 rounded-full bg-content shadow-sm" />
-                      </span>
-                    ) : (
-                      <>
-                        <span className="min-w-0 max-w-28 truncate text-content/55">
-                          {settingValueLabel(setting, values)}
-                        </span>
-                        <ChevronRight data-menu-arrow className="size-4 shrink-0 text-content/45" />
-                      </>
-                    )}
-                  </button>
-                );
-              })
-            )}
-          </motion.div></AnimatePresence>
-        </ComposerMenuPanel>
-      ) : null}
-
-      <ComposerMenuPanel
+      <MenuPanel
         open={recentMenu != null}
         appearance={appearance}
-        enabled={appearance === "composer"}
+        inset={appearance === "composer"}
         anchor={button}
         side="top"
         align={align}
@@ -1095,7 +1061,7 @@ export function ModelPicker({
             </button>
           );
         })}
-      </ComposerMenuPanel>
+      </MenuPanel>
     </>
   );
 }
@@ -1278,9 +1244,9 @@ function SelectPill({
         <RotatingIcon icon={ChevronDown} angle={open ? motionGeometry.flipAngle : 0} className="size-3 shrink-0 text-content/50" />
       </button>
 
-      <ComposerPopover
+      <MenuPanel
         open={open}
-        enabled={appearance === "composer"}
+        inset={appearance === "composer"}
         anchor={button}
         side="top"
         align={align}
@@ -1372,7 +1338,7 @@ function SelectPill({
             </div>
           </Fragment>
         ))}
-      </ComposerPopover>
+      </MenuPanel>
     </>
   );
 }
@@ -1380,8 +1346,6 @@ function SelectPill({
 type ModelBrowserProps = {
   autoFocusSearch?: boolean;
   /** Shows a back button that returns to the settings menu. */
-  onBack?: () => void;
-  onBackHover?: () => void;
   harnesses: HarnessId[];
   tab: ModelPickerTab;
   models: AgentModel[];
@@ -1416,10 +1380,10 @@ function ModelFlyout({
 }) {
   const { t: uiT } = useTranslation();
   return (
-    <ComposerMenuPanel
+    <MenuPanel
       open={open}
       appearance={appearance}
-      enabled={appearance === "composer"}
+      inset={appearance === "composer"}
       anchor={anchor}
       side="top"
       align={align}
@@ -1432,43 +1396,12 @@ function ModelFlyout({
       className="flex min-h-0 flex-col overflow-hidden font-sans"
     >
       <ModelBrowser {...browser} />
-    </ComposerMenuPanel>
-  );
-}
-
-function BackHeader({
-  label,
-  onBack,
-  onHover,
-}: {
-  label: string;
-  onBack: () => void;
-  onHover?: () => void;
-}) {
-  const { t: uiT } = useTranslation();
-  // The whole row is the back target, not just the chevron.
-  return (
-    <button
-      type="button"
-      title={uiT("Back")}
-      aria-label={uiT("Back")}
-      data-menu-row="single"
-      onMouseDown={(event) => event.preventDefault()}
-      onMouseEnter={onHover}
-      onClick={onBack}
-      className="relative isolate mb-1 flex min-h-8 w-full shrink-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[14px] leading-5 text-content/55 hover:bg-content/3 hover:text-content"
-    >
-      <MenuHover />
-      <ChevronLeft data-menu-arrow className="size-4 shrink-0" />
-      <span data-menu-title className="min-w-0 flex-1 truncate">{label}</span>
-    </button>
+    </MenuPanel>
   );
 }
 
 function ModelBrowser({
   autoFocusSearch = false,
-  onBack,
-  onBackHover,
   harnesses,
   tab,
   models,
@@ -1575,15 +1508,7 @@ function ModelBrowser({
         if (item) onPick(item);
       }}
     >
-      {onBack ? (
-        <div className="shrink-0 p-1 pb-0">
-          <BackHeader
-            label={uiT("Model")}
-            onBack={onBack}
-            onHover={onBackHover}
-          />
-        </div>
-      ) : null}
+
       <label className="flex shrink-0 items-center gap-2 border-b border-stroke px-3 py-2 text-content/50">
         <Search className="size-3.5 shrink-0" />
         <input

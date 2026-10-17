@@ -1,5 +1,6 @@
 import { modelsFor } from "../../../../features/sessions/model/models";
 import {
+  childUsesSelectedMachine,
   killChild,
   resolveClaudeBinary,
   spawnChild,
@@ -240,6 +241,7 @@ async function ensureLive(
   if (
     live &&
     !live.closed &&
+    childUsesSelectedMachine(TEXT_CHILD_ID) &&
     live.cwd === cwd &&
     live.providerAccountId === providerAccountId &&
     live.model === model &&

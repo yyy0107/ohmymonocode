@@ -1,10 +1,8 @@
-import { execFile, execFileSync } from "node:child_process";
-import { existsSync, realpathSync, statSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
-import { promisify } from "node:util";
+import { machineExec as exec, machineFs, machinePath, assertLocalMachinePath, assertMachinePath, currentMachineIO } from "./machine-io";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { execFileSync } from "node:child_process";
+import { realpathSync, statSync } from "node:fs";
 
-const exec = promisify(execFile);
 const options = (cwd: string) => ({
   cwd,
   windowsHide: true,
@@ -12,7 +10,8 @@ const options = (cwd: string) => ({
   maxBuffer: 1024 * 1024,
 });
 
-function available(path: string): boolean {
+function availableSync(path: string): boolean {
+  assertLocalMachinePath(path);
   try {
     return statSync(path).isDirectory();
   } catch {
@@ -30,6 +29,29 @@ export type HostWorktree = {
   log?: string[];
 };
 export type HostWorktrees = { worktrees: HostWorktree[]; defaultRoot: string };
+
+const validatedWorktree = new AsyncLocalStorage<{
+  machine: string;
+  projectCwd: string;
+  requested: unknown;
+  cwd: string;
+  worktree?: HostWorktree;
+}>();
+
+/** Resolve over RPC before entering the synchronous session-creation transaction. */
+export async function withValidatedHostWorktree<T>(
+  projectCwd: string,
+  requested: unknown,
+  operation: () => T,
+): Promise<T> {
+  const machine = currentMachineIO().key;
+  const cwd = await resolveHostWorktreeAsync(projectCwd, requested);
+  const worktree = cwd !== projectCwd
+    ? (await hostWorktrees(projectCwd)).worktrees.find((tree) => tree.path === cwd && !tree.missing)
+    : undefined;
+  if (cwd !== projectCwd && !worktree) throw new Error("Choose an available worktree of this project");
+  return validatedWorktree.run({ machine, projectCwd, requested, cwd, worktree }, operation);
+}
 
 function gitOutputLines(text: string): string[] {
   return text
@@ -61,6 +83,7 @@ function parse(text: string): HostWorktree[] {
 }
 
 function registeredSync(cwd: string): HostWorktree[] {
+  assertLocalMachinePath(cwd);
   const output = execFileSync(
     "git",
     ["worktree", "list", "--porcelain", "-z"],
@@ -71,12 +94,19 @@ function registeredSync(cwd: string): HostWorktree[] {
   );
   return parse(output).map((tree) => ({
     ...tree,
-    path: available(tree.path) ? realpathSync.native(tree.path) : tree.path,
+    path: availableSync(tree.path) ? realpathSync.native(tree.path) : tree.path,
   }));
 }
 
 /** Snapshot the selected linked checkout's branch when binding a new session. */
 export function hostWorktreeAt(projectCwd: string, path: string): HostWorktree | undefined {
+  if (currentMachineIO().key !== "local") {
+    const verified = validatedWorktree.getStore();
+    if (verified?.machine === currentMachineIO().key && verified.projectCwd === projectCwd && verified.cwd === path)
+      return verified.worktree;
+    throw new Error("Resolve the WSL worktree before creating a session");
+  }
+  assertLocalMachinePath(projectCwd);
   return registeredSync(projectCwd).find((tree) => tree.path === path);
 }
 
@@ -84,20 +114,27 @@ export function resolveHostWorktree(
   projectCwd: string,
   requested: unknown,
 ): string {
+  assertMachinePath(projectCwd);
   if (requested == null || requested === "" || requested === projectCwd)
     return projectCwd;
+  if (currentMachineIO().key !== "local") {
+    const verified = validatedWorktree.getStore();
+    if (verified?.machine === currentMachineIO().key && verified.projectCwd === projectCwd && verified.requested === requested)
+      return verified.cwd;
+    throw new Error("Resolve the WSL worktree before creating a session");
+  }
   if (
     typeof requested !== "string" ||
     requested.includes("\0") ||
     requested.length > 4096
   )
     throw new Error("Invalid working copy");
-  const actual = available(requested) ? realpathSync.native(requested) : requested;
+  const actual = availableSync(requested) ? realpathSync.native(requested) : requested;
   if (actual === projectCwd) return projectCwd;
   const target = registeredSync(projectCwd).find(
     (tree) => tree.path === actual,
   );
-  if (!target || !available(target.path))
+  if (!target || !availableSync(target.path))
     throw new Error("Choose an available worktree of this project");
   return realpathSync.native(target.path);
 }
@@ -114,7 +151,7 @@ export async function resolveHostWorktreeAsync(
     requested.length > 4096
   )
     throw new Error("Invalid working copy");
-  const actual = available(requested) ? realpathSync.native(requested) : requested;
+  const actual = await machineFs.realpath(requested).catch(() => requested);
   if (actual === projectCwd) return projectCwd;
   const listed = await hostWorktrees(projectCwd);
   if (!listed.worktrees.some((tree) => tree.path === actual && !tree.missing))
@@ -128,16 +165,16 @@ export async function hostWorktrees(cwd: string): Promise<HostWorktrees> {
     ["worktree", "list", "--porcelain", "-z"],
     options(cwd),
   );
-  const worktrees = parse(stdout).map((tree) => ({
+  const worktrees = await Promise.all(parse(stdout).map(async (tree) => ({
     ...tree,
-    path: available(tree.path) ? realpathSync.native(tree.path) : tree.path,
-    missing: !available(tree.path),
-  }));
+    path: await machineFs.realpath(tree.path).catch(() => tree.path),
+    missing: !(await machineFs.stat(tree.path).then((info) => info.isDirectory(), () => false)),
+  })));
   const main = worktrees[0];
   if (!main) throw new Error("No working copies found");
   return {
     worktrees,
-    defaultRoot: join(dirname(main.path), `${basename(main.path)}-worktrees`),
+    defaultRoot: machinePath.join(machinePath.dirname(main.path), `${machinePath.basename(main.path)}-worktrees`),
   };
 }
 
@@ -169,8 +206,8 @@ export async function createHostWorktree(
       "This branch already has a working copy. Select it from the picker.",
     );
   const slug = `wt-${branch.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
-  const path = join(listed.defaultRoot, slug);
-  if (existsSync(path))
+  const path = machinePath.join(listed.defaultRoot, slug);
+  if (await machineFs.lstat(path).then(() => true, () => false))
     throw new Error(`${path} already exists. Choose another branch name.`);
   const refs = (
     await exec(
@@ -198,7 +235,7 @@ export async function createHostWorktree(
       options(sourceCwd),
     )
   ).stdout.trim();
-  await mkdir(listed.defaultRoot, { recursive: true });
+  await machineFs.mkdir(listed.defaultRoot, { recursive: true });
   // Git writes its progress to stderr even when the command succeeds.
   const added = existing
     ? await exec("git", ["worktree", "add", "--", path, branch], options(cwd))

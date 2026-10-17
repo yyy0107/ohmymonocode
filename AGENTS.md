@@ -42,6 +42,16 @@ are not prerequisites for local work.
   and menu presentation through props rather than duplicating keyboard/focus logic.
   Shared `PrivateEmail` receives `masked`; consumers read the preference. Shared
   surfaces import `GlassBackdrop` from shared UI, never from the app shell.
+- Menu option heights are already standardized. Before adding or changing a
+  dropdown, picker, or menu, inspect the shared control, `desktop-tokens.css`,
+  and `desktop-controls.css`; reuse the existing menu density and
+  `--desktop-menu-*` tokens for row height, line height, and padding. Composer
+  environment options must match the project-folder picker option height.
+  Do not add feature-local `height`, `min-height`, line-height, padding, or token
+  overrides that change option height merely to match a reference screenshot.
+  Screenshots do not override the shared sizing rules. Unless the user explicitly
+  requests a different size, preserve the unified dimensions; remove obsolete
+  local overrides instead of layering new overrides on top.
 - Messaging presentation primitives live in `src/shared/ui/messaging/`: navigation
   items, assistant status, app headers/surfaces and loading skeletons accept slots
   and native props. Features own destinations, provider copy, loading and actions.

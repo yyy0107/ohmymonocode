@@ -101,7 +101,8 @@ it("the generated launcher preserves executable/entry paths and JSON arguments w
     const launcher = await service.launcher(directory, entry);
     const args = ["control", "delegate", "--json", '{"title":"worker with spaces"}'];
     const output = process.platform === "win32"
-      ? await exec(process.env.ComSpec ?? "cmd.exe", ["/d", "/c", launcher, ...args])
+      ? await exec(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c",
+        `""${launcher}" control delegate --json "{\\"title\\":\\"worker with spaces\\"}""`], { windowsVerbatimArguments: true })
       : await exec(launcher, args);
     expect(JSON.parse(output.stdout)).toEqual(args);
     expect(await readFile(launcher, "utf8")).not.toContain("MONOCODE_CONTROL_TOKEN");

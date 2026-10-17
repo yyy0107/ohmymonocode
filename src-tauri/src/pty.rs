@@ -154,7 +154,14 @@ pub fn pty_spawn(
     rows: u16,
 ) -> Result<(), String> {
     let generation = host.generation.load(std::sync::atomic::Ordering::SeqCst);
-    let workdir = working_dir(&cwd);
+    let workdir = if crate::wsl_path::parse(&cwd)?.is_some() {
+        if !cfg!(windows) {
+            return Err("WSL terminals require Windows".into());
+        }
+        std::path::PathBuf::from(&cwd)
+    } else {
+        working_dir(&cwd)
+    };
     let _reservation = crate::worktree_lifecycle::reserve_spawn(&workdir)?;
     if let Some(previous) = host.get(&id) {
         previous.stop()?;

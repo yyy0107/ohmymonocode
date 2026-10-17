@@ -1,6 +1,6 @@
-import { open, readdir, realpath, stat } from "node:fs/promises";
+import { machineFs, machinePath, currentMachineIO } from "./machine-io";
+import { open } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type {
   HostSkillCatalog,
   RemoteProvider,
@@ -71,6 +71,12 @@ async function prefix(
   limit: number,
   complete = false,
 ): Promise<string> {
+  if (currentMachineIO().key !== "local") {
+    const info = await machineFs.stat(path);
+    if (!info.isFile() || (complete && info.size > limit))
+      throw new Error("Skill file is too large or not a regular file");
+    return new TextDecoder("utf-8", { fatal: true }).decode(await machineFs.readPrefix(path, limit));
+  }
   const file = await open(path, "r");
   try {
     const info = await file.stat();
@@ -118,15 +124,15 @@ function managedRoot() {
 /** Registered Claude plugin namespaces/settings follow the desktop scanner. */
 async function pluginRoots(project: string, home: string, managed: string) {
   const registry = (
-    await json(join(home, ".claude/plugins/installed_plugins.json"))
+    await json(machinePath.join(home, ".claude/plugins/installed_plugins.json"))
   ).plugins;
   if (!registry || typeof registry !== "object" || Array.isArray(registry))
     return [];
   let settingsProject = project;
-  for (let path = project; ; path = dirname(path)) {
+  for (let path = project; ; path = machinePath.dirname(path)) {
     const found = await Promise.all(
       ["settings.local.json", "settings.json"].map((name) =>
-        stat(join(path, ".claude", name)).then(
+        machineFs.stat(machinePath.join(path, ".claude", name)).then(
           (info) => info.isFile(),
           () => false,
         ),
@@ -136,34 +142,33 @@ async function pluginRoots(project: string, home: string, managed: string) {
       settingsProject = path;
       break;
     }
-    if (dirname(path) === path) break;
+    if (machinePath.dirname(path) === path) break;
   }
   const localSettings = await Promise.all(
     [
-      join(settingsProject, ".claude/settings.local.json"),
-      join(settingsProject, ".claude/settings.json"),
-      join(home, ".claude/settings.json"),
+      machinePath.join(settingsProject, ".claude/settings.local.json"),
+      machinePath.join(settingsProject, ".claude/settings.json"),
+      machinePath.join(home, ".claude/settings.json"),
     ].map(json),
   );
   const managedFiles = (
-    await readdir(join(managed, "managed-settings.d")).catch(() => [])
+    await machineFs.readdir(machinePath.join(managed, "managed-settings.d")).catch(() => [])
   )
     .filter((name) => name.endsWith(".json") && !name.startsWith("."))
     .sort();
   const managedSettings = await Promise.all(
     [
-      join(managed, "managed-settings.json"),
-      ...managedFiles.map((name) => join(managed, "managed-settings.d", name)),
+      machinePath.join(managed, "managed-settings.json"),
+      ...managedFiles.map((name) => machinePath.join(managed, "managed-settings.d", name)),
     ].map(json),
   );
-  const expand = (path: string) =>
-    path === "~"
-      ? home
-      : path.startsWith("~/")
-        ? join(home, path.slice(2))
-        : isAbsolute(path)
-          ? path
-          : resolve(home, path);
+  const expand = async (path: string) => {
+    if (currentMachineIO().key !== "local" && /^(?:[a-z]:[\\/]|\\\\)/i.test(path))
+      return currentMachineIO().hostPath(path);
+    return path === "~" ? home : path.startsWith("~/")
+      ? machinePath.join(home, path.slice(2)) : machinePath.isAbsolute(path)
+        ? path : machinePath.resolve(home, path);
+  };
   const roots: Array<{
     path: string;
     scope: "project" | "user";
@@ -188,21 +193,21 @@ async function pluginRoots(project: string, home: string, managed: string) {
       if (scope !== "user") {
         if (typeof entry.projectPath !== "string") continue;
         const [actual, root] = await Promise.all([
-          realpath(project),
-          realpath(expand(entry.projectPath)),
+          machineFs.realpath(project),
+          machineFs.realpath(await expand(entry.projectPath)),
         ]).catch(() => ["", ""]);
-        const rel = relative(root, actual);
+        const rel = machinePath.relative(root, actual);
         if (
           !actual ||
           !root ||
           rel === ".." ||
-          rel.startsWith(`..${sep}`) ||
-          isAbsolute(rel)
+          rel.startsWith(`..${machinePath.sep}`) ||
+          machinePath.isAbsolute(rel)
         )
           continue;
       }
       roots.push({
-        path: join(expand(entry.installPath), "skills"),
+        path: machinePath.join(await expand(entry.installPath), "skills"),
         scope: scope === "user" ? "user" : "project",
         namespace,
       });
@@ -218,14 +223,17 @@ export async function discoverHostSkills(
   home = homedir(),
   managed = managedRoot(),
 ): Promise<DiscoveredSkill[]> {
+  if (currentMachineIO().key !== "local") {
+    [home, managed] = await Promise.all([currentMachineIO().hostPath(home), currentMachineIO().hostPath(managed)]);
+  }
   const roots: Array<{
     path: string;
     scope: "project" | "user";
     source: DiscoveredSkill["source"];
     namespace?: string;
   }> = [
-    { path: join(cwd, ".agents/skills"), scope: "project", source: "agents" },
-    { path: join(home, ".agents/skills"), scope: "user", source: "agents" },
+    { path: machinePath.join(cwd, ".agents/skills"), scope: "project", source: "agents" },
+    { path: machinePath.join(home, ".agents/skills"), scope: "user", source: "agents" },
   ];
   for (const source of [
     "claude",
@@ -239,21 +247,21 @@ export async function discoverHostSkills(
     "hermes",
   ] as const) {
     roots.push({
-      path: join(cwd, `.${source}/skills`),
+      path: machinePath.join(cwd, `.${source}/skills`),
       scope: "project",
       source,
     });
     roots.push({
-      path: join(home, `.${source}/skills`),
+      path: machinePath.join(home, `.${source}/skills`),
       scope: "user",
       source,
     });
   }
   roots.push(
-    { path: join(home, ".pi/agent/skills"), scope: "user", source: "pi" },
-    { path: join(home, ".omp/agent/skills"), scope: "user", source: "omp" },
+    { path: machinePath.join(home, ".pi/agent/skills"), scope: "user", source: "pi" },
+    { path: machinePath.join(home, ".omp/agent/skills"), scope: "user", source: "omp" },
     {
-      path: join(home, ".gemini/antigravity/skills"),
+      path: machinePath.join(home, ".gemini/antigravity/skills"),
       scope: "user",
       source: "antigravity",
     },
@@ -267,20 +275,20 @@ export async function discoverHostSkills(
   ]) {
     if (found.size >= MAX_SKILLS) break;
     if (!root.namespace) {
-      const key = await realpath(root.path).catch(() => root.path);
+      const key = await machineFs.realpath(root.path).catch(() => root.path);
       if (seenRoots.has(key)) continue;
       seenRoots.add(key);
     }
-    const entries = await readdir(root.path, { withFileTypes: true }).catch(
+    const entries = await machineFs.readdir(root.path, { withFileTypes: true }).catch(
       () => [],
     );
     for (const entry of entries) {
       if (found.size >= MAX_SKILLS) break;
       if (entry.name.startsWith(".") || entry.name === "skills-cursor")
         continue;
-      const dir = join(root.path, entry.name);
+      const dir = machinePath.join(root.path, entry.name);
       if (
-        !(await stat(dir).then(
+        !(await machineFs.stat(dir).then(
           (info) => info.isDirectory(),
           () => false,
         ))
@@ -289,12 +297,12 @@ export async function discoverHostSkills(
       const fallback = slug(entry.name);
       if (!fallback) continue;
       const path =
-        (await stat(join(dir, "SKILL.md")).then(
-          (info) => (info.isFile() ? join(dir, "SKILL.md") : undefined),
+        (await machineFs.stat(machinePath.join(dir, "SKILL.md")).then(
+          (info) => (info.isFile() ? machinePath.join(dir, "SKILL.md") : undefined),
           () => undefined,
         )) ??
-        (await stat(join(dir, "skill.md")).then(
-          (info) => (info.isFile() ? join(dir, "skill.md") : undefined),
+        (await machineFs.stat(machinePath.join(dir, "skill.md")).then(
+          (info) => (info.isFile() ? machinePath.join(dir, "skill.md") : undefined),
           () => undefined,
         ));
       if (!path) continue;
@@ -346,7 +354,7 @@ export class HostSkills {
     provider: HostProvider,
     refresh = false,
   ): Promise<HostSkillCatalog> {
-    const key = `${context.harness}\0${context.cwd}\0${provider.commands?.subscribe ? (context.sessionId ?? "") : ""}`;
+    const key = `${currentMachineIO().key}\0${context.harness}\0${context.cwd}\0${provider.commands?.subscribe ? (context.sessionId ?? "") : ""}`;
     let entry = this.entries.get(key);
     if (!entry) {
       if (this.closed) throw new Error("Host stopped");

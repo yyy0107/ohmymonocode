@@ -144,6 +144,7 @@ import {
   MessageCircleQuestion as MessageCircleQuestionIcon,
   Repeat2 as Repeat2Icon,
   SquareKanban as SquareKanbanIcon,
+  SquareMenu as SquareMenuIcon,
   Table as TableIcon,
   TriangleAlert as TriangleAlertIcon,
   type LucideIcon,
@@ -405,5 +406,6 @@ export const MessageCircleQuestion = wrap(
 );
 export const Repeat2 = wrap(Repeat2Icon, "Repeat2");
 export const SquareKanban = wrap(SquareKanbanIcon, "SquareKanban");
+export const SquareMenu = wrap(SquareMenuIcon, "SquareMenu");
 export const Table = wrap(TableIcon, "Table");
 export const TriangleAlert = wrap(TriangleAlertIcon, "TriangleAlert");

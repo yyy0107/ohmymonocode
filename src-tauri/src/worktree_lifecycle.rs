@@ -23,11 +23,16 @@ pub(crate) struct Reservation<'a> {
 
 impl Lifecycle {
     fn reserve(&self, path: &Path, removing: bool) -> Result<Reservation<'_>, String> {
-        let path = match path.canonicalize() {
-            Ok(path) => path,
-            // Git can remove a registered worktree whose folder is missing.
-            Err(_) if removing => path.to_path_buf(),
-            Err(error) => return Err(format!("Cannot open working directory: {error}")),
+        let path = if crate::wsl_path::parse(&path.to_string_lossy())?.is_some() {
+            // The shared Host owns Linux path validation and checkout leases.
+            path.to_path_buf()
+        } else {
+            match path.canonicalize() {
+                Ok(path) => path,
+                // Git can remove a registered worktree whose folder is missing.
+                Err(_) if removing => path.to_path_buf(),
+                Err(error) => return Err(format!("Cannot open working directory: {error}")),
+            }
         };
         let mut reservations = self.reservations.lock().unwrap_or_else(|e| e.into_inner());
         if reservations.iter().any(|(other, exclusive)| {

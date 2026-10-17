@@ -190,8 +190,28 @@ export function useAnimatedReorder<T extends string>(
         setDraggingId(null);
       }
 
+      // Where each item starts once the list is reordered. Items keep their own
+      // sizes and each slot keeps its original gap, so a tall item pushes its
+      // neighbours by its own size rather than theirs.
+      function reorderedStarts(to: number) {
+        const order = moveItem(
+          rects.map((_, index) => index),
+          from,
+          to,
+        );
+        const starts = new Array<number>(rects.length);
+        let position = rects[0].start;
+        order.forEach((index, slot) => {
+          starts[index] = position;
+          const gap =
+            slot < rects.length - 1 ? rects[slot + 1].start - rects[slot].end : 0;
+          position += rects[index].size + gap;
+        });
+        return starts;
+      }
+
       function preview(to: number) {
-        const reordered = moveItem(items, from, to);
+        const starts = collapsedLayout ? null : reorderedStarts(to);
         for (let index = 0; index < tabs.length; index++) {
           if (index === from) continue;
           if (collapsedLayout) {
@@ -206,8 +226,7 @@ export function useAnimatedReorder<T extends string>(
             setTransform(tabs[index], offset);
             continue;
           }
-          const slot = reordered.indexOf(items[index]);
-          setTransform(tabs[index], rects[slot].start - rects[index].start);
+          setTransform(tabs[index], starts![index] - rects[index].start);
         }
       }
 
@@ -386,10 +405,11 @@ export function useAnimatedReorder<T extends string>(
         suppressClickUntil.current = performance.now() + duration + 400;
         const to = commit ? destination : from;
         preview(to);
-        const offset =
-          collapsedLayout && to > from
+        const offset = collapsedLayout
+          ? to > from
             ? rects[to].end - rects[from].end
-            : rects[to].start - rects[from].start;
+            : rects[to].start - rects[from].start
+          : reorderedStarts(to)[from] - rects[from].start;
         if (ghost && previewSource) {
           const rect = previewSource.getBoundingClientRect();
           ghost.settle(

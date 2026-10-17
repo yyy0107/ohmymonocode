@@ -147,18 +147,3 @@
 .model-picker-providers::-webkit-scrollbar {
   display: none;
 }
-
-/* Sub-views replace the menu in place; the whole surface replays its opening
-   pop from the bottom. Forward and back alternate, so two identical keyframe
-   names restart the animation on every switch. Only the start is filled so
-   the closing transition still owns the transform afterwards. */
-
-.composer-popover[data-model-picker] {
-  transform-origin: 50% 100%;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .composer-popover[data-model-picker][data-view-motion] {
-    animation: none;
-  }
-}

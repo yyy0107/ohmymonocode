@@ -20,11 +20,13 @@ export type HostDevice = HostDeviceInfo & {
   name: string;
   admin: boolean;
   createdAt?: number;
+  pairedAt?: number;
   lastSeen?: number;
   online?: boolean;
 };
 
 const DEVICE_REFRESH_MS = 10_000;
+const PAIRING_REFRESH_MS = 1_000;
 
 const pill =
   "h-7 rounded-full px-3 text-ui-base font-medium transition-colors disabled:opacity-40";
@@ -259,7 +261,7 @@ function ControlThisComputer() {
         <AddDeviceDialog
           machineId={machineId}
           onClose={() => setAdding(false)}
-          onAdded={() => void refresh()}
+          onAdded={refresh}
         />
       ) : null}</PresenceBoundary>
     </section>
@@ -279,26 +281,75 @@ function AddDeviceDialog({
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [token, setToken] = useState<string>();
+  const [issued, setIssued] = useState<{ id: string; token: string }>();
+  const [paired, setPaired] = useState(false);
   const [copied, setCopied] = useState(false);
   const [hostUrl, setHostUrl] = useState<string>();
+  const token = issued?.token;
   const link = token && hostUrl ? pairingLink(hostUrl, token) : undefined;
+
+  useEffect(() => {
+    if (!issued) return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const poll = async () => {
+      try {
+        const result = await remoteRequest<{ devices: HostDevice[] }>(machineId, "devices.list");
+        if (!active) return;
+        setError("");
+        if (result.devices.some((device) => device.id === issued.id && device.pairedAt !== undefined)) {
+          setPaired(true);
+          setIssued(undefined);
+          onAdded();
+          return;
+        }
+      } catch (reason) {
+        if (!active) return;
+        setError(String(reason));
+      }
+      if (active) timer = setTimeout(() => void poll(), PAIRING_REFRESH_MS);
+    };
+    void poll();
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [issued, machineId, onAdded]);
+
   const input =
     "w-full rounded-lg border border-border bg-transparent px-3 py-2 text-ui-base outline-none focus:border-content/35";
   return (
     <Modal
       title={t("Add device")}
       description={
-        token ? undefined : t("Create a credential that lets another device control this computer.")
+        token || paired ? undefined : t("Create a credential that lets another device control this computer.")
       }
       size="sm"
       onClose={onClose}
     >
-      {token ? (
+      {paired ? (
+        <div className="flex flex-col gap-4 p-4">
+          <div role="status" className="flex items-start gap-3 rounded-lg border border-border bg-content/3 p-3">
+            <Check aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-foreground" />
+            <div className="min-w-0">
+              <p className="text-ui-base font-medium text-foreground">{t("Pairing successful")}</p>
+              <p className="mt-1 text-ui-caption leading-5 text-foreground-subtle">
+                {t("This pairing code has been used and cannot pair another device.")}
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <button type="button" onClick={onClose} className={`${pill} bg-foreground text-background hover:opacity-85`}>
+              {t("Done")}
+            </button>
+          </div>
+        </div>
+      ) : token ? (
         <div className="flex flex-col gap-3 p-4">
           <p className="text-ui-base leading-6 text-foreground">
             {t("Scan this QR code in the MonoCode mobile app, or enter this computer's Host URL and the pairing code. The code is shown only once.")}
           </p>
+          <p className="text-ui-caption leading-5 text-foreground-subtle">{t("Each code can pair only one device.")}</p>
           <PairingHostField machineId={machineId} onChange={setHostUrl} />
           <div className="flex items-center gap-4 rounded-lg border border-border bg-content/3 p-3">
             {link ? (
@@ -323,6 +374,7 @@ function AddDeviceDialog({
               </button>
             </div>
           </div>
+          {error ? <p role="alert" className="break-words text-ui-caption text-red-400">{error}</p> : null}
           <div className="flex justify-end">
             <button
               type="button"
@@ -346,10 +398,10 @@ function AddDeviceDialog({
                 remoteRequest<{ id: string; token: string }>(machineId, "devices.issue", {
                   name: name.trim(),
                 }),
-              { loading: t("Adding device…"), success: t("Device added"), error: false },
+              { loading: t("Creating…"), success: false, error: false },
             )
               .then((device) => {
-                setToken(device.token);
+                setIssued(device);
                 onAdded();
               })
               .catch((reason) => setError(String(reason)))

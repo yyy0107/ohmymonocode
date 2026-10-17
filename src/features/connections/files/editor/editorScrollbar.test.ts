@@ -1,7 +1,8 @@
 import { setDiagnostics } from "@codemirror/lint";
 import { EditorState } from "@codemirror/state";
 import { describe, expect, it } from "vitest";
-import { diagnosticOverviewTicks, scrollbarMetrics } from "./editorScrollbar";
+import { diagnosticOverviewTicks } from "./editorScrollbar";
+import { scrollbarMetrics } from "../../../../shared/ui/Scrollbar";
 
 describe("scrollbarMetrics", () => {
   it("sizes and positions the thumb from the viewport", () => {

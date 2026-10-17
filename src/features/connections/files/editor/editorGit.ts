@@ -1098,12 +1098,12 @@ const gitTheme = EditorView.theme({
   },
   ".cm-gitOverview": {
     position: "absolute",
-    top: "0",
+    top: "var(--scrollbar-vertical-button-size, 9px)",
     right: "0",
-    bottom: "0",
+    bottom: "var(--scrollbar-vertical-button-size, 9px)",
     zIndex: "13",
     width:
-      "var(--editor-scrollbar-width, max(var(--scrollbar-min-size, 0px), calc(18px * var(--scrollbar-scale, 1))))",
+      "var(--editor-scrollbar-width, var(--scrollbar-size, 7px))",
     pointerEvents: "none",
   },
   ".cm-gitOverviewTick": {

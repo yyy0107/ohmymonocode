@@ -146,6 +146,9 @@ function fixture() {
   const git = (...args: string[]) =>
     execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
   git("init", "-q");
+  // Tests with LF fixtures must not inherit a user's Windows autocrlf setting.
+  // The dedicated filter test below explicitly enables its own configuration.
+  git("config", "core.autocrlf", "false");
   git("checkout", "-q", "-b", "main");
   for (const name of ["a.txt", "b.txt", "delete.txt"])
     writeFileSync(join(cwd, name), `${name}: base\n`);

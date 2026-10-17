@@ -1,5 +1,7 @@
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { listen as tauriListen, type UnlistenFn } from "@tauri-apps/api/event";
+import { ChildBackendRegistry, type ChildBackend } from "./childBackendRegistry";
+export type { ChildBackend } from "./childBackendRegistry";
 import {
   runtimeProviderBinaryPath,
   type ConfigurableBinaryProvider,
@@ -7,24 +9,33 @@ import {
 
 /** Process I/O is supplied by the desktop or a headless host. Provider
  * protocols never need to know which process owns their children. */
-export interface ChildBackend {
-  invoke<T>(command: string, args?: Record<string, unknown>): Promise<T>;
-  listen<T>(
-    event: string,
-    handler: (event: { payload: T }) => void,
-  ): Promise<UnlistenFn>;
+let backend: ChildBackend | undefined;
+const backends = new ChildBackendRegistry();
+
+export function configureChildBackend(next: ChildBackend, machineKey = "local"): void {
+  if (machineKey === "local" && (bridge || users))
+    throw new Error("Configure the child backend before starting the bridge");
+  if (machineKey === "local") backends.replaceLocal(next);
+  else backends.register(machineKey, next);
+  backend = backends;
 }
 
-let backend: ChildBackend | undefined;
-
-export function configureChildBackend(next: ChildBackend): void {
-  if (bridge || users)
-    throw new Error("Configure the child backend before starting the bridge");
-  backend = next;
+/** Host supplies async-scoped selection; desktop's native bridge remains local. */
+export function configureChildMachineSelector(select: () => string): void {
+  backends.setSelector(select);
+}
+export function removeChildBackend(machineKey: string): void {
+  if (machineKey === "local") throw new Error("Cannot remove the local child backend");
+  backends.unregister(machineKey);
 }
 
 export function hasHeadlessChildBackend(): boolean {
   return backend !== undefined;
+}
+
+/** Warm utility processes may be reused only within their execution machine. */
+export function childUsesSelectedMachine(sessionId: string): boolean {
+  return !backend || backends.usesSelectedMachine(sessionId);
 }
 
 /** Provider-owned transcript files are read on the machine running the child. */
@@ -461,6 +472,7 @@ export function freeHarnessPort(): Promise<number> {
 }
 
 export function harnessHttp(input: {
+  sessionId?: string;
   url: string;
   method: string;
   headers?: Record<string, string>;
@@ -538,12 +550,14 @@ export function execChild(
   cwd?: string,
   binaryProvider?: ConfigurableBinaryProvider,
   binaryPathOverride?: string | null,
+  sessionId?: string,
 ): Promise<string> {
   const binaryPath =
     binaryPathOverride === undefined && binaryProvider
       ? runtimeProviderBinaryPath(binaryProvider)
       : binaryPathOverride;
   return invoke("harness_exec", {
+    ...(sessionId ? { sessionId } : {}),
     command,
     args,
     cwd,

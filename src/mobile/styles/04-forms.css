@@ -72,6 +72,37 @@ html[data-mobile-skin] :is([data-ui="input"], [data-ui="select"]) { width: 100%;
   background: var(--color-m-inset);
   border-radius: 999px;
 }
+.mobile-pairing-success {
+  gap: 20px;
+}
+.mobile-pairing-success-hero {
+  display: grid;
+  place-items: center;
+  min-height: 168px;
+  border-radius: 20px;
+  color: #fff;
+  background:
+    radial-gradient(ellipse at 82% 18%, #c1b1ff 0%, transparent 52%),
+    radial-gradient(ellipse at 18% 85%, #54c9ff 0%, transparent 58%),
+    linear-gradient(135deg, #6985fb, #0967e9 60%, #579dff);
+}
+.mobile-pairing-confirmation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px;
+  text-align: center;
+}
+.mobile-pairing-confirmation > strong {
+  font-size: var(--text-heading-xl);
+  font-weight: var(--font-weight-semibold);
+}
+.mobile-pairing-confirmation > p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
 .mobile-pairing-methods button {
   display: inline-flex;
   min-width: 0;

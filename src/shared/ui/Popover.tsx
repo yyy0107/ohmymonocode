@@ -373,7 +373,9 @@ function WebPopover({
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
     };
-  }, [visible, place]);
+    // A closing surface can reopen before it unmounts. Its anchor may have
+    // moved in the meantime even though the ref and menu dimensions are stable.
+  }, [visible, place, present]);
 
   // A newly opened animated surface starts inert and is initially placed with
   // visibility:hidden. Browsers ignore focus until both have been cleared.

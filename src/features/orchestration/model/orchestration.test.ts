@@ -1440,4 +1440,39 @@ describe("local orchestration", () => {
     expect(f.manager.submissionError("other")).toContain("active orchestrator");
     expect(f.manager.submissionError("lead")).toBeNull();
   });
+  it("keeps identical checkout paths on different machines independent", async () => {
+    const f = setup();
+    f.host.sameMachine = (left, right) => left === right || (left !== "other-machine" && right !== "other-machine");
+    await f.start();
+    f.sessions.push({ ...newSession("codex", "/repo"), id: "other-machine", busy: true });
+    expect(f.manager.submissionError("other-machine")).toBeNull();
+    expect(f.manager.resumeBlocker("lead")).toBeUndefined();
+    await f.manager.stopRun("lead");
+    await expect(f.manager.start("lead", ["codex"], 2)).resolves.toBeUndefined();
+  });
+  it("drains an in-flight pause before closing its persistence", async () => {
+    const f = setup();
+    f.lead.busy = false;
+    await f.manager.startApproved("lead", "card", proposal());
+    await vi.waitFor(() => expect(f.tasks().some((task) => task.status === "running")).toBe(true));
+    let release!: () => void;
+    const stopped = new Promise<void>((resolve) => { release = resolve; });
+    vi.mocked(f.host.stop).mockImplementation(async (id) => {
+      if (id !== "lead") await stopped;
+      const session = f.sessions.find((entry) => entry.id === id);
+      if (session) session.busy = false;
+    });
+    f.completions.get("lead")!({ status: "cancelled", text: "" });
+    await vi.waitFor(() => expect(f.host.stop).toHaveBeenCalled());
+    let closed = false;
+    const closing = f.manager.close().then(() => { closed = true; });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(closed).toBe(false);
+    release();
+    await closing;
+    const writes = f.store.save.mock.calls.length;
+    f.completions.get("lead")!({ status: "cancelled", text: "" });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(f.store.save).toHaveBeenCalledTimes(writes);
+  });
 });

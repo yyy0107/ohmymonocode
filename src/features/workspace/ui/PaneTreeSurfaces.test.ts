@@ -219,7 +219,6 @@ describe("session surface layout", () => {
     archive: vi.fn(),
     splitRight: vi.fn(),
     terminalAvailable: false,
-    terminalOpen: false,
     toggleTerminal: vi.fn(),
     changesOpen: false,
     toggleChanges: vi.fn(),
@@ -311,6 +310,22 @@ describe("session surface layout", () => {
       render({ visible: true, sessionHeaderHost: null });
       expect(conversation.querySelector("[data-session-surface-tabs]")).not.toBeNull();
       expect(pane("chat")).toBe(conversation);
+    } finally {
+      host.remove();
+    }
+  });
+
+  it("keeps full view's tool toggles in the top bar and its tabs in the pane", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    try {
+      render({ surfaceMode: "unified", sessionHeaderHost: host }, headerActions());
+      expect(host.querySelector('[data-session-header-tools="chat"] [data-session-overflow-menu="chat"]')).not.toBeNull();
+      expect(host.querySelector("[data-session-surface-tabs]")).toBeNull();
+      const tabs = container.querySelector('[data-session-surface-tabs="chat"]')!;
+      expect(tabs).not.toBeNull();
+      expect(tabs.querySelector("[data-session-tool-toggle]")).toBeNull();
+      expect(tabs.querySelector("[data-session-overflow-menu]")).toBeNull();
     } finally {
       host.remove();
     }

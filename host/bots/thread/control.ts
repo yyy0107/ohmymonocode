@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { realpath } from "node:fs/promises";
-import { isAbsolute, relative } from "node:path";
+import { currentMachineIO, localMachineIO, machineFs, machinePath, withMachineIO } from "../../machine-io";
+import { parseProjectMachine, projectMachineKey } from "../../../src/integrations/harness/core/machine";
 import type { BotThreadRuntime } from "./index";
 import { signature } from "./store";
 import { createHabit, deleteHabit, updateHabit } from "./habits";
@@ -35,7 +35,7 @@ import {
   playbookName,
 } from "./playbooks";
 import { WorkspaceCommands } from "../../workspace-commands";
-import { hostWorktrees } from "../../git-worktrees";
+import { hostWorktrees, withValidatedHostWorktree } from "../../git-worktrees";
 import { summary } from "../../store";
 import { HOST_RESOURCE_BUSY_MESSAGE, withHostResources } from "../resources";
 import type {
@@ -100,10 +100,10 @@ const mutationFields: Record<string, string[]> = {
   ],
 };
 const inRoot = (path: string, root: string) => {
-  const rel = relative(root, path);
+  const rel = machinePath.relative(root, path);
   return (
     rel === "" ||
-    (!isAbsolute(rel) &&
+    (!machinePath.isAbsolute(rel) &&
       rel !== ".." &&
       !rel.startsWith("../") &&
       !rel.startsWith("..\\"))
@@ -554,6 +554,22 @@ export async function executeBotAction(
   input: Record<string, unknown>,
   authorized: () => boolean,
 ): Promise<unknown> {
+  object(input);
+  const project = typeof input.projectId === "string" ? assistant.engine.store.project(input.projectId) : undefined;
+  const machine = project?.machine ?? (action === "projects.open" ? parseProjectMachine(input.machine) : undefined);
+  const execute = () => executeMachineBotAction(assistant, requestId, action, input, authorized);
+  if (assistant.engine.machines) return assistant.engine.machines.run(machine, execute);
+  if (machine) throw new Error("WSL execution is unavailable on this Host");
+  return withMachineIO(localMachineIO, execute);
+}
+
+async function executeMachineBotAction(
+  assistant: BotThreadRuntime,
+  requestId: string,
+  action: string,
+  input: Record<string, unknown>,
+  authorized: () => boolean,
+): Promise<unknown> {
   id(requestId, "request ID");
   object(input);
   assistant.assertActionEnabled(action);
@@ -809,9 +825,9 @@ export async function executeBotAction(
             config.policy.allowedProjects.includes(p.id),
         );
     } else if (action === "projects.open") {
-      fields(input, ["cwd"]);
+      fields(input, ["cwd", "machine"]);
       const cwd = id(input.cwd, "project directory", 4096);
-      const known = engine.store.projects().find((p) => p.cwd === cwd);
+      const known = engine.store.projects().find((p) => p.cwd === cwd && projectMachineKey(p.machine) === currentMachineIO().key);
       if (
         config.policy.allowedProjects !== "all" &&
         (!known || !config.policy.allowedProjects.includes(known.id))
@@ -820,7 +836,7 @@ export async function executeBotAction(
       result = await engine.openProject(cwd, (actual) => {
         requireAccess();
         const policy = store.get()!.policy;
-        const known = engine.store.projects().find((p) => p.cwd === actual);
+        const known = engine.store.projects().find((p) => p.cwd === actual && projectMachineKey(p.machine) === currentMachineIO().key);
         if (
           policy.allowedProjects !== "all" &&
           (!known || !policy.allowedProjects.includes(known.id))
@@ -900,7 +916,7 @@ export async function executeBotAction(
               };
     } else if (action === "sessions.create") {
       if (!projectId) throw new Error("Choose a project");
-      result = engine.store.transaction(() => {
+      result = await withValidatedHostWorktree(engine.store.project(projectId).cwd, input.worktreeCwd, () => engine.store.transaction(() => {
         const accepted = engine.assistantCommand(
           {
             ...input,
@@ -919,7 +935,7 @@ export async function executeBotAction(
         };
         store.followCreatedSession(session.projectId, session.session.id);
         return persistResult(accepted);
-      });
+      }));
     } else if (action === "sessions.update") {
       if (!session) throw new Error("Choose a session");
       const {
@@ -1094,7 +1110,7 @@ export async function executeBotAction(
         [
           project.cwd,
           ...worktrees.filter((w) => !w.missing).map((w) => w.path),
-        ].map((p) => realpath(p)),
+        ].map((p) => machineFs.realpath(p)),
       );
       const paths = [
         args.cwd,

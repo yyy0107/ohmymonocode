@@ -53,6 +53,8 @@ export type ControlReceiptContext = { leadId: string; requestId: string; signatu
 export type OrchestrationHost = {
   session(id: string): Session | undefined;
   sessions(): Session[];
+  /** Hosts with multiple execution machines distinguish identical checkout paths. */
+  sameMachine?(leftSessionId: string, rightSessionId: string): boolean;
   choices(): { harness: HarnessId; models: { id: string; name: string }[] }[];
   createWorker(
     run: OrchestrationRun,
@@ -270,6 +272,7 @@ export class Orchestrator {
   private starting = new Set<string>();
   private pumpAgain = false;
   private waking = new Set<string>();
+  private pauses = new Set<Promise<void>>();
   private blocked = new Map<string, string>();
   private announced = new Map<string, Set<string>>();
   /** Async write checks are isolated per dispatch, including retries. */
@@ -312,6 +315,7 @@ export class Orchestrator {
       .find(
         (session) =>
           session.id !== leadId &&
+          this.host?.sameMachine?.(session.id, leadId) !== false &&
           session.busy &&
           sameCheckout(session.worktreeCwd ?? session.cwd, cwd),
       );
@@ -795,6 +799,7 @@ export class Orchestrator {
       (run) =>
         (run.status === "active" || run.tasks.some(activeTask)) &&
         run.leadId !== id &&
+        this.host?.sameMachine?.(run.leadId, id) !== false &&
         sameCheckout(
           orchestrationCheckoutCwd(run),
           session.worktreeCwd ?? session.cwd,
@@ -1821,7 +1826,18 @@ export class Orchestrator {
    * user approved. Their worktrees are retained. Queued work is left alone: `pump`
    * will not dispatch while paused, so it resumes intact.
    */
-  private async pause(
+  private pause(
+    leadId: string,
+    error: string,
+    patch?: (run: OrchestrationRun) => OrchestrationRun,
+  ): Promise<void> {
+    if (this.closing) return Promise.resolve();
+    const pending = this.pauseRun(leadId, error, patch);
+    this.pauses.add(pending);
+    void pending.finally(() => this.pauses.delete(pending)).catch(() => undefined);
+    return pending;
+  }
+  private async pauseRun(
     leadId: string,
     error: string,
     patch?: (run: OrchestrationRun) => OrchestrationRun,
@@ -1979,6 +1995,7 @@ export class Orchestrator {
     await this.actions.catch(() => undefined);
     while (this.pumping) await new Promise((resolve) => setTimeout(resolve, 5));
     await Promise.all(this.runs.flatMap((run) => [run.leadId, ...run.tasks.filter(activeTask).map((task) => task.sessionId)]).map((id) => this.host?.stop(id)));
+    await Promise.allSettled([...this.pauses]);
     await Promise.all([...this.writeChecks.values()].flatMap((checks) => [...checks]).map((check) => check.catch(() => undefined)));
     await this.saves.catch(() => undefined);
   }
@@ -2008,6 +2025,7 @@ export class Orchestrator {
       setTimeout(() => {
         void (async () => {
           try {
+            if (this.closing) return;
             const current = this.run(run.leadId);
             const session = this.host?.session(run.leadId);
             if (

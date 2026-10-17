@@ -9,6 +9,7 @@ import {
   FolderOpen,
   FolderTree,
   ImagePlus,
+  IconArtworkContext,
   Pin,
   PinOff,
   Settings,
@@ -79,6 +80,7 @@ import { useProjectNotificationPreferences } from "../../features/notifications/
 import { useNotificationProjects } from "../../features/notifications/hooks/useNotificationProjects";
 import { updateNotificationPreferences } from "../../features/notifications/model/notificationPreferences";
 import type { ExplorerMenuItem } from "../../features/connections/files/ui/ExplorerMenu";
+import { desktopProjectMenuIconArtwork } from "../desktopIconArtwork";
 
 const REVEAL_LABEL = IS_MAC
   ? "Reveal in Finder"
@@ -408,72 +410,74 @@ export function useProjectMenu({
     const colors = loadTabGroupColors();
     const customColors = loadTabGroupCustomColors();
     return (
-      <TabGroupMenu
-        x={projectMenu.x}
-        y={projectMenu.y}
-        ariaLabel={uiT("Project options")}
-        groupId={key}
-        label={resolveTabGroupLabel(
-          key,
-          groupLabels,
-          basename(projectMenu.path),
-        )}
-        colorIndex={resolveTabGroupColorIndex(key, colors, customColors)}
-        customColor={resolveTabGroupCustomColor(key, customColors)}
-        currentColor={resolveTabGroupColor(
-          key,
-          colors,
-          customColors,
-          projectName(projectMenu.path),
-        )}
-        logoPath={resolveTabGroupLogo(key, groupLogos)}
-        logoProject={projectMenu.path}
-        mascotName={resolveTabGroupMascot(key, loadTabGroupMascots())}
-        mascotProject={projectName(projectMenu.path)}
-        onRename={saveTabGroupLabel}
-        onColorChange={saveTabGroupColor}
-        onCustomColorChange={saveTabGroupCustomColor}
-        onMascotChange={saveTabGroupMascot}
-        onLogoChange={() => {}}
-        onPick={() => {}}
-        onClose={() => {
-          setProjectMenu(null);
-          restoreFocus();
-        }}
-        showActions={false}
-        leadingAction={
-          menuMuteStatus
-            ? {
-                id: "notifications-resume",
-                label: uiT("Resume notifications"),
-                description: menuMuteStatus,
-                icon: BellOff,
-              }
-            : undefined
-        }
-        extraItems={projectMenuExtraItems(
-          loadPinnedProjects().some((pinned) =>
-            sameProjectPath(pinned, projectMenu.path),
-          ),
-          Boolean(onRemoveProject),
-          Boolean(onOpenNotificationSettings),
-          Boolean(readyNotificationProject),
-          externalEditors,
-          loadProjectGroups(),
-          projectGroupIdForPath(
-            projectMenu.path,
-            loadProjectGroupAssignments(),
-          ),
-        )}
-        footer={
-          menuError ? (
-            <p role="alert" className="px-2 py-1 text-xs text-red-400">
-              {menuError}
-            </p>
-          ) : null
-        }
-        onExtraPick={onPick}
-      />
+      <IconArtworkContext.Provider value={desktopProjectMenuIconArtwork}>
+        <TabGroupMenu
+          x={projectMenu.x}
+          y={projectMenu.y}
+          ariaLabel={uiT("Project options")}
+          groupId={key}
+          label={resolveTabGroupLabel(
+            key,
+            groupLabels,
+            basename(projectMenu.path),
+          )}
+          colorIndex={resolveTabGroupColorIndex(key, colors, customColors)}
+          customColor={resolveTabGroupCustomColor(key, customColors)}
+          currentColor={resolveTabGroupColor(
+            key,
+            colors,
+            customColors,
+            projectName(projectMenu.path),
+          )}
+          logoPath={resolveTabGroupLogo(key, groupLogos)}
+          logoProject={projectMenu.path}
+          mascotName={resolveTabGroupMascot(key, loadTabGroupMascots())}
+          mascotProject={projectName(projectMenu.path)}
+          onRename={saveTabGroupLabel}
+          onColorChange={saveTabGroupColor}
+          onCustomColorChange={saveTabGroupCustomColor}
+          onMascotChange={saveTabGroupMascot}
+          onLogoChange={() => {}}
+          onPick={() => {}}
+          onClose={() => {
+            setProjectMenu(null);
+            restoreFocus();
+          }}
+          showActions={false}
+          leadingAction={
+            menuMuteStatus
+              ? {
+                  id: "notifications-resume",
+                  label: uiT("Resume notifications"),
+                  description: menuMuteStatus,
+                  icon: BellOff,
+                }
+              : undefined
+          }
+          extraItems={projectMenuExtraItems(
+            loadPinnedProjects().some((pinned) =>
+              sameProjectPath(pinned, projectMenu.path),
+            ),
+            Boolean(onRemoveProject),
+            Boolean(onOpenNotificationSettings),
+            Boolean(readyNotificationProject),
+            externalEditors,
+            loadProjectGroups(),
+            projectGroupIdForPath(
+              projectMenu.path,
+              loadProjectGroupAssignments(),
+            ),
+          )}
+          footer={
+            menuError ? (
+              <p role="alert" className="px-2 py-1 text-xs text-red-400">
+                {menuError}
+              </p>
+            ) : null
+          }
+          onExtraPick={onPick}
+        />
+      </IconArtworkContext.Provider>
     );
   };
 

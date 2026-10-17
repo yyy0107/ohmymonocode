@@ -9,7 +9,7 @@ await build({
   platform: "node",
   format: "esm",
   target: "node24",
-  loader: { ".ps1": "text", ".md": "text" },
+  loader: { ".ps1": "text", ".sh": "text", ".md": "text" },
   define: { "import.meta.hot": "undefined" },
   plugins: [excludeEvaluationEsbuild()],
   sourcemap: true,

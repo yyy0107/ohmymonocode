@@ -30,6 +30,7 @@ const harnessHttp = vi.fn(
 );
 
 vi.mock("../../core/child", () => ({
+  childUsesSelectedMachine: () => true,
   closeHarnessSse: async () => undefined,
   execChild: async () => "opencode 1.14.19",
   freeHarnessPort: async () => 4096,
@@ -106,6 +107,8 @@ beforeEach(() => {
 
 afterEach(async () => {
   await stopOpenCodeTextPrompt();
+  for (const [input] of harnessHttp.mock.calls)
+    expect(input).toMatchObject({ sessionId: "monocode-opencode-text" });
 });
 
 it("forwards only incremental OpenCode assistant text", async () => {

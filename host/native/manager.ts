@@ -289,8 +289,8 @@ export class NativeSessionManager {
     return this.serial(`import:${imported.provider}:${imported.providerSessionId}`, async () => {
       const again = this.bound().get(`${imported.provider}:${imported.providerSessionId}`);
       if (again) return this.host.store.session(again);
-      const current = sourceFile(imported.path, imported.providerSessionId, this.context());
-      const read = await this.reader.read(sourceFor(current.path, this.context()), current);
+      const current = sourceFile(imported.path, imported.providerSessionId, this.context(), imported.provider);
+      const read = await this.reader.read(sourceFor(current.path, this.context(), current.provider), current);
       const parsedFile = { ...current, revision: read.revision };
       const transcript = parseNativeSession(read.content, parsedFile);
       if (!transcript.blocks.some((block) => block.role === "user"))
@@ -347,7 +347,7 @@ export class NativeSessionManager {
   private locate(session: Session): NativeSessionFile & { dataDir: string } {
     const link = session.nativeSession!;
     try {
-      return sourceFile(link.path, link.providerSessionId, this.context());
+      return sourceFile(link.path, link.providerSessionId, this.context(), link.provider);
     } catch (error) {
       // A moved data directory is re-resolved by identity; never guessed.
       let found;
@@ -379,7 +379,7 @@ export class NativeSessionManager {
   }
 
   private async read(file: NativeSessionFile & { dataDir: string }): Promise<{ file: NativeSessionFile & { dataDir: string }; transcript: NativeTranscript }> {
-    const source = sourceFor(file.path, this.context());
+    const source = sourceFor(file.path, this.context(), file.provider);
     let read;
     try {
       read = await this.reader.read(source, file);
@@ -666,7 +666,7 @@ export class NativeSessionManager {
       if (!revision || revision === binding.hostRevision) return false;
       let file;
       try {
-        file = sourceFile(binding.path, binding.providerSessionId, this.context());
+        file = sourceFile(binding.path, binding.providerSessionId, this.context(), binding.provider);
       } catch {
         return false;
       }
@@ -679,6 +679,8 @@ export class NativeSessionManager {
         this.host.mutate(id, (current) => ({ ...current, nativeBinding: { ...binding, hostRevision: revision } }), { type: "native.bound" });
         return false;
       }
+      if (this.host.store.project(value.projectId).machine?.kind === "wsl")
+        throw new Error("This WSL conversation changed in another application. Switch agents to continue with a history handoff; native ownership across Windows and WSL is not supported yet.");
       await this.host.stopProvider(id);
       if (generation !== this.generations.get(id)) return false;
       this.host.mutate(id, (current) => {
@@ -711,7 +713,7 @@ export class NativeSessionManager {
   private async hostTranscript(file: NativeSessionFile, hostRevision: string): Promise<NativeTranscript> {
     if (file.storage === "sqlite") {
       const cutoff = Number(hostRevision.split(":")[1] ?? 0);
-      const read = await this.reader.read(sourceFor(file.path, this.context()), file);
+      const read = await this.reader.read(sourceFor(file.path, this.context(), file.provider), file);
       const data = JSON.parse(read.content) as { session: unknown; messages: { timeCreated: number }[] };
       return parseNativeSession(JSON.stringify({ ...data, messages: data.messages.filter((message) => message.timeCreated <= cutoff) }), file);
     }

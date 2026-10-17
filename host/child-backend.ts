@@ -15,7 +15,7 @@ import {
   isRemoteProvider,
   type RemoteProvider,
 } from "../src/features/connections/model/protocol";
-import { providerLaunch, resolveProvider } from "./process";
+import { providerLaunch, resolveProvider, resolveProviderRuntime } from "./process";
 import {
   MAX_PROVIDER_OUTPUT_BYTES,
   MAX_PROVIDER_DIAGNOSTIC_BYTES,
@@ -35,6 +35,8 @@ import {
   type SupervisorLimit,
 } from "./provider-supervisor";
 import { randomUUID } from "node:crypto";
+import { withProviderAccountLock } from "./provider-account-lock";
+import { sharedProviderHome } from "./wsl-provider-config";
 
 const exec = promisify(execFile);
 const ALLOWED_EXEC_ARGS = new Set([
@@ -47,7 +49,7 @@ const ALLOWED_EXEC_ARGS = new Set([
   "agent list",
 ]);
 
-function execArgsAllowed(provider: RemoteProvider, args: string[]): boolean {
+export function execArgsAllowed(provider: RemoteProvider, args: string[]): boolean {
   return (
     ALLOWED_EXEC_ARGS.has(args.join(" ")) ||
     (provider === "grok" &&
@@ -122,6 +124,10 @@ export class HostChildBackend implements ChildBackend {
     this.sessionEnvironment = environment;
   }
 
+  environmentForSession(id: string): Record<string, string> {
+    return this.sessionEnvironment?.(id) ?? {};
+  }
+
   async resolve(provider: RemoteProvider): Promise<string> {
     if (this.binaries[provider]) return this.binaries[provider]!;
     if (this.desktopConfigPath) {
@@ -142,7 +148,14 @@ export class HostChildBackend implements ChildBackend {
         return path;
       }
     }
-    return resolveProvider(provider);
+    try { return await resolveProvider(provider); } catch (error) {
+      if (!this.desktopConfigPath || !["claude", "codex", "pi", "opencode"].includes(provider)) throw error;
+      // A headless/SSH Host remains discovery-only. Desktop ownership opts into
+      // verified managed installation when its usual CLI discovery found none.
+      try { if (!(await stat(this.desktopConfigPath)).isFile()) throw error; }
+      catch { throw error; }
+      return (await resolveProviderRuntime(provider, { installMissing: true })).command;
+    }
   }
 
   async listen<T>(
@@ -248,7 +261,7 @@ export class HostChildBackend implements ChildBackend {
         this.stopStream(id);
         return undefined as T;
       case "cursor_subagent_runs":
-        return readCursorSubagents(args) as T;
+        return await readCursorSubagents(args) as T;
       case "harness_read_text_file": {
         const path = String(args.path ?? "");
         const info = await stat(path);
@@ -371,6 +384,15 @@ export class HostChildBackend implements ChildBackend {
     id: string,
     args: Record<string, unknown>,
   ): Promise<number> {
+    const account = args.account as { provider?: string; id?: string } | undefined;
+    const provider = account?.provider ?? args.binaryProvider;
+    if (this.desktopConfigPath && (provider === "claude" || provider === "codex"))
+      return withProviderAccountLock(`${provider}:${sharedProviderHome(this.desktopConfigPath, provider, account?.id)}`,
+        () => this.startUnlocked(id, args));
+    return this.startUnlocked(id, args);
+  }
+
+  private async startUnlocked(id: string, args: Record<string, unknown>): Promise<number> {
     if (this.closing) throw new Error("Host is stopping");
     await this.kill(id);
     if (this.closing) throw new Error("Host is stopping");

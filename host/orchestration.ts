@@ -1,6 +1,7 @@
+import { currentMachineIO, machineFs, machinePath, withMachineIO, type MachineIO } from "./machine-io";
+import { projectMachineKey } from "../src/integrations/harness/core/machine";
 import { createHash, randomUUID } from "node:crypto";
-import { realpath, lstat } from "node:fs/promises";
-import { dirname, basename, resolve, relative, isAbsolute, sep } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Orchestrator, type ControlOutcome, type ControlReceiptContext, type OrchestrationRun, type OrchestrationTask, type WorkerPreparation } from "../src/features/orchestration/model/orchestrationRuntime";
 import { completeOrchestrationProposal, orchestrationPlanningPrompt, orchestrationRepairPrompt, proposalBlock, validateProposedTasks, validateOrchestrationSettings, withOrchestrationProposal, type OrchestrationChoice, type OrchestrationProposal } from "../src/features/orchestration/model/orchestrationPlan";
@@ -15,6 +16,7 @@ import { checkoutPathsOverlap, checkoutPath, waitForProviderDrain } from "./chec
 import type { HostStore } from "./store";
 
 export type OrchestrationEngine = {
+  machineIO?(sessionId: string): MachineIO;
   session(id: string): HostSession | undefined;
   values(): HostSession[];
   mutate(id: string, change: (value: HostSession) => HostSession, event: unknown): HostSession;
@@ -48,7 +50,7 @@ export class HostOrchestration {
       await this.ready;
       const value = store.session(lead);
       if (value.session.nativeSession || store.isRetired(lead)) throw new Error("Control connection is inactive");
-      return this.scheduler.handle(lead, request, action, input, authorize);
+      return this.inSession(lead, () => this.scheduler.handle(lead, request, action, input, authorize));
     });
     this.scheduler = new Orchestrator({
       receipt: (lead, request, signature) => {
@@ -71,18 +73,18 @@ export class HostOrchestration {
         store.transaction(() => store.saveOrchestration(id, run));
         this.publish(run);
       },
-      enable: async (id) => {
+      enable: async (id) => this.inSession(id, async () => {
         this.control.enable(id);
         return this.control.launcher(resolve(dirname(store.attachmentDir), "control"), options.entry ?? fileURLToPath(import.meta.url), options.node);
-      },
+      }),
       disable: async (id) => { this.control.disable(id); },
       scopes: async (cwd, files) => {
-        const root = await realpath(cwd);
+        const root = await machineFs.realpath(cwd);
         return Promise.all(files.map(async (file) => {
-          if (!file || isAbsolute(file) || file.replaceAll("\\", "/").split("/").includes("..")) throw new Error("Write scopes must be project-relative without '..'");
-          const path = await resolveWritePath(resolve(root, file));
-          const rel = relative(root, path);
-          if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new Error("Write scope points outside the checkout");
+          if (!file || machinePath.isAbsolute(file) || file.replaceAll("\\", "/").split("/").includes("..")) throw new Error("Write scopes must be project-relative without '..'");
+          const path = await resolveWritePath(machinePath.resolve(root, file));
+          const rel = machinePath.relative(root, path);
+          if (rel === ".." || rel.startsWith(`..${machinePath.sep}`) || machinePath.isAbsolute(rel)) throw new Error("Write scope points outside the checkout");
           return path;
         }));
       },
@@ -91,19 +93,20 @@ export class HostOrchestration {
     this.scheduler.bind({
       session: (id) => this.projectSession(id),
       sessions: () => this.engine.values().map((value) => this.projectValue(value)),
+      sameMachine: (left, right) => projectMachineKey(this.store.project(this.store.session(left).projectId).machine) === projectMachineKey(this.store.project(this.store.session(right).projectId).machine),
       choices: () => {
         const choices = [...this.catalog.values()].flat();
         const defaults = this.providers.flatMap((harness) => modelsFor(harness).map((model) => ({ harness, model: model.id, name: model.name })));
         return this.providers.map((harness) => ({ harness, models: (choices.length ? choices : defaults).filter((choice) => choice.harness === harness).map((choice) => ({ id: choice.model, name: choice.name })) }));
       },
-      createWorker: async (run, task) => {
+      createWorker: async (run, task) => this.inSession(run.leadId, async () => {
         const preparation = await this.workspace.createWorker(run, task);
         this.engine.createWorker(run, task, preparation);
         this.workspace.releasePreparation(task.sessionId);
         return preparation;
-      },
-      integrateWorker: async (run, task) => { await this.engine.stop(task.sessionId); return this.workspace.integrateWorker(run, task); },
-      cleanupWorker: async (run, task, unchanged) => { if (this.preserveCheckouts) return false; await this.engine.stop(task.sessionId); return this.workspace.cleanupWorker(run, task, unchanged); },
+      }),
+      integrateWorker: async (run, task) => this.inSession(run.leadId, async () => { await this.engine.stop(task.sessionId); return this.workspace.integrateWorker(run, task); }),
+      cleanupWorker: async (run, task, unchanged) => this.inSession(run.leadId, async () => { if (this.preserveCheckouts) return false; await this.engine.stop(task.sessionId); return this.workspace.cleanupWorker(run, task, unchanged); }),
       submit: (id, text, done, origin) => this.engine.submit(id, text, done, origin),
       stop: (id) => this.engine.stop(id),
       steer: (id, text, receipt) => this.engine.steer(id, text, receipt),
@@ -116,6 +119,9 @@ export class HostOrchestration {
       for (const run of this.scheduler.snapshot()) this.publish(run);
     });
     this.ready = this.recover();
+  }
+  private inSession<T>(id: string, operation: () => T): T {
+    return withMachineIO(this.engine.machineIO?.(id) ?? currentMachineIO(), operation);
   }
   setCatalog(discover: (projectId: string) => Promise<OrchestrationChoice[]>) { this.discover = discover; }
   private async choices(projectId: string) {
@@ -144,7 +150,7 @@ export class HostOrchestration {
       const saved = this.store.orchestration(lead)!;
       for (const task of saved.run.tasks) {
         if (!task.workspace || !["running", "cancelling"].includes(task.status)) continue;
-        try { await this.engine.stop(task.sessionId); await waitForProviderDrain(this.store, task.workspace.checkoutCwd); await this.workspace.captureWorker(saved.run, task); }
+        try { await this.inSession(lead, async () => { await this.engine.stop(task.sessionId); await waitForProviderDrain(this.store, task.workspace!.checkoutCwd); await this.workspace.captureWorker(saved.run, task); }); }
         catch (error) {
           task.status = "blocked"; task.accepted = false; task.delivered = false;
           task.error = `Retained worker requires review: ${message(error)}`;
@@ -152,7 +158,7 @@ export class HostOrchestration {
         }
       }
       this.store.transaction(() => this.store.saveOrchestration(saved.id, saved.run));
-      await this.scheduler.hydrate(lead);
+      await this.inSession(lead, () => this.scheduler.hydrate(lead));
     }
     const pending = this.store.db.prepare("SELECT session_id FROM orchestration_commands WHERE state='accepted'").all();
     this.store.db.prepare("UPDATE orchestration_commands SET state='interrupted' WHERE state='accepted'").run();
@@ -190,7 +196,7 @@ export class HostOrchestration {
     this.assertCheckout(value.session.cwd, id);
   }
   assertCheckout(cwd: string, leadId?: string) {
-    const controlled = this.scheduler.snapshot().find((run) => ["active", "paused"].includes(run.status) && run.leadId !== leadId && checkoutPathsOverlap(checkoutPath(run.workspace?.checkoutCwd ?? run.cwd), checkoutPath(cwd)));
+    const controlled = this.scheduler.snapshot().find((run) => projectMachineKey(this.store.project(this.store.session(run.leadId).projectId).machine) === currentMachineIO().key && ["active", "paused"].includes(run.status) && run.leadId !== leadId && checkoutPathsOverlap(checkoutPath(run.workspace?.checkoutCwd ?? run.cwd), checkoutPath(cwd)));
     if (controlled) throw new Error("This checkout is controlled by an orchestrator. Stop its run before independent work.");
   }
   hasActiveWork() { return this.scheduler.snapshot().some((run) => run.status === "active" || run.tasks.some((task) => ["running", "cancelling"].includes(task.status))); }
@@ -199,7 +205,7 @@ export class HostOrchestration {
     const task = this.scheduler.forSession(id)?.tasks.find((task) => task.sessionId === id);
     return task ? (task.scratchDir ? { TMPDIR: task.scratchDir, TMP: task.scratchDir, TEMP: task.scratchDir } : {}) : this.control.environment(id);
   }
-  observe(id: string, event: HarnessEvent) { this.scheduler.observe(id, event); this.scheduler.sync(); }
+  observe(id: string, event: HarnessEvent) { this.inSession(id, () => { this.scheduler.observe(id, event); this.scheduler.sync(); }); }
   sync() { this.scheduler.sync(); for (const run of this.scheduler.snapshot()) this.publish(run); }
   async preparePlanning(value: HostSession, request: string, retryBlockId?: string): Promise<string> {
     await this.ready;
@@ -270,7 +276,7 @@ export class HostOrchestration {
       return receipt;
     });
     if (command.action !== "editProposal") {
-      const operation = this.actions.catch(() => undefined).then(async () => {
+      const operation = this.actions.catch(() => undefined).then(() => this.inSession(command.sessionId, async () => {
         if (this.closing || this.store.isRetired(command.sessionId)) throw new Error("Host is stopping");
         if (command.action === "confirmProposal") {
           await this.choices(value.projectId);
@@ -283,7 +289,7 @@ export class HostOrchestration {
         } else if (command.action === "stop") await this.scheduler.stopRun(command.sessionId);
         else if ("taskId" in command) await this.scheduler.cancelTask(command.sessionId, command.taskId!);
         this.store.db.prepare("UPDATE orchestration_commands SET state='completed' WHERE id=?").run(command.commandId);
-      });
+      }));
       this.actions = operation.catch((error) => {
         this.store.db.prepare("UPDATE orchestration_commands SET state='failed' WHERE id=?").run(command.commandId);
         if (!this.store.isRetired(command.sessionId)) this.engine.mutate(command.sessionId, (value) => ({ ...value, session: { ...value.session, blocks: value.session.blocks.map((block) => block.orchestration?.status === "starting" ? { ...block, streaming: false, orchestration: { ...block.orchestration, status: "ready" as const, error: message(error) } } : block).concat({ id: randomUUID(), role: "system", text: message(error) }) } }), { type: "orchestration.failed" });
@@ -294,7 +300,7 @@ export class HostOrchestration {
   async workerSettled(id: string) {
     const run = this.scheduler.forSession(id), task = run?.tasks.find((task) => task.sessionId === id);
     if (!run || !task?.workspace) return;
-    try { await this.workspace.captureWorker(run, task); }
+    try { await this.inSession(id, () => this.workspace.captureWorker(run, task)); }
     catch (error) { await this.scheduler.blockWorker(run.leadId, task.id, message(error)); }
   }
   async retire(ids: string[]) {
@@ -308,20 +314,20 @@ export class HostOrchestration {
 const message = (error: unknown) => error instanceof Error ? error.message : String(error);
 function resolveModelName(session: Session) { return modelsFor(session.harness).find((model) => model.id === session.model)?.name ?? session.model; }
 async function resolveWritePath(path: string): Promise<string> {
-  if (!isAbsolute(path)) throw new Error("Reported writes must be absolute");
+  if (!machinePath.isAbsolute(path)) throw new Error("Reported writes must be absolute");
   let current = path;
   const missing: string[] = [];
   while (true) {
     try {
-      const stat = await lstat(current);
-      if (stat.isSymbolicLink()) { await realpath(current); }
-      return resolve(await realpath(current), ...missing);
+      const stat = await machineFs.lstat(current);
+      if (stat.isSymbolicLink()) { await machineFs.realpath(current); }
+      return machinePath.resolve(await machineFs.realpath(current), ...missing);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-      try { if ((await lstat(current)).isSymbolicLink()) throw new Error("Reported write contains a dangling symlink"); } catch (linkError) { if ((linkError as NodeJS.ErrnoException).code !== "ENOENT") throw linkError; }
-      const parent = dirname(current);
+      try { if ((await machineFs.lstat(current)).isSymbolicLink()) throw new Error("Reported write contains a dangling symlink"); } catch (linkError) { if ((linkError as NodeJS.ErrnoException).code !== "ENOENT") throw linkError; }
+      const parent = machinePath.dirname(current);
       if (parent === current) throw error;
-      missing.unshift(basename(current)); current = parent;
+      missing.unshift(machinePath.basename(current)); current = parent;
     }
   }
 }

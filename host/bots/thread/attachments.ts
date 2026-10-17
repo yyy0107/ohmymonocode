@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { mkdir, open, realpath, unlink } from "node:fs/promises";
+import { mkdir, open, unlink } from "node:fs/promises";
 import { basename, isAbsolute, win32 } from "node:path";
 import type { BotThreadRuntime } from "./index";
 import { signature } from "./store";
@@ -11,6 +11,7 @@ import { resolveHostWorktreeAsync } from "../../git-worktrees";
 import { existingPath } from "../../workspace";
 import { sniffImageMime } from "../../../src/features/connections/files/model/filePreview";
 import type { RemoteAttachment } from "../../../src/features/connections/model/protocol";
+import { currentMachineIO, localMachineIO, machineFs, withMachineIO } from "../../machine-io";
 
 type ReplyAttachmentSource =
   | {
@@ -125,7 +126,7 @@ async function sourceFile(
       mimeType: ref.mimeType,
     };
   }
-  const root = await realpath(
+  const root = await machineFs.realpath(
     source.sessionId
       ? await resolveHostWorktreeAsync(
           project.cwd,
@@ -142,6 +143,16 @@ async function sourceFile(
 }
 
 async function boundedBytes(path: string): Promise<Buffer> {
+  if (currentMachineIO().key !== "local") {
+    const before = await machineFs.lstat(path);
+    if (!before.isFile() || before.isSymbolicLink()) throw new Error("Choose a regular file attachment");
+    if (before.size > MAX_REMOTE_ATTACHMENT_BYTES) throw new Error("Attachments must be at most 20 MB");
+    const bytes = await machineFs.readPrefix(path, MAX_REMOTE_ATTACHMENT_BYTES + 1, { noFollow: true });
+    const after = await machineFs.lstat(path);
+    if (bytes.length !== before.size || after.size !== before.size || after.mtimeMs !== before.mtimeMs || !after.isFile() || after.isSymbolicLink())
+      throw new Error("Attachment changed while being read; retry after it finishes writing");
+    return bytes;
+  }
   const file = await open(
     path,
     constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
@@ -225,15 +236,18 @@ async function publish(
   try {
     for (const source of sources) {
       check();
-      const file = await sourceFile(assistant, source);
-      check();
-      const release = claimCheckoutResource(
-        assistant.engine.store,
-        `assistant-attachment:${randomUUID()}`,
-        file.path,
-      );
-      try {
-        const bytes = await boundedBytes(file.path);
+      const machine = assistant.engine.store.project(source.projectId).machine;
+      if (source.kind === "project-file" && machine && !assistant.engine.machines)
+        throw new Error("WSL execution is unavailable on this Host");
+      const io = source.kind === "session-attachment" ? localMachineIO : assistant.engine.machines?.io(machine) ?? localMachineIO;
+      const { file, bytes } = await withMachineIO(io, async () => {
+        const file = await sourceFile(assistant, source);
+        check();
+        const release = claimCheckoutResource(assistant.engine.store, `assistant-attachment:${randomUUID()}`, file.path);
+        try { return { file, bytes: await boundedBytes(file.path) }; }
+        finally { release(); }
+      });
+      {
         if (
           file.expectedSize !== undefined &&
           bytes.length !== file.expectedSize
@@ -268,8 +282,6 @@ async function publish(
             "application/octet-stream",
           size: bytes.length,
         });
-      } finally {
-        release();
       }
     }
     check();

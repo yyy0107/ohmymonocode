@@ -83,3 +83,23 @@ it("shares only safe connection definitions and does not resurrect a deleted imp
   expect(state.connectionsPatch({ operationId: "c1", importRelease: true, changes: { server: definition } })).toEqual(original);
   expect(state.connectionsList()!.connections).toEqual([]);
 });
+
+it("stores environments and resolves variables for the most specific folder on the same machine", () => {
+  const { state } = setup();
+  const root = process.platform === "win32" ? "C:\\code\\app" : "/code/app";
+  const nested = process.platform === "win32" ? "C:\\code\\app\\web" : "/code/app/web";
+  state.environmentsPatch({ operationId: "env-1", changes: {
+    app: { id: "app", name: "App", folders: [root], variables: { API_URL: "outer", SHARED: "1" } },
+    web: { id: "web", name: "Web", folders: [nested], variables: { API_URL: "inner" } },
+    wsl: { id: "wsl", name: "Linux", machine: { kind: "wsl", distribution: "Ubuntu" }, folders: ["/code/app"], variables: { API_URL: "wsl" } },
+  } });
+  expect(state.environmentsList()?.environments.map((entry) => entry.name)).toEqual(["App", "Linux", "Web"]);
+  expect(state.environmentVariables(process.platform === "win32" ? "c:/CODE/app/src" : "/code/app/src")).toEqual({ API_URL: "outer", SHARED: "1" });
+  expect(state.environmentVariables(`${nested}${process.platform === "win32" ? "\\" : "/"}pkg`)).toEqual({ API_URL: "inner" });
+  expect(state.environmentVariables(process.platform === "win32" ? "C:\\code\\application" : "/code/application")).toEqual({});
+  expect(state.environmentVariables("/code/app", { kind: "wsl", distribution: "Ubuntu" })).toEqual({ API_URL: "wsl" });
+  expect(() => state.environmentsPatch({ operationId: "env-2", changes: { bad: { id: "bad", name: "Bad", folders: [root], variables: { MONOCODE_CONTROL_TOKEN: "x" } } } })).toThrow("Invalid environment variable name");
+  expect(() => state.environmentsPatch({ operationId: "env-3", changes: { bad: { id: "bad", name: "Bad", folders: ["relative"], variables: {} } } })).toThrow("absolute");
+  state.environmentsPatch({ operationId: "env-4", changes: { web: null } });
+  expect(state.environmentsList()?.environments).toHaveLength(2);
+});

@@ -5,13 +5,17 @@ const mocks = vi.hoisted(() => ({
   close: vi.fn(),
   request: vi.fn(),
   frames: [] as Array<(record: Record<string, unknown>) => void>,
+  currentMachine: "local",
+  owners: new Map<string, string>(),
+  spawned: [] as Array<{ id: string; machine: string }>,
 }));
 
 vi.mock("../../core/child", () => ({
+  childUsesSelectedMachine: (id: string) => !mocks.owners.has(id) || mocks.owners.get(id) === mocks.currentMachine,
   killChild: async () => undefined,
   resolveOmpBinary: async () => ({ path: "/fake/omp" }),
   resolvePiBinary: async () => ({ path: "/fake/pi" }),
-  spawnChild: async () => undefined,
+  spawnChild: async (id: string) => { mocks.owners.set(id, mocks.currentMachine); mocks.spawned.push({ id, machine: mocks.currentMachine }); },
   unwatchChild: () => undefined,
   watchChild: () => undefined,
 }));
@@ -31,7 +35,7 @@ vi.mock("./piClient", () => ({
   },
 }));
 
-const { runPiTextPrompt, stopPiTextPrompt } = await import("./piText");
+const { runPiTextPrompt, stopPiTextPrompt, warmupPiText, warmupOmpText, stopOmpTextPrompt } = await import("./piText");
 
 async function waitFor(predicate: () => boolean, label: string) {
   for (let index = 0; index < 200; index += 1) {
@@ -45,10 +49,24 @@ beforeEach(() => {
   mocks.close.mockReset();
   mocks.request.mockReset().mockResolvedValue({ data: {} });
   mocks.frames.length = 0;
+  mocks.currentMachine = "local"; mocks.owners.clear(); mocks.spawned.length = 0;
 });
 
 afterEach(async () => {
   await stopPiTextPrompt();
+  await stopOmpTextPrompt();
+});
+
+it.each(["pi", "omp"])("does not reuse a warm %s text process across machines with the same cwd", async provider => {
+  const warmup = provider === "pi" ? warmupPiText : warmupOmpText;
+  for (const machine of ["local", "wsl:Ubuntu", "wsl:Debian", "local"]) {
+    mocks.currentMachine = machine;
+    await warmup("/repo");
+    const count = mocks.spawned.length;
+    await warmup("/repo");
+    expect(mocks.spawned).toHaveLength(count);
+  }
+  expect(mocks.spawned).toEqual(["local", "wsl:Ubuntu", "wsl:Debian", "local"].map(machine => ({ id: `monocode-${provider}-text`, machine })));
 });
 
 it("forwards Pi text and reasoning deltas to an isolated prompt", async () => {

@@ -1827,6 +1827,7 @@ html.theme-light .drag-ghost-card {
 }
 
 .monocode-terminal-renderer {
+  position: relative;
   contain: strict;
   transform: translateZ(0);
 }
@@ -1837,10 +1838,6 @@ html.theme-light .drag-ghost-card {
 .monocode-terminal--alt-screen .xterm-scrollable-element {
   width: 100%;
   height: 100%;
-}
-
-.monocode-terminal--alt-screen .xterm .xterm-scrollable-element > .scrollbar {
-  display: none !important;
 }
 
 .monocode-terminal .xterm {
@@ -1856,29 +1853,13 @@ html.theme-light .drag-ghost-card {
   display: none !important;
 }
 
-/* Draw a slim thumb inside xterm's configured drag rail. */
-.monocode-terminal .xterm .xterm-scrollable-element > .scrollbar.vertical > .slider {
-  background: transparent !important;
+/* xterm still owns wheel/keyboard scrolling and its reserved column width.
+   The shared rail supplies the same arrows and thumb as native desktop scrollbars. */
+.monocode-terminal .xterm .xterm-scrollable-element > .scrollbar {
+  display: none !important;
 }
-
-.monocode-terminal .xterm .xterm-scrollable-element > .scrollbar.vertical > .slider::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: calc(1px * var(--scrollbar-scale));
-  bottom: 0;
-  width: max(var(--scrollbar-min-size), calc(6px * var(--scrollbar-scale)));
-  pointer-events: none;
-  border-radius: 2px;
-  background: color-mix(in srgb, var(--color-content) 20%, transparent);
-}
-
-.monocode-terminal .xterm .xterm-scrollable-element > .scrollbar.vertical > .slider:hover::after {
-  background: color-mix(in srgb, var(--color-content) 40%, transparent);
-}
-
-.monocode-terminal .xterm .xterm-scrollable-element > .scrollbar.vertical > .slider.active::after {
-  background: color-mix(in srgb, var(--color-content) 50%, transparent);
+.monocode-terminal-renderer > [data-ui="scrollbar"] {
+  z-index: 12;
 }
 
 .monocode-terminal .xterm-screen {

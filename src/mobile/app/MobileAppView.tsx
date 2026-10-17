@@ -49,7 +49,7 @@ import { GradientBlurBackground } from "../../features/settings/ui/GradientBlurB
 
 import { lazyMobilePage, lazyMobileSheet } from "../mobileLazy";
 import { saveMobileSkin } from "../theme/skin";
-import { browseHostDirectories, client, readHostImage, type MobileAppViewModel } from "./useMobileAppController";
+import { browseHostDirectories, client, type MobileAppViewModel } from "./useMobileAppController";
 
 const MobileSettings = lazyMobilePage(async () => ({ default: (await import("../MobileSettings")).MobileSettings }));
 const MobileNotes = lazyMobilePage(async () => ({ default: (await import("../MobileNotes")).MobileNotes }));
@@ -189,6 +189,7 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
     onTranscriptCommand,
     onTranscriptOverlayChange,
     openAddProject,
+    openAddConnection,
     openChats,
     openHome,
     openProject,
@@ -198,6 +199,7 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
     pairedConnections,
     pairing,
     pairingError,
+    pairingSuccess,
     pending,
     placeholder,
     planDecision,
@@ -217,6 +219,7 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
     projectsUnavailable,
     questionOpen,
     readingAttachments,
+    readHostImage,
     reconnect,
     remoteHosts,
     resolveNoteImage,
@@ -246,7 +249,6 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
     setAssistantOpen,
     setComposerPanel,
     setDrawerOpen,
-    setError,
     setFollowUpBehavior,
     setGlass,
     setHomeActionSession,
@@ -531,16 +533,12 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
           pairing={pairing}
           addingConnection={addingConnection}
           connectionTrigger={connectionTrigger}
-          onAddConnection={() => {
-            setError("");
-            setAddingConnection(true);
-          }}
+          onAddConnection={openAddConnection}
           connections={pairedConnections}
           sharedConnections={<MobileSharedConnections client={client} onPair={() => {
             setUrl("");
             setToken("");
-            setPairingError("");
-            setAddingConnection(true);
+            openAddConnection();
           }} />}
           onSwitchConnection={switchHost}
           probeConnection={probeSavedHost}
@@ -870,8 +868,7 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
             connectionTrigger.current = hostPickerTrigger.current;
             setHostPickerOpen(false);
             setDrawerOpen(false);
-            setPairingError("");
-            setAddingConnection(true);
+            openAddConnection();
           }}
           onManage={() => {
             setHostPickerOpen(false);
@@ -977,6 +974,7 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
           token={token}
           disabled={pairing}
           error={pairingError}
+          pairedHost={pairingSuccess}
           onUrlChange={setUrl}
           onTokenChange={setToken}
           onConnect={() => void connect()}
@@ -985,7 +983,7 @@ export function MobileAppView({ vm }: { vm: MobileAppViewModel }) {
             void connect(credentials);
           }}
           onClose={() => {
-            if (!pairing) {
+            if (!pairing || pairingSuccess) {
               setAddingConnection(false);
               setToken("");
               setPairingError("");

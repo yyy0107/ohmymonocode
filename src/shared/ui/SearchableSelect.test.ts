@@ -118,3 +118,31 @@ it("keeps loaded selection, icon, and Tab commit behavior in a non-searchable me
   expect(trigger.getAttribute("aria-expanded")).toBe("false");
   expect(document.activeElement).toBe(trigger);
 });
+
+it("filters grouped options and prevents keyboard activation of disabled choices", async () => {
+  const onChange = vi.fn();
+  await act(async () => root.render(createElement(SearchableSelect, {
+    label: "Environment", value: "local", onChange, commitOnTab: true,
+    options: [
+      { value: "local", label: "This machine", group: "Local" },
+      { value: "cloud", label: "Cloud", disabled: true, separatorBefore: true },
+      { value: "remote", label: "Remote Control" },
+    ],
+  })));
+  const trigger = container.querySelector("button")!;
+  await act(async () => trigger.click());
+  const input = document.querySelector<HTMLInputElement>('[role="combobox"]')!;
+  const inputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+  await act(async () => {
+    inputValue.call(input, "Cloud");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  expect(document.querySelectorAll('[role="option"]')).toHaveLength(1);
+  expect(document.querySelector('[data-ui="select-group-label"]')).toBeNull();
+  await act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+  expect(onChange).not.toHaveBeenCalled();
+  expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  await act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true })));
+  expect(onChange).not.toHaveBeenCalled();
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+});

@@ -11,32 +11,18 @@ import {
 } from "../model/connections";
 import { rememberRemoteProject } from "../model/remoteProjects";
 import type { HostDirectory, HostProject } from "../model/protocol";
-import { WslConnectionDialog } from "./WslConnectionDialog";
 
 type Props = {
   onCancel: () => void;
   onOpen: (key: string) => void;
-  environment?: "wsl";
-  initialDistribution?: string;
 };
-
-export function AddRemoteProjectDialog({ environment, ...props }: Props) {
-  if (environment === "wsl") {
-    return <WslConnectionDialog {...props} />;
-  }
-  return <RemoteProjectBrowser {...props} />;
-}
 
 /** Adds a project whose folder is on a connected machine. Sessions in it run
  * on that machine; the project otherwise behaves like any other in the rail. */
-function RemoteProjectBrowser({
+export function AddRemoteProjectDialog({
   onCancel,
   onOpen,
-}: {
-  onCancel: () => void;
-  /** Receives the new project's rail key. */
-  onOpen: (key: string) => void;
-}) {
+}: Props) {
   const { t: uiT } = useTranslation();
   const { machines, loaded } = useRemoteMachines();
   const [machineId, setMachineId] = useState<string>();

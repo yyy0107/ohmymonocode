@@ -80,6 +80,7 @@ import {
 prefetchRemoteProjectSessions
 } from "../features/connections/model/connections";
 import { AddRemoteProjectDialog } from "../features/connections/ui/AddRemoteProjectDialog";
+import { NewEnvironmentDialog } from "../features/connections/ui/NewEnvironmentDialog";
 
 import { selectedChangeKind,selectedChangePath,selectedCommitSha,tabIsOneCard } from "./model/workspaceSelectors";
 import { LinkedWorkItemPanel } from "./ui/workspaceSurfaces";
@@ -215,7 +216,7 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
     refreshHistory,
     reminderNoticesHeight,
     remoteProjectDialogOpen,
-    remoteProjectDistribution,
+    newEnvironmentDialogOpen,
     renderAppView,
     repairSessions,
     searchFocusToken,
@@ -232,6 +233,7 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
     setProviderSignInRequest,
     setReminderNoticesHeight,
     setRemoteProjectDialogOpen,
+    setNewEnvironmentDialogOpen,
     setSessionDeleteDialog,
     setSidebarTab,
     setWhatsNewVersion,
@@ -264,8 +266,9 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
   const liftPageHeader = (appPage === "inbox" || appPage === "notes" || appPage === "automations" || appPage === "workflows") && !appDialog && !menuBarPinned;
   const activeLeaves = activeTab ? leafIds(activeTab.layout) : [];
   const singleConversation = activeLeaves.filter(id => sessions.some(session => session.id === id)).length === 1;
+  // Full view lifts only the chat's tool toggles; its tabs stay in the pane.
   const liftSessionHeader = workspaceVisible && !appDialog && !menuBarPinned &&
-    singleConversation && (activeLeaves.length === 1 || activeTab?.surfaceMode !== "unified");
+    singleConversation;
 
   const sidebarProps: SidebarProps = {
     navigation: sidebarNavigation,
@@ -776,11 +779,18 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
               ) : null}</PresenceBoundary>
               <PresenceBoundary>{remoteProjectDialogOpen ? (
                 <AddRemoteProjectDialog
-                  environment={remoteProjectDialogOpen === "wsl" ? "wsl" : undefined}
-                  initialDistribution={remoteProjectDistribution}
                   onCancel={() => setRemoteProjectDialogOpen(false)}
                   onOpen={(key) => {
                     setRemoteProjectDialogOpen(false);
+                    onSelectProject(key);
+                  }}
+                />
+              ) : null}</PresenceBoundary>
+              <PresenceBoundary>{newEnvironmentDialogOpen ? (
+                <NewEnvironmentDialog
+                  onClose={() => setNewEnvironmentDialogOpen(false)}
+                  onOpen={(key) => {
+                    setNewEnvironmentDialogOpen(false);
                     onSelectProject(key);
                   }}
                 />

@@ -1,6 +1,7 @@
 import { modelsFor } from "../../../../features/sessions/model/models";
 import type { TurnIntent } from "../../../../features/sessions/model/session";
 import {
+  childUsesSelectedMachine,
   execChild,
   freeHarnessPort,
   killChild,
@@ -143,6 +144,7 @@ async function ensureLive(
   const settingsKey = modelSettingsKey(modelSettings);
   if (
     live &&
+    childUsesSelectedMachine(TEXT_CHILD_ID) &&
     live.cwd === cwd &&
     sameModel(live.model, model) &&
     live.modelSettingsKey === settingsKey
@@ -199,7 +201,7 @@ async function startLive(
 
   try {
     const url = await waitForUrl(() => serverUrl, SERVER_TIMEOUT_MS);
-    const client = new OpenCodeClient(url, cwd);
+    const client = new OpenCodeClient(url, cwd, TEXT_CHILD_ID);
     const created = await client.createSession({
       permission: [{ permission: "*", pattern: "*", action: "deny" }],
     });

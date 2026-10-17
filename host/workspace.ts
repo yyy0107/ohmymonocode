@@ -1,17 +1,4 @@
-import { execFile, spawn } from "node:child_process";
-import { promisify } from "node:util";
-import {
-  lstat,
-  mkdir,
-  open,
-  readFile,
-  readdir,
-  realpath,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { machineExec as exec, machineFs, machinePath, machineEnvironment } from "./machine-io";
 import type {
   GitChangedFile,
   GitDiffIndex,
@@ -22,7 +9,6 @@ import type {
   ProjectSearchResult,
 } from "../src/features/search/model/search";
 
-const exec = promisify(execFile);
 const MAX_FILE = 1024 * 1024;
 
 export function workspacePath(
@@ -32,14 +18,14 @@ export function workspacePath(
 ): string {
   if (typeof input !== "string" || input.length > 4096 || input.includes("\0"))
     throw new Error("Invalid workspace path");
-  const path = resolve(root, input);
-  const rel = relative(root, path);
+  const path = machinePath.resolve(root, input);
+  const rel = machinePath.relative(root, path);
   if (
     (!allowRoot && !rel) ||
     rel === ".." ||
-    rel.startsWith(`..${sep}`) ||
-    isAbsolute(rel) ||
-    rel.split(sep).some((part) => part.toLowerCase() === ".git")
+    rel.startsWith(`..${machinePath.sep}`) ||
+    machinePath.isAbsolute(rel) ||
+    rel.split(machinePath.sep).some((part) => part.toLowerCase() === ".git")
   )
     throw new Error("Path is outside the workspace");
   return path;
@@ -47,14 +33,14 @@ export function workspacePath(
 
 export async function existingPath(root: string, input: unknown, allowRoot = false) {
   const path = workspacePath(root, input, allowRoot);
-  const actual = await realpath(path);
-  const rel = relative(root, actual);
+  const actual = await machineFs.realpath(path);
+  const rel = machinePath.relative(root, actual);
   if (
     (!allowRoot && !rel) ||
     rel === ".." ||
-    rel.startsWith(`..${sep}`) ||
-    isAbsolute(rel) ||
-    rel.split(sep).some((part) => part.toLowerCase() === ".git")
+    rel.startsWith(`..${machinePath.sep}`) ||
+    machinePath.isAbsolute(rel) ||
+    rel.split(machinePath.sep).some((part) => part.toLowerCase() === ".git")
   )
     throw new Error("Path is outside the workspace");
   return actual;
@@ -68,44 +54,15 @@ async function git(root: string, args: string[], maxBuffer = 4 * 1024 * 1024) {
       timeout: 10_000,
       maxBuffer,
       encoding: "utf8",
-      env: { ...process.env, LC_ALL: "C" },
+      env: { ...machineEnvironment(), LC_ALL: "C" },
     })
   ).stdout;
 }
 
-function gitWithInput(
-  root: string,
-  args: string[],
-  input: string,
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn("git", ["-c", "core.pager=cat", ...args], {
-      cwd: root,
-      windowsHide: true,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    const stdout: Buffer[] = [];
-    const stderr: Buffer[] = [];
-    const timer = setTimeout(() => child.kill(), 10_000);
-    child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
-    child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
-    child.stdin.on("error", reject);
-    child.on("error", (error) => {
-      clearTimeout(timer);
-      reject(error);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      if (code === 0) resolve(Buffer.concat(stdout).toString("utf8"));
-      else
-        reject(
-          new Error(
-            Buffer.concat(stderr).toString("utf8") || `git exited ${code}`,
-          ),
-        );
-    });
-    child.stdin.end(input);
-  });
+async function gitWithInput(root: string, args: string[], input: string): Promise<string> {
+  return (await exec("git", ["-c", "core.pager=cat", ...args], {
+    cwd: root, windowsHide: true, timeout: 10_000, maxBuffer: 4 * 1024 * 1024, input,
+  })).stdout;
 }
 
 export type HostFileEntry = {
@@ -120,14 +77,14 @@ export async function listHostFiles(
   input: unknown,
 ): Promise<HostFileEntry[]> {
   const dir = await existingPath(root, input, true);
-  if (!(await stat(dir)).isDirectory())
+  if (!(await machineFs.stat(dir)).isDirectory())
     throw new Error("Path is not a directory");
-  const entries = await readdir(dir, { withFileTypes: true });
+  const entries = await machineFs.readdir(dir, { withFileTypes: true });
   if (entries.length > 5000)
     throw new Error("Directory has too many entries to display");
   const visible = entries.filter((entry) => entry.name !== ".DS_Store");
   const paths = visible.map((entry) =>
-    relative(root, resolve(dir, entry.name)).split(sep).join("/"),
+    machinePath.relative(root, machinePath.resolve(dir, entry.name)).split(machinePath.sep).join("/"),
   );
   let ignored = new Set<string>();
   if (paths.length) {
@@ -145,7 +102,7 @@ export async function listHostFiles(
         entry.isDirectory() ||
         (entry.isSymbolicLink() &&
           (await existingPath(root, path)
-            .then((actual) => stat(actual))
+            .then((actual) => machineFs.stat(actual))
             .then((value) => value.isDirectory())
             .catch(() => false)));
       return {
@@ -194,7 +151,7 @@ async function hostFilePaths(root: string): Promise<string[]> {
     const pending = [""];
     while (pending.length && paths.length < 5000) {
       const dir = pending.pop()!;
-      const entries = await readdir(resolve(root, dir), {
+      const entries = await machineFs.readdir(machinePath.resolve(root, dir), {
         withFileTypes: true,
       }).catch(() => []);
       for (const entry of entries) {
@@ -333,7 +290,7 @@ export async function searchHostContent(
         continue;
       const path = workspacePath(root, relative);
       matches.push({
-        path: path.split(sep).join("/"),
+        path: path.split(machinePath.sep).join("/"),
         relative,
         line: Number(output.slice(pathEnd + 1, lineEnd)),
         column: searchColumn(preview, options) || 1,
@@ -360,7 +317,7 @@ export async function searchHostContent(
   let truncated = false;
   while (pending.length && matches.length <= 500 && files < 5000) {
     const parent = pending.pop()!;
-    const entries = await readdir(resolve(root, parent), {
+    const entries = await machineFs.readdir(machinePath.resolve(root, parent), {
       withFileTypes: true,
     }).catch(() => []);
     for (const entry of entries) {
@@ -381,7 +338,7 @@ export async function searchHostContent(
       let path: string;
       try {
         path = await existingPath(root, relative);
-        if ((await stat(path)).size > 512 * 1024) continue;
+        if ((await machineFs.stat(path)).size > 512 * 1024) continue;
         content = await readHostFile(root, relative);
       } catch {
         continue;
@@ -390,7 +347,7 @@ export async function searchHostContent(
         const column = searchColumn(line, options);
         if (!column) continue;
         matches.push({
-          path: path.split(sep).join("/"),
+          path: path.split(machinePath.sep).join("/"),
           relative,
           line: index + 1,
           column,
@@ -436,10 +393,10 @@ export async function readHostFile(
   input: unknown,
 ): Promise<string> {
   const path = await existingPath(root, input);
-  const info = await stat(path);
+  const info = await machineFs.stat(path);
   if (!info.isFile()) throw new Error("Path is not a file");
   if (info.size > MAX_FILE) throw new Error("File is too large to preview");
-  const bytes = await readFile(path);
+  const bytes = await machineFs.readFile(path);
   if (bytes.includes(0)) throw new Error("Binary file cannot be previewed");
   return bytes.toString("utf8");
 }
@@ -461,7 +418,7 @@ export async function writeHostFile(
   const current = await readHostFile(root, input);
   if (current !== expected)
     throw new Error("File changed on the host; reload before saving");
-  await writeFile(path, content, "utf8");
+  await machineFs.writeFile(path, content, "utf8");
 }
 
 /** Create a new file or folder under an existing workspace directory. */
@@ -495,30 +452,29 @@ export async function createHostPath(
   )
     throw new Error("Invalid file name");
   let directory = await existingPath(root, parent, true);
-  if (!(await stat(directory)).isDirectory())
+  if (!(await machineFs.stat(directory)).isDirectory())
     throw new Error("Path is not a directory");
   for (const part of parts.slice(0, -1)) {
     const candidate = workspacePath(
       root,
-      relative(root, resolve(directory, part)),
+      machinePath.relative(root, machinePath.resolve(directory, part)),
     );
-    await mkdir(candidate).catch((reason: NodeJS.ErrnoException) => {
+    await machineFs.mkdir(candidate).catch((reason: NodeJS.ErrnoException) => {
       if (reason.code !== "EEXIST") throw reason;
     });
-    directory = await existingPath(root, relative(root, candidate));
-    if (!(await stat(directory)).isDirectory())
+    directory = await existingPath(root, machinePath.relative(root, candidate));
+    if (!(await machineFs.stat(directory)).isDirectory())
       throw new Error("Path is not a directory");
   }
   const path = workspacePath(
     root,
-    relative(root, resolve(directory, parts.at(-1)!)),
+    machinePath.relative(root, machinePath.resolve(directory, parts.at(-1)!)),
   );
-  if (isDir) await mkdir(path);
+  if (isDir) await machineFs.mkdir(path);
   else {
-    const file = await open(path, "wx");
-    await file.close();
+    await machineFs.writeFile(path, "", { flag: "wx" });
   }
-  return relative(root, path).split(sep).join("/");
+  return machinePath.relative(root, path).split(machinePath.sep).join("/");
 }
 
 function statusName(code: string): string {
@@ -652,9 +608,9 @@ export async function hostGitIndex(root: string): Promise<GitDiffIndex> {
     const count = counts.get(path) ?? { additions: 0, deletions: 0 };
     if (code === "??") {
       try {
-        const info = await lstat(resolve(root, path));
+        const info = await machineFs.lstat(machinePath.resolve(root, path));
         if (info.size <= MAX_FILE && info.isFile()) {
-          const content = await readFile(resolve(root, path), "utf8");
+          const content = await machineFs.readFile(machinePath.resolve(root, path), "utf8");
           count.additions = content
             ? content.split("\n").length - Number(content.endsWith("\n"))
             : 0;
@@ -709,7 +665,7 @@ export async function hostFileDiff(
   staged: boolean,
 ): Promise<GitFileDiff> {
   const path = workspacePath(root, input);
-  const relativePath = relative(root, path).split(sep).join("/");
+  const relativePath = machinePath.relative(root, path).split(machinePath.sep).join("/");
   const index = await hostGitIndex(root);
   const file = index.files.find((entry) => entry.relative === relativePath);
   if (!file) throw new Error("File has no uncommitted changes");
@@ -719,7 +675,7 @@ export async function hostFileDiff(
   );
   const current = staged
     ? await gitBlob(root, `:${relativePath}`)
-    : await existingPath(root, relativePath).then((actual) => readFile(actual, "utf8")).then(
+    : await existingPath(root, relativePath).then((actual) => machineFs.readFile(actual, "utf8")).then(
         (text) => ({ text, binary: text.includes("\0"), tooLarge: false }),
         (error) => {
           if (file.status === "deleted")
@@ -746,13 +702,13 @@ export async function hostGitAction(
   contents?: unknown,
 ) {
   const discard = async (file: GitChangedFile) => {
-    const path = relative(root, workspacePath(root, file.relative));
-    if (file.status === "untracked") await rm(resolve(root, path));
+    const path = machinePath.relative(root, workspacePath(root, file.relative));
+    if (file.status === "untracked") await machineFs.rm(machinePath.resolve(root, path));
     else await git(root, ["restore", "--worktree", "--", path]);
   };
   switch (action) {
     case "stageContents": {
-      const path = relative(root, workspacePath(root, input)).split(sep).join("/");
+      const path = machinePath.relative(root, workspacePath(root, input)).split(machinePath.sep).join("/");
       if (
         typeof contents !== "string" ||
         Buffer.byteLength(contents) > MAX_FILE
@@ -779,7 +735,7 @@ export async function hostGitAction(
     }
     case "stage":
     case "unstage": {
-      const path = relative(root, workspacePath(root, input));
+      const path = machinePath.relative(root, workspacePath(root, input));
       await git(
         root,
         action === "stage"
@@ -795,7 +751,7 @@ export async function hostGitAction(
       await git(root, ["reset", "-q", "--", "."]);
       return;
     case "discard": {
-      const path = relative(root, workspacePath(root, input)).split(sep).join("/");
+      const path = machinePath.relative(root, workspacePath(root, input)).split(machinePath.sep).join("/");
       const file = (await hostGitIndex(root)).files.find(
         (entry) => entry.relative === path && entry.unstaged,
       );
@@ -829,7 +785,7 @@ export async function hostGitAction(
         timeout: 30_000,
         maxBuffer: 1024 * 1024,
         env: {
-          ...process.env,
+          ...machineEnvironment(),
           GH_PROMPT_DISABLED: "1",
           GIT_TERMINAL_PROMPT: "0",
         },

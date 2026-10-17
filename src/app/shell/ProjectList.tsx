@@ -1,13 +1,11 @@
 import { usePreferenceState } from "../../features/settings/model/usePreferenceState";
 import { AnimatedCollapse } from "../../shared/ui/AnimatedCollapse";
-import { useSurfaceVisibility } from "../../shared/ui/SurfaceVisibility";
 import type { ProjectHoverSummary } from "../model/projectHoverSummary";
 import { useTranslation } from "../../shared/i18n/useTranslation";
 import {
   useCallback,
   useEffect,
   useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -124,20 +122,6 @@ export type ProjectListProps = {
   workflowsSection?: ReactNode;
   onProjectHoverOpen?: (path: string) => void;
 };
-
-function updateScrollMask(element: HTMLDivElement, previousMask?: string) {
-  const { clientHeight, scrollTop, scrollHeight } = element;
-  const fade = Math.min(32, clientHeight / 2);
-  const top = scrollTop > 0 ? fade : 0;
-  const bottom =
-    scrollTop + clientHeight < scrollHeight - 1
-      ? fade
-      : 0;
-  const mask = `linear-gradient(to bottom, transparent, black ${top}px, black calc(100% - ${bottom}px), transparent)`;
-  // CSSOM can serialize an equivalent gradient differently from our input.
-  if (previousMask !== mask) element.style.maskImage = mask;
-  return mask;
-}
 
 export function ProjectList({
   cwd,
@@ -307,77 +291,6 @@ export function ProjectList({
   const notificationProjects = useNotificationProjects([...allProjects.keys()]);
   const lockOverscroll = useLockOverscroll<HTMLDivElement>();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const surfaceVisible = useSurfaceVisibility();
-  useLayoutEffect(() => {
-    const element = scrollRef.current;
-    if (!element) return;
-    if (!scrollable) {
-      element.style.maskImage = "";
-      return;
-    }
-    if (!surfaceVisible) return;
-    // Reopening must have the correct fade before its first visible paint.
-    let mask = updateScrollMask(element);
-    let active = true;
-    let frame: number | undefined;
-    const schedule = () => {
-      if (!active || frame !== undefined) return;
-      frame = requestAnimationFrame(() => {
-        frame = undefined;
-        if (active) mask = updateScrollMask(element, mask);
-      });
-    };
-    const heights = new Map<Element, number>();
-    const observer = typeof ResizeObserver === "undefined"
-      ? undefined
-      : new ResizeObserver((entries) => {
-          let changed = false;
-          for (const entry of entries) {
-            const height = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
-            if (heights.get(entry.target) === height) continue;
-            heights.set(entry.target, height);
-            changed = true;
-          }
-          // Horizontal dragging doesn't change a vertical scroll fade. Reading
-          // scrollHeight on the next frame would force layout after the next
-          // pointer move. Wrapped content still updates via its section height.
-          if (changed) schedule();
-        });
-    observer?.observe(element);
-    const observed = new Set<Element>();
-    const observeChildren = () => {
-      const children = new Set(element.children);
-      for (const child of observed) {
-        if (children.has(child)) continue;
-        observer?.unobserve(child);
-        observed.delete(child);
-        heights.delete(child);
-      }
-      for (const child of children) {
-        if (observed.has(child)) continue;
-        observer?.observe(child);
-        observed.add(child);
-      }
-    };
-    observeChildren();
-    // Sections may be added without changing the scroller's own border box.
-    const mutations = new MutationObserver(() => {
-      if (!active) return;
-      observeChildren();
-      schedule();
-    });
-    mutations.observe(element, { childList: true });
-    element.addEventListener("scroll", schedule, { passive: true });
-    if (!observer) window.addEventListener("resize", schedule);
-    return () => {
-      active = false;
-      if (frame !== undefined) cancelAnimationFrame(frame);
-      observer?.disconnect();
-      mutations.disconnect();
-      element.removeEventListener("scroll", schedule);
-      if (!observer) window.removeEventListener("resize", schedule);
-    };
-  }, [scrollable, surfaceVisible]);
   const summaryPinFocus = useRef<string | undefined>(undefined);
   useEffect(() => {
     const path = summaryPinFocus.current;

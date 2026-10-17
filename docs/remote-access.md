@@ -4,51 +4,166 @@ MonoCode can run Claude Code, Codex, Cursor, Grok Build, OpenCode, Pi, OMP, fx, 
 
 A folder on a connected machine is a project in the rail, marked with a globe. Every session in it runs on that machine, in the same session view and composer as a local session. The Sessions sidebar lists that machine's sessions for the project.
 
-## Connect to WSL from Windows
+## WSL projects on Windows
 
-In the composer's environment menu, choose **WSL**, select an installed Linux
-distribution, and continue to the native Windows folder dialog at
-`\\wsl.localhost\<distribution>\`. Choose a folder within that distribution;
-the selected UNC path is converted to a Linux path (legacy `\\wsl$` paths also
-work). Cancelling leaves the distribution dialog open for another selection.
-Opening a folder creates a Host
-project whose sessions, files, Git operations, provider installations, and sign-ins
-belong to that distribution. The composer shows `WSL · <distribution>` for it.
+The shared WSL path is available on Windows without an environment-variable
+opt-in. Provider authentication compatibility is still being validated; see
+[WSL provider support](wsl-provider-support.md) for the tested scope and limitations.
+The old independent WSL session Host path has been removed. Existing history
+remains available when the distribution is stopped.
 
-WSL setup uses `wsl.exe` and the distribution's default user. It needs Bash,
-`wslpath`, `flock`, and `sha256sum`. Windows releases include the Linux Host
-runtime (Node and the Host) for the distribution's architecture. Setup copies it
-into an immutable, checksum-verified version directory; no download, system package,
-SSH, systemd, or administrator privileges are needed. Install and sign in to the
-desired provider CLI inside the distribution separately.
+Choose **WSL** in the composer's environment menu and select a distribution.
+This only selects the environment. Then use the project picker to choose its
+project folder. The folder dialog can browse
+`\\wsl.localhost\<distribution>\` (or the older `\\wsl$` form); this is
+only a picker. Project files and Git operations run inside Linux through the
+execution service, without using UNC filesystem access for workspace operations.
+The project appears with a WSL marker and uses the same Windows shared Host,
+provider selection, account list, settings and conversation database as local
+projects. Its stored project path is a Linux path plus a distribution identity.
+The desktop's `wsl://<encoded-distribution>/<linux-path>` value is a UI identity,
+not a filesystem path passed to Windows tools.
 
-Everything lives under `~/.monocode/remote` in the distribution:
+The Windows shared Host owns WSL sessions and exposes them to paired phones
+while the desktop is running. Closing a session tab leaves its process running;
+quitting the desktop stops the shared Host and interrupts its WSL provider
+processes. A broken execution connection ends that connection's processes.
+Continuing a running turn across desktop shutdown is not implemented. SSH hosts
+retain their independent session lifecycle described below.
 
-- `host/<version>-<hash>/` — the runtime, named by release and manifest hash.
-  Versions that no running process uses are removed during setup.
-- `data/` — sessions, the Host identity, and this desktop's credential.
-- `run/rpc.sock` — the Host's private Unix socket (owner-only).
+### Execution runtime and provider versions
 
-The desktop keeps one `wsl.exe` process per distribution whose stdin/stdout
-carry requests to a bridge in WSL, which relays them to the socket. No TCP
-port is forwarded to Windows and the Host credential never leaves Linux; the
-Windows connection store keeps only the distribution name. WSL connections are
-device-local and are not advertised to other computers.
+WSL setup uses `wsl.exe` and the distribution's default user. Bash, `wslpath`,
+`flock` and `sha256sum` must be available. Windows packages include Linux Node
+and an execution-only service; WSL does not need another session Host, Node
+installation, SSH service or administrator privileges. Setup serializes copies
+with `run/setup.lock`, verifies every file against the runtime manifest, and
+publishes immutable directories under `~/.monocode/remote/host/<version>-<hash>`.
+Unused runtime versions are removed during setup. The directory retains its
+historical name, but new runtime packages contain no Host or session database.
 
-Repeated connections reuse the running Host and credential. If the Host has
-stopped, the bridge reports the request as undelivered; MonoCode runs setup again,
-which restarts the Host with the same identity, and retries once. Closing the
-desktop ends only the bridge; the Host keeps running. Terminating WSL or shutting
-down Windows interrupts running turns, while saved session history remains on the
-Linux filesystem.
+The Windows Host keeps one `wsl.exe` stdio connection per distribution. Requests,
+responses and process/network events share that pipe. Filesystem operations,
+provider subprocesses, loopback HTTP/SSE, Git and shells run in Linux. The
+service uses the private `~/.monocode/remote/run/exec.sock`; the previous Host's
+`run/rpc.sock` is left untouched during migration. Application control endpoints
+use connection-owned Linux loopback listeners forwarded over the same pipe to
+the explicitly granted Windows loopback ports, including with WSL NAT. The Linux
+control client (including `agents` and `agents-mcp`) talks to the Windows Host;
+it does not own a session engine.
+Children are recorded under `run/children` with their Linux process start time
+and boot identity so restart cleanup cannot kill an unrelated reused PID.
+Append operations retain open file handles instead of reopening a Windows-mounted
+file for every line.
 
-Connections created by earlier versions used `~/.monocode-wsl` and localhost
-forwarding. The first connection after upgrading stops that Host, which
-interrupts its running turns, moves its data to `~/.monocode/remote/data` with the
-same identity, and removes the old runtime.
+Claude Code, Codex and OpenCode have managed native Windows/Linux artifacts. Pi has a
+managed JavaScript artifact with its dependency tree and uses the bundled Node.
+The desktop
+selects a configured CLI first, then an installed CLI, then its managed runtime.
+The selected CLI's version determines the exact Linux version. Downloads are
+checked against official npm `dist.integrity`; a mirror may supply bytes but
+cannot replace that integrity metadata. Managed Windows artifacts live under
+`~/.monocode-host/providers/`; verified Linux artifacts are copied once into
+`~/.monocode/remote/providers/<provider>/<version>-<hash>` and checked per file.
 
-For development, `npm run host:wsl-runtime` builds the runtime into
-`build/wsl-host`, which debug desktop builds use.
+For providers with verified shared account and session paths, an unavailable
+transferable artifact can use an explicitly reported WSL-installed binary;
+that fallback version is not guaranteed to match the desktop. OMP, Cursor, Grok,
+fx, Hermes and Antigravity are currently blocked before runtime discovery or
+execution because their desktop account/session sharing is not established.
+Installing or logging into those providers inside WSL does not bypass this limit.
+See the [provider distribution audit](wsl-provider-support.md) for official Linux
+package sources, account-sharing restrictions and remaining verification gaps.
+
+### Shared account directories
+
+Claude and Codex receive the desktop account's Data Home translated through
+`wslpath`, with `CLAUDE_CONFIG_DIR` or `CODEX_HOME` set explicitly. Named managed
+accounts therefore share their existing account directory and file credentials.
+Codex requires usable `auth.json` file storage; a system-keyring or ephemeral
+account must be imported into a managed file-backed account first. Pi receives
+its desktop agent directory; OpenCode receives shared desktop data, config and
+state paths. Pi/OpenCode's known provider credential environment variables come
+from the desktop or are explicitly cleared. SDK credential file overrides are
+translated to desktop paths, including default AWS and Google ADC files, so
+they cannot silently select the WSL user's default account. `HOME` and `PATH`
+still belong to Linux. Catalog commands use the shared environment too;
+Claude/Codex version queries do not require an `auth.json` or trigger refresh.
+
+For Claude's default account, setting `CLAUDE_CONFIG_DIR` means Linux reads
+`<Data Home>/.claude.json`, while the default Windows CLI may read
+`~/.claude.json`. The first version accepts this global-configuration split;
+authentication still uses the shared account directory. Named accounts do not
+have that split.
+
+Windows-only MCP commands and hooks are filtered from the Linux launch and the
+session reports which entries were excluded. Claude receives an explicit strict
+MCP configuration and filtered settings. Codex receives per-server disable
+overrides and removes a Windows-only notification command. Linux-capable provider
+and user values are preserved.
+
+An account lock serializes application-controlled starts. It cannot coordinate
+refreshes initiated internally by already-running provider processes. Codex's
+app-server provides a non-inference account refresh request. Before a Codex WSL
+start, an OAuth access token expiring within ten minutes triggers that request
+through the desktop CLI under the same account lock. CLI login status alone does
+not demonstrate refresh, and Claude auth status has no documented refresh
+guarantee. Default-account authentication and one real WSL conversation have
+passed for Claude Code 2.1.302, Codex 0.163.0 and Pi 1.3.0, including a Linux
+`uname` tool call and Windows-readable history. All three also completed
+simultaneous Windows/WSL tool rounds, followed by successful authentication checks
+on both sides. Their credential files did not change during those checks, so
+real refresh writeback remains unverified. No published named accounts were
+available for the real-account checks; named-account behavior remains unverified.
+The Codex Windows tool check used a repository directory; an earlier attempt
+inside Windows Temp failed with sandbox `CreateProcessWithLogonW` error 267.
+
+Shared native transcripts remain readable on Windows. If another application
+adds messages to a WSL conversation between turns, continuing that native source
+is currently blocked: ownership locks cannot yet cross Windows and Linux.
+Switching agents creates a history handoff without claiming the external source.
+
+### Existing WSL Host data and verification
+
+Migration takes a consistent SQLite online backup of the old
+`~/.monocode/remote/data/host.db` and imports it into the Windows Host. The source
+database is retained. The old Host can be stopped through its authenticated
+lifecycle endpoint only after its PID, command and data directory have been
+verified; unknown processes are never killed by PID alone. Snapshot files use
+new destinations and cannot overwrite an existing database. Legacy WSL remote
+connection records are hidden from the remote-machine UI and retained until
+successful import cleanup; SSH connection records are unchanged. Imported worker
+conversations are detached from their old orchestration/workflow owner and
+archived. Old run controls become read-only history, pending queues are paused,
+and copied attachments are rewritten to their Windows Host locations. The next
+turn starts with a history handoff using the desktop account.
+
+The execution-service tests cover Windows named-pipe transport, multiplexed
+output, binary file IO, persistent appends, ownership cleanup, timeouts, output
+limits, loopback HTTP/SSE, bounded TCP relay, retry boundaries, PID reuse, SQLite
+WAL snapshots and read-only Cursor subagent queries.
+A real Ubuntu-26.04 smoke test verified 9 MB of UTF-8 output, process termination,
+daemon crash/orphan recovery, connection-loss cleanup, safe bounded no-follow
+reads and authenticated legacy-Host shutdown. A Linux TCP client also reached a
+Windows-only loopback fixture through the mux and received all 300,000 bytes.
+Windows/Linux CLI versions matched for Claude Code 2.1.302, Codex 0.163.0,
+Pi 1.3.0 and OpenCode 1.19.3;
+repeated verified transfers reused their cached files. The execution-service
+smoke checks use temporary directories and no provider account; the separate
+default-account conversation checks above use the actual shared credentials.
+Pi's complete npm dependency tree was verified against official metadata and
+transferred as one checksum-verified archive. Its default desktop API-key account
+completed the Linux tool round and both-platform concurrent round. OpenCode's
+version and transfer cache are verified; its authentication, conversation and
+token refresh behavior still require validation.
+Run `host/machines/wsl-smoke.mjs` with the bundled Linux Node to repeat the
+isolated execution check.
+
+For development, `npm run host:wsl-runtime` prepares the execution runtime in
+`build/wsl-host`; packaged Windows desktops use their bundled `wsl` directory.
+Builds and LAN publication remain explicit manual operations. These execution
+checks do not establish refresh compatibility, named-account behavior, native
+terminal presentation latency, or full per-provider end-to-end acceptance.
 
 ## Connect through SSH
 

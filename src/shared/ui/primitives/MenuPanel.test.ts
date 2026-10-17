@@ -1,14 +1,14 @@
-import { duration } from "../../../shared/motion/tokens";
+import { duration } from "../../motion/tokens";
 // @vitest-environment happy-dom
-import { act, createElement, type ReactNode } from "react";
+import { act, createElement, useRef, useState, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ComposerPopover } from "./ComposerPopover";
+import { MenuPanel } from "./MenuPanel";
 import { completeMotionAnimation } from "../../../../tests/helpers/motionDriver";
 import {
   SurfaceVisibilityContext,
   useSurfaceVisibility,
-} from "../../../shared/ui/SurfaceVisibility";
+} from "../SurfaceVisibility";
 
 
 let container: HTMLDivElement;
@@ -40,8 +40,8 @@ function render(open: boolean, visible = true) {
         SurfaceVisibilityContext.Provider,
         { value: visible },
         createElement(
-          ComposerPopover,
-          { open, anchor: null, "data-menu": "" },
+          MenuPanel,
+          { open, inset: true, anchor: null, "data-menu": "" },
           "Action",
           createElement(NestedPortal),
         ),
@@ -91,10 +91,10 @@ it("preserves styling and animates the closing lifetime for other picker consume
   act(() =>
     root.render(
       createElement(
-        ComposerPopover,
+        MenuPanel,
         {
           open: true,
-          enabled: false,
+          inset: false,
           anchor: null,
           className: "existing-menu",
           "data-menu": "",
@@ -108,8 +108,8 @@ it("preserves styling and animates the closing lifetime for other picker consume
   act(() =>
     root.render(
       createElement(
-        ComposerPopover,
-        { open: false, enabled: false, anchor: null },
+        MenuPanel,
+        { open: false, inset: false, anchor: null },
         "Action",
       ),
     ),
@@ -117,6 +117,32 @@ it("preserves styling and animates the closing lifetime for other picker consume
   expect(container.querySelector<HTMLElement>("[data-menu]")?.inert).toBe(true);
   act(() => completeMotionAnimation(container));
   expect(container.querySelector("[data-menu]")).toBeNull();
+});
+
+it("dismisses only the nested menu on Escape and restores its row focus", () => {
+  const dismissParent = vi.fn();
+  function NestedMenus() {
+    const [childOpen, setChildOpen] = useState(true);
+    const anchor = useRef<HTMLButtonElement>(null);
+    return createElement(MenuPanel, { open: true, anchor: null, onDismiss: dismissParent },
+      createElement("button", { ref: anchor }, "Branch"),
+      createElement(MenuPanel, {
+        open: childOpen, anchor, submenu: true, "data-child": "",
+        onDismiss: () => setChildOpen(false),
+      }, "main"),
+    );
+  }
+  act(() => root.render(createElement(NestedMenus)));
+  const child = container.querySelector<HTMLElement>("[data-child]")!;
+  const parent = child.parentElement!.closest('[data-ui="menu-panel"]')!;
+  expect(child.dataset.menuTree).toBe(parent.getAttribute("data-menu-tree"));
+  act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  expect(dismissParent).not.toHaveBeenCalled();
+  expect(document.activeElement?.textContent).toBe("Branch");
+  expect(child.inert).toBe(true);
+  act(() => completeMotionAnimation(container));
+  act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  expect(dismissParent).toHaveBeenCalledOnce();
 });
 
 vi.mock("react-dom", async (importOriginal) => ({

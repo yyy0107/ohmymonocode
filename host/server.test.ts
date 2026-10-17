@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { AddressInfo } from "node:net";
 import { request } from "node:http";
@@ -21,7 +21,7 @@ import { HostChildBackend } from "./child-backend";
 import { configureChildBackend } from "../src/integrations/harness/core/child";
 import type { SendTurnInput } from "../src/integrations/harness/core/types";
 import type { RemoteProvider } from "../src/features/connections/model/protocol";
-import { withCheckoutRemoval } from "./checkout-guards";
+import { checkoutPath, withCheckoutRemoval } from "./checkout-guards";
 import { importDesktopSessions } from "./desktop-import";
 
 const modelProbe = vi.hoisted(() => vi.fn());
@@ -207,6 +207,18 @@ it("restricts Host account management to admin devices while sharing safe accoun
   expect(JSON.stringify(saved.value.result)).not.toContain(s.directory);
   s.store.revokeToken(s.second.token);
   expect((await s.call("providerAccounts.read", {}, s.second.token)).status).toBe(401);
+});
+
+it("keeps environment variables readable and writable only by this computer's desktop", async () => {
+  const s = await setup();
+  expect((await s.call("environment.describe")).value.result.capabilities).toContain("environments.v1");
+  const patch = { operationId: "environment-1", changes: { app: { id: "app", name: "App", folders: [s.project.cwd], variables: { API_KEY: "secret" } } } };
+  expect((await s.call("environments.patch", patch, s.second.token)).value.error).toContain("Only this computer's desktop");
+  s.store.markAdminDevice(s.first.id);
+  expect((await s.call("environments.patch", patch)).value.result.environments).toEqual([expect.objectContaining({ id: "app", variables: { API_KEY: "secret" } })]);
+  const listed = await s.call("environments.list", {}, s.second.token);
+  expect(listed.value.error).toContain("Only this computer's desktop");
+  expect(JSON.stringify(listed.value)).not.toContain("secret");
 });
 
 it("advertises notes RPC and shares CRUD and image access only with authenticated devices", async () => {
@@ -576,7 +588,7 @@ describe("remote host API", () => {
 
   it("returns lightweight reply activity across projects, with credential and Host identity checks", async () => {
     const s = await setup();
-    const other = s.store.addProject("/activity-other-project", "Other");
+    const other = s.store.addProject(join(s.directory, "activity-other-project"), "Other");
     for (const project of [s.project, other])
       s.engine.command({ type: "create", commandId: `activity:${project.id}`, projectId: project.id,
         harness: "codex", model: "codex:test", runtimeMode: "supervised" });
@@ -866,6 +878,15 @@ describe("remote host API", () => {
     ]);
     expect(modelProbe).toHaveBeenCalledTimes(2);
   });
+  it("discovers desktop models from a local directory for WSL projects", async () => {
+    const s = await setup();
+    const project = s.store.addProject("/home/test/project", "WSL project", undefined, { kind: "wsl", distribution: "Ubuntu" });
+    modelProbe.mockClear();
+    modelProbe.mockResolvedValueOnce([{ id: "codex:test", name: "Test" }]);
+    const result = await s.call("models.list", { projectId: project.id });
+    expect(result.value.result.models.codex).toEqual([{ id: "codex:test", name: "Test" }]);
+    expect(modelProbe).toHaveBeenCalledExactlyOnceWith(homedir());
+  });
   it("advertises newer providers only to desktops that request them", async () => {
     const s = await setup(["codex", "cursor"]);
     expect((await s.call("environment.describe")).value.result.providers)
@@ -952,15 +973,16 @@ describe("remote host API", () => {
   });
   it("lets an authenticated desktop browse host folders without reading files", async () => {
     const s = await setup();
-    mkdirSync(join(s.directory, "checkout"));
-    writeFileSync(join(s.directory, "private.txt"), "secret");
-    const listed = await s.call("projects.browse", { path: s.directory });
+    const browse = join(s.directory, "browse");
+    mkdirSync(join(browse, "checkout"), { recursive: true });
+    writeFileSync(join(browse, "private.txt"), "secret");
+    const listed = await s.call("projects.browse", { path: browse });
     expect(listed.status).toBe(200);
     expect(listed.value.result.entries).toEqual([
-      { name: "checkout", path: join(s.directory, "checkout") },
+      { name: "checkout", path: join(browse, "checkout") },
     ]);
     expect(
-      (await s.call("projects.browse", { path: s.directory }, "invalid"))
+      (await s.call("projects.browse", { path: browse }, "invalid"))
         .status,
     ).toBe(401);
   });
@@ -1057,13 +1079,98 @@ describe("remote host API", () => {
     s.store.markAdminDevice(s.first.id);
     const issued = (await s.call("devices.issue", { name: "Phone" })).value.result;
     expect(issued.token).toMatch(/^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/);
-    expect((await s.call("environment.describe", {}, issued.token)).status).toBe(200);
+    expect((await s.call("environment.describe", {}, issued.token)).status).toBe(401);
+    const paired = await s.call("devices.pair", {}, issued.token);
+    expect(paired.status).toBe(200);
+    expect(paired.value.result.id).toBe(issued.id);
+    expect((await s.call("environment.describe", {}, paired.value.result.token)).status).toBe(200);
     const listed = (await s.call("devices.list")).value.result.devices;
     expect(listed.find((device: { id: string }) => device.id === issued.id)).toMatchObject({ name: "Phone", admin: false });
     expect(listed.find((device: { id: string }) => device.id === s.first.id)).toMatchObject({ admin: true });
     expect((await s.call("devices.revoke", { deviceId: s.first.id })).value.error).toContain("cannot be revoked");
     expect((await s.call("devices.revoke", { deviceId: issued.id })).value.result).toEqual({ revoked: true });
     expect((await s.call("environment.describe", {}, issued.token)).status).toBe(401);
+    expect((await s.call("environment.describe", {}, paired.value.result.token)).status).toBe(401);
+  });
+
+  it("redeems a pairing code for only one phone when requests arrive together", async () => {
+    const s = await setup();
+    s.store.markAdminDevice(s.first.id);
+    const issued = (await s.call("devices.issue", { name: "Phone" })).value.result;
+    const pending = (await s.call("devices.list")).value.result.devices.find((device: { id: string }) => device.id === issued.id);
+    expect(pending.pairedAt).toBeUndefined();
+    const responses = await Promise.all([
+      s.call("devices.pair", {}, issued.token, { environmentId: undefined }),
+      s.call("devices.pair", {}, issued.token, { environmentId: undefined }),
+    ]);
+    expect(responses.map(response => response.status).sort()).toEqual([200, 409]);
+    const paired = responses.find(response => response.status === 200)!.value.result;
+    expect(paired).toEqual({
+      id: issued.id,
+      token: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+      host: expect.objectContaining({ environmentId: s.store.environmentId, protocolVersion: 1, providers: ["codex"] }),
+    });
+    expect(paired.token).not.toBe(issued.token);
+    expect(responses.find(response => response.status === 409)!.value).toEqual({
+      code: "PAIRING_CODE_USED",
+      error: "Pairing code has already been used. Generate a new code on the computer.",
+    });
+    expect((await s.call("devices.pair", {}, issued.token)).status).toBe(409);
+    expect((await s.call("environment.describe", {}, issued.token)).status).toBe(401);
+    expect((await s.call("environment.describe", {}, paired.token)).status).toBe(200);
+    expect((await s.call("projects.list", {}, paired.token)).status).toBe(200);
+    const listed = (await s.call("devices.list")).value.result.devices.find((device: { id: string }) => device.id === issued.id);
+    expect(listed.pairedAt).toEqual(expect.any(Number));
+    expect(listed.online).toBe(true);
+    expect((await s.call("devices.list", {}, paired.token)).value.error).toContain("Only this computer");
+  });
+
+  it("checks pairing protocol and expected Host identity before consuming a code", async () => {
+    const s = await setup();
+    const issued = s.store.issuePairingDevice("Phone");
+    const malformed = await fetch(s.url, { method: "POST", headers: { Authorization: `Bearer ${issued.token}` }, body: "{" });
+    expect(malformed.status).toBe(400);
+    expect((await s.call("devices.pair", {}, issued.token, { version: 2 })).value.error).toBe("Incompatible protocol version");
+    expect((await s.call("devices.pair", { expectedEnvironmentId: "another-host" }, issued.token)).value.error).toContain("identity changed");
+    expect(s.store.devices().find(device => device.id === issued.id)?.pairedAt).toBeUndefined();
+    expect((await s.call("devices.pair", { expectedEnvironmentId: s.store.environmentId }, issued.token)).status).toBe(200);
+  });
+
+  it("keeps legacy credentials usable and refuses revoked pairing codes", async () => {
+    const s = await setup();
+    const legacy = s.store.issueDevice("Previously paired phone", "ABCD-EFGH");
+    expect((await s.call("devices.pair", {}, legacy.token)).value.result).toMatchObject(legacy);
+    expect((await s.call("environment.describe", {}, legacy.token)).status).toBe(200);
+    const pending = s.store.issuePairingDevice("Revoked phone");
+    s.store.revokeDevice(pending.id);
+    expect((await s.call("devices.pair", {}, pending.token)).status).toBe(401);
+  });
+
+  it("prepares the pairing Host descriptor before consuming a code and returns supported providers", async () => {
+    const discover = vi.fn().mockRejectedValueOnce(new Error("Provider discovery unavailable"))
+      .mockResolvedValue(["codex", "pi"]);
+    const s = await setup(["codex", "pi"], discover);
+    const issued = s.store.issuePairingDevice("Phone");
+    const params = { supportedProviders: ["pi"], deviceInfo: { model: "Pixel 9", manufacturer: "Google" } };
+    const failed = await s.call("devices.pair", params, issued.token);
+    expect(failed.value.error).toBe("Provider discovery unavailable");
+    expect(s.store.devices().find(device => device.id === issued.id)?.pairedAt).toBeUndefined();
+    const paired = await s.call("devices.pair", params, issued.token);
+    expect(paired.status).toBe(200);
+    expect(paired.value.result.host).toMatchObject({ providers: ["pi"], environmentId: s.store.environmentId });
+    expect(paired.value.result.host).toEqual((await s.call("environment.describe", { supportedProviders: ["pi"] }, paired.value.result.token)).value.result);
+    expect(s.store.devices().find(device => device.id === issued.id)).toMatchObject({
+      model: "Pixel 9", manufacturer: "Google", pairedAt: expect.any(Number), lastSeen: expect.any(Number), online: true,
+    });
+  });
+
+  it("rolls back pairing redemption when saving device metadata fails", async () => {
+    const s = await setup();
+    const issued = s.store.issuePairingDevice("Phone");
+    vi.spyOn(s.store, "updateDeviceInfo").mockImplementationOnce(() => { throw new Error("Device metadata unavailable"); });
+    expect((await s.call("devices.pair", {}, issued.token)).value.error).toBe("Device metadata unavailable");
+    expect(s.store.devices().find(device => device.id === issued.id)?.pairedAt).toBeUndefined();
+    expect((await s.call("devices.pair", {}, issued.token)).status).toBe(200);
   });
 
   it("reads host files while rejecting traversal and symlink escapes", async () => {
@@ -1667,7 +1774,7 @@ it("allows both file write APIs during a shared turn and protects exclusive chan
   expect((await s.call("git.switch", { projectId: s.project.id, branch: "other" })).status).toBe(400);
   s.finish();
   await vi.waitFor(() => expect(s.store.session(session.sessionId).status).toBe("idle"));
-  s.store.db.prepare("INSERT INTO checkout_resources VALUES ('native:terminal', ?, 'writing', ?)").run(s.directory, process.pid);
+  s.store.db.prepare("INSERT INTO checkout_resources VALUES ('native:terminal', ?, 'writing', ?)").run(checkoutPath(s.directory), process.pid);
   const blocked = await s.call("git.switch", { projectId: s.project.id, branch: "other" });
   expect(blocked.status).toBe(400);
   expect(blocked.value.error).toContain("native:terminal");

@@ -4,6 +4,7 @@ import {
 } from "../../projects/model/recents";
 import type { HostProject, RemoteMachine } from "./protocol";
 import type { Session } from "../../sessions/model/session";
+import { parseWslPath, wslPath, type WslProjectMachine } from "../../../shared/lib/wslPaths";
 
 /** Every conversation in a Host project runs there, including imported native ones. */
 export const sessionUsesHost = (session: Pick<Session, "cwd" | "inboxAsk">) =>
@@ -19,6 +20,7 @@ export type RemoteProject = {
   cwd: string;
   /** Host on this computer; files and terminals keep their native paths. */
   local?: boolean;
+  machine?: WslProjectMachine;
 };
 
 const KEY = "monocode.remote-projects.v2";
@@ -35,18 +37,27 @@ export const isSharedHostMachine = (machine: Pick<RemoteMachine, "id" | "environ
   machine.id === localMachineId || machine.environmentId === localEnvironment;
 export const sharedProjects = () => [...localProjects.values()];
 const localKey = (cwd: string) => slashed(cwd).replace(/\/+$/, "") || "/";
+export const sharedProjectKey = (project: Pick<HostProject, "cwd" | "machine">) =>
+  project.machine?.kind === "wsl" ? wslPath(project.machine.distribution, project.cwd).replace(/\/+$/, "") : localKey(project.cwd);
+
+/** Path to hand file/Git/terminal UI while keeping account ownership on this Host. */
+export function projectPath(project: Pick<RemoteProject, "environmentId" | "local" | "machine">, path: string): string {
+  return project.machine?.kind === "wsl" ? wslPath(project.machine.distribution, path)
+    : project.local ? path : remotePath(project.environmentId, path);
+}
 export function configureSharedHost(environmentId: string | undefined, projects: HostProject[], machineId?: string) {
   const changed = localEnvironment !== environmentId;
   localEnvironment = environmentId;
   localMachineId = machineId;
   if (changed || !environmentId) localProjects.clear();
   if (!environmentId) return;
-  for (const project of projects) localProjects.set(localKey(project.cwd), {
-    key: localKey(project.cwd), cwd: project.cwd, environmentId,
-    projectId: project.id, local: true });
+  for (const project of projects) localProjects.set(sharedProjectKey(project), {
+    key: sharedProjectKey(project), cwd: project.cwd, environmentId,
+    projectId: project.id, local: true, ...(project.machine ? { machine: project.machine } : {}) });
 }
 export async function ensureSharedProject(cwd: string): Promise<RemoteProject> {
-  const key = localKey(cwd);
+  const wsl = parseWslPath(cwd);
+  const key = wsl ? sharedProjectKey({ cwd: wsl.hostPath, machine: wsl.machine }) : localKey(cwd);
   const known = localProjects.get(key);
   if (known) return known;
   if (!localEnvironment) throw new Error("Shared conversation service is not connected");
@@ -57,8 +68,11 @@ export async function ensureSharedProject(cwd: string): Promise<RemoteProject> {
     const { remoteMachineFor, remoteRequest } = await import("./connections");
     const machine = await remoteMachineFor(environmentId);
     if (!machine) throw new Error("Shared conversation service is not connected");
-    const project = await remoteRequest<HostProject>(machine.id, "projects.open", { cwd });
-    const value = { key, cwd: project.cwd, environmentId, projectId: project.id, local: true };
+    const project = await remoteRequest<HostProject>(machine.id, "projects.open", {
+      cwd: wsl?.hostPath ?? cwd, ...(wsl ? { machine: wsl.machine } : {}),
+    });
+    const value = { key, cwd: project.cwd, environmentId, projectId: project.id, local: true,
+      ...(project.machine ? { machine: project.machine } : {}) };
     localProjects.set(key, value);
     window.dispatchEvent(new Event(REMOTE_PROJECTS_CHANGED));
     return value;
@@ -82,7 +96,9 @@ export function remotePath(environmentId: string, hostPath: string): string {
 /** The machine and host path behind a `remote://` path. */
 export function parseRemotePath(
   path: string,
-): { environmentId: string; hostPath: string } | undefined {
+): { environmentId: string; hostPath: string; machine?: WslProjectMachine } | undefined {
+  const wsl = parseWslPath(path);
+  if (wsl) return { environmentId: localEnvironment ?? "", ...wsl };
   if (!isRemoteProjectPath(path)) return undefined;
   const rest = slashed(path).slice(REMOTE_PROJECT_PREFIX.length);
   const slash = rest.indexOf("/");
@@ -115,25 +131,32 @@ function readAll(): Record<string, RemoteProject> {
  * sidebar's Changes panel resolves the same order, so a diff opens in the
  * checkout whose files the panel lists. */
 export function remoteSessionGitCwd(
-  project: Pick<RemoteProject, "environmentId" | "cwd" | "local">,
+  project: Pick<RemoteProject, "environmentId" | "cwd" | "local" | "machine">,
   gitCwd: string | undefined,
   projectRoot: string,
   tabCwd?: string,
 ): string {
   // Shared Hosts on this machine still use native filesystem commands.
-  if (project.local) return gitCwd ?? project.cwd;
+  if (project.local && !project.machine) return gitCwd ?? project.cwd;
   if (tabCwd)
-    return isRemoteProjectPath(tabCwd)
+    return parseRemotePath(tabCwd)
       ? tabCwd
-      : remotePath(project.environmentId, tabCwd);
-  if (gitCwd && isRemoteProjectPath(gitCwd)) return gitCwd;
-  return remotePath(
-    project.environmentId,
+      : projectPath(project, tabCwd);
+  if (gitCwd && parseRemotePath(gitCwd)) return gitCwd;
+  return projectPath(
+    project,
     gitCwd && gitCwd !== projectRoot ? gitCwd : project.cwd,
   );
 }
 
 export function remoteProjectFor(path: string): RemoteProject | undefined {
+  const wsl = parseWslPath(path);
+  if (wsl) {
+    const key = sharedProjectKey({ cwd: wsl.hostPath, machine: wsl.machine });
+    return localEnvironment ? localProjects.get(key) ?? {
+      key, cwd: wsl.hostPath, machine: wsl.machine, projectId: "", environmentId: localEnvironment, local: true,
+    } : undefined;
+  }
   if (!isRemoteProjectPath(path)) return localEnvironment && path && path !== "~"
     ? localProjects.get(localKey(path)) ?? { key: localKey(path), cwd: path,
       projectId: "", environmentId: localEnvironment, local: true }

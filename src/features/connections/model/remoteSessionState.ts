@@ -4,7 +4,7 @@ import {
   supportsProviderAccounts,
 } from "../../providers/model/providerAccounts";
 import type { HostSession } from "./protocol";
-import { remotePath, type RemoteProject } from "./remoteProjects";
+import { projectPath, type RemoteProject } from "./remoteProjects";
 
 /** Show the host's conversation in the app's ordinary session state while
  * retaining the local tab ID and the project's remote path. */
@@ -30,6 +30,6 @@ export function remoteSessionState(
     nativeSyncStatus: snapshot.nativeStatus,
     worktreeCwd: host.cwd === project.cwd
       ? undefined
-      : project.local ? host.cwd : remotePath(project.environmentId, host.cwd),
+      : projectPath(project, host.cwd),
   };
 }

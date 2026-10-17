@@ -166,12 +166,12 @@ export async function prepareDesktopHost(
     }
     store.markAdminDevice(device.id);
     const state = JSON.parse(readFileSync(runningPath, "utf8"));
-    const sessions: { id: string; cwd: string; deleted?: boolean }[] = store.db
+    const sessions: { id: string; cwd: string; projectId?: string; deleted?: boolean }[] = store.db
       .prepare(
-        "SELECT s.id, p.cwd FROM sessions s JOIN projects p ON s.project_id=p.id",
+        "SELECT s.id, p.cwd, p.id AS project_id FROM sessions s JOIN projects p ON s.project_id=p.id",
       )
       .all()
-      .map((row) => ({ id: String(row.id), cwd: String(row.cwd) }));
+      .map((row) => ({ id: String(row.id), cwd: String(row.cwd), projectId: String(row.project_id) }));
     for (const retired of retirement?.entries ?? []) {
       if (!sessions.some((row) => row.id === retired.id))
         sessions.push({ id: retired.id, cwd: retired.cwd ?? "~", deleted: true });

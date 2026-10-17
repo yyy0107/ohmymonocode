@@ -142,7 +142,6 @@ function nativeWriteBlocked(
   return !(snapshot.status === "running" && snapshot.runId) && access?.state !== "idle";
 }
 
-export const readHostImage = (path: string) => client.readBinaryFile(path);
 export const browseHostDirectories = (path?: string) => client.browseDirectories(path);
 // Settings doubles as the connection screen before pairing.
 type View = "home" | "chat" | "settings";
@@ -312,6 +311,8 @@ export function useMobileAppController() {
   // the current Host never blocks adding another connection.
   const [pairing, setPairing] = useState(false);
   const [pairingError, setPairingError] = useState("");
+  const [pairingSuccess, setPairingSuccess] = useState<{ name: string }>();
+  const pairingInFlight = useRef(false);
   /** Each Host connection attempt bumps this; superseded attempts drop their results. */
   const hostAttempt = useRef(0);
   const stopPreferences = useRef<(() => void) | undefined>(undefined);
@@ -417,6 +418,8 @@ export function useMobileAppController() {
     planMode: boolean; accepted: Attachment[]; parked: typeof parkedDrafts.current;
   }>());
   const nativeLink = snapshot?.session.nativeSession;
+  const imageProjectId = snapshot?.projectId ?? project?.id;
+  const readHostImage = useCallback((path: string) => client.readBinaryFile(path, imageProjectId), [imageProjectId]);
   const gitCwd = snapshot ? sessionWorkCwd(snapshot.session) : undefined;
   const gitSupported = client.hasCapability("git.index") && client.hasCapability("git.fileDiff");
   const gitSource = useMemo(() => hostScopeReady && snapshot?.session.id === sessionId && snapshot && gitCwd && gitSupported
@@ -813,16 +816,34 @@ export function useMobileAppController() {
     void client.savedConnections().then(setSavedHosts).catch(() => undefined);
   }, [client]);
   useEffect(refreshSavedHosts, [refreshSavedHosts, connectionKey, connectionRevision, connected]);
+  const openAddConnection = () => {
+    setError("");
+    setPairingError("");
+    setPairingSuccess(undefined);
+    setAddingConnection(true);
+  };
   const connect = async (credentials = { url, token }) => {
-    if (pairing) return;
+    if (pairingInFlight.current) return;
+    pairingInFlight.current = true;
     setPairing(true);
     setPairingError("");
+    let pairedHost: { name: string } | undefined;
     try {
       await activateConnection(
-        () => client.connect(credentials.url, normalizePairingCode(credentials.token)),
-        (problem) => setPairingError(connectionErrorMessage(problem, credentials.url)),
+        async () => {
+          await client.connect(credentials.url, normalizePairingCode(credentials.token));
+          pairedHost = { name: client.connection!.name };
+          setPairingSuccess(pairedHost);
+        },
+        (problem) => {
+          // The code has already been redeemed if workspace loading fails.
+          // Keep the successful pairing and report that separate Host error.
+          if (pairedHost) setHostError(message(problem));
+          else setPairingError(connectionErrorMessage(problem, credentials.url));
+        },
       );
     } finally {
+      pairingInFlight.current = false;
       setPairing(false);
     }
   };
@@ -878,7 +899,6 @@ export function useMobileAppController() {
       setProjectListState("ready");
       setConnected(true);
       setConnectionRevision((value) => value + 1);
-      setAddingConnection(false);
       const pending = await client.pending();
       if (!current()) return;
       setPending(pending);
@@ -1612,7 +1632,7 @@ export function useMobileAppController() {
         if (!busy) setSessionActionsOpen(false);
       } else if (preferencePanel) setPreferencePanel(null);
       else if (addingConnection) {
-        if (!pairing) setAddingConnection(false);
+        if (!pairing || pairingSuccess) setAddingConnection(false);
       } else if (composerPanel) setComposerPanel(null);
       else if (addingProject) {
         if (!busy) setAddingProject(false);
@@ -1647,6 +1667,7 @@ export function useMobileAppController() {
     changeSettingsPage,
     busy,
     pairing,
+    pairingSuccess,
     homeProjectId,
     searchOpen,
     homeMenuOpen,
@@ -2031,6 +2052,7 @@ export function useMobileAppController() {
     onTranscriptCommand,
     onTranscriptOverlayChange,
     openAddProject,
+    openAddConnection,
     openChats,
     openHome,
     openProject,
@@ -2040,6 +2062,7 @@ export function useMobileAppController() {
     pairedConnections,
     pairing,
     pairingError,
+    pairingSuccess,
     pending,
     placeholder,
     planDecision,
@@ -2059,6 +2082,7 @@ export function useMobileAppController() {
     projectsUnavailable,
     questionOpen,
     readingAttachments,
+    readHostImage,
     reconnect,
     remoteHosts,
     resolveNoteImage,
@@ -2088,7 +2112,6 @@ export function useMobileAppController() {
     setAssistantOpen,
     setComposerPanel,
     setDrawerOpen,
-    setError,
     setFollowUpBehavior,
     setGlass,
     setHomeActionSession,

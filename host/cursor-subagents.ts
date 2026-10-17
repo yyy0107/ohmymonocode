@@ -1,8 +1,21 @@
-import { existsSync, readdirSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { StoredCursorSubagentRun } from "../src/integrations/harness/providers/cursor/cursorStore";
+import type { MachineTransport } from "./machine-io";
+
+type Row = Record<string, unknown>;
+type CursorDatabase = {
+  get(sql: string, ...params: (string | number)[]): Promise<Row | undefined> | Row | undefined;
+  all(sql: string, ...params: (string | number)[]): Promise<Row[]> | Row[];
+  close(): void;
+};
+type CursorStores = {
+  join(...parts: string[]): string;
+  directories(path: string): Promise<string[]> | string[];
+  open(path: string): CursorDatabase;
+};
 
 const MAX_MESSAGE_BYTES = 8 * 1024 * 1024;
 const dirs = (path: string): string[] => {
@@ -14,6 +27,34 @@ const dirs = (path: string): string[] => {
     return [];
   }
 };
+const localStores: CursorStores = {
+  join, directories: dirs,
+  open(path) {
+    const database = new DatabaseSync(path, { readOnly: true });
+    database.exec("PRAGMA busy_timeout=100");
+    return { get: (sql, ...params) => database.prepare(sql).get(...params),
+      all: (sql, ...params) => database.prepare(sql).all(...params), close: () => database.close() };
+  },
+};
+
+/** Keep provider parsing in the Host; WSL exposes only bounded, read-only SQL. */
+export async function readWslCursorSubagents(args: Record<string, unknown>, rpc: MachineTransport): Promise<StoredCursorSubagentRun[]> {
+  const { home } = await rpc.request<{ home: string }>("env.info");
+  const query = async (path: string, sql: string, params: (string | number)[]) => {
+    const rows = await rpc.request<Row[]>("db.query", { path, sql, params });
+    return rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) =>
+      [key, value && typeof value === "object" && "$base64" in value ? Buffer.from(String(value.$base64), "base64") : value])));
+  };
+  return readCursorSubagents(args, posix.join(home, ".cursor"), {
+    join: posix.join,
+    async directories(path) {
+      try { return (await rpc.request<{ isDirectory: boolean; path: string }[]>("fs.readdir", { path })).filter(entry => entry.isDirectory).map(entry => entry.path); }
+      catch { return []; }
+    },
+    open: path => ({ get: async (sql, ...params) => (await query(path, sql, params))[0],
+      all: (sql, ...params) => query(path, sql, params), close: () => {} }),
+  });
+}
 const object = (value: unknown): Record<string, any> | undefined =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, any>)
@@ -43,10 +84,11 @@ function validate(value: unknown): asserts value is string {
 }
 
 /** Require both the native parent and spawn identity; never pair by title. */
-export function readCursorSubagents(
+export async function readCursorSubagents(
   args: Record<string, unknown>,
   cursorDir = join(homedir(), ".cursor"),
-): StoredCursorSubagentRun[] {
+  stores: CursorStores = localStores,
+): Promise<StoredCursorSubagentRun[]> {
   validate(args.sessionId);
   if (!Array.isArray(args.toolCallIds) || args.toolCallIds.length > 256)
     throw new Error("Invalid Cursor tool ids");
@@ -57,18 +99,16 @@ export function readCursorSubagents(
   const runs: StoredCursorSubagentRun[] = [];
   const seen = new Set<string>();
   const roots = [
-    join(cursorDir, "acp-sessions"),
-    ...dirs(join(cursorDir, "chats")),
+    stores.join(cursorDir, "acp-sessions"),
+    ...await stores.directories(stores.join(cursorDir, "chats")),
   ];
   for (const root of roots)
-    for (const directory of dirs(root)) {
-      const path = join(directory, "store.db");
-      if (!existsSync(path)) continue;
-      let db: DatabaseSync | undefined;
+    for (const directory of await stores.directories(root)) {
+      const path = stores.join(directory, "store.db");
+      let db: CursorDatabase | undefined;
       try {
-        db = new DatabaseSync(path, { readOnly: true });
-        db.exec("PRAGMA busy_timeout=100");
-        const row = db.prepare("SELECT value FROM meta WHERE key='0'").get();
+        db = stores.open(path);
+        const row = await db.get("SELECT value FROM meta WHERE key='0'");
         const raw = String(row?.value ?? "");
         if (!raw || raw.length > 64 * 1024) continue;
         const meta = JSON.parse(
@@ -87,9 +127,7 @@ export function readCursorSubagents(
         if (!callId || seen.has(meta.agentId)) continue;
         seen.add(meta.agentId);
         const revision = String(
-          db
-            .prepare("SELECT COALESCE(MAX(rowid),0) AS revision FROM blobs")
-            .get()!.revision,
+          (await db.get("SELECT COALESCE(MAX(rowid),0) AS revision FROM blobs"))!.revision,
         );
         if (revisions[meta.agentId] === revision) continue;
         const run: StoredCursorSubagentRun = {
@@ -106,11 +144,9 @@ export function readCursorSubagents(
         const results = new Map<string, { output: string; failed: boolean }>();
         let cursor = 0;
         while (true) {
-          const batch = db
-            .prepare(
+          const batch = await db.all(
               "SELECT rowid, id, CASE WHEN length(data)<=? THEN data END AS data FROM blobs WHERE rowid>? AND substr(data,1,1)=x'7b' ORDER BY rowid LIMIT 256",
-            )
-            .all(MAX_MESSAGE_BYTES, cursor);
+              MAX_MESSAGE_BYTES, cursor);
           if (!batch.length) break;
           for (const blob of batch) {
             cursor = Number(blob.rowid);

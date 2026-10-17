@@ -145,7 +145,7 @@ describe("Host dynamic workflows", () => {
     const { engine, parentId, claude } = setup();
     const result = await engine.workflows.submit(parentId, { script: "const x: number = 'no';\nreturn x;", name: "Broken" }, "agent");
     expect(result).toMatchObject({ ok: false, reason: "diagnostics" });
-    expect((result as { diagnostics: string[] }).diagnostics[0]).toMatch(/\.monocode\/workflow-drafts\/.+\.dwf\.ts:L1:C/);
+    expect((result as { diagnostics: string[] }).diagnostics[0].replaceAll("\\", "/")).toMatch(/\.monocode\/workflow-drafts\/.+\.dwf\.ts:L1:C/);
     expect(claude.send).not.toHaveBeenCalled();
   }, 30_000);
 

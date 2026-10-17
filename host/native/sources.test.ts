@@ -63,6 +63,20 @@ function fixture() {
 }
 
 describe("Host native sources", () => {
+  it("uses the selected OMP profile and custom agent directory for native history", () => {
+    const { home, write, cwd } = fixture();
+    const custom = join(home, "custom-agent");
+    const omp = (env: Record<string, string>) => nativeSources({ home, env }).find((source) => source.provider === "omp");
+    expect(omp({ PI_CODING_AGENT_DIR: custom })).toMatchObject({ dataDir: custom, root: join(custom, "sessions") });
+    expect(omp({ PI_CODING_AGENT_DIR: custom, OMP_PROFILE: " team ", PI_PROFILE: "old", PI_CONFIG_DIR: ".omp-custom" }))
+      .toMatchObject({ dataDir: join(home, ".omp-custom/profiles/team/agent"), root: join(home, ".omp-custom/profiles/team/agent/sessions") });
+    expect(omp({ OMP_PROFILE: "default", PI_PROFILE: "old", PI_CODING_AGENT_DIR: custom })).toMatchObject({ dataDir: custom });
+    expect(omp({ PI_PROFILE: "legacy" })).toMatchObject({ dataDir: join(home, ".omp/profiles/legacy/agent") });
+    const shared = nativeSources({ home, env: { PI_CODING_AGENT_DIR: custom } });
+    expect(shared.filter((source) => source.root === join(custom, "sessions")).map((source) => source.provider)).toEqual(["pi", "omp"]);
+    const transcript = write(join(custom, "sessions/session-omp123.jsonl"), [{ type: "session", version: 3, id: "omp123", cwd }]);
+    expect(sourceFile(transcript, "omp123", { home, env: { PI_CODING_AGENT_DIR: custom } }, "omp").provider).toBe("omp");
+  });
   it("does not rediscover old managed Homes after removing their profile", () => {
     const { home, desktop } = fixture();
     const managed = join(desktop, "provider-accounts", "codex", "removed-account");
@@ -92,18 +106,18 @@ describe("Host native sources", () => {
     expect([...byId.keys()].sort()).toEqual([
       "11111111-aaaa", "22222222-bbbb", "33333333-cccc", "44444444-dddd", "55555555-eeee", "77777777-ffff", "ses_66666666",
     ]);
-    expect(byId.get("11111111-aaaa")).toMatchObject({ provider: "claude", path: claude, cwd: "/work/project", preview: "Claude prompt", storage: "jsonl" });
-    expect(byId.get("22222222-bbbb")).toMatchObject({ provider: "codex", path: codex, title: "Named thread" });
+    expect(byId.get("11111111-aaaa")).toMatchObject({ provider: "claude", path: claude.replaceAll("\\", "/"), cwd: "/work/project", preview: "Claude prompt", storage: "jsonl" });
+    expect(byId.get("22222222-bbbb")).toMatchObject({ provider: "codex", path: codex.replaceAll("\\", "/"), title: "Named thread" });
     expect(byId.get("77777777-ffff")).toMatchObject({ provider: "claude", accountId: "work" });
     expect(byId.get("ses_66666666")).toMatchObject({
-      provider: "opencode", path: database, storage: "sqlite", title: "OpenCode title", revision: "sqlite:31:1:1",
+      provider: "opencode", path: database.replaceAll("\\", "/"), storage: "sqlite", title: "OpenCode title", revision: "sqlite:31:1:1",
     });
     expect(byId.get("11111111-aaaa")!.revision).toMatch(/^\d+:\d+$/);
     expect(listing.warnings).toEqual([]);
     // Source IDs are opaque, stable and distinct.
     const ids = listing.sessions.map(nativeSourceId);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(nativeSourceId(byId.get("11111111-aaaa")!)).toBe(ids[listing.sessions.findIndex((file) => file.path === claude)]);
+    expect(nativeSourceId(byId.get("11111111-aaaa")!)).toBe(ids[listing.sessions.findIndex((file) => file.path === claude.replaceAll("\\", "/"))]);
   });
 
   it("reads headers spanning several chunks without loading whole files", async () => {
@@ -131,7 +145,7 @@ describe("Host native sources", () => {
     expect(() => sourceFile(claude, "other", context)).toThrow("Native session identity changed");
     expect(() => sourceFor(join(home, "elsewhere.jsonl"), context)).toThrow("configured source");
     expect(findNativeSource("codex", "22222222-bbbb", undefined, context)?.title).toBeUndefined();
-    expect(findNativeSource("claude", "11111111-aaaa", "default", context)?.path).toBe(claude);
+    expect(findNativeSource("claude", "11111111-aaaa", "default", context)?.path).toBe(claude.replaceAll("\\", "/"));
     expect(findNativeSource("claude", "missing", undefined, context)).toBeNull();
     // The same conversation in two default-account locations is never guessed.
     write(join(home, ".claude/projects/-copy/11111111-aaaa.jsonl"), [

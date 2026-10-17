@@ -1,4 +1,4 @@
-import { dirname, join, resolve, sep } from "node:path";
+import { dirname, join } from "node:path";
 import { HostProviderUsage } from "./provider-usage";
 import {
   createServer,
@@ -6,9 +6,9 @@ import {
   type ServerResponse,
 } from "node:http";
 import { hostname, homedir } from "node:os";
-import { execFile } from "node:child_process";
 import { realpath, stat } from "node:fs/promises";
-import { promisify } from "node:util";
+import { currentMachineIO, machineExec as exec } from "./machine-io";
+import { projectMachineKey } from "../src/integrations/harness/core/machine";
 import { createHash, randomUUID } from "node:crypto";
 import { claimCheckoutResource, claimCheckoutWrite, withCheckoutIntegration } from "./checkout-guards";
 import {
@@ -21,7 +21,7 @@ import { HostClientState } from "./client-state";
 import { HostPreferenceAssets } from "./preference-assets";
 import { HostAccountManagement } from "./account-management";
 import { HOST_CLIENT_STATE_CAPABILITY } from "../src/features/connections/model/hostState";
-import { pairingCode } from "./store";
+import { PairingCodeError } from "./store";
 import { botErrorCode } from "./bots/thread/errors";
 import { writeAttachmentChunk, readAttachmentChunk } from "./attachments";
 import type { LinkedWorkItem } from "../src/features/sessions/model/session";
@@ -75,7 +75,6 @@ import {
   resolvePiBinary,
 } from "../src/integrations/harness/core/child";
 
-const exec = promisify(execFile);
 // Providers also add models server-side, without a CLI update.
 const CATALOG_MAX_AGE_MS = 5 * 60_000;
 const resolveBinary: Record<RemoteProvider, () => Promise<{ path: string }>> = {
@@ -157,6 +156,89 @@ export function createHostServer(
       });
     return discovering;
   };
+  const describeEnvironment = async (params: Record<string, unknown>) => ({
+    protocolVersion: HOST_PROTOCOL_VERSION,
+    environmentId: engine.store.environmentId,
+    name: hostname(),
+    platform: process.platform,
+    // Older clients validate this list against Codex and Claude only.
+    providers: (await availableProviders()).filter((provider) =>
+      Array.isArray(params.supportedProviders)
+        ? params.supportedProviders.includes(provider)
+        : provider === "codex" || provider === "claude"
+    ),
+    capabilities: [
+      HOST_CLIENT_STATE_CAPABILITY,
+      "preferences.read",
+      "preferences.patch",
+      "preferences.assets.upload",
+      "preferences.assets.read",
+      "workspaces.read",
+      "workspaces.save",
+      "connections.list",
+      "connections.patch",
+      "environments.v1",
+      "sessions",
+      "sessions.sync.wait.v1",
+      "projects.browse",
+      "projects.createChat",
+      "models.list",
+      "providerAccounts.defaults",
+      "providerAccounts.manage.v1",
+      "providerAccounts.usage.v1",
+      "skills.list",
+      "notes.v1",
+      "approvals",
+      "questions",
+      "diff",
+      "git.branches",
+      "git.switch",
+      "git.createBranch",
+      "git.worktrees",
+      "git.worktreeCreate",
+      "files.read",
+      "files.list",
+      "files.index",
+      "workspace.run",
+      "files.search",
+      "files.searchContent",
+      "files.create",
+      "files.write",
+      "git.index",
+      "git.fileDiff",
+      "git.action",
+      "attachments.upload",
+      "attachments.read",
+      "sessions.draft",
+      "sessions.plan",
+      "sessions.handoff",
+      "sessions.queue",
+      "sessions.activity",
+      "sessions.nativeAccess",
+      "sessions.refreshNative",
+      "sessions.switchAccount",
+      "sessions.checkpoint",
+      "nativeSources.list",
+      "nativeSources.import",
+      "nativeSources.syncAll",
+      "sessions.orchestration",
+      "assistant.v1",
+      "assistant.history",
+      "assistant.persona",
+      "bots.shell.v1",
+      "bots.v1",
+      "botThreads.v1",
+      "botMemory.v1",
+      "bots.runtime.v1",
+      "bots.management.v1",
+      "bots.delegation.v1",
+      "bots.teams.v1",
+      "bots.rooms.v1",
+      "im.feishu.v1",
+      "resources",
+      "workflows.v1",
+    ],
+  });
   // Cached per project and provider so one failing or slow CLI never forces
   // every other provider to be probed again on the next visit.
   const catalogs = new Map<
@@ -206,10 +288,10 @@ export function createHostServer(
     return entry.models;
   };
   const models = async (projectId?: unknown) => {
-    const cwd =
-      typeof projectId === "string"
-        ? engine.store.project(projectId).cwd
-        : homedir();
+    const project = typeof projectId === "string" ? engine.store.project(projectId) : undefined;
+    // Catalogs use the desktop's CLI and accounts, even for a WSL project.
+    // A Linux project path is not a working directory for a Windows process.
+    const cwd = project && !project.machine ? project.cwd : homedir();
     const available = await availableProviders();
     const result: HostModelCatalog = { models: {}, errors: {} };
     await Promise.all(
@@ -279,7 +361,7 @@ export function createHostServer(
         const token = request.headers.authorization?.match(
           /^Bearer ([A-Za-z0-9_-]+)$/,
         )?.[1];
-        if (!token || !engine.store.authenticated(token)) {
+        if (!token || (!engine.store.authenticated(token) && !engine.store.hasPairingCode(token))) {
           response.writeHead(401).end(
             JSON.stringify({
               error: "Device credential is invalid or revoked",
@@ -288,6 +370,26 @@ export function createHostServer(
           return;
         }
         const input = await body(request);
+        if (input.method === "devices.pair") {
+          if (input.version !== HOST_PROTOCOL_VERSION)
+            throw new Error("Incompatible protocol version");
+          const params = input.params && typeof input.params === "object" && !Array.isArray(input.params)
+            ? input.params as Record<string, unknown> : {};
+          const expected = params.expectedEnvironmentId;
+          if (expected !== undefined && expected !== engine.store.environmentId)
+            throw new Error("Host identity changed; reconnect this machine explicitly");
+          await engine.ready;
+          // Finish fallible Host discovery before spending the scanned code.
+          const host = await describeEnvironment(params);
+          const device = engine.store.transaction(() => {
+            const paired = engine.store.redeemPairingCode(token);
+            engine.store.updateDeviceInfo(paired.token, params.deviceInfo);
+            engine.store.touchDevice(paired.token);
+            return paired;
+          });
+          response.end(JSON.stringify({ result: { ...device, host } }));
+          return;
+        }
         assistantRequest = typeof input.method === "string" && /^(assistant|bots|botThreads|botMemory|botTeams|botRooms|botDelegations)\./.test(input.method);
         // Reading a request body yields: a device may have been revoked since
         // the headers arrived. Reject it before dispatching any operation.
@@ -315,92 +417,12 @@ export function createHostServer(
             ? (input.params as Record<string, unknown>)
             : {};
         if (typeof params.sessionId === "string" && engine.store.isAssistantSession(params.sessionId)) throw new Error("Assistant brain is private");
+        const execute = async () => {
         let result: unknown;
         switch (input.method) {
           case "environment.describe":
             engine.store.updateDeviceInfo(token, params.deviceInfo);
-            result = {
-              protocolVersion: HOST_PROTOCOL_VERSION,
-              environmentId: engine.store.environmentId,
-              name: hostname(),
-              platform: process.platform,
-              // Older clients validate this list against Codex and Claude only.
-              providers: (await availableProviders()).filter((provider) =>
-                Array.isArray(params.supportedProviders)
-                  ? params.supportedProviders.includes(provider)
-                  : provider === "codex" || provider === "claude"
-              ),
-              capabilities: [
-                HOST_CLIENT_STATE_CAPABILITY,
-                "preferences.read",
-                "preferences.patch",
-                "preferences.assets.upload",
-                "preferences.assets.read",
-                "workspaces.read",
-                "workspaces.save",
-                "connections.list",
-                "connections.patch",
-                "sessions",
-                "sessions.sync.wait.v1",
-                "projects.browse",
-                "projects.createChat",
-                "models.list",
-                "providerAccounts.defaults",
-                "providerAccounts.manage.v1",
-                "providerAccounts.usage.v1",
-                "skills.list",
-                "notes.v1",
-                "approvals",
-                "questions",
-                "diff",
-                "git.branches",
-                "git.switch",
-                "git.createBranch",
-                "git.worktrees",
-                "git.worktreeCreate",
-                "files.read",
-                "files.list",
-                "files.index",
-                "workspace.run",
-                "files.search",
-                "files.searchContent",
-                "files.create",
-                "files.write",
-                "git.index",
-                "git.fileDiff",
-                "git.action",
-                "attachments.upload",
-                "attachments.read",
-                "sessions.draft",
-                "sessions.plan",
-                "sessions.handoff",
-                "sessions.queue",
-                "sessions.activity",
-                "sessions.nativeAccess",
-                "sessions.refreshNative",
-                "sessions.switchAccount",
-                "sessions.checkpoint",
-                "nativeSources.list",
-                "nativeSources.import",
-                "nativeSources.syncAll",
-                "sessions.orchestration",
-                "assistant.v1",
-                "assistant.history",
-                "assistant.persona",
-                "bots.shell.v1",
-                "bots.v1",
-                "botThreads.v1",
-                "botMemory.v1",
-                "bots.runtime.v1",
-                "bots.management.v1",
-                "bots.delegation.v1",
-                "bots.teams.v1",
-                "bots.rooms.v1",
-                "im.feishu.v1",
-                "resources",
-                "workflows.v1",
-              ],
-            };
+            result = await describeEnvironment(params);
             break;
           case "preferences.read":
             result = clientState.preferencesRead(params);
@@ -425,6 +447,14 @@ export function createHostServer(
             break;
           case "connections.patch":
             result = clientState.connectionsPatch(params);
+            break;
+          case "environments.list":
+          case "environments.patch":
+            // Variables can hold secrets; paired devices never read them.
+            if (!engine.store.adminToken(token)) throw new Error("Only this computer's desktop can manage environments");
+            result = input.method === "environments.list"
+              ? clientState.environmentsList(params)
+              : clientState.environmentsPatch(params);
             break;
           case "projects.list":
             result = engine.store.projects();
@@ -514,7 +544,7 @@ export function createHostServer(
             const project = engine.store.project(projectId);
             const summaries = engine.store.summaries(projectId).filter((session) => !session.orchestrationLeadId && !session.workflowParentId && !session.assistantOwnerId);
             const paths = [...new Set(summaries.map((session) => session.cwd ?? project.cwd))];
-            const branches = new Map(await Promise.all(paths.map(async (cwd) => {
+            const branches = new Map(await Promise.all((engine.machines?.workspaceReady(project.machine) === false ? [] : paths).map(async (cwd) => {
               const branch = await exec("git", ["symbolic-ref", "--quiet", "--short", "HEAD"], {
                 cwd, timeout: 2_000,
                 windowsHide: true,
@@ -524,7 +554,7 @@ export function createHostServer(
             result = summaries.map((session) => ({
               ...session,
               repo: project.name,
-              branch: branches.get(session.cwd ?? project.cwd) || undefined,
+              branch: branches.get(session.cwd ?? project.cwd) || session.branch || undefined,
               worktreeCwd: session.cwd && session.cwd !== project.cwd
                 ? session.cwd : undefined,
             }));
@@ -685,13 +715,16 @@ export function createHostServer(
             break;
           }
           case "commands.dispatch":
-            result = engine.command(params, { remoteControl: !engine.store.adminToken(token) });
+            result = await engine.commandAsync(params, { remoteControl: !engine.store.adminToken(token) });
             break;
           case "workflows.request":
             result = await engine.workflows.rpc(params, (projectId) => engine.store.project(projectId).cwd, (path) => {
-              const target = resolve(path);
-              return engine.store.projects().some((project) => target === resolve(project.cwd) || target.startsWith(`${resolve(project.cwd)}${sep}`))
-                || engine.store.sessions().some((value) => value.session.worktreeCwd && resolve(value.session.worktreeCwd) === target);
+              const io = currentMachineIO();
+              const target = io.path.resolve(path);
+              const projects = engine.store.projects().filter(project => projectMachineKey(project.machine) === io.key);
+              const ids = new Set(projects.map(project => project.id));
+              return projects.some(project => target === io.path.resolve(project.cwd) || target.startsWith(`${io.path.resolve(project.cwd)}${io.path.sep}`))
+                || engine.store.sessions().some(value => ids.has(value.projectId) && value.session.worktreeCwd && io.path.resolve(value.session.worktreeCwd) === target);
             });
             break;
           case "assistant.get":
@@ -787,7 +820,7 @@ export function createHostServer(
             if (input.method === "devices.issue") {
               const name = String(params.name ?? "").trim().slice(0, 80);
               if (!name) throw new Error("Device name is required");
-              result = engine.store.issueDevice(name, pairingCode());
+              result = engine.store.issuePairingDevice(name);
             } else if (input.method === "devices.revoke") {
               const id = String(params.deviceId ?? "");
               const device = engine.store.devices().find(value => value.id === id);
@@ -1024,14 +1057,18 @@ export function createHostServer(
           default:
             throw new Error("Unsupported host method");
         }
+        return result;
+        };
+        const result = engine.machines ? await engine.machines.forRequest(String(input.method), params, execute) : await execute();
         response.end(JSON.stringify({ result }));
       } catch (error) {
         if (!response.destroyed)
-          response.writeHead(400).end(
+          response.writeHead(error instanceof PairingCodeError ? error.code === "PAIRING_CODE_USED" ? 409 : 401 : 400).end(
             JSON.stringify({
               error:
                 error instanceof Error ? error.message : "Host request failed",
               ...(assistantRequest ? { code: botErrorCode(error) } : {}),
+              ...(error instanceof PairingCodeError ? { code: error.code } : {}),
             }),
           );
       }

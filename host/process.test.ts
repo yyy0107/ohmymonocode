@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveProvider } from "./process";
+import { providerLaunch, resolveProvider } from "./process";
 
 it.each(["cursor", "pi", "fx"] as const)(
   "does not execute an unrelated ambiguous %s binary while resolving providers",
@@ -62,6 +62,23 @@ it.runIf(process.platform !== "win32")(
     }
   },
 );
+
+it.runIf(process.platform === "win32")("resolves Pi's managed Windows launcher without executing its shell text", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "monocode-pi-managed-"));
+  const bin = join(directory, "bin");
+  const root = join(directory, "install/releases/1.3.0/node_modules/@earendil-works/pi-coding-agent");
+  const entry = join(root, "dist/bundle/cli.js");
+  mkdirSync(bin, { recursive: true }); mkdirSync(join(root, "dist/bundle"), { recursive: true });
+  writeFileSync(join(directory, "install/current-version"), "1.3.0\n");
+  writeFileSync(join(root, "package.json"), JSON.stringify({ name: "@earendil-works/pi-coding-agent", bin: { pi: "dist/bundle/cli.js" } }));
+  writeFileSync(entry, "throw Error('Discovery must not execute this')");
+  const shim = join(bin, "pi.cmd"); writeFileSync(shim, '@echo off\nnode "%~dp0pi-launcher.js" %*');
+  vi.stubEnv("PATH", bin); vi.stubEnv("PI_CODING_AGENT_DIR", directory);
+  try {
+    expect(await resolveProvider("pi")).toBe(shim);
+    expect(await providerLaunch(shim, ["--version"])).toEqual({ command: process.execPath, args: [entry, "--version"] });
+  } finally { vi.unstubAllEnvs(); rmSync(directory, { recursive: true, force: true }); }
+});
 
 it.runIf(process.platform !== "win32")(
   "recognizes Pi's thin npm bin from its package manifest without executing it",

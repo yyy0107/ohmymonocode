@@ -3,7 +3,8 @@
 // (Apache-2.0).
 
 import { createHash, randomUUID } from "node:crypto";
-import { availableParallelism } from "node:os";
+import { availableParallelism, tmpdir } from "node:os";
+import { currentMachineIO } from "../machine-io";
 import {
   analyzeWorkflowScript,
   buildAskSpecs,
@@ -135,6 +136,7 @@ export async function evalSnippet(input: { cwd: string; code: string; args?: Rec
     askSpecs: buildAskSpecs(table, {}),
     caps: { maxConcurrency: workflowConcurrencyCeiling() },
     cwd: input.cwd,
+    ...(currentMachineIO().key !== "local" ? { sandboxCwd: tmpdir() } : {}),
     lowered: lowerWorkflow(workflow, table).code,
     makeDriver: () => driver,
     runId: `dwfeval-${randomUUID()}`,

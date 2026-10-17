@@ -4,6 +4,7 @@ import { useMotionPreference } from "../motion/useMotionPreference";
 import { useTranslation } from "../i18n/useTranslation";
 import {
   useEffect,
+  Fragment,
   useId,
   useLayoutEffect,
   useMemo,
@@ -12,16 +13,24 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
-import { Check, ChevronDown, Search } from "./icons";
+import { Check, ChevronDown, ChevronRight, Search } from "./icons";
 import { LAYER } from "../lib/layers";
-import type { PopoverAlign } from "../lib/popover";
-import { Popover } from "./Popover";
+import type { PopoverAlign, PopoverSide } from "../lib/popover";
+import { MenuPanel } from "./primitives/MenuPanel";
+import { MenuSubmenu, type MenuSubmenuHandlers } from "./primitives/MenuSubmenu";
+import type { PopoverAnchor } from "./Popover";
 
 export type SearchableSelectOption = {
   value: string;
   label: string;
   keywords?: string;
   icon?: ReactNode;
+  group?: string;
+  separatorBefore?: boolean;
+  trailing?: ReactNode;
+  disabled?: boolean;
+  description?: string;
+  renderSubmenu?: (handlers: MenuSubmenuHandlers) => ReactNode;
 };
 
 export function SearchableSelect({
@@ -45,6 +54,12 @@ export function SearchableSelect({
   menuClassName = "",
   checkPosition = "start",
   commitOnTab = false,
+  side = "bottom",
+  triggerLabel,
+  triggerIcon,
+  triggerClassName = "",
+  menuAnchor,
+  onOpenChange,
 }: {
   label: string;
   value: string;
@@ -67,10 +82,18 @@ export function SearchableSelect({
   menuClassName?: string;
   checkPosition?: "start" | "end";
   commitOnTab?: boolean;
+  side?: PopoverSide;
+  triggerLabel?: string;
+  triggerIcon?: ReactNode;
+  triggerClassName?: string;
+  /** Render only the option panel, anchored to a parent menu row. */
+  menuAnchor?: PopoverAnchor;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const { t: uiT } = useTranslation();
   const reduced = useMotionPreference();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!menuAnchor);
+  useEffect(() => { onOpenChange?.(open); }, [open, onOpenChange]);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [menuWidth, setMenuWidth] = useState<number>();
@@ -97,7 +120,7 @@ export function SearchableSelect({
     filtered[active] != null ? `${listId}-option-${active}` : undefined;
   const popoverLayer =
     layer ??
-    (root.current?.closest('[role="dialog"]')
+    (menuAnchor ? LAYER.submenu : root.current?.closest('[role="dialog"]')
       ? LAYER.dialogPopover
       : LAYER.popover);
 
@@ -165,11 +188,25 @@ export function SearchableSelect({
   }, [open, options, value]);
 
   const pick = (next: string) => {
+    const option = options.find((option) => option.value === next);
+    if (option?.disabled) return;
+    if (option?.renderSubmenu) {
+      const index = filtered.findIndex((entry) => entry.value === next);
+      document.getElementById(`${listId}-option-${index}`)?.click();
+      return;
+    }
     onChange(next);
     close(true);
   };
 
   const onSearchKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (["ArrowDown", "ArrowUp", "Home", "End", "Enter"].includes(event.key)) event.stopPropagation();
+    if (event.key === "ArrowRight" && filtered[active]?.renderSubmenu && !query) {
+      event.preventDefault();
+      event.stopPropagation();
+      pick(filtered[active].value);
+      return;
+    }
     if (event.key === "ArrowDown") {
       event.preventDefault();
       if (filtered.length > 0) {
@@ -196,7 +233,7 @@ export function SearchableSelect({
     }
     if (event.key === "Tab" && commitOnTab) {
       const option = filtered[active];
-      if (option && option.value !== value) onChange(option.value);
+      if (option && !option.disabled && !option.renderSubmenu && option.value !== value) onChange(option.value);
       close(true);
       return;
     }
@@ -211,16 +248,13 @@ export function SearchableSelect({
   const compact = variant === "pill" || variant === "row";
   const longMenu = searchable || options.length > 12;
 
-  return (
-    <div
-      ref={root}
-      className={`${variant === "pill" || variant === "row" ? "relative inline-flex max-w-56 shrink-0" : "relative min-w-0"} ${className}`}
-    >
-      <button
+  const content = (
+    <>
+      {!menuAnchor ? <button
         ref={trigger}
         type="button"
         disabled={disabled}
-        aria-label={`${label}: ${selected?.label ?? placeholder}`}
+        aria-label={`${label}: ${triggerLabel ?? selected?.label ?? placeholder}`}
         aria-expanded={open}
         aria-haspopup={searchable ? "dialog" : "listbox"}
         data-desktop-select-trigger={variant}
@@ -231,7 +265,7 @@ export function SearchableSelect({
           event.preventDefault();
           openMenu();
         }}
-        className={
+        className={`${triggerClassName} ${
           variant === "row"
             ? "inline-flex h-7 max-w-full items-center gap-1 rounded-md bg-content/10 py-0 pr-1.5 pl-2 text-left text-[12px] outline-none hover:bg-content/[0.14] focus-visible:bg-content/[0.14] disabled:opacity-50"
             : variant === "panel"
@@ -241,26 +275,27 @@ export function SearchableSelect({
                 : variant === "transparent"
                   ? "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-content/10 bg-transparent px-2.5 text-left text-[13px] outline-none hover:border-content/20 focus:border-content/25 disabled:opacity-50 active:scale-[0.99]"
                   : "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-content/10 bg-background-base px-2.5 text-left text-[13px] outline-none hover:border-content/20 focus:border-content/25 disabled:opacity-50 active:scale-[0.99]"
-        }
+        }`}
       >
-        {selected?.icon ? <span className="grid size-4 shrink-0 place-items-center">{selected.icon}</span> : null}
+        {triggerIcon ?? selected?.icon ? <span className="grid size-4 shrink-0 place-items-center">{triggerIcon ?? selected?.icon}</span> : null}
         <span
           data-code-label={(codeLabels && !!selected) || undefined}
           className={`min-w-0 truncate leading-normal ${variant === "panel" ? "flex-1 text-right" : variant === "pill" || variant === "row" ? "" : "flex-1"} ${selected ? "text-content" : "text-content/40"}`}
         >
-          {selected?.label ?? placeholder}
+          {triggerLabel ?? selected?.label ?? placeholder}
         </span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} transition={reduced ? immediateTransition : popTransition} className="shrink-0">
           <ChevronDown className={`desktop-select-arrow text-content/45 ${variant === "pill" || variant === "row" ? "size-3" : "size-3.5"}`} />
         </motion.span>
-      </button>
-      <Popover
+      </button> : null}
+      <MenuPanel
         open={open}
-        anchor={root}
-        side="bottom"
+        anchor={menuAnchor ?? root}
+        submenu={!!menuAnchor}
+        side={menuAnchor ? "right" : side}
         align={align}
         gap={4}
-        width={menuWidth}
+        width={menuAnchor ? width ?? 260 : menuWidth}
         maxHeight={longMenu || maxHeight !== 240 ? maxHeight : undefined}
         constrainHeight={longMenu || maxHeight !== 240}
         layer={popoverLayer}
@@ -305,36 +340,30 @@ export function SearchableSelect({
           aria-label={label}
           aria-activedescendant={searchable ? undefined : activeId}
           tabIndex={searchable ? undefined : 0}
-          onKeyDown={searchable ? undefined : onSearchKeyDown}
+          onKeyDown={onSearchKeyDown}
           className="min-h-0 flex-1 overflow-y-auto overscroll-none p-1 outline-none"
         >
           {filtered.length > 0 ? (
             filtered.map((option, index) => {
               const highlighted = index === active;
               const isSelected = option.value === value;
-              return (
-                <button
-                  key={option.value}
-                  ref={highlighted ? activeOption : undefined}
-                  id={`${listId}-option-${index}`}
-                  type="button"
-                  role="option"
-                  data-desktop-select-option
-                  data-ui="select-option"
-                  data-highlighted={highlighted || undefined}
-                  tabIndex={-1}
-                  aria-selected={isSelected}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onMouseEnter={() => setActive(index)}
-                  onClick={() => pick(option.value)}
-                  className={`flex w-full items-center gap-2 rounded-md px-2 text-left leading-none ${
-                    compact ? "h-7 text-[12px]" : "h-8 text-[13px]"
-                  } ${
-                    highlighted
-                      ? "bg-selection text-content"
-                      : "text-content/75 hover:bg-content/3 hover:text-content"
-                  }`}
-                >
+              const rowProps = {
+                ref: highlighted ? activeOption : undefined,
+                id: `${listId}-option-${index}`,
+                type: "button" as const,
+                role: "option",
+                "data-desktop-select-option": true,
+                "data-ui": "select-option",
+                "data-highlighted": highlighted || undefined,
+                tabIndex: -1,
+                "aria-selected": isSelected,
+                "aria-disabled": option.disabled || undefined,
+                title: option.description,
+                onMouseDown: (event: React.MouseEvent<HTMLButtonElement>) => event.preventDefault(),
+                onMouseEnter: () => setActive(index),
+                className: `flex w-full items-center gap-2 rounded-md px-2 text-left leading-none ${option.disabled ? "opacity-45" : ""} ${compact ? "h-7 text-[12px]" : "h-8 text-[13px]"} ${highlighted ? "bg-selection text-content" : "text-content/75 hover:bg-content/3 hover:text-content"}`,
+              };
+              const rowContent = <>
                   {checkPosition === "start" ? <span className="grid size-3.5 shrink-0 place-items-center">
                     {isSelected ? <Check data-ui="select-check" className="size-3" strokeWidth={2} /> : null}
                   </span> : null}
@@ -343,7 +372,22 @@ export function SearchableSelect({
                     {option.label}
                   </span>
                   {checkPosition === "end" && isSelected ? <Check data-ui="select-check" className="size-4 shrink-0" /> : null}
-                </button>
+                  {option.renderSubmenu ? <ChevronRight className="size-4 shrink-0 text-content/50" /> : option.trailing}
+              </>;
+
+              return (
+                <Fragment key={option.value}>
+                {option.separatorBefore && index > 0 ? <div role="presentation" data-ui="select-separator" className="my-1 border-t border-stroke" /> : null}
+                {option.group && option.group !== filtered[index - 1]?.group ? <div role="presentation" data-ui="select-group-label" className="px-2 py-1 text-ui-sm font-medium text-content/50">{option.group}</div> : null}
+                {option.renderSubmenu ? (
+                  <MenuSubmenu
+                    label={option.label} disabled={option.disabled}
+                    renderPicker={option.renderSubmenu} onFinish={() => close(true)}
+                    triggerProps={rowProps}
+                    triggerContent={rowContent}
+                  />
+                ) : <button {...rowProps} onClick={() => pick(option.value)}>{rowContent}</button>}
+                </Fragment>
               );
             })
           ) : (
@@ -352,7 +396,18 @@ export function SearchableSelect({
             </p>
           )}
         </div>
-      </Popover>
+      </MenuPanel>
+    </>
+  );
+
+  // An anchored submenu only renders its portal; no placeholder belongs in
+  // the parent list's layout, including during its closing animation.
+  return menuAnchor ? content : (
+    <div
+      ref={root}
+      className={`${variant === "pill" || variant === "row" ? "relative inline-flex max-w-56 shrink-0" : "relative min-w-0"} ${className}`}
+    >
+      {content}
     </div>
   );
 }

@@ -16,12 +16,12 @@ import { SessionTitleCoordinator } from "../src/integrations/harness/core/titleC
 import { TitleModelApi } from "./title-model";
 import { titleStateFor } from "../src/features/sessions/model/titlePolicy";
 import { ACCOUNT_PROVIDERS, desktopProviderAccounts, providerAccountDirectory, providerUsageProfile, resolveDefaultAccount } from "./provider-accounts";
-import { mkdir, realpath, stat } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { readFileSync, unlinkSync } from "node:fs";
-import { basename, dirname, isAbsolute, join } from "node:path";
+import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { CHAT_ROOT, chatFolderRelativePath } from "../src/features/projects/model/chatFolderPath";
-import { hostWorktreeAt, hostWorktrees, renameHostWorktreeBranch, resolveHostWorktree } from "./git-worktrees";
+import { hostWorktreeAt, hostWorktrees, renameHostWorktreeBranch, resolveHostWorktree, resolveHostWorktreeAsync, withValidatedHostWorktree } from "./git-worktrees";
 import { hostBranches } from "./git-branches";
 import { availableWorktreeBranch, generateWorktreeBranch } from "../src/features/source-control/model/worktreeNaming";
 import {
@@ -56,6 +56,9 @@ import {
 import type { HostProvider } from "./providers";
 import { HostStore } from "./store";
 import { SessionCheckpoints } from "./session-checkpoints";
+import type { HostMachines } from "./host-machines";
+import { currentMachineIO, localMachineIO } from "./machine-io";
+import { projectMachineKey } from "../src/integrations/harness/core/machine";
 import { isEditTool } from "../src/integrations/harness/core/preview";
 import { HostClientState } from "./client-state";
 import { HostSkills } from "./skills";
@@ -385,6 +388,7 @@ export class HostEngine {
   readonly notes: HostNotes;
   /** Keep/Undo checkpoints for edits made by ordinary Host conversations. */
   readonly checkpoints: SessionCheckpoints;
+  readonly machines?: HostMachines;
   /** Paths of structured edits that started in each running turn, by tool call. */
   private checkpointCalls = new Map<string, Map<string, string[]>>();
   private checkpointStatusReads = new Map<string, { cwd: string; revision: number; promise: ReturnType<SessionCheckpoints["status"]> }>();
@@ -399,8 +403,18 @@ export class HostEngine {
     readonly store: HostStore,
     private readonly providers: Partial<Record<RemoteProvider, HostProvider>>,
     private readonly skills = new HostSkills(),
-    options: HostOrchestrationOptions & { native?: NativeManagerOptions; im?: HostImOptions } = {},
+    options: HostOrchestrationOptions & { native?: NativeManagerOptions; im?: HostImOptions; machines?: HostMachines } = {},
   ) {
+    this.machines = options.machines;
+    if (this.machines) this.providers = this.machines.providers(providers);
+    this.machines?.configureNotice((id, warnings) => {
+      if (this.store.sessionIfExists(id)) this.mutateManaged(id, value => ({ ...value, executionWarnings: warnings }), { type: "session.executionWarnings" }, false);
+    });
+    this.machines?.configureImport(value => ({ ...value, nativeBinding: undefined, nativeStatus: undefined,
+      executionWarnings: ["Imported from the previous WSL Host. The next turn starts with a history handoff using the desktop account."],
+      session: appendReadyHandoff({ ...stopStreaming(value.session), providerSessionId: undefined,
+        providerAccountId: undefined, nativeSession: undefined, pendingSwitch: undefined },
+      value.session.harness, value.session.harness, buildDeterministicHandoff(value.session)) }));
     this.clientState = new HostClientState(store);
     this.notes = new HostNotes(dirname(store.attachmentDir), () => this.desktopDirectory());
     this.resourceWaiter = new HostResourceWaiter(store);
@@ -492,6 +506,11 @@ export class HostEngine {
       if (value.session.providerSessionId && !value.session.nativeSession) this.bindRetainedSession(value.session);
     }
     this.orchestration = new HostOrchestration(store, {
+      machineIO: (id) => {
+        const machine = this.store.project(this.store.session(id).projectId).machine;
+        if (machine && !this.machines) throw new Error("The execution machine is unavailable");
+        return this.machines?.io(machine) ?? localMachineIO;
+      },
       session: (id) => this.session(id),
       values: () => this.currentValues(),
       mutate: (id, change, event) => this.mutateManaged(id, change, event),
@@ -503,6 +522,11 @@ export class HostEngine {
       answer: (id, requestId, reply, receipt) => this.controlManaged(id, "answer", { requestId, reply }, receipt),
     }, Object.keys(providers) as RemoteProvider[], options);
     this.workflows = new HostWorkflows({
+      machineIO: (id) => {
+        const machine = this.store.project(this.store.session(id).projectId).machine;
+        if (machine && !this.machines) throw new Error("The execution machine is unavailable");
+        return this.machines?.io(machine) ?? localMachineIO;
+      },
       db: store.db,
       dataDir: dirname(store.attachmentDir),
       session: (id) => this.session(id),
@@ -601,14 +625,14 @@ export class HostEngine {
 
   /** A visible conversation that a saved workflow launched from the sidebar runs in. */
   private async createWorkflowLaunchSession(cwd: string, title: string, runtime?: { harness?: string; model?: string }): Promise<string> {
-    const project = this.store.projects().find((entry) => entry.cwd === cwd) ?? await this.openProject(cwd);
+    const project = this.store.projects().find(entry => entry.cwd === cwd && projectMachineKey(entry.machine) === currentMachineIO().key) ?? await this.openProject(cwd);
     const recent = this.store.sessions().filter((value) => value.projectId === project.id && !value.session.workflowParentId && !value.session.orchestrationLeadId && !value.session.assistantOwnerId)
       .sort((a, b) => b.updatedAt - a.updatedAt)[0]?.session;
     const installed = Object.keys(this.providers) as RemoteProvider[];
     const harness = (runtime?.harness && installed.includes(runtime.harness as RemoteProvider) ? runtime.harness : recent?.harness && installed.includes(recent.harness as RemoteProvider) ? recent.harness : installed[0]) as RemoteProvider | undefined;
     if (!harness) throw new Error("No agent provider is installed on this machine");
     const model = runtime?.model ?? (recent?.harness === harness ? recent.model : DEFAULT_MODEL_ID[harness] || `${harness}:default`);
-    const receipt = this.command({ type: "create", commandId: `workflow-launch:${randomUUID()}`, projectId: project.id, harness, model, runtimeMode: recent?.runtimeMode ?? "auto-accept-edits" });
+    const receipt = await this.commandAsync({ type: "create", commandId: `workflow-launch:${randomUUID()}`, projectId: project.id, harness, model, runtimeMode: recent?.runtimeMode ?? "auto-accept-edits" });
     this.mutateManaged(receipt.sessionId, (value) => ({ ...value, session: { ...value.session, title, titleState: { source: "manual", epoch: 0, purpose: "initial", fallbackAttempted: false } } }), { type: "workflow.launchSession" });
     return receipt.sessionId;
   }
@@ -684,6 +708,7 @@ export class HostEngine {
     assertCheckoutAvailable(this.store, path);
     this.orchestration.assertCheckout(path);
     const worker = this.currentValues().find((value) => value.session.orchestrationLeadId && !value.session.worktreeRemoved &&
+      projectMachineKey(this.store.project(value.projectId).machine) === currentMachineIO().key &&
       checkoutPathsOverlap(checkoutPath(path), checkoutPath(value.session.cwd)));
     if (worker) throw new Error("This worker checkout is managed by its lead");
   }
@@ -743,6 +768,7 @@ export class HostEngine {
     }
     const checkout = checkoutPath(cwd);
     return [...directories].some(([id, path]) => id !== sessionId &&
+      projectMachineKey(this.store.project(this.store.session(id).projectId).machine) === currentMachineIO().key &&
       checkoutPathsOverlap(checkoutPath(path), checkout));
   }
 
@@ -834,13 +860,15 @@ export class HostEngine {
   }
 
   async openProject(path: string, authorize?: (cwd: string) => void) {
-    if (!isAbsolute(path) || path.includes("\0"))
+    const io = currentMachineIO();
+    if (!io.path.isAbsolute(path) || path.includes("\0"))
       throw new Error("Choose an absolute directory path on the host");
-    const cwd = await realpath(path);
-    if (!(await stat(cwd)).isDirectory())
+    const cwd = await io.fs.realpath(path);
+    if (!(await io.fs.stat(cwd)).isDirectory())
       throw new Error("Project path is not a directory");
     authorize?.(cwd);
-    return this.store.addProject(cwd, basename(cwd));
+    return this.store.addProject(cwd, io.path.basename(cwd), undefined,
+      io.key.startsWith("wsl:") ? { kind: "wsl", distribution: io.key.slice(4) } : undefined);
   }
 
   /** A projectless chat: a new dated folder under `~/Documents/ohmymonocode`. */
@@ -1002,6 +1030,14 @@ export class HostEngine {
       if (input.sessionId && this.store.session(String(input.sessionId)).session.assistantOwnerId) throw new Error("Use the assistant control API");
     }
     return this.applyCommand(raw, false, undefined, undefined, undefined, client?.remoteControl);
+  }
+
+  async commandAsync(raw: unknown, client?: { remoteControl: boolean }): Promise<CommandReceipt> {
+    if (currentMachineIO().key === "local") return this.command(raw, client);
+    const command = parseCommand(raw);
+    if (command.type !== "create") return this.command(raw, client);
+    return withValidatedHostWorktree(this.store.project(command.projectId).cwd, command.worktreeCwd,
+      () => this.command(raw, client));
   }
 
   botCapabilities(harness: string, context?: Pick<HarnessBotContext, "agentsMcp">): HarnessBotCapabilities {
@@ -1814,6 +1850,8 @@ export class HostEngine {
   private dispatchQueue(id: string): void {
     if (this.closing || this.running.has(id)) return;
     const value = this.store.session(id);
+    if (this.machines && currentMachineIO().key !== projectMachineKey(this.store.project(value.projectId).machine))
+      return this.machines.forSession(id, () => this.dispatchQueue(id));
     if (
       value.status === "running" ||
       value.queueSteeringId ||
@@ -1930,7 +1968,7 @@ export class HostEngine {
     message: unknown,
   ): Promise<string> {
     const project = this.store.project(text(projectId, "project"));
-    const cwd = resolveHostWorktree(project.cwd, requestedCwd);
+    const cwd = await resolveHostWorktreeAsync(project.cwd, requestedCwd);
     if (!isRemoteProvider(harness)) throw new Error("Invalid provider");
     const provider = this.provider(harness);
     const prompt = text(message, "worktree message", 100_000);
@@ -2019,6 +2057,8 @@ export class HostEngine {
     botContext?: HarnessBotContext,
   ): void {
     const { session, runId } = value;
+    if (this.machines && currentMachineIO().key !== projectMachineKey(this.store.project(value.projectId).machine))
+      return this.machines.forSession(session.id, () => this.run(value, prompt, intent, attachments, retryProposalBlockId, botContext));
     const parked = this.parked.get(session.id);
     if (parked) { clearTimeout(parked.timer); this.parked.delete(session.id); }
     const provider = this.provider(session.harness);
@@ -2390,6 +2430,13 @@ export class HostEngine {
       queueSteeringId: undefined,
       session,
     };
+  }
+
+  /** Variables from the named environment that contains this session's folder. */
+  environmentVariables(id: string): Record<string, string> {
+    const value = this.store.sessionIfExists(id);
+    if (!value) return {};
+    return this.clientState.environmentVariables(value.session.cwd, this.store.project(value.projectId).machine);
   }
 
   async close(): Promise<void> {

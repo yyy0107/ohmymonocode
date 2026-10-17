@@ -15,8 +15,7 @@
 // `undefined`，模型读到的退回「改好脚本再内联提交」的老话。刻意**不**回落到临时目录——一个
 // 用户在项目里找不到的草稿不值得一条路径。
 
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { machineFs, machinePath as path } from "../../machine-io";
 import { SAVED_WORKFLOW_FILE_EXTENSION, WORKFLOW_DRAFTS_DIR } from "../../../src/integrations/workflow/savedWorkflow.js";
 import { createWorkflowPhaseNames, type CreateWorkflowCausalityGraph } from "../../../src/integrations/workflow/createWorkflow.js";
 
@@ -73,7 +72,7 @@ export async function writeWorkflowDraft(
   if (input.cwd === undefined || input.cwd === "") return undefined;
   try {
     const dir = path.join(input.cwd, WORKFLOW_DRAFTS_DIR);
-    await mkdir(dir, { recursive: true });
+    await machineFs.mkdir(dir, { recursive: true });
     await writeDraftGitignore(dir);
     const slug = workflowDraftSlug(input.name);
     for (let attempt = 1; attempt <= WORKFLOW_DRAFT_MAX_ATTEMPTS; attempt += 1) {
@@ -81,7 +80,7 @@ export async function writeWorkflowDraft(
       const filePath = path.join(dir, fileName);
       try {
         // `wx`：文件已在就报 EEXIST，于是"取名"与"占名"是同一个原子动作。
-        await writeFile(filePath, input.source, { encoding: "utf8", flag: "wx" });
+        await machineFs.writeFile(filePath, input.source, { encoding: "utf8", flag: "wx" });
         return { path: filePath };
       } catch (error) {
         if (errorCode(error) !== "EEXIST") throw error;
@@ -132,7 +131,7 @@ function workflowDraftSlug(name: string): string {
 /** 草稿目录内的 `.gitignore`，只在缺席时写一次（用户改过就不再动它）。 */
 async function writeDraftGitignore(dir: string): Promise<void> {
   try {
-    await writeFile(path.join(dir, ".gitignore"), "*\n", { encoding: "utf8", flag: "wx" });
+    await machineFs.writeFile(path.join(dir, ".gitignore"), "*\n", { encoding: "utf8", flag: "wx" });
   } catch (error) {
     if (errorCode(error) !== "EEXIST") throw error;
   }

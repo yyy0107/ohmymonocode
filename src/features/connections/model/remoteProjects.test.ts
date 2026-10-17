@@ -4,7 +4,23 @@ import {
   remotePath,
   remoteProjectFor,
   remoteSessionGitCwd,
+  configureSharedHost,
+  sharedProjects,
 } from "./remoteProjects";
+
+it("keeps equal Linux paths in different distributions distinct under the shared Host", () => {
+  configureSharedHost("desktop", [
+    { id: "ubuntu", name: "repo", cwd: "/home/dev/repo", machine: { kind: "wsl", distribution: "Ubuntu" } },
+    { id: "debian", name: "repo", cwd: "/home/dev/repo", machine: { kind: "wsl", distribution: "Debian" } },
+  ]);
+  try {
+    expect(sharedProjects()).toHaveLength(2);
+    expect(remoteProjectFor("wsl://Ubuntu/home/dev/repo")).toMatchObject({ projectId: "ubuntu", local: true });
+    expect(remoteProjectFor("wsl://Debian/home/dev/repo")).toMatchObject({ projectId: "debian", local: true });
+    const project = remoteProjectFor("wsl://Ubuntu/home/dev/repo")!;
+    expect(remoteSessionGitCwd(project, "/home/dev/worktree", project.cwd)).toBe("wsl://Ubuntu/home/dev/worktree");
+  } finally { configureSharedHost(undefined, []); }
+});
 
 it("finds a saved UNC project through its corrected remote path", () => {
   const legacyKey = "remote://env/server/share/repo";

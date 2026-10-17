@@ -5,6 +5,7 @@ const sent: string[] = [];
 let onLine: ((line: string) => void) | undefined;
 
 vi.mock("../../core/child", () => ({
+  childUsesSelectedMachine: () => true,
   resolveCursorBinary: async () => ({ path: "/fake/cursor-agent" }),
   spawnChild: async () => undefined,
   killChild: async () => undefined,

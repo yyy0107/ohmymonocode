@@ -10,6 +10,7 @@ import {
 } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { resolve, join } from "node:path";
+import { build } from "esbuild";
 
 // Official Node release checksums, pinned so release builds are reproducible.
 // https://nodejs.org/dist/v24.21.0/SHASUMS256.txt
@@ -106,11 +107,14 @@ async function wslRuntime(arch, destination) {
   // GNU tar from Git for Windows would read "C:" as a remote host.
   const tar = process.platform === "win32" ? join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe") : "tar";
   execFileSync(tar, ["-xzf", archive, "-C", destination, "--strip-components=1", `${stem}/bin/node`, `${stem}/LICENSE`]);
-  for (const [from, to] of [...hostFiles, ["host/wsl-bridge.mjs", "wsl-bridge.mjs"], ["LICENSE", "MONOCODE-LICENSE"]])
+  for (const [from, to] of [["host/wsl-exec.mjs", "wsl-exec.mjs"], ["host/wsl-exec-protocol.mjs", "wsl-exec-protocol.mjs"], ["LICENSE", "MONOCODE-LICENSE"]])
     await copyFile(from, join(destination, to));
+  await build({ entryPoints: ["host/control-cli.ts"], outfile: join(destination, "control-cli.mjs"),
+    bundle: true, platform: "node", format: "esm", target: "node24" });
+  await writeFile(join(destination, "bin/monocode-control"), '#!/bin/sh\nBASE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)\nexec "$BASE/bin/node" "$BASE/control-cli.mjs" "$@"\n', { mode: 0o755 });
   await writeFile(join(destination, "VERSION"), `${version}\n`);
   await writeFile(join(destination, "ARCH"), `${arch}\n`);
-  const files = ["ARCH", "LICENSE", "MONOCODE-LICENSE", "VERSION", "bin/node", "host.mjs", "provider-guard.mjs", "wsl-bridge.mjs"];
+  const files = ["ARCH", "LICENSE", "MONOCODE-LICENSE", "VERSION", "bin/node", "bin/monocode-control", "control-cli.mjs", "wsl-exec.mjs", "wsl-exec-protocol.mjs"];
   const sums = [];
   for (const file of files)
     sums.push(`${createHash("sha256").update(await readFile(join(destination, file))).digest("hex")}  ${file}`);

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { HostStore } from "../store";
+import { currentMachineIO, withMachineIO } from "../machine-io";
 import { checkoutKindsConflict, notifyCheckoutRelease, onCheckoutRelease, checkoutExecutionPrefix, checkoutPath, checkoutPathsOverlap, checkoutResources, initCheckoutGuards, withCheckoutOwner } from "../checkout-guards";
 
 import type { ResourceBlocker } from "../../src/features/sessions/model/session";
@@ -85,6 +86,7 @@ export class HostResourceWaiter {
   private retry(): void { for (const attempt of [...this.pending]) attempt(); }
   wait(guard: HostResourceGuard, owner: string, request: HostResourceRequest, signal: AbortSignal,
     onBlocked: (blockers: ResourceBlocker[]) => void, timeoutMs = 30_000): Promise<void> {
+    const io = currentMachineIO();
     return new Promise((resolve, reject) => {
       const deadline = Date.now() + timeoutMs;
       let previous = "";
@@ -98,7 +100,7 @@ export class HostResourceWaiter {
         if (error) reject(error); else resolve();
       };
       const abort = () => finish(new Error("Resource wait cancelled"));
-      const attempt = () => {
+      const attempt = () => withMachineIO(io, () => {
         if (finished) return;
         if (signal.aborted) { abort(); return; }
         try {
@@ -109,7 +111,7 @@ export class HostResourceWaiter {
           const key = JSON.stringify(result.blockers);
           if (key !== previous) { previous = key; onBlocked(result.blockers); }
         } catch (error) { finish(error); }
-      };
+      });
       this.pending.add(attempt);
       signal.addEventListener("abort", abort, { once: true });
       this.timer ??= setInterval(() => this.retry(), 1000);

@@ -7,6 +7,7 @@ import { HostControl } from "../../control";
 import { HostStore } from "../../store";
 import { HostEngine } from "../../engine";
 import { HostResourceGuard } from "../resources";
+import { checkoutPath } from "../../checkout-guards";
 import { executeBotAction } from "./control";
 import type { HostProvider } from "../../providers";
 
@@ -118,7 +119,7 @@ it("suppresses a read result when its grant is revoked during an await", async (
 
 it("allows control reads but refuses writes and Git changes during exclusive integration", async () => {
   const f = await resourceFixture();
-  f.store.db.prepare("INSERT INTO checkout_resources VALUES (?, ?, ?, ?)").run("integration", f.cwd, "integrating", process.pid);
+  f.store.db.prepare("INSERT INTO checkout_resources VALUES (?, ?, ?, ?)").run("integration", checkoutPath(f.cwd), "integrating", process.pid);
   expect(await executeBotAction(f.engine.assistant, "read-busy", "files.read", {
     projectId: f.project.id, args: { path: f.path },
   }, () => true)).toBe("before");

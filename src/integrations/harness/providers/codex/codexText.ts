@@ -1,5 +1,6 @@
 import { modelsFor } from "../../../../features/sessions/model/models";
 import {
+  childUsesSelectedMachine,
   killChild,
   resolveCodexBinary,
   spawnChild,
@@ -207,6 +208,7 @@ async function ensureLive(input: {
   const requestedThreadId = ephemeral
     ? undefined
     : input.threadId?.trim() || undefined;
+  if (live && !childUsesSelectedMachine(TEXT_CHILD_ID)) await dropLive();
   if (live && !live.closed) {
     if (
       live.cwd === input.cwd &&

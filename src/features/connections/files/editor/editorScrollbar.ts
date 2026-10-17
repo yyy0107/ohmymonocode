@@ -5,52 +5,7 @@ import {
 } from "@codemirror/lint";
 import type { EditorState, Extension } from "@codemirror/state";
 import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
-
-const RAIL_WIDTH = 18;
-const MIN_THUMB_HEIGHT = 32;
-
-export type ScrollbarMetrics = {
-  scrollable: boolean;
-  maxScroll: number;
-  maxThumbTop: number;
-  thumbHeight: number;
-  thumbTop: number;
-};
-
-export function scrollbarMetrics(
-  scrollTop: number,
-  scrollHeight: number,
-  clientHeight: number,
-  trackHeight: number,
-): ScrollbarMetrics {
-  const viewport = Math.max(0, clientHeight);
-  const content = Math.max(viewport, scrollHeight);
-  const track = Math.max(0, trackHeight);
-  const maxScroll = Math.max(0, content - viewport);
-  if (track === 0 || maxScroll === 0) {
-    return {
-      scrollable: false,
-      maxScroll,
-      maxThumbTop: 0,
-      thumbHeight: track,
-      thumbTop: 0,
-    };
-  }
-
-  const thumbHeight = Math.min(
-    track,
-    Math.max(MIN_THUMB_HEIGHT, track * (viewport / content)),
-  );
-  const maxThumbTop = Math.max(0, track - thumbHeight);
-  const progress = Math.min(1, Math.max(0, scrollTop / maxScroll));
-  return {
-    scrollable: true,
-    maxScroll,
-    maxThumbTop,
-    thumbHeight,
-    thumbTop: progress * maxThumbTop,
-  };
-}
+import { Scrollbar } from "../../../../shared/ui/Scrollbar";
 
 export type DiagnosticOverviewTick = {
   severity: Diagnostic["severity"];
@@ -95,27 +50,27 @@ export function diagnosticOverviewTicks(
 class EditorScrollbar {
   readonly dom = document.createElement("div");
   readonly markers = document.createElement("div");
-  readonly thumb = document.createElement("div");
+  readonly scrollbar: Scrollbar;
   readonly cursor = document.createElement("div");
   readonly resizeObserver: ResizeObserver | null;
   private frame = 0;
-  private pointerId: number | null = null;
-  private dragOffset = 0;
 
   constructor(readonly view: EditorView) {
     this.dom.className = "cm-editorScrollbar";
     this.dom.setAttribute("aria-hidden", "true");
     this.markers.className = "cm-editorScrollbarMarkers";
-    this.thumb.className = "cm-editorScrollbarThumb";
     this.cursor.className = "cm-editorScrollbarCursor";
-    this.dom.append(this.thumb, this.markers, this.cursor);
+    this.markers.append(this.cursor);
+    this.dom.append(this.markers);
     this.view.dom.appendChild(this.dom);
+    this.scrollbar = new Scrollbar(
+      this.dom,
+      () => ({ offset: view.scrollDOM.scrollTop, content: view.scrollDOM.scrollHeight, viewport: view.scrollDOM.clientHeight }),
+      (offset) => { view.scrollDOM.scrollTop = offset; },
+      () => view.defaultLineHeight,
+    );
 
     this.dom.addEventListener("pointerdown", this.onPointerDown);
-    this.dom.addEventListener("pointermove", this.onPointerMove);
-    this.dom.addEventListener("pointerup", this.onPointerUp);
-    this.dom.addEventListener("pointercancel", this.onPointerUp);
-    this.dom.addEventListener("lostpointercapture", this.onLostPointerCapture);
     this.view.scrollDOM.addEventListener("scroll", this.onScroll, {
       passive: true,
     });
@@ -144,13 +99,7 @@ class EditorScrollbar {
     this.resizeObserver?.disconnect();
     this.view.scrollDOM.removeEventListener("scroll", this.onScroll);
     this.dom.removeEventListener("pointerdown", this.onPointerDown);
-    this.dom.removeEventListener("pointermove", this.onPointerMove);
-    this.dom.removeEventListener("pointerup", this.onPointerUp);
-    this.dom.removeEventListener("pointercancel", this.onPointerUp);
-    this.dom.removeEventListener(
-      "lostpointercapture",
-      this.onLostPointerCapture,
-    );
+    this.scrollbar.destroy();
     this.dom.remove();
   }
 
@@ -160,12 +109,12 @@ class EditorScrollbar {
     if (this.frame) return;
     this.frame = requestAnimationFrame(() => {
       this.frame = 0;
-      this.drawThumb();
+      this.scrollbar.update();
     });
   };
 
   private readonly onPointerDown = (event: PointerEvent) => {
-    if (event.button !== 0 || this.pointerId !== null) return;
+    if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
 
@@ -183,70 +132,7 @@ class EditorScrollbar {
         return;
       }
     }
-
-    const rect = this.dom.getBoundingClientRect();
-    const metrics = this.metrics();
-    if (!metrics.scrollable) return;
-    this.pointerId = event.pointerId;
-    this.dom.dataset.dragging = "true";
-    this.dragOffset =
-      event.target === this.thumb
-        ? event.clientY - rect.top - metrics.thumbTop
-        : metrics.thumbHeight / 2;
-    this.dom.setPointerCapture?.(event.pointerId);
-    this.scrollFromPointer(event.clientY);
   };
-
-  private readonly onPointerMove = (event: PointerEvent) => {
-    if (event.pointerId !== this.pointerId) return;
-    event.preventDefault();
-    this.scrollFromPointer(event.clientY);
-  };
-
-  private readonly onPointerUp = (event: PointerEvent) => {
-    if (event.pointerId !== this.pointerId) return;
-    if (this.dom.hasPointerCapture?.(event.pointerId)) {
-      this.dom.releasePointerCapture(event.pointerId);
-    }
-    this.stopDragging();
-  };
-
-  private readonly onLostPointerCapture = () => this.stopDragging();
-
-  private stopDragging() {
-    this.pointerId = null;
-    delete this.dom.dataset.dragging;
-  }
-
-  private metrics(): ScrollbarMetrics {
-    const scroller = this.view.scrollDOM;
-    return scrollbarMetrics(
-      scroller.scrollTop,
-      scroller.scrollHeight,
-      scroller.clientHeight,
-      this.dom.clientHeight,
-    );
-  }
-
-  private scrollFromPointer(clientY: number) {
-    const metrics = this.metrics();
-    if (!metrics.scrollable || metrics.maxThumbTop === 0) return;
-    const rect = this.dom.getBoundingClientRect();
-    const thumbTop = Math.min(
-      metrics.maxThumbTop,
-      Math.max(0, clientY - rect.top - this.dragOffset),
-    );
-    this.view.scrollDOM.scrollTop =
-      (thumbTop / metrics.maxThumbTop) * metrics.maxScroll;
-  }
-
-  private drawThumb() {
-    const metrics = this.metrics();
-    this.thumb.hidden = !metrics.scrollable;
-    if (!metrics.scrollable) return;
-    this.thumb.style.height = `${metrics.thumbHeight}px`;
-    this.thumb.style.transform = `translate3d(0, ${metrics.thumbTop}px, 0)`;
-  }
 
   private drawCursor() {
     const state = this.view.state;
@@ -265,7 +151,7 @@ class EditorScrollbar {
       marker.title = tick.message;
       fragment.appendChild(marker);
     }
-    this.markers.replaceChildren(fragment);
+    this.markers.replaceChildren(fragment, this.cursor);
   }
 }
 
@@ -274,7 +160,7 @@ const scrollbarPlugin = ViewPlugin.fromClass(EditorScrollbar);
 const scrollbarTheme = EditorView.theme({
   "&": {
     position: "relative",
-    "--editor-scrollbar-width": `max(var(--scrollbar-min-size, 0px), calc(${RAIL_WIDTH}px * var(--scrollbar-scale, 1)))`,
+    "--editor-scrollbar-width": "var(--scrollbar-size, 7px)",
   },
   ".cm-scroller": {
     scrollbarWidth: "none",
@@ -294,8 +180,6 @@ const scrollbarTheme = EditorView.theme({
     bottom: "0",
     width: "var(--editor-scrollbar-width)",
     boxSizing: "border-box",
-    borderLeft:
-      "1px solid color-mix(in srgb, var(--color-content) 7%, transparent)",
     background: "transparent",
     cursor: "default",
     touchAction: "none",
@@ -303,31 +187,9 @@ const scrollbarTheme = EditorView.theme({
   },
   ".cm-editorScrollbarMarkers": {
     position: "absolute",
-    inset: "0",
+    inset: "var(--scrollbar-vertical-button-size, 9px) 0",
     pointerEvents: "none",
   },
-  ".cm-editorScrollbarThumb": {
-    position: "absolute",
-    zIndex: "1",
-    top: "0",
-    left: "auto",
-    right: "calc(1px * var(--scrollbar-scale, 1))",
-    width:
-      "max(var(--scrollbar-min-size, 0px), calc(6px * var(--scrollbar-scale, 1)))",
-    minHeight: `${MIN_THUMB_HEIGHT}px`,
-    borderRadius: "2px",
-    backgroundColor:
-      "color-mix(in srgb, var(--color-content) 30%, transparent)",
-    opacity: "0.72",
-    cursor: "default",
-    willChange: "transform",
-  },
-  ".cm-editorScrollbar:hover .cm-editorScrollbarThumb, .cm-editorScrollbar[data-dragging] .cm-editorScrollbarThumb":
-    {
-      backgroundColor:
-        "color-mix(in srgb, var(--color-content) 38%, transparent)",
-      opacity: "0.88",
-    },
   ".cm-editorScrollbarTick": {
     position: "absolute",
     zIndex: "2",

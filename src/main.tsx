@@ -1,3 +1,4 @@
+import { observeNativeScrollbarEdges } from "./shared/ui/nativeScrollbarEdges";
 import { animate, MotionConfig } from "motion/react";
 import { defaultTransition, immediateTransition } from "./shared/motion/tokens";
 import { prefersReducedMotion } from "./shared/lib/reducedMotion";
@@ -74,6 +75,7 @@ function dismissBootSplash() {
 }
 
 function BootGate({ children }: { children: React.ReactNode }) {
+  useLayoutEffect(() => observeNativeScrollbarEdges(document), []);
   useLayoutEffect(() => {
     dismissBootSplash();
   }, []);

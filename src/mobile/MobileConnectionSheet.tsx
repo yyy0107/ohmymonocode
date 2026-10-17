@@ -5,6 +5,7 @@ import { useMotionPreference } from "../shared/motion/useMotionPreference";
 import { MobileSpinner } from "./MobileSpinner";
 import {
   Internet,
+  CheckCircle,
   PairingCode,
   ScanQrCode,
 } from "../shared/ui/icons";
@@ -29,6 +30,7 @@ export function MobileConnectionSheet({
   token,
   disabled,
   error,
+  pairedHost,
   onUrlChange,
   onTokenChange,
   onConnect,
@@ -42,6 +44,7 @@ export function MobileConnectionSheet({
   token: string;
   disabled: boolean;
   error: string;
+  pairedHost?: { name: string };
   onUrlChange: (value: string) => void;
   onTokenChange: (value: string) => void;
   onConnect: () => void;
@@ -66,13 +69,27 @@ export function MobileConnectionSheet({
     <MobileSheet
       open={open}
       onExited={onExited}
-      title="Add connection"
-      header={{ title: t("Add connection") }}
+      title={pairedHost ? "Pairing successful" : "Add connection"}
+      header={{ title: t(pairedHost ? "Pairing successful" : "Add connection") }}
       anchor={anchor}
       surface="solid"
       onClose={onClose}
     >
-      <div className="mobile-pairing">
+      {pairedHost ? (
+        <div className="mobile-pairing mobile-pairing-success">
+          <div className="mobile-pairing-success-hero" aria-hidden="true">
+            <CheckCircle size={60} strokeWidth={1.75} />
+          </div>
+          <div role="status" className="mobile-pairing-confirmation">
+            <strong>{t("Pairing successful")}</strong>
+            <p>{t("Connected to {host}.", { host: pairedHost.name })}</p>
+            <p className="mobile-muted">{t("You can now access this computer from your phone.")}</p>
+          </div>
+          <Button variant="primary" type="button" onClick={onClose}>
+            {t("Done")}
+          </Button>
+        </div>
+      ) : <div className="mobile-pairing">
         <div
           className="mobile-pairing-methods mobile-segmented"
           role="tablist"
@@ -223,7 +240,7 @@ export function MobileConnectionSheet({
           )}
         </motion.div>
         </AnimatePresence>
-      </div>
+      </div>}
     </MobileSheet>
   );
 }

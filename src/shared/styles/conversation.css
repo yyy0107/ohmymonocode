@@ -1,3 +1,5 @@
+@import "../ui/scrollbar.css";
+
 /* Shared content rendering only. Platform controls and palettes live in their own entries. */
 /* Settings → Appearance: conversation and document text follow the content
    font and size; code inside them and diffs follow the code size. */
@@ -20,32 +22,6 @@
 .inbox-pr-diff {
   --font-scale: var(--code-font-scale, 1);
   font-weight: var(--code-font-weight, var(--default-code-font-weight, 500));
-}
-
-html ::-webkit-scrollbar {
-  width: max(var(--scrollbar-min-size), calc(14px * var(--scrollbar-scale)));
-  height: max(var(--scrollbar-min-size), calc(14px * var(--scrollbar-scale)));
-}
-
-html ::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-/* Scale the transparent ring with the rail to keep the pill thumb visible. */
-html ::-webkit-scrollbar-thumb {
-  min-height: 32px;
-  background: var(--color-stroke);
-  background-clip: padding-box;
-  border: calc(3px * var(--scrollbar-scale)) solid transparent;
-  border-radius: 9999px;
-}
-
-html ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-border-hover);
-}
-
-html ::-webkit-scrollbar-corner {
-  background: transparent;
 }
 
 .chat-pane-background::before {

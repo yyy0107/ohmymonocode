@@ -92,6 +92,22 @@ fn same_path(a: &Path, b: &Path) -> bool {
 }
 
 pub(crate) fn contains_working_dir(root: &Path, cwd: &Path) -> bool {
+    let root_wsl = crate::wsl_path::parse(&root.to_string_lossy())
+        .ok()
+        .flatten();
+    let cwd_wsl = crate::wsl_path::parse(&cwd.to_string_lossy())
+        .ok()
+        .flatten();
+    if root_wsl.is_some() || cwd_wsl.is_some() {
+        return match (root_wsl, cwd_wsl) {
+            (Some(root), Some(cwd)) => {
+                let root = root.resource_key();
+                let cwd = cwd.resource_key();
+                cwd == root || cwd.starts_with(&format!("{}/", root.trim_end_matches('/')))
+            }
+            _ => false,
+        };
+    }
     let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
     let cwd = cwd.canonicalize().unwrap_or_else(|_| cwd.to_path_buf());
     if cfg!(windows) {

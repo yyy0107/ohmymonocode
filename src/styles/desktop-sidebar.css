@@ -394,7 +394,10 @@ html[data-skin] [data-desktop-sidebar] [data-ui="icon-button"][data-sidebar-tool
 }
 html[data-skin] [data-desktop-sidebar] [data-project-list-scroll] {
   gap: .5px;
-  padding-inline-end: var(--desktop-sidebar-inset);
+  /* Keep a real gutter before the sidebar divider, outside the native rail.
+     Deduct it from content padding so session rows keep their current width. */
+  margin-inline-end: var(--scrollbar-edge-inset);
+  padding-inline-end: calc(var(--desktop-sidebar-inset) - var(--scrollbar-edge-inset));
 }
 html[data-skin] [data-desktop-sidebar] [data-project-list] [data-project-section] {
   margin-block-end: 12px;

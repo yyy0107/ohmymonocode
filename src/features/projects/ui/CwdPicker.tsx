@@ -21,7 +21,7 @@ import {
 import { isChatFolder } from "../model/chatFolderPath";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
 import { LAYER } from "../../../shared/lib/layers";
-import { Popover } from "../../../shared/ui/Popover";
+import { MenuPanel } from "../../../shared/ui/primitives/MenuPanel";
 import { MenuHover } from "../../../shared/ui/MenuHover";
 import { ProjectLogoIcon } from "./ProjectLogoIcon";
 
@@ -48,6 +48,8 @@ type Props = {
   onClear?: () => void;
   /** Offers the system folder picker below the recent projects. */
   openFolder?: boolean;
+  /** Environment-specific folder selection, supplied by the owning workflow. */
+  onOpenFolder?: () => void;
   /**
    * Extra rows below the project list. `close` dismisses the menu; `hold`
    * keeps it open while a submenu or dialog of those rows takes clicks.
@@ -88,6 +90,7 @@ export function CwdPicker({
   onCwdChange,
   onClear,
   openFolder = false,
+  onOpenFolder,
   menuFooter,
   onClose,
 }: Props) {
@@ -179,6 +182,10 @@ export function CwdPicker({
       return;
     }
     if (row.kind === "open-folder") {
+      if (onOpenFolder) {
+        onOpenFolder();
+        return;
+      }
       void pickFolders(uiT("Open folder…")).then((paths) => {
         if (paths[0]) onCwdChange(paths[0]);
       });
@@ -311,14 +318,14 @@ export function CwdPicker({
         ) : null}
       </button>
       <PresenceBoundary propagate>{open ? (
-        <Popover
+        <MenuPanel
           anchor={root}
           side={placement === "below" ? "bottom" : "top"}
           width={MENU_WIDTH}
           maxHeight={MENU_MAX_HEIGHT}
-          ignore={SELF}
+          ignore={`${SELF}, [role="dialog"]`}
           onDismiss={(reason) => {
-            if (held.current && reason !== "escape") return;
+            if (held.current && reason === "escape") return;
             dismiss(reason === "escape");
           }}
           role="menu"
@@ -452,10 +459,10 @@ export function CwdPicker({
               {menuFooter({ close: () => dismiss(true), hold })}
             </div>
           ) : null}
-        </Popover>
+        </MenuPanel>
       ) : null}</PresenceBoundary>
       <PresenceBoundary propagate>{open && moreOpen ? (
-        <Popover
+        <MenuPanel
           anchor={moreRef}
           side="right"
           gap={SUBMENU_GAP}
@@ -485,7 +492,7 @@ export function CwdPicker({
               </span>
             </button>
           ))}
-        </Popover>
+        </MenuPanel>
       ) : null}</PresenceBoundary>
     </div>
   );

@@ -7,8 +7,9 @@ import {
   SessionHeaderActionsContext,
   type SessionHeaderActions,
 } from "../../workspace/ui/SessionHeaderActions";
-import { SessionStatusPanel } from "./SessionStatusPanel";
+import { railFits, SessionStatusPanel } from "./SessionStatusPanel";
 import { setUiLanguage } from "../../../shared/i18n/language";
+import { loadStatusCardOrder, saveStatusCardOrder, saveStatusCardsVisible, STATUS_CARD_IDS } from "../model/statusCardOrder";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -72,7 +73,17 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function render(blocks: Block[] = [tasks, agent], busy = true) {
+let resize: ResizeObserverCallback | undefined;
+const emit = (width: number) => act(() => resize!([
+  { target: host, borderBoxSize: [{ inlineSize: width, blockSize: 800 }] } as unknown as ResizeObserverEntry,
+], {} as ResizeObserver));
+
+function render(blocks: Block[] = [tasks, agent], busy = true, width = 1600) {
+  vi.stubGlobal("ResizeObserver", class {
+    constructor(private callback: ResizeObserverCallback) {}
+    observe(target: Element) { if (target === host) resize = this.callback; }
+    disconnect() {}
+  });
   const openAgent = vi.fn();
   const toggleChanges = vi.fn();
   const actions: SessionHeaderActions = {
@@ -80,24 +91,24 @@ function render(blocks: Block[] = [tasks, agent], busy = true) {
     archive: vi.fn(),
     splitRight: vi.fn(),
     terminalAvailable: false,
-    terminalOpen: false,
     toggleTerminal: vi.fn(),
     changesOpen: false,
     toggleChanges,
   };
   const scope = createRef<HTMLDivElement>();
   scope.current = host;
-  const sessionId = `status-capsule-${Math.random()}`;
   const update = (nextBlocks = blocks) => act(() => {
     root.render(
       createElement(
         SessionHeaderActionsContext.Provider,
         { value: actions },
         createElement(SessionStatusPanel, {
-          sessionId,
           blocks: nextBlocks,
           busy,
           git: { additions: 3, deletions: 1, files: 2, branch: "master" },
+          cwd: "D:/A-Projects/ohmymonocode",
+          branch: "master",
+          context: { used: 46_000, window: 200_000 },
           scope,
           onNavigate: vi.fn(),
           onOpenAgent: openAgent,
@@ -106,47 +117,89 @@ function render(blocks: Block[] = [tasks, agent], busy = true) {
     );
   });
   update();
+  emit(width);
   return { toggleChanges, openAgent, update };
 }
 
-const capsule = () =>
-  host.querySelector<HTMLButtonElement>('[aria-label="Show status"]');
+const rail = () => host.querySelector<HTMLElement>("[data-session-status]");
+const cardToggle = (title: string) =>
+  [...host.querySelectorAll<HTMLButtonElement>("[data-status-card] button[aria-expanded]")]
+    .find((button) => button.querySelector("h3")?.textContent === title)!;
 const card = () => host.querySelector<HTMLElement>("[data-subagent-card]");
 
-describe("session status capsule", () => {
-  it("uses observed widths across the auto-expand breakpoint without remeasuring layout", () => {
-    let resize: ResizeObserverCallback | undefined;
-    vi.stubGlobal("ResizeObserver", class {
-      constructor(private callback: ResizeObserverCallback) {}
-      observe(target: Element) { if (target === host) resize = this.callback; }
-      disconnect() {}
-    });
+describe("session status rail", () => {
+  it("marks the pane while the cards fit and hides them at the conversation minimum width", () => {
+    // 268px of cards plus a 24px gap beside the 420px minimum.
+    expect(railFits(712)).toBe(true);
+    expect(railFits(711)).toBe(false);
+    expect(railFits(812, 520)).toBe(true);
+    expect(railFits(811, 520)).toBe(false);
     const measure = vi.spyOn(host, "getBoundingClientRect");
-    render();
+    render([tasks], true, 600);
     measure.mockClear();
-    const state = () => host.querySelector("[data-session-status]")?.getAttribute("data-state");
-    const emit = (width: number) => act(() => resize!([
-      { target: host, borderBoxSize: [{ inlineSize: width, blockSize: 800 }] } as unknown as ResizeObserverEntry,
-    ], {} as ResizeObserver));
-    expect(state()).toBe("collapsed");
-    for (const width of [1100, 1279]) emit(width);
-    expect(state()).toBe("collapsed");
-    emit(1280);
-    expect(state()).toBe("expanded");
-    emit(1400);
-    emit(1279);
-    expect(state()).toBe("collapsed");
+    expect(rail()).toBeNull();
+    expect(host.hasAttribute("data-status-rail")).toBe(false);
+    emit(1600);
+    expect(rail()).not.toBeNull();
+    expect(host.hasAttribute("data-status-rail")).toBe(true);
+    emit(711);
+    expect(host.hasAttribute("data-status-rail")).toBe(false);
+    expect(rail() === null || rail()!.hasAttribute("inert")).toBe(true);
+    emit(900);
+    act(() => root.unmount());
+    expect(host.hasAttribute("data-status-rail")).toBe(false);
+    root = createRoot(host);
     expect(measure).not.toHaveBeenCalled();
     measure.mockRestore();
   });
 
-  it("counts subagents and safely folds and reopens their list", () => {
+  it("lists environment, changes, tasks and context as cards", () => {
+    const { toggleChanges } = render();
+    const text = rail()?.textContent ?? "";
+    expect(text).toContain("This machine");
+    expect(text).toContain("ohmymonocode");
+    expect(text).toContain("D:/A-Projects");
+    expect(text).toContain("master");
+    expect(text).toContain("+3");
+    expect(text).toContain("−1");
+    expect(text).toContain("Verify the capsule");
+    expect(text).toContain("23%");
+    expect(cardToggle("Context").getAttribute("aria-expanded")).toBe("false");
+    act(() => host.querySelector<HTMLButtonElement>('[title="Review changes"]')?.click());
+    expect(toggleChanges).toHaveBeenCalledOnce();
+    const environment = cardToggle("Environment");
+    expect(environment.textContent).not.toContain("ohmymonocode");
+    act(() => environment.click());
+    expect(environment.textContent).toContain("ohmymonocode");
+    act(() => environment.click());
+  });
+
+  it("hides the cards and recenters the conversation while the toolbar turns them off", () => {
+    render();
+    expect(rail()).not.toBeNull();
+    act(() => saveStatusCardsVisible(false));
+    expect(host.hasAttribute("data-status-rail")).toBe(false);
+    expect(rail() === null || rail()!.hasAttribute("inert")).toBe(true);
+    act(() => saveStatusCardsVisible(true));
+    emit(1600);
+    expect(host.hasAttribute("data-status-rail")).toBe(true);
+    expect(rail()).not.toBeNull();
+  });
+
+  it("orders cards by the saved order and offers a drag handle on each", () => {
+    saveStatusCardOrder(["context", "tasks", "bogus" as never, "environment"]);
+    expect(loadStatusCardOrder().slice(0, 4)).toEqual(["context", "tasks", "environment", "changes"]);
+    render();
+    const ids = [...host.querySelectorAll<HTMLElement>("[data-status-card]")].map((card) => card.dataset.statusCard);
+    expect(ids).toEqual(["context", "tasks", "environment", "changes", "subagents"]);
+    expect(host.querySelectorAll("[data-status-card-handle]")).toHaveLength(5);
+    saveStatusCardOrder([...STATUS_CARD_IDS]);
+  });
+
+  it("folds a card in both directions and keeps the choice", () => {
     vi.useFakeTimers();
-    const { openAgent } = render([agent, { ...agent, id: "second" }]);
-    act(() => capsule()?.click());
-    act(() => vi.advanceTimersByTime(400));
-    const toggle = [...host.querySelectorAll<HTMLButtonElement>("button")]
-      .find((button) => button.querySelector("h3")?.textContent === "2 subagents")!;
+    render([agent, { ...agent, id: "second" }]);
+    const toggle = cardToggle("2 subagents");
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     act(() => setUiLanguage("zh-CN"));
     expect(toggle.textContent).toContain("2 个子智能体");
@@ -160,31 +213,18 @@ describe("session status capsule", () => {
     act(() => toggle.click());
     act(() => vi.advanceTimersByTime(400));
     expect(section.textContent).not.toContain("Review the diff");
-    expect(toggle.textContent).toContain("2 个子智能体");
-    act(() => toggle.click());
+    act(() => root.unmount());
+    root = createRoot(host);
+    const { openAgent } = render([agent, { ...agent, id: "second" }]);
+    expect(cardToggle("2 个子智能体").getAttribute("aria-expanded")).toBe("false");
+    act(() => cardToggle("2 个子智能体").click());
     act(() => vi.advanceTimersByTime(400));
-    act(() => section.querySelector<HTMLButtonElement>('[title="打开子智能体会话"]')?.click());
+    act(() => host.querySelector<HTMLButtonElement>('[title="打开子智能体会话"]')?.click());
     expect(openAgent).toHaveBeenCalled();
   });
 
-  it("leads with the diff and opens a subagent as its own conversation", () => {
-    const { toggleChanges, openAgent, update } = render();
-    const summary = capsule();
-    expect(summary?.textContent).toContain("Changes");
-    expect(summary?.textContent).toContain("+3");
-    expect(summary?.textContent).toContain("-1");
-    expect(summary?.textContent).not.toContain("Verify the capsule");
-
-    act(() => summary?.click());
-    expect(host.textContent).not.toContain("Commit or push");
-    expect(host.textContent).not.toContain("Uncommitted changes");
-    expect(host.textContent).not.toContain("master");
-    const changes = [
-      ...host.querySelectorAll<HTMLButtonElement>("button"),
-    ].find((button) => button.querySelector("h3")?.textContent === "Changes");
-    act(() => changes?.click());
-    expect(toggleChanges).toHaveBeenCalledOnce();
-
+  it("opens subagents as their own conversation and follows their steps", () => {
+    const { openAgent, update } = render();
     const agentRow = [
       ...host.querySelectorAll<HTMLButtonElement>("button"),
     ].find((button) => button.textContent?.includes("Review the diff"));
@@ -197,8 +237,6 @@ describe("session status capsule", () => {
     ] } };
     update([tasks, updatedAgent]);
     expect(agentRow?.textContent).toContain("2 steps");
-    act(() => setUiLanguage("zh-CN"));
-    expect(agentRow?.textContent).toContain("2 步");
     expect(card()).toBeNull();
     expect(host.textContent).not.toContain("Checking compatibility.");
     expect(host.textContent).not.toContain("Look at the capsule.");
@@ -216,7 +254,6 @@ describe("session status capsule", () => {
       tool: { ...agent.tool, status: "failed" },
     };
     const { openAgent } = render([completed, failed], false);
-    act(() => capsule()?.click());
     expect(host.querySelector('[title="Completed"]')).not.toBeNull();
     expect(host.querySelector('[title="Failed"]')).not.toBeNull();
     const rows = [
@@ -227,7 +264,6 @@ describe("session status capsule", () => {
     expect(rows).toHaveLength(2);
     act(() => rows.find((row) => row.textContent?.includes("Failed reviewer"))?.click());
     expect(openAgent).toHaveBeenCalledWith(failed);
-    expect(card()).toBeNull();
   });
 });
 

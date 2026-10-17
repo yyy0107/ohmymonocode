@@ -1,17 +1,14 @@
-import { execFile } from "node:child_process";
+import { machineExec as exec, machineFs, machinePath, currentMachineIO } from "./machine-io";
+import { projectMachineKey } from "../src/integrations/harness/core/machine";
 import { createHash, randomUUID } from "node:crypto";
-import { createReadStream, existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import {
-  lstat,
   mkdir,
   open,
-  readFile,
-  readdir,
   rename,
   rm,
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { promisify } from "node:util";
 import type {
   OrchestrationRun,
   OrchestrationTask,
@@ -35,7 +32,6 @@ import {
   withCheckoutRemoval,
 } from "./checkout-guards";
 
-const exec = promisify(execFile);
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_FILES = 20_000;
 const MAX_CHANGED = 500;
@@ -50,6 +46,7 @@ type FileState = {
 };
 type Files = Record<string, FileState>;
 type Manifest = {
+  machine?: string;
   version: 1;
   leadId: string;
   sessionId: string;
@@ -132,7 +129,7 @@ async function scan(
   let savedBytes = 0;
   const capture = async (path: string) => {
     assertRelative(path);
-    const info = await lstat(join(cwd, path)).catch(
+    const info = await machineFs.lstat(machinePath.join(cwd, path)).catch(
       (error: NodeJS.ErrnoException) => {
         if (error.code === "ENOENT") return undefined;
         throw error;
@@ -152,8 +149,7 @@ async function scan(
         "Worker checkout has too many files to verify safely. Its worktree was kept.",
       );
     if (info.isSymbolicLink()) {
-      const { readlink } = await import("node:fs/promises");
-      const target = await readlink(join(cwd, path));
+      const target = await machineFs.readlink(machinePath.join(cwd, path));
       files[path] = {
         kind: "link",
         hash: hash(Buffer.from(target)),
@@ -161,20 +157,18 @@ async function scan(
         size: target.length,
       };
     } else if (!info.isFile() || info.size > MAX_FILE_BYTES) {
-      const digest = createHash("sha256");
-      if (info.isFile())
-        for await (const chunk of createReadStream(join(cwd, path)))
-          digest.update(chunk);
-      else digest.update(`${info.mtimeMs}:${info.size}`);
+      const digest = info.isFile()
+        ? await machineFs.hash(machinePath.join(cwd, path))
+        : hash(Buffer.from(`${info.mtimeMs}:${info.size}`));
       files[path] = {
         kind: "unsupported",
-        hash: digest.digest("hex"),
-        mode: process.platform === "win32" ? 0o644 : info.mode & 0o777,
+        hash: digest,
+        mode: currentMachineIO().pathStyle === "win32" ? 0o644 : info.mode & 0o777,
         size: info.size,
       };
     } else {
-      const bytes = await readFile(join(cwd, path));
-      const after = await lstat(join(cwd, path));
+      const bytes = await machineFs.readFile(machinePath.join(cwd, path));
+      const after = await machineFs.lstat(machinePath.join(cwd, path));
       if (
         after.size !== info.size ||
         after.mtimeMs !== info.mtimeMs ||
@@ -186,7 +180,7 @@ async function scan(
       const state: FileState = {
         kind: "file",
         hash: hash(bytes),
-        mode: process.platform === "win32" ? 0o644 : info.mode & 0o777,
+        mode: currentMachineIO().pathStyle === "win32" ? 0o644 : info.mode & 0o777,
         size: bytes.length,
         bytes: bytes.toString("base64"),
       };
@@ -216,7 +210,7 @@ async function scan(
   }
   while (pending.length) {
     const parent = pending.pop()!;
-    for (const item of await readdir(join(cwd, parent), {
+    for (const item of await machineFs.readdir(machinePath.join(cwd, parent), {
       withFileTypes: true,
     })) {
       if (item.name === ".git") continue;
@@ -311,14 +305,14 @@ async function assertNoLinks(root: string, path: string) {
   assertRelative(path);
   let current = root;
   for (const part of path.split("/")) {
-    current = join(current, part);
-    const info = await lstat(current).catch((error: NodeJS.ErrnoException) => {
+    current = machinePath.join(current, part);
+    const info = await machineFs.lstat(current).catch((error: NodeJS.ErrnoException) => {
       if (error.code === "ENOENT") return undefined;
       throw error;
     });
     if (
       info?.isSymbolicLink() ||
-      (current !== join(root, path) && info && !info.isDirectory())
+      (current !== machinePath.join(root, path) && info && !info.isDirectory())
     )
       throw new Error(
         `Cannot safely write ${path}: its path contains a link or non-directory. The worker worktree was kept.`,
@@ -334,7 +328,7 @@ async function applyState(
   expected?: { state: FileState | undefined },
 ) {
   await assertNoLinks(root, path);
-  const target = join(root, path);
+  const target = machinePath.join(root, path);
   const checkTarget = async () => {
     if (!expected) return true;
     await assertNoLinks(root, path);
@@ -348,8 +342,8 @@ async function applyState(
   };
   if (!state) {
     if (!(await checkTarget())) return;
-    await rm(target, { force: true });
-    if (process.platform !== "win32") {
+    await machineFs.rm(target, { force: true });
+    if (currentMachineIO().key === "local" && process.platform !== "win32") {
       const directory = await open(dirname(target), "r");
       try {
         await directory.sync();
@@ -371,6 +365,16 @@ async function applyState(
     throw new Error(
       `Checkpoint data for ${path} is unavailable or corrupt. The worker worktree was kept.`,
     );
+  if (currentMachineIO().key !== "local") {
+    await machineFs.mkdir(machinePath.dirname(target), { recursive: true });
+    const temporary = machinePath.join(machinePath.dirname(target), `.monocode-integrate-${randomUUID()}`);
+    await machineFs.writeFile(temporary, bytes, { flag: "wx", mode: state.mode });
+    try {
+      await machineFs.chmod(temporary, state.mode);
+      if (await checkTarget()) await machineFs.rename(temporary, target);
+    } finally { await machineFs.rm(temporary, { force: true }); }
+    return;
+  }
   await mkdir(dirname(target), { recursive: true });
   const temporary = join(
     dirname(target),
@@ -416,6 +420,12 @@ export class HostOrchestrationWorkspace {
     for (const row of store.db
       .prepare("SELECT * FROM checkout_cleanup")
       .all()) {
+      if (row.previous) {
+        try {
+          const previous = JSON.parse(String(row.previous)) as HostSession;
+          if (this.store.project(previous.projectId).machine) continue;
+        } catch { /* Corrupt/deleted local recovery is handled below. */ }
+      }
       if (row.previous && existsSync(String(row.path))) {
         try {
           const previous = JSON.parse(String(row.previous));
@@ -436,6 +446,26 @@ export class HostOrchestrationWorkspace {
 
   private dir(id: string) {
     return join(this.root, validateId(id));
+  }
+  /** Remote cleanup journals require their machine connection before recovery. */
+  private async recoverCleanup(id: string): Promise<void> {
+    const row = this.store.db.prepare("SELECT * FROM checkout_cleanup WHERE id=?").get(id);
+    if (!row) return;
+    if (row.previous) {
+      const previous = JSON.parse(String(row.previous)) as HostSession;
+      if (projectMachineKey(this.store.project(previous.projectId).machine) !== currentMachineIO().key)
+        throw new Error("Worker cleanup belongs to a different machine");
+      if (await machineFs.stat(String(row.path)).then(() => true, (error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return false;
+        throw error;
+      })) {
+        const current = this.store.sessionIfExists(previous.session.id);
+        if (current) this.store.transaction(() => this.store.save(
+          { ...previous, revision: current.revision + 1 }, { type: "orchestration.cleanupRecovered" },
+        ));
+      }
+    }
+    this.store.db.prepare("DELETE FROM checkout_cleanup WHERE id=?").run(id);
   }
   /** Called only after the worker conversation is saved durably. */
   releasePreparation(id: string): void {
@@ -468,7 +498,8 @@ export class HostOrchestrationWorkspace {
     const value = this.manifest(task.sessionId);
     if (
       value &&
-      (value.leadId !== run.leadId ||
+      ((value.machine ?? "local") !== currentMachineIO().key ||
+        value.leadId !== run.leadId ||
         value.taskId !== task.id ||
         checkoutPath(value.leadCwd) !==
           checkoutPath(orchestrationCheckoutCwd(run)) ||
@@ -512,7 +543,10 @@ export class HostOrchestrationWorkspace {
   }
   private exclusive<T>(id: string, action: () => Promise<T>): Promise<T> {
     const before = this.tails.get(id) ?? Promise.resolve();
-    const result = before.catch(() => undefined).then(action);
+    const result = before.catch(() => undefined).then(async () => {
+      await this.recoverCleanup(id);
+      return action();
+    });
     this.tails.set(id, result);
     void result
       .finally(() => {
@@ -557,7 +591,7 @@ export class HostOrchestrationWorkspace {
     return this.exclusive(task.sessionId, async () => {
       if (task.workspacePolicy === "shared")
         throw new Error("New Host workers require an isolated checkout");
-      const leadCwd = checkoutPath(orchestrationCheckoutCwd(run));
+      const leadCwd = await machineFs.realpath(orchestrationCheckoutCwd(run));
       const branch = branchFor(task);
       let manifest = this.assignment(run, task);
       const listed = await hostWorktrees(leadCwd);
@@ -582,11 +616,12 @@ export class HostOrchestrationWorkspace {
         );
         manifest = {
           version: 1,
+          machine: currentMachineIO().key,
           leadId: run.leadId,
           sessionId: task.sessionId,
           taskId: task.id,
           leadCwd,
-          workerCwd: join(
+          workerCwd: machinePath.join(
             listed.defaultRoot,
             `wt-${branch.replace(/[^a-zA-Z0-9_-]/g, "-")}`,
           ),
@@ -739,7 +774,7 @@ export class HostOrchestrationWorkspace {
           const scratchDir = join(this.dir(task.sessionId), "scratch");
           await mkdir(scratchDir, { recursive: true, mode: 0o700 });
           return {
-            scratchDir,
+            scratchDir: await currentMachineIO().hostPath(scratchDir),
             workspace: workspaceIdentity(
               orchestrationProjectCwd(run),
               tree.path,
@@ -883,6 +918,7 @@ export class HostOrchestrationWorkspace {
           .sessions()
           .find(
             (entry) =>
+              projectMachineKey(this.store.project(entry.projectId).machine) === currentMachineIO().key &&
               entry.session.id !== task.sessionId &&
               !entry.session.worktreeRemoved &&
               checkoutPathsOverlap(

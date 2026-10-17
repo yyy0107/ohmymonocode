@@ -1,6 +1,8 @@
+import { Scrollbar } from "../../../../../shared/ui/Scrollbar";
 import { workflowEntry } from "./workflow-motion.js";
 import { motion as motionElement } from "motion/react";
 import {
+  useEffect,
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
@@ -184,7 +186,44 @@ function stopClick(event: ReactMouseEvent<HTMLDivElement>) {
   event.stopPropagation();
 }
 
-export function WorkflowTimelineScrollbar({
+export function WorkflowTimelineScrollbar(props: {
+  scrollRef: RefObject<HTMLDivElement | null>;
+  viewport: TimelineViewport;
+}) {
+  return typeof document !== "undefined" && document.documentElement.hasAttribute("data-skin")
+    ? <DesktopTimelineScrollbar {...props} />
+    : <TouchTimelineScrollbar {...props} />;
+}
+
+function DesktopTimelineScrollbar({ scrollRef, viewport }: {
+  scrollRef: RefObject<HTMLDivElement | null>;
+  viewport: TimelineViewport;
+}) {
+  const host = useRef<HTMLDivElement>(null);
+  const bar = useRef<Scrollbar | null>(null);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!host.current || !el) return;
+    const scrollbar = new Scrollbar(
+      host.current,
+      () => ({ offset: el.scrollLeft, viewport: el.clientWidth, content: el.scrollWidth }),
+      (offset) => { el.scrollLeft = offset; },
+      () => 40,
+      "horizontal",
+    );
+    bar.current = scrollbar;
+    el.addEventListener("scroll", scrollbar.update, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", scrollbar.update);
+      scrollbar.destroy();
+      bar.current = null;
+    };
+  }, [scrollRef]);
+  useEffect(() => { bar.current?.update(); }, [viewport]);
+  return <div ref={host} className="wf-desktop-scrollbar" onClick={stopClick} />;
+}
+
+function TouchTimelineScrollbar({
   scrollRef,
   viewport,
 }: {

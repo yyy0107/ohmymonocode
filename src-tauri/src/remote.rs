@@ -13,12 +13,19 @@ use tauri::{AppHandle, Manager, State};
 #[derive(Default)]
 pub struct RemoteConnections {
     store: Mutex<()>,
-    wsl: crate::remote_wsl::WslBridges,
+    shared_host: Mutex<Option<String>>,
     tunnels: Tunnels,
     jobs: Mutex<HashMap<String, Arc<Job>>>,
 }
 
 impl RemoteConnections {
+    pub(crate) fn remember_shared_host(&self, machine: &Machine) -> Result<(), String> {
+        *self
+            .shared_host
+            .lock()
+            .map_err(|_| "Shared Host identity is locked")? = Some(machine.id.clone());
+        Ok(())
+    }
     pub fn shutdown(&self) {
         if let Ok(jobs) = self.jobs.lock() {
             for job in jobs.values() {
@@ -26,7 +33,6 @@ impl RemoteConnections {
             }
         }
         self.tunnels.clear();
-        self.wsl.shutdown();
     }
     fn job(&self, id: &str) -> Result<Arc<Job>, String> {
         self.jobs
@@ -49,7 +55,8 @@ struct StoredMachine {
     #[serde(default)]
     ssh: Option<SshTarget>,
     #[serde(default)]
-    wsl: Option<crate::remote_wsl::WslTarget>,
+    #[serde(rename = "wsl", skip_serializing_if = "Option::is_none")]
+    legacy_wsl: Option<Value>,
 }
 
 #[derive(Clone, Serialize)]
@@ -60,10 +67,12 @@ pub struct Machine {
     endpoint: String,
     environment_id: String,
     ssh: Option<SshTarget>,
-    wsl: Option<crate::remote_wsl::WslTarget>,
 }
 
 impl StoredMachine {
+    fn is_legacy_wsl(&self) -> bool {
+        self.legacy_wsl.is_some() || self.endpoint.starts_with("wsl://")
+    }
     fn public(&self) -> Machine {
         Machine {
             id: self.id.clone(),
@@ -71,7 +80,6 @@ impl StoredMachine {
             endpoint: self.endpoint.clone(),
             environment_id: self.environment_id.clone(),
             ssh: self.ssh.clone(),
-            wsl: self.wsl.clone(),
         }
     }
 }
@@ -172,23 +180,6 @@ fn rpc_result(status: u16, value: Value) -> Result<Value, String> {
         .ok_or_else(|| "Invalid host response".into())
 }
 
-fn wsl_rpc(
-    app: &AppHandle,
-    state: &RemoteConnections,
-    distribution: &str,
-    environment_id: Option<&str>,
-    method: &str,
-    params: Value,
-) -> Result<Value, String> {
-    let (status, value) = state.wsl.request(
-        app,
-        distribution,
-        &rpc_payload(environment_id, method, params),
-        rpc_timeout(method),
-    )?;
-    rpc_result(status, value)
-}
-
 fn rpc(
     endpoint: &str,
     token: &str,
@@ -257,6 +248,39 @@ fn store_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
         .join("remote-machines.json"))
 }
 
+fn remove_imported_wsl(machines: &mut Vec<StoredMachine>, distribution: &str) -> bool {
+    let before = machines.len();
+    machines.retain(|machine| {
+        machine.ssh.is_some()
+            || !(machine
+                .legacy_wsl
+                .as_ref()
+                .and_then(|target| target.get("distribution"))
+                .and_then(Value::as_str)
+                == Some(distribution)
+                || machine.endpoint.strip_prefix("wsl://") == Some(distribution))
+    });
+    before != machines.len()
+}
+
+/// Call only after the shared Host has completed the distribution's import.
+fn forget_legacy_wsl(
+    app: &AppHandle,
+    state: &RemoteConnections,
+    distribution: &str,
+) -> Result<(), String> {
+    let _guard = state
+        .store
+        .lock()
+        .map_err(|_| "Connection store is locked")?;
+    let path = store_path(app)?;
+    let mut machines = read(&path)?;
+    if remove_imported_wsl(&mut machines, distribution) {
+        write(&path, &machines)?;
+    }
+    Ok(())
+}
+
 #[tauri::command(async)]
 pub fn remote_machines(
     app: AppHandle,
@@ -268,6 +292,7 @@ pub fn remote_machines(
         .map_err(|_| "Connection store is locked")?;
     Ok(read(&store_path(&app)?)?
         .iter()
+        .filter(|machine| !machine.is_legacy_wsl())
         .map(StoredMachine::public)
         .collect())
 }
@@ -325,7 +350,7 @@ pub fn remote_connect(
         environment_id,
         token,
         ssh: existing.and_then(|m| m.ssh.clone()),
-        wsl: existing.and_then(|m| m.wsl.clone()),
+        legacy_wsl: None,
     };
     machines.retain(|m| m.id != id);
     machines.push(machine.clone());
@@ -345,16 +370,9 @@ pub fn remote_disconnect(
         .map_err(|_| "Connection store is locked")?;
     let path = store_path(&app)?;
     let mut machines = read(&path)?;
-    let removed = machines
-        .iter()
-        .find(|m| m.id == machine_id)
-        .and_then(|m| m.wsl.clone());
     machines.retain(|m| m.id != machine_id);
     write(&path, &machines)?;
     state.tunnels.remove(&machine_id);
-    if let Some(target) = removed {
-        state.wsl.close(&target.distribution);
-    }
     Ok(())
 }
 
@@ -379,22 +397,10 @@ pub fn remote_request(
             .find(|m| m.id == machine_id)
             .ok_or("Machine is no longer connected")?
     };
-    let result = if let Some(target) = &machine.wsl {
-        // The bridge restarts setup and retries requests it never delivered.
-        // The Host rejects a request addressed to another environment.
-        let result = wsl_rpc(
-            &app,
-            &state,
-            &target.distribution,
-            Some(&machine.environment_id),
-            &method,
-            params,
-        )?;
-        if !machine.token.is_empty() {
-            forget_wsl_credential(&app, &state, &machine.id)?;
-        }
-        result
-    } else {
+    if machine.is_legacy_wsl() {
+        return Err("Open this WSL project through the shared desktop Host.".into());
+    }
+    let result = {
         let tunnel_lease = if let Some(target) = &machine.ssh {
             Some(state.tunnels.endpoint(&machine.id, target)?)
         } else {
@@ -424,98 +430,23 @@ pub fn remote_request(
     {
         return Err("Host identity changed. Add this machine again before continuing.".into());
     }
-    Ok(result)
-}
-
-/// Connections saved before the stdio bridge kept a TCP endpoint and the Host
-/// credential on Windows. The bridge needs neither.
-fn forget_wsl_credential(
-    app: &AppHandle,
-    state: &RemoteConnections,
-    machine_id: &str,
-) -> Result<(), String> {
-    let _guard = state
-        .store
-        .lock()
-        .map_err(|_| "Connection store is locked")?;
-    let path = store_path(app)?;
-    let mut machines = read(&path)?;
-    for machine in machines.iter_mut().filter(|m| m.id == machine_id) {
-        if let Some(target) = &machine.wsl {
-            machine.endpoint = format!("wsl://{}", target.distribution);
-            machine.token.clear();
+    if method == "projects.open"
+        && state
+            .shared_host
+            .lock()
+            .map_err(|_| "Shared Host identity is locked")?
+            .as_deref()
+            == Some(machine.id.as_str())
+        && result.pointer("/machine/kind").and_then(Value::as_str) == Some("wsl")
+    {
+        if let Some(distribution) = result
+            .pointer("/machine/distribution")
+            .and_then(Value::as_str)
+        {
+            forget_legacy_wsl(&app, &state, distribution)?;
         }
     }
-    write(&path, &machines)
-}
-
-fn prepare_wsl_machine(
-    app: &AppHandle,
-    state: &RemoteConnections,
-    distribution: &str,
-) -> Result<StoredMachine, String> {
-    let descriptor = wsl_rpc(
-        app,
-        state,
-        distribution,
-        None,
-        "environment.describe",
-        json!({}),
-    )?;
-    let environment_id = descriptor
-        .get("environmentId")
-        .and_then(Value::as_str)
-        .filter(|id| !id.is_empty())
-        .map(String::from);
-    let Some(environment_id) = environment_id
-        .filter(|_| descriptor.get("protocolVersion").and_then(Value::as_u64) == Some(1))
-    else {
-        return Err("Could not verify the WSL Host identity.".into());
-    };
-    let _guard = state
-        .store
-        .lock()
-        .map_err(|_| "Connection store is locked")?;
-    let path = store_path(app)?;
-    let mut machines = read(&path)?;
-    let existing = machines.iter().find(|m| {
-        m.wsl
-            .as_ref()
-            .is_some_and(|wsl| wsl.distribution == distribution)
-    });
-    if existing.is_some_and(|m| m.environment_id != environment_id) {
-        return Err(
-            "WSL Host identity changed. Remove this connection before adding it again.".into(),
-        );
-    }
-    let machine = StoredMachine {
-        id: existing
-            .map(|m| m.id.clone())
-            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
-        name: format!("WSL · {distribution}"),
-        // Device-local: requests go through the WSL bridge, which keeps the
-        // Host credential inside the distribution.
-        endpoint: format!("wsl://{distribution}"),
-        environment_id,
-        token: String::new(),
-        ssh: None,
-        wsl: Some(crate::remote_wsl::WslTarget {
-            distribution: distribution.into(),
-        }),
-    };
-    machines.retain(|m| m.id != machine.id);
-    machines.push(machine.clone());
-    write(&path, &machines)?;
-    Ok(machine)
-}
-
-#[tauri::command(async)]
-pub fn remote_wsl_connect(
-    app: AppHandle,
-    state: State<'_, RemoteConnections>,
-    distribution: String,
-) -> Result<Machine, String> {
-    prepare_wsl_machine(&app, &state, &distribution).map(|machine| machine.public())
+    Ok(result)
 }
 
 fn supported_remote_method(method: &str) -> bool {
@@ -751,7 +682,7 @@ fn start_ssh_job(
                     environment_id,
                     token,
                     ssh: Some(target.clone()),
-                    wsl: None,
+                    legacy_wsl: None,
                 }
             };
             job.message("Opening the secure connection…");
@@ -1050,14 +981,11 @@ mod tests {
             environment_id: "env".into(),
             token: "secret".into(),
             ssh: None,
-            wsl: Some(crate::remote_wsl::WslTarget {
-                distribution: "Ubuntu".into(),
-            }),
+            legacy_wsl: None,
         };
         let value = serde_json::to_string(&stored.public()).unwrap();
         assert!(!value.contains("secret"));
         assert!(!value.contains("token"));
-        assert!(value.contains("Ubuntu"));
     }
 
     #[test]
@@ -1067,6 +995,45 @@ mod tests {
             "environmentId": "env", "token": "secret"
         }))
         .unwrap();
-        assert!(stored.wsl.is_none());
+        assert!(!stored.is_legacy_wsl());
+    }
+
+    #[test]
+    fn successful_wsl_import_forgets_only_its_legacy_distribution() {
+        let machine = |id: &str, endpoint: &str, distribution: Option<&str>| StoredMachine {
+            id: id.into(),
+            name: id.into(),
+            endpoint: endpoint.into(),
+            environment_id: id.into(),
+            token: "retained-secret".into(),
+            ssh: None,
+            legacy_wsl: distribution.map(|distribution| json!({ "distribution": distribution })),
+        };
+        let mut ssh = machine("ssh", "http://127.0.0.1:3774", Some("Ubuntu"));
+        ssh.ssh = Some(SshTarget {
+            target: "user@host".into(),
+            port: None,
+            remote_port: 3774,
+        });
+        let mut machines = vec![
+            machine("old-metadata", "wsl://Ubuntu", Some("Ubuntu")),
+            machine("old-endpoint", "wsl://Ubuntu", None),
+            machine("other", "wsl://Ubuntu-26.04", Some("Ubuntu-26.04")),
+            machine("unrecognized", "wsl://missing", None),
+            machine("shared", "http://127.0.0.1:4321", None),
+            ssh,
+        ];
+        assert!(remove_imported_wsl(&mut machines, "Ubuntu"));
+        assert_eq!(
+            machines
+                .iter()
+                .map(|machine| machine.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["other", "unrecognized", "shared", "ssh"]
+        );
+        assert!(machines
+            .iter()
+            .all(|machine| machine.token == "retained-secret"));
+        assert!(!remove_imported_wsl(&mut machines, "Ubuntu"));
     }
 }

@@ -7,9 +7,12 @@ import {
 } from "../../features/connections/model/connections";
 import { remoteProjectFor } from "../../features/connections/model/remoteProjects";
 import {
+  createProjectTerminal,
   findProjectTerminal,
+  mapProjectTerminal,
   moveDockToPane,
   movePaneToDock,
+  withDockOpen,
   type DockSide,
   type ProjectTerminalDock as ProjectTerminal,
 } from "../../features/projects/model/projectTerminal";
@@ -25,6 +28,7 @@ import {
   leafIds,
   moveTabPane,
   neighborLeafId,
+  newTerminalFile,
   setSplitRatio,
   splitPane,
   type FocusDir,
@@ -183,6 +187,70 @@ export function useWorkspacePaneActions({
     setProjectTerminals(nextDocks);
     setProjectTerminalFocused(false);
   }, []);
+
+  /**
+   * The chat header's terminal toggle works like its files toggle: the
+   * project's terminals join the session's layout, so split view shows them as
+   * a card and full view as a shared tab. Hiding returns them to the closed
+   * dock, where their shells keep running.
+   */
+  const onToggleSessionTerminal = useCallback(
+    (sessionId: string, cwd: string) => {
+      const projectPath = projectCwdRef.current;
+      if (!supportsProjectTerminal(projectPath)) return;
+      const tab = tabsRef.current.find((entry) =>
+        leafIds(entry.layout).includes(sessionId),
+      );
+      if (!tab) return;
+      const placed = new Set(leafIds(tab.layout));
+      const shown = (tab.terminalPanes ?? []).filter((pane) =>
+        placed.has(pane.id),
+      );
+      let nextTab = tab;
+      let nextDocks = projectTerminalsRef.current;
+      if (shown.length > 0) {
+        const side =
+          findProjectTerminal(nextDocks, projectPath)?.side ??
+          lastDockSideRef.current ??
+          "bottom";
+        for (const pane of shown) {
+          const moved = movePaneToDock(nextTab, nextDocks, pane.id, projectPath, side, {
+            width: window.innerWidth,
+            height: window.innerHeight,
+          });
+          if (!moved) continue;
+          nextTab = moved.tab;
+          nextDocks = moved.docks;
+        }
+        nextDocks = mapProjectTerminal(nextDocks, projectPath, (dock) =>
+          withDockOpen(dock, false),
+        );
+      } else {
+        const existing = findProjectTerminal(nextDocks, projectPath);
+        const dock = existing?.pane.files.length
+          ? existing
+          : createProjectTerminal(
+              projectPath,
+              newTerminalFile(cwd || projectPath, undefined, projectPath),
+              existing?.side ?? lastDockSideRef.current ?? "bottom",
+            );
+        const moved = moveDockToPane(tab, dock, sessionId, dock.side);
+        if (!moved) return;
+        nextTab = moved;
+        nextDocks = nextDocks.filter((entry) => entry !== existing);
+        setComposerFocused(false);
+      }
+      const nextTabs = tabsRef.current.map((entry) =>
+        entry.id === tab.id ? nextTab : entry,
+      );
+      tabsRef.current = nextTabs;
+      projectTerminalsRef.current = nextDocks;
+      setTabs(nextTabs);
+      setProjectTerminals(nextDocks);
+      setProjectTerminalFocused(false);
+    },
+    [],
+  );
 
   /** A split terminal pane returns to the project's dock, opening one if needed. */
   const onMovePaneToDock = useCallback(
@@ -364,6 +432,7 @@ export function useWorkspacePaneActions({
     onMovePane,
     onMoveDockToPane,
     onMovePaneToDock,
+    onToggleSessionTerminal,
     onPlaceSessionOnPane,
     onFitPaneLayout,
     onRatio,

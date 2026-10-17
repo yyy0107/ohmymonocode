@@ -1,5 +1,6 @@
 import { AcpClient } from "../../core/acp";
 import {
+  childUsesSelectedMachine,
   execChild,
   killChild,
   resolveGrokBinary,
@@ -141,6 +142,7 @@ async function ensureLive(
   if (
     live &&
     !live.closed &&
+    childUsesSelectedMachine(TEXT_CHILD_ID) &&
     live.cwd === cwd &&
     live.model === model &&
     live.settingsKey === settingsKey
@@ -299,6 +301,8 @@ async function deleteTextSession(session: LiveText): Promise<void> {
     ["--no-auto-update", "sessions", "delete", session.acpSessionId],
     session.cwd,
     "grok",
+    undefined,
+    TEXT_CHILD_ID,
   ).catch((error) =>
     console.debug("[monocode] Grok text session cleanup", error),
   );

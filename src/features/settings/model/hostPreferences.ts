@@ -165,10 +165,23 @@ export async function initializeHostPreferences() {
     }
     // Project discovery is a shared preference write. Bootstrap must not mutate
     // the retained legacy localStorage before the Host adapter is installed.
-    const { knownProjectPaths, normalizeProjectPath, rememberProject } = await import("../../projects/model/recents");
+    const { knownProjectPaths, normalizeProjectPath, rememberProject, replaceProjectPath } = await import("../../projects/model/recents");
+    const { parseWslUncPath, wslPath } = await import("../../../shared/lib/wslPaths");
+    const { IS_WIN } = await import("../../../platform/tauri/platform");
+    const projects = sharedProjects();
+    // Older bootstrap versions remembered WSL cwd without its machine identity.
+    // Repair only unambiguous matches on Windows; another distro or a local
+    // project with the same cwd must never have its identity guessed.
+    for (const path of knownProjectPaths()) {
+      const unc = parseWslUncPath(path);
+      const matches = IS_WIN ? projects.filter(project => normalizeProjectPath(project.cwd) === normalizeProjectPath(path)) : [];
+      const replacement = unc ? wslPath(unc.machine.distribution, unc.hostPath)
+        : matches.length === 1 && matches[0].machine?.kind === "wsl" ? matches[0].key : undefined;
+      if (replacement) replaceProjectPath(path, replacement);
+    }
     const known = new Set(knownProjectPaths().map(normalizeProjectPath));
-    for (const project of sharedProjects()) {
-      if (!known.has(normalizeProjectPath(project.cwd))) rememberProject(project.cwd);
+    for (const project of projects) {
+      if (!known.has(normalizeProjectPath(project.key))) rememberProject(project.key);
     }
   } catch (error) {
     disposeStores();

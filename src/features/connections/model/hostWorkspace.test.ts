@@ -102,3 +102,19 @@ it("keeps mixed-Host worktree paths scoped to their own project", async () => {
     "remote://host-a/work/app-trees/one", "remote://host-b/remote-trees/two",
   ]);
 });
+
+it("restores WSL identities without turning Linux paths into native Windows paths", async () => {
+  configureSharedHost("host-a", [
+    { id: "wsl-a", cwd: "/work/app", name: "App", machine: { kind: "wsl", distribution: "Ubuntu" } },
+  ], "machine-a");
+  const session = { ...newSession("codex", "wsl://Ubuntu/work/app"), worktreeCwd: "wsl://Ubuntu/work/app-trees/fix" };
+  const tab = newTab(session.id);
+  const encoded = await encodeHostWorkspace(collectWorkspaceSnapshot([tab], [session], tab.id, session.cwd, new Map()));
+  expect(encoded.projects).toEqual([{ environmentId: "host-a", projectId: "wsl-a", cwd: "/work/app", machine: { kind: "wsl", distribution: "Ubuntu" } }]);
+  configureSharedHost(undefined, []);
+  configureSharedHost("host-a", [], "machine-a");
+  const restored = decodeHostWorkspace(encoded)!;
+  expect(restored.projectCwd).toBe("wsl://Ubuntu/work/app");
+  expect(restored.sessions[0].worktreeCwd).toBe("wsl://Ubuntu/work/app-trees/fix");
+  expect(remoteProjectFor(restored.projectCwd)).toMatchObject({ projectId: "wsl-a", local: true, machine: { kind: "wsl", distribution: "Ubuntu" } });
+});

@@ -439,14 +439,36 @@ export class MobileClient {
       throw new Error("Enter a valid device token from MonoCode Host.");
     if (!this.connection) this.setConnectionStatus({ state: "reconnecting" });
     try {
-      const descriptor = requireHostDescriptor(
-        await this.requestWith<HostDescriptor>(
-          { endpoint, token },
-          "environment.describe",
-          { supportedProviders: REMOTE_PROVIDERS },
-        ),
-      );
       const pending = await this.pending();
+      if (pending && pending.endpoint !== endpoint)
+        throw new Error(
+          "Reconnect to the previous Host to resolve its pending request first.",
+        );
+      let descriptor: HostDescriptor;
+      if (/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(token)) {
+        const paired = await this.requestWith<{ id: string; token: string; host: HostDescriptor }>(
+          { endpoint, token },
+          "devices.pair",
+          {
+            supportedProviders: REMOTE_PROVIDERS,
+            ...(pending ? { expectedEnvironmentId: pending.environmentId } : {}),
+          },
+        );
+        if (!paired || typeof paired.token !== "string" || !/^[A-Za-z0-9_-]+$/.test(paired.token))
+          throw new Error("Invalid Host response.");
+        descriptor = requireHostDescriptor(paired.host);
+        // Save the private credential with the descriptor from the same receipt.
+        // A second network request must not lose an already redeemed code.
+        token = paired.token;
+      } else {
+        descriptor = requireHostDescriptor(
+          await this.requestWith<HostDescriptor>(
+            { endpoint, token },
+            "environment.describe",
+            { supportedProviders: REMOTE_PROVIDERS },
+          ),
+        );
+      }
       if (
         pending &&
         (pending.endpoint !== endpoint ||
@@ -559,7 +581,7 @@ export class MobileClient {
     options?: { timeoutMs?: number },
   ): Promise<T> {
     try {
-      if (method === "environment.describe") {
+      if (method === "environment.describe" || method === "devices.pair") {
         const deviceInfo = await (this.deviceInfo ??= readMobileDeviceInfo());
         if (deviceInfo) params = { ...params, deviceInfo };
       }
@@ -883,8 +905,9 @@ export class MobileClient {
       ...(sessionId ? { sessionId } : {}), ...(refresh ? { refresh: true } : {}) });
   }
 
-  async readBinaryFile(path: string): Promise<Uint8Array> {
+  async readBinaryFile(path: string, projectId?: string): Promise<Uint8Array> {
     const base64 = await this.rpc<string>("workspace.run", {
+      ...(projectId ? { projectId } : {}),
       command: "read_binary_file",
       args: { path },
     });

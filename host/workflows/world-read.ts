@@ -14,12 +14,7 @@
 //      因为只有这一侧能"不生产"——让 ripgrep 在 2000 条上停手，胜过物化一百万条再回头量。
 //   3. **git 的固定 argv**。构造在 workflow-git-world-read.ts（纯），spawn 在这里。
 
-import {
-  isAbsolute as isAbsolutePath,
-  relative as relativePath,
-  resolve as resolvePath,
-  sep,
-} from "node:path";
+import { machinePath } from "../machine-io";
 import type { ExecutionPort, FileSystemPort } from "./node-ports.js";
 import { WORLD_READ_CAPS, WorkflowError, type WorldReadOp } from "../../src/integrations/workflow/dynamic-workflow/index.js";
 import {
@@ -572,10 +567,10 @@ function capExceeded(message: string): WorkflowError {
  * 路径给出不同答案，而其中一处是安全边界。
  */
 export function resolveWithinWorkspace(cwd: string, arg: string): string | undefined {
-  const resolved = resolvePath(cwd, arg);
-  const rel = relativePath(cwd, resolved);
-  const escapes = rel === ".." || rel.startsWith(`..${sep}`) || rel.startsWith("../");
-  return escapes || isAbsolutePath(rel) ? undefined : resolved;
+  const resolved = machinePath.resolve(cwd, arg);
+  const rel = machinePath.relative(cwd, resolved);
+  const escapes = rel === ".." || rel.startsWith(`..${machinePath.sep}`) || rel.startsWith("../");
+  return escapes || machinePath.isAbsolute(rel) ? undefined : resolved;
 }
 
 /** {@link resolveWithinWorkspace} 的世界读取包装：越界即结构化 `DriverError`（脚本可 `catch`）。 */
@@ -599,7 +594,7 @@ function assertWithinWorkspace(op: string, cwd: string, arg: string): string {
  * 值——工作区相对、正斜杠——而"同一种值"必须只有一处定义，否则两处迟早会在 windows 上分叉。
  */
 export function toWorkspaceRelative(cwd: string, path: string): string {
-  const rel = resolvePath(cwd, path) === path ? relativePath(cwd, path) : path;
+  const rel = machinePath.resolve(cwd, path) === path ? machinePath.relative(cwd, path) : path;
   return rel.replace(/\\/g, "/");
 }
 
