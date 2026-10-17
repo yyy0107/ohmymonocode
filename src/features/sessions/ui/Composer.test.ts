@@ -34,7 +34,8 @@ vi.mock("../../source-control/hooks/useProjectBranches", () => ({
   }),
 }));
 
-import { Composer, ComposerAction } from "./Composer";
+import { Composer } from "./Composer";
+import { ComposerAction } from "./ComposerAction";
 import { startWorktreeCreation } from "../../source-control/model/worktreeCreation";
 import {
   clearMcpSettingsCache,

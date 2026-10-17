@@ -1,19 +1,16 @@
 import { useInlineBreakpoints } from "../../../shared/hooks/useInlineBreakpoints";
 import { MessageInput } from "../../../shared/ui/messaging/MessageInput";
-import { animate, motion, useMotionValue } from "motion/react";
-import { panelTransition, immediateTransition, springs, motionGeometry } from "../../../shared/motion/tokens";
+import { motion } from "motion/react";
+import { panelTransition, immediateTransition } from "../../../shared/motion/tokens";
 import { useMotionPreference } from "../../../shared/motion/useMotionPreference";
 import { MessageQueue } from "./MessageQueue";
 import { MenuHover } from "../../../shared/ui/MenuHover";
 import type { SessionModelSettings } from "../model/models";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
-  ArrowUp,
   AiIdea,
   Check,
   CircleDashed,
-  CircleStop,
-  CornerDownLeft,
   CursorMagicSelection,
   FilePlus,
   Folder,
@@ -22,7 +19,6 @@ import {
   Internet,
   Plus,
   Share,
-  StickyNote,
   Terminal,
   X,
 } from "../../../shared/ui/icons";
@@ -64,19 +60,12 @@ import {
 import { dragPointToClient } from "../../../shared/lib/dragPoint";
 import type { ContextUsage } from "../model/contextUsage";
 import {
-  loadProjectFiles,
   peekProjectFiles,
-  recentOpenedFiles,
-  subscribeProjectFiles,
 } from "../../connections/files/model/fileIndex";
 import {
-  buildMentionIndex,
-  fileMentionParts,
   mentionLabel,
   mentionTokenAt,
-  rankMentionFiles,
   replaceMentionToken,
-  type MentionIndex,
   type MentionToken,
 } from "../../connections/files/model/fileMentions";
 import type { ProjectFile } from "../../../platform/tauri/fs";
@@ -116,7 +105,6 @@ import {
   hasNativeCommands,
   isNativeCommandPrompt,
   replaceSlashToken,
-  skillTextParts,
   slashTokenAt,
   type Skill,
   type SlashToken,
@@ -137,7 +125,6 @@ import { resolveWorktreeBase } from "../../source-control/model/worktreeBase";
 import { CwdPicker } from "../../projects/ui/CwdPicker";
 import { FileMentionPicker } from "./FileMentionPicker";
 import { McpServerPicker } from "./McpServerPicker";
-import { FileTypeIcon } from "../../connections/files/ui/FileTypeIcon";
 import { InboxMiniCard } from "../../inbox/ui/InboxMiniCard";
 import { NoteMiniCard } from "../../notes/ui/NoteMiniCard";
 import { HandoffMiniCard } from "./HandoffMiniCard";
@@ -150,9 +137,7 @@ import { consumeQuoteRequest, type QuoteRequest } from "../model/quoteDraft";
 import { useTabGroupLogos } from "../../projects/hooks/useTabGroupLogos";
 import { useProjectBranchesState } from "../../source-control/hooks/useProjectBranches";
 import {
-  COMPOSER_RUNNER_CHANGE_EVENT,
   MODEL_CONTROLS_DEFAULT,
-  loadComposerRunner,
   loadModelControls,
   loadNotesEnabled,
   subscribeModelControls,
@@ -160,11 +145,6 @@ import {
 } from "../../settings/model/settings";
 import {
   isNoteMentionPath,
-  loadNotes,
-  peekNotes,
-  rankNoteFiles,
-  notesAsProjectFiles,
-  type Note,
   type NoteComposerCard,
 } from "../../notes";
 import { resolveTabGroupLogo } from "../../workspace/model/tabGroups";
@@ -186,8 +166,6 @@ import {
   leadingModeCommand,
   MODE_COMMAND_INDENT,
   ModeCommandPill,
-  ModeCommandText,
-  type ModeCommandToken,
 } from "./modeCommands";
 import {
   BTW_COMMAND,
@@ -199,29 +177,24 @@ import { COMPACT_COMMAND, isCompactCommand } from "../model/compact";
 import { MCP_COMMAND, isMcpCommand } from "../model/mcpCommand";
 import {
   mcpContextText,
-  mcpTagParts,
   newMcpTag,
   taggedMcpServers,
-  type McpTag,
 } from "../model/mcpPicker";
 import {
   beginComposerAttachmentRead,
-  getComposerMcpTags,
   peekComposerAttachments,
   setComposerAttachmentCount,
   setComposerDraft,
-  setComposerMcpTags,
   stashComposerAttachments,
   takeComposerAttachments,
 } from "../model/draftCache";
-import { type McpConnection } from "../../settings/model/mcp";
-import {
-  getCachedMcpSettings,
-  loadMcpSettings,
-  subscribeMcpSettings,
-  type McpSettingsSnapshot,
-} from "../../settings/model/mcpSettingsCache";
 import type { LastTurnRecall } from "../model/editLastTurn";
+import { useComposerMcpPicker } from "./useComposerMcpPicker";
+import { useComposerMentionCatalog } from "./useComposerMentionCatalog";
+import { useComposerRunner } from "./useComposerRunner";
+import { useSendKick } from "./useSendKick";
+import { ComposerHighlight } from "./ComposerHighlight";
+import { ComposerAction, ToolButton } from "./ComposerAction";
 
 const COMPOSER_BREAKPOINTS = [220, 280, 360, 480] as const;
 
@@ -335,40 +308,6 @@ type Props = {
 const EMPTY_MODEL_SETTINGS: Record<string, string> = {};
 const EMPTY_RECENTS: RecentProject[] = [];
 const EMPTY_QUEUE: QueuedMessage[] = [];
-
-function ToolButton({
-  active,
-  disabled,
-  label,
-  onClick,
-  children,
-}: {
-  active?: boolean;
-  disabled?: boolean;
-  label: string;
-  onClick?: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      disabled={disabled}
-      aria-expanded={active}
-      aria-haspopup="menu"
-      onMouseDown={(event) => event.preventDefault()}
-      onClick={onClick}
-      className={`composer-plus grid size-6.5 shrink-0 place-items-center rounded-md ${
-        active
-          ? "bg-selection-emphasis text-content"
-          : "bg-selection text-content/50 hover:bg-selection-hover hover:text-content"
-      } disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-content/50`}
-    >
-      {children}
-    </button>
-  );
-}
 
 export function Composer({
   enabled = true,
@@ -534,32 +473,8 @@ export function Composer({
     () => restoredAttachments?.attachments ?? [],
   );
   const [pasteError, setPasteError] = useState<string | null>(null);
-  // Skins play a short kick on the send control as a message leaves.
-  const [sendKick, setSendKick] = useState(false);
   const reducedMotion = useMotionPreference();
-  const sendScale = useMotionValue(1);
-  useLayoutEffect(() => {
-    if (!sendKick) return;
-    if (reducedMotion) {
-      sendScale.set(1);
-      setSendKick(false);
-      return;
-    }
-    let stopped = false;
-    let settle: ReturnType<typeof animate> | undefined;
-    sendScale.set(motionGeometry.sendKickStart);
-    const kick = animate(sendScale, motionGeometry.sendKickPeak, {
-      ...springs.press,
-      onComplete: () => {
-        if (stopped) return;
-        settle = animate(sendScale, 1, {
-          ...springs.press,
-          onComplete: () => { if (!stopped) setSendKick(false); },
-        });
-      },
-    });
-    return () => { stopped = true; kick.stop(); settle?.stop(); };
-  }, [sendKick, reducedMotion, sendScale]);
+  const { sendKick, setSendKick, sendScale } = useSendKick(reducedMotion);
   const [fileDrag, setFileDrag] = useState(false);
   const [plusOpen, setPlusOpen] = useState(false);
   const [planSelected, setPlanSelected] = useState(false);
@@ -569,23 +484,23 @@ export function Composer({
   const [slash, setSlash] = useState<SlashToken | null>(null);
   const [skillActive, setSkillActive] = useState(0);
   const [creatingSkill, setCreatingSkill] = useState(false);
-  const [mcpPickerOpen, setMcpPickerOpen] = useState(false);
-  const [mcpConnections, setMcpConnections] = useState<McpConnection[]>([]);
-  const [mcpStatus, setMcpStatus] = useState<Map<string, string>>(new Map());
-  const [mcpLoading, setMcpLoading] = useState(false);
-  const [mcpError, setMcpError] = useState("");
-  const [selectedMcp, setSelectedMcp] = useState<McpTag[]>(() =>
-    sessionId ? getComposerMcpTags(sessionId) : [],
-  );
-  const mcpInsertAt = useRef<number | null>(null);
+  const {
+    mcpPickerOpen,
+    setMcpPickerOpen,
+    mcpConnections,
+    mcpStatus,
+    mcpLoading,
+    mcpError,
+    selectedMcp,
+    setSelectedMcp,
+    mcpInsertAt,
+    openMcpPicker,
+  } = useComposerMcpPicker({ executionCwd, harness, sessionId });
   const [createError, setCreateError] = useState<string | null>(null);
   const [createBusy, setCreateBusy] = useState(false);
   const remote = remoteSession;
   // Local indexes (files, skills) must never read a remote session's path.
   const localCwd = remote ? "" : executionCwd;
-  const [files, setFiles] = useState<ProjectFile[]>(
-    () => peekProjectFiles(localCwd) ?? [],
-  );
   const notesEnabled = useSyncExternalStore(
     subscribeNotesEnabled,
     loadNotesEnabled,
@@ -597,14 +512,9 @@ export function Composer({
     () => MODEL_CONTROLS_DEFAULT,
   );
   const controlsBeside = modelControls === "beside";
-  const [notes, setNotes] = useState<Note[]>(() => peekNotes() ?? []);
   const [mention, setMention] = useState<MentionToken | null>(null);
-  const [mentionActive, setMentionActive] = useState(0);
   const [resendEdited, setResendEdited] = useState(false);
-  const [runnerEnabled, setRunnerEnabled] = useState(loadComposerRunner);
-  const [runnerLive, setRunnerLive] = useState(
-    () => busy && loadComposerRunner(),
-  );
+  const { runnerEnabled, runnerLive, setRunnerLive } = useComposerRunner(busy);
   const groupLogos = useTabGroupLogos();
   const projectLogoPath = resolveTabGroupLogo(projectKey(cwd), groupLogos);
 
@@ -615,6 +525,15 @@ export function Composer({
 
   const mentionOpen =
     !remote && mention !== null && (looksLikeProject(cwd) || notesEnabled);
+  const { mentionIndex, mentionIndexRef, rankedFiles, mentionActive, setMentionActive } =
+    useComposerMentionCatalog({
+      localCwd,
+      executionCwd,
+      cwd,
+      mentionOpen,
+      mentionQuery: mention?.query,
+      notesEnabled,
+    });
   const navigationEmpty =
     draft.length === 0 &&
     attachments.length === 0 &&
@@ -701,32 +620,6 @@ export function Composer({
     // The indent can rewrap the first line after the input already resized.
     if (ref.current) resizeComposer(ref.current);
   }, [modeIndent]);
-  const mentionFiles = useMemo(
-    () => (notesEnabled ? [...files, ...notesAsProjectFiles(notes)] : files),
-    [files, notes, notesEnabled],
-  );
-  const mentionIndex = useMemo(
-    () => buildMentionIndex(mentionFiles),
-    [mentionFiles],
-  );
-  const mentionIndexRef = useRef<MentionIndex>(mentionIndex);
-  mentionIndexRef.current = mentionIndex;
-  const rankedFiles = useMemo(() => {
-    if (!mentionOpen) return [];
-    const fileHits = looksLikeProject(executionCwd)
-      ? rankMentionFiles(
-          files,
-          mention?.query ?? "",
-          recentOpenedFiles(executionCwd),
-        )
-      : [];
-    const noteHits = notesEnabled
-      ? rankNoteFiles(notes, mention?.query ?? "")
-      : [];
-    const seen = new Set(noteHits.map((file) => file.path));
-    return [...noteHits, ...fileHits.filter((file) => !seen.has(file.path))];
-  }, [executionCwd, files, mention?.query, mentionOpen, notes, notesEnabled]);
-
   const syncHasValue = useCallback(
     (text: string, files: Attachment[]) => {
       if (sessionId) {
@@ -764,46 +657,6 @@ export function Composer({
     onDraftChange?.(next);
     syncHasValue(next, attachmentsRef.current);
   };
-
-  const openMcpPicker = useCallback(() => {
-    setMcpConnections([]);
-    setMcpStatus(new Map());
-    setMcpError("");
-    setMcpLoading(true);
-    setMcpPickerOpen(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mcpPickerOpen) return;
-    const apply = (snapshot: McpSettingsSnapshot) => {
-      setMcpConnections(snapshot.servers);
-      setMcpStatus(
-        new Map(
-          snapshot.servers
-            .filter((server) => server.provider === "claude")
-            .map((server) => [server.name, server.status]),
-        ),
-      );
-      setMcpError(snapshot.error);
-      setMcpLoading(false);
-    };
-    const stop = subscribeMcpSettings(executionCwd, apply);
-    const cached = getCachedMcpSettings(executionCwd);
-    if (cached) apply(cached);
-    void loadMcpSettings(executionCwd, false, {
-      claudeHealth: harness === "claude",
-      piHealth: harness === "pi",
-    });
-    return stop;
-  }, [executionCwd, harness, mcpPickerOpen]);
-
-  useEffect(() => {
-    setMcpPickerOpen(false);
-  }, [executionCwd, harness, sessionId]);
-
-  useEffect(() => {
-    if (sessionId) setComposerMcpTags(sessionId, selectedMcp);
-  }, [sessionId, selectedMcp]);
 
   useEffect(() => {
     syncHasValue(ref.current?.value ?? "", attachmentsRef.current);
@@ -963,21 +816,6 @@ export function Composer({
     syncHasValue(ref.current?.value ?? "", []);
   }, [harness, syncHasValue]);
   useEffect(() => {
-    const refresh = () => setRunnerEnabled(loadComposerRunner());
-    window.addEventListener(COMPOSER_RUNNER_CHANGE_EVENT, refresh);
-    return () =>
-      window.removeEventListener(COMPOSER_RUNNER_CHANGE_EVENT, refresh);
-  }, []);
-
-  useEffect(() => {
-    if (!runnerEnabled) {
-      setRunnerLive(false);
-      return;
-    }
-    if (busy) setRunnerLive(true);
-  }, [busy, runnerEnabled]);
-
-  useEffect(() => {
     setSkillActive(0);
   }, [slash?.query, cwd]);
 
@@ -986,48 +824,6 @@ export function Composer({
       rankedSkills.length === 0 ? 0 : Math.min(index, rankedSkills.length - 1),
     );
   }, [rankedSkills.length]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const apply = (next: ProjectFile[]) => {
-      if (!cancelled) setFiles(next);
-    };
-    const cached = peekProjectFiles(localCwd);
-    apply(cached ?? []);
-    if (!localCwd) return;
-    void loadProjectFiles(localCwd, mentionOpen)
-      .then(apply)
-      .catch(() => undefined);
-    const unsub = subscribeProjectFiles(() => {
-      const next = peekProjectFiles(localCwd);
-      if (next) apply(next);
-    });
-    return () => {
-      cancelled = true;
-      unsub();
-    };
-  }, [localCwd, mentionOpen]);
-
-  useEffect(() => {
-    if (!mentionOpen || !notesEnabled) return;
-    let cancelled = false;
-    void loadNotes().then((next) => {
-      if (!cancelled) setNotes(next);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [mentionOpen, notesEnabled]);
-
-  useEffect(() => {
-    setMentionActive(0);
-  }, [mention?.query, cwd]);
-
-  useEffect(() => {
-    setMentionActive((index) =>
-      rankedFiles.length === 0 ? 0 : Math.min(index, rankedFiles.length - 1),
-    );
-  }, [rankedFiles.length]);
 
   useEffect(() => {
     const el = ref.current;
@@ -2858,184 +2654,6 @@ export function Composer({
         ) : null}
       </div>
     </div>
-  );
-}
-
-function ComposerHighlight({
-  text,
-  mode,
-  names,
-  mentions,
-  mcpTags,
-}: {
-  text: string;
-  mode: ModeCommandToken | null;
-  names: ReadonlySet<string>;
-  mentions: ReadonlyMap<string, ProjectFile>;
-  mcpTags: McpTag[];
-}) {
-  const rest = mode ? text.slice(mode.end) : text;
-  const parts = skillTextParts(rest, names);
-  return (
-    <>
-      {mode ? <ModeCommandText text={text} mode={mode} /> : null}
-      {parts.map((part, index) =>
-        part.skill ? (
-          <span key={index} className="text-skill">
-            {part.text}
-          </span>
-        ) : (
-          // Skill tokens always end on whitespace, so each remaining run still
-          // starts on a boundary `@mention` matching can rely on.
-          <MentionRuns
-            key={index}
-            text={part.text}
-            mentions={mentions}
-            mcpTags={mcpTags}
-          />
-        ),
-      )}
-      {text.endsWith("\n") ? "\n" : null}
-    </>
-  );
-}
-
-function MentionRuns({
-  text,
-  mentions,
-  mcpTags,
-}: {
-  text: string;
-  mentions: ReadonlyMap<string, ProjectFile>;
-  mcpTags: McpTag[];
-}) {
-  return (
-    <>
-      {mcpTagParts(text, mcpTags).map((part, index) =>
-        part.tag ? (
-          <span
-            key={index}
-            className="text-mention"
-            data-mcp-tag={part.tag.token}
-          >
-            {part.text}
-          </span>
-        ) : (
-          <FileMentionRuns key={index} text={part.text} mentions={mentions} />
-        ),
-      )}
-    </>
-  );
-}
-
-function FileMentionRuns({
-  text,
-  mentions,
-}: {
-  text: string;
-  mentions: ReadonlyMap<string, ProjectFile>;
-}) {
-  const parts = fileMentionParts(text, mentions);
-  return (
-    <>
-      {parts.map((part, index) =>
-        part.file ? (
-          <span key={index} className="text-mention">
-            {/* The `@` keeps its width so the textarea underneath stays in
-                lockstep; the file icon sits on top of it. */}
-            <span className="relative text-transparent">
-              {"@"}
-              {/* `indent-0`: a leading mode command indents the first line,
-                  and this box would otherwise inherit that indent. */}
-              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 indent-0">
-                {part.file && isNoteMentionPath(part.file.path) ? (
-                  <StickyNote className="size-3.5" />
-                ) : (
-                  <FileTypeIcon
-                    name={part.file.name}
-                    isDir={Boolean(part.file.isDir)}
-                    size={13}
-                  />
-                )}
-              </span>
-            </span>
-            {part.text.slice(1)}
-          </span>
-        ) : (
-          part.text
-        ),
-      )}
-    </>
-  );
-}
-
-export function ComposerAction({
-  busy,
-  disabled = false,
-  hasValue,
-  allowBusySubmit = true,
-  label = "Send",
-  onSend,
-  onStop,
-}: {
-  busy: boolean;
-  disabled?: boolean;
-  hasValue: boolean;
-  allowBusySubmit?: boolean;
-  label?: string;
-  onSend: () => void;
-  onStop: () => void;
-}) {
-  const { t: uiT } = useTranslation();
-  const sendIcon = <><ArrowUp className="composer-send-arrow size-3.5" strokeWidth={2.25} /><CornerDownLeft className="composer-send-return hidden size-3.5" strokeWidth={1.5} /></>;
-  if (disabled) {
-    return (
-      <button
-        type="button"
-        title={label}
-        aria-label={label}
-        disabled
-        className="composer-send primary-action grid size-6.5 place-items-center rounded-md disabled:cursor-default"
-      >
-        {sendIcon}
-      </button>
-    );
-  }
-  if (busy) {
-    return hasValue && allowBusySubmit ? (
-      <button
-        type="button"
-        title={label}
-        aria-label={label}
-        onClick={onSend}
-        className="composer-send primary-action grid size-6.5 place-items-center rounded-md"
-      >
-        {sendIcon}
-      </button>
-    ) : (
-      <button
-        type="button"
-        title={uiT("Stop")}
-        aria-label={uiT("Stop")}
-        onClick={onStop}
-        className="composer-stop grid size-6.5 place-items-center rounded-md bg-white text-black hover:bg-white/90"
-      >
-        <CircleStop className="size-4 [&_rect]:fill-current" />
-      </button>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      disabled={!hasValue}
-      onClick={onSend}
-      className="composer-send primary-action grid size-6.5 place-items-center rounded-md disabled:cursor-default"
-    >
-      {sendIcon}
-    </button>
   );
 }
 
