@@ -516,6 +516,7 @@ vi.mock("../features/sessions/ui/SessionPane", async () => {
       onModelChange,
       onModelSettingsChange,
       onRuntimeModeChange,
+      onCwdChange,
       onSubmit,
     }: {
       session: Session;
@@ -527,9 +528,10 @@ vi.mock("../features/sessions/ui/SessionPane", async () => {
       onModelChange: SessionPaneProps["onModelChange"];
       onModelSettingsChange: SessionPaneProps["onModelSettingsChange"];
       onRuntimeModeChange: SessionPaneProps["onRuntimeModeChange"];
+      onCwdChange: SessionPaneProps["onCwdChange"];
       onSubmit: SessionPaneProps["onSubmit"];
     }) => {
-      mocks.paneRendered({ session, onModelChange, onModelSettingsChange, onRuntimeModeChange, onSubmit });
+      mocks.paneRendered({ session, onModelChange, onModelSettingsChange, onRuntimeModeChange, onCwdChange, onSubmit });
       return el(
         "div",
         {
@@ -2489,6 +2491,46 @@ describe("App multi-project history", () => {
       expect(container.querySelector('[data-sidebar]')?.getAttribute("data-sidebar")).toBe("/project-b");
     },
   );
+
+  it.each(["/project-b", "wsl://Ubuntu/home/dev/project"])(
+    "keeps the same unsent composer and its content when its folder changes to %s",
+    async (cwd) => {
+      await mount(false, "bottom", {
+        branch: "old-branch", worktreeCwd: "/repo-old-worktree",
+        workspaceMode: "worktree", worktreeBase: "old-base",
+      });
+      setComposerDraft("first", "Keep my prompt");
+      setComposerAttachmentCount("first", 1);
+      const finishRead = beginComposerAttachmentRead("first");
+      try {
+        const pane = mocks.paneRendered.mock.calls.map(([props]) => props as SessionPaneProps)
+          .filter((props) => props.session.id === "first").at(-1)!;
+        await act(async () => pane.onCwdChange("first", cwd));
+        expect(activeTabId()).toBe(firstId);
+        expect(workspace(firstId).querySelector('[data-session="first"]')?.getAttribute("data-session-cwd")).toBe(cwd);
+        expect(getComposerDraft("first")).toBe("Keep my prompt");
+        const moved = mocks.paneRendered.mock.calls.map(([props]) => props as SessionPaneProps)
+          .filter((props) => props.session.id === "first").at(-1)!.session;
+        expect(moved.branch).toBeUndefined();
+        expect(moved.worktreeCwd).toBeUndefined();
+        expect(moved.workspaceMode).toBeUndefined();
+        expect(moved.worktreeBase).toBeUndefined();
+      } finally {
+        finishRead();
+        clearComposerDraft("first");
+      }
+    },
+  );
+
+  it("keeps a started conversation bound to its project when its composer selects a folder", async () => {
+    await mount(false, "bottom", { blocks: [{ id: "sent", role: "user", text: "Earlier work" }] });
+    const pane = mocks.paneRendered.mock.calls.map(([props]) => props as SessionPaneProps)
+      .filter((props) => props.session.id === "first").at(-1)!;
+    await act(async () => pane.onCwdChange("first", "/project-b"));
+    expect(activeTabId()).not.toBe(firstId);
+    expect(workspace(firstId).querySelector('[data-session="first"]')?.getAttribute("data-session-cwd")).toBe("/repo");
+    expect(workspace().querySelector('[data-session]')?.getAttribute("data-session-cwd")).toBe("/project-b");
+  });
 
   it("keeps an unsent draft in its original project when selecting a different project", async () => {
     await mount();

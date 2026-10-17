@@ -101,14 +101,14 @@ export function useProjectNavigation({
       const normalized = normalizeProjectPath(cwd);
       const current = sessionsRef.current.find((s) => s.id === sessionId);
       const previous = current?.cwd;
-      // Threads stay bound to their project. Switching from the composer opens a
-      // new tab instead of retargeting the conversation.
+      // Started conversations stay bound to their project. An unsent composer
+      // changes folders in place, retaining its draft, attachments and reads.
       if (
         current &&
         previous &&
         looksLikeProject(previous) &&
         !sameProjectPath(previous, normalized) &&
-        !canDiscardEmptySession(current.id)
+        !isBlankSession(current)
       ) {
         setProjectCwd(normalized);
         setRecents(rememberProject(normalized));

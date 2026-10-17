@@ -31,7 +31,7 @@ vi.mock("@tauri-apps/api/webview", () => ({
   getCurrentWebview: () => ({ onDragDropEvent: async () => () => {} }),
 }));
 vi.mock("../../source-control/hooks/useProjectBranches", () => ({
-  useProjectBranchesState: () => ({
+  useProjectBranchesState: vi.fn(() => ({
     branches: {
       current: "mc/greeting",
       detached: false,
@@ -41,8 +41,9 @@ vi.mock("../../source-control/hooks/useProjectBranches", () => ({
       ],
     },
     settled: true,
-  }),
+  })),
 }));
+import { useProjectBranchesState } from "../../source-control/hooks/useProjectBranches";
 
 import { Composer } from "./Composer";
 import { ComposerAction } from "./ComposerAction";
@@ -56,6 +57,7 @@ import {
   clearComposerDraft,
   getComposerDraft,
   setComposerDraft,
+  stashComposerAttachments,
 } from "../model/draftCache";
 import type { UserQuestionPrompt } from "../model/userQuestion";
 
@@ -1006,6 +1008,54 @@ describe("Composer question focus", () => {
     expect(textarea.value).toBe("/btw");
   });
 
+  it("retains typed text and attachments across composer setting changes", async () => {
+    const sessionId = "settings-draft";
+    const file: Attachment = {
+      id: "settings-image", name: "draft.png", kind: "image",
+      mimeType: "image/png", size: 3, previewUrl: "blob:settings-image",
+    };
+    stashComposerAttachments(sessionId, [file], new Set([file.id]));
+    const onSubmit = vi.fn();
+    const onDraftChange = vi.fn();
+    let props = {
+      sessionId, focused: true, harness: "claude", model: "claude-sonnet",
+      runtimeMode: "supervised", cwd: "/repo", executionCwd: "/repo",
+      onFocus: vi.fn(), onCwdChange: vi.fn(), onModelChange: vi.fn(),
+      onRuntimeModeChange: vi.fn(), onSubmit, onDraftChange,
+    } as Parameters<typeof Composer>[0];
+    try {
+      await act(async () => root.render(createElement(Composer, props)));
+      const input = container.querySelector("textarea")!;
+      await typeInto(input, "保留我的草稿\nwith @file references");
+      const changes: Partial<typeof props>[] = [
+        { runtimeMode: "full-access" },
+        { model: "claude-opus" },
+        { modelSettings: { effort: "high" } },
+        { cwd: "wsl://Ubuntu/home/dev", executionCwd: "wsl://Ubuntu/home/dev" },
+        { workspaceMode: "worktree", worktreeBase: "main" },
+        { harness: "fx", model: "fx:default" },
+        { harness: "claude", model: "claude-sonnet" },
+      ];
+      for (const change of changes) {
+        props = { ...props, ...change };
+        await act(async () => root.render(createElement(Composer, props)));
+        expect(container.querySelector("textarea")).toBe(input);
+        expect(input.value).toBe("保留我的草稿\nwith @file references");
+        expect(container.querySelector('[data-attachment-id="settings-image"]')).not.toBeNull();
+        expect(onDraftChange).toHaveBeenLastCalledWith(input.value);
+        if (props.harness === "fx") {
+          await act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+          expect(onSubmit).not.toHaveBeenCalled();
+          expect(input.value).toContain("保留我的草稿");
+        }
+      }
+      await act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+      expect(onSubmit).toHaveBeenCalledWith("保留我的草稿\nwith @file references", [file], expect.any(Object));
+    } finally {
+      clearComposerDraft(sessionId);
+    }
+  });
+
   it("clears the draft when the reset token advances", async () => {
     const onDraftChange = vi.fn();
     const props = {
@@ -1835,6 +1885,56 @@ describe("Composer question focus", () => {
     expect(branch?.disabled).toBe(false);
   });
 
+  it.each([false, true])("hides Git options for pending and non-Git folders without losing the draft (compact=%s)", async (compact) => {
+    const branchesHook = vi.mocked(useProjectBranchesState);
+    const original = branchesHook.getMockImplementation()!;
+    const onWorkspaceModeChange = vi.fn();
+    const props = {
+      focused: true, compact, harness: "claude" as const, model: "claude-sonnet",
+      runtimeMode: "supervised" as const, cwd: "/repo", executionCwd: "/repo",
+      branch: "stale-branch", worktreeBase: "stale-base", draftWorkspace: true,
+      initialDraft: "Keep this draft", onFocus: vi.fn(), onCwdChange: vi.fn(),
+      onModelChange: vi.fn(), onRuntimeModeChange: vi.fn(), onSubmit: vi.fn(),
+      onWorkspaceModeChange, onWorktreeBaseChange: vi.fn(),
+    };
+    try {
+      await act(async () => root.render(createElement(Composer, props)));
+      const textarea = container.querySelector("textarea")!;
+      if (!compact) {
+        await act(async () => container.querySelector<HTMLButtonElement>('.composer-project-picker button[aria-label^="Project"]')!.click());
+        expect(document.querySelector('[aria-label="Branch mc/greeting"]')).not.toBeNull();
+      }
+      for (const state of [
+        { branches: null, settled: false },
+        { branches: { current: null, detached: false, branches: [] }, settled: true },
+        { branches: null, settled: true },
+      ]) {
+        branchesHook.mockReturnValue(state);
+        await act(async () => root.render(createElement(Composer, { ...props, cwd: "/plain", executionCwd: "/plain" })));
+        expect(document.querySelector('[data-workspace-menu-worktree]')).toBeNull();
+        expect(document.querySelector('[aria-label^="Branch "]')).toBeNull();
+        expect(container.querySelector('.composer-git-controls')).toBeNull();
+        await act(async () => textarea.dispatchEvent(new KeyboardEvent("keydown", {
+          key: "g", ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true,
+        })));
+        expect(onWorkspaceModeChange).not.toHaveBeenCalled();
+        expect(textarea.value).toBe("Keep this draft");
+      }
+      for (const branches of [
+        { current: "project-b", detached: false, branches: [{ name: "project-b", current: true, remote: null }] },
+        { current: "unborn-main", detached: false, branches: [] },
+        { current: "abcd123", detached: true, branches: [] },
+      ]) {
+        branchesHook.mockReturnValue({ branches, settled: true });
+        await act(async () => root.render(createElement(Composer, { ...props, cwd: "/other", executionCwd: "/other" })));
+        expect(document.querySelector(`[aria-label="Branch ${branches.current}"]`)).not.toBeNull();
+        expect(document.querySelector('[aria-label="Branch stale-branch"]')).toBeNull();
+      }
+    } finally {
+      branchesHook.mockImplementation(original);
+    }
+  });
+
   it("defaults draft worktrees to main while keeping chosen sources and the current checkout", async () => {
     const onWorkspaceModeChange = vi.fn();
     const onWorktreeBaseChange = vi.fn();
@@ -2001,7 +2101,8 @@ describe("Composer question focus", () => {
     );
     const worktree = document.querySelector("[data-workspace-menu-worktree]");
     expect(worktree?.textContent).toContain("mc-3f2a1b7c");
-    expect(document.querySelector('[aria-label="Branch mc/fix-login"]')).not.toBeNull();
+    // The current checkout takes precedence over the session's saved branch.
+    expect(document.querySelector('[aria-label="Branch mc/greeting"]')).not.toBeNull();
   });
 
   it("keeps the hovered branch list open under StrictMode effect replays", async () => {

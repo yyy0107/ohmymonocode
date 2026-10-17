@@ -392,6 +392,26 @@ describe("Composer image drops", () => {
     expect(attachmentCount()).toBe(0);
   });
 
+  it("keeps an accepted drop when the provider changes while reading", async () => {
+    let release: (() => void) | undefined;
+    const original = invoke.getMockImplementation()!;
+    invoke.mockImplementation(async (command: string, args: { paths?: string[] }) => {
+      if (command === "read_file_base64") {
+        await new Promise<void>((resolve) => { release = resolve; });
+      }
+      return original(command, args);
+    });
+    await render({ initialDraft: "look" });
+    await nativeDrop(["/project/image.png"]);
+    expect(release).toBeDefined();
+    await render({ harness: "fx", initialDraft: "look" });
+    await act(async () => release!());
+    expect(attachmentCount()).toBe(1);
+    await render({ harness: "codex", initialDraft: "look" });
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Send"]')!.click());
+    expect(submit).toHaveBeenCalledWith("look", [expect.objectContaining({ name: "image.png", data: "aW1hZ2U=" })], expect.anything());
+  });
+
   it("discards a drop that finishes reading after a draft reset", async () => {
     let release: (() => void) | undefined;
     invoke.mockImplementation(async (command: string) => {
@@ -421,7 +441,7 @@ describe("Composer image drops", () => {
   });
 
   it.each(["draft reset", "unmount", "remote capability removal"])(
-    "revokes a late DOM image preview after %s",
+    "handles a late DOM image preview after %s without losing an active draft",
     async (retirement) => {
       let release: (() => void) | undefined;
       vi.stubGlobal(
@@ -457,8 +477,15 @@ describe("Composer image drops", () => {
       }
       await act(async () => release?.());
 
-      expect(revoke).toHaveBeenCalledWith("blob:late-drop");
-      expect(attachmentCount()).toBe(0);
+      if (retirement === "remote capability removal") {
+        expect(revoke).not.toHaveBeenCalled();
+        expect(attachmentCount()).toBe(1);
+        await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Send"]')!.click());
+        expect(attachmentCount()).toBe(1);
+      } else {
+        expect(revoke).toHaveBeenCalledWith("blob:late-drop");
+        expect(attachmentCount()).toBe(0);
+      }
       expect(submit).not.toHaveBeenCalled();
     },
   );

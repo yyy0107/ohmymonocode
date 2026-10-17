@@ -445,10 +445,19 @@ export function Composer({
   const [mountDraft] = useState(initialDraft);
   // Desktop folder menus also name a started session's branch, even mid-turn.
   const { branches: draftBranches, settled: draftBranchesSettled } = useProjectBranchesState(
-    executionCwd,
-    enabled && (draftWorkspace ? !busy : !compact),
+    worktreeRemoved ? cwd : executionCwd,
+    enabled,
   );
-  const resolvedWorktreeBase = resolveWorktreeBase(worktreeBase, draftBranches, branch);
+  // A non-repository returns an empty snapshot on desktop (and may reject on
+  // Host). Neither it nor a pending lookup should expose the previous folder's
+  // branch/worktree controls or enable their keyboard shortcut.
+  const hasGitRepository = !!(draftBranches && (
+    draftBranches.current || draftBranches.detached || draftBranches.branches.length
+  ));
+  const currentBranch = draftBranches?.current ?? (draftBranches?.detached ? "HEAD" : worktreeRemoved ? branch : undefined);
+  const resolvedWorktreeBase = hasGitRepository
+    ? resolveWorktreeBase(worktreeBase, draftBranches, currentBranch)
+    : undefined;
   // A worktree is named by its folder, which keeps its name when the branch is renamed.
   const workingName =
     pathKey(cwd) !== pathKey(executionCwd)
@@ -676,7 +685,9 @@ export function Composer({
 
   const addAttachments = useCallback(
     (incoming: Attachment[]) => {
-      if (!harnessSupportsAttachments(harness) || incoming.length === 0) return;
+      // Capability checks happen before starting a read. Keep accepted files
+      // even if the selected provider changes while that read is pending.
+      if (incoming.length === 0) return;
       const next = mergeAttachments(attachmentsRef.current, incoming);
       attachmentsRef.current = next;
       setAttachments(next);
@@ -685,7 +696,7 @@ export function Composer({
       syncHasValue(ref.current?.value ?? "", next);
       ref.current?.focus();
     },
-    [harness, syncHasValue],
+    [syncHasValue],
   );
   // Native listener registration crosses several IPC hops. Keep changing
   // composer callbacks and capabilities out of its subscription dependencies.
@@ -724,10 +735,7 @@ export function Composer({
       rememberAttachmentRead(
         read()
           .then((incoming) => {
-            if (
-              pasteGenerationRef.current !== generation ||
-              !fileDropStateRef.current.attachmentsSupported
-            ) {
+            if (pasteGenerationRef.current !== generation) {
               incoming.forEach(revokeAttachment);
               return;
             }
@@ -814,19 +822,6 @@ export function Composer({
     };
   }, [sessionId]);
 
-  useEffect(() => {
-    if (harnessSupportsAttachments(harness)) return;
-    const previous = attachmentsRef.current;
-    if (previous.length === 0) return;
-    for (const file of previous) {
-      if (!borrowedAttachmentIdsRef.current.delete(file.id)) {
-        revokeAttachment(file);
-      }
-    }
-    attachmentsRef.current = [];
-    setAttachments([]);
-    syncHasValue(ref.current?.value ?? "", []);
-  }, [harness, syncHasValue]);
   useEffect(() => {
     setSkillActive(0);
   }, [slash?.query, cwd]);
@@ -1330,6 +1325,10 @@ export function Composer({
     }
     const value = ref.current?.value ?? submittedValue;
     if (disabled || worktreeRemoved) return;
+    if (!fileDropStateRef.current.attachmentsSupported && attachmentsRef.current.length > 0) {
+      showStatusToast(uiT("Choose a provider that supports attachments, or remove the attached files."), "error");
+      return;
+    }
     if (needsEnvironmentProject) {
       showStatusToast(uiT("Choose a project folder in the selected environment before sending."), "error");
       return;
@@ -1627,6 +1626,8 @@ export function Composer({
     if (disabled) return;
     if (
       !draftWorkspace ||
+      !hasGitRepository ||
+      needsEnvironmentProject ||
       !onWorkspaceModeChange ||
       !enabled ||
       busy ||
@@ -1782,9 +1783,8 @@ export function Composer({
         projectPicker && !compact && !hideBranchPicker && !recoveringWorktree;
       const worktreeMode = draftGit && (workspaceMode ?? "current") === "worktree";
       const inWorktree = pathKey(cwd) !== pathKey(executionCwd);
-      const currentBranch = branch || draftBranches?.current;
       const gitEnabled = enabled && !busy;
-      const gitMenuRows = foldGit
+      const gitMenuRows = foldGit && hasGitRepository
         ? ({ close, hold }: { close: () => void; hold: (held: boolean) => void }) => (
             <WorkspaceMenuRows
               branchTitle={worktreeMode ? uiT("Base branch") : uiT("Branch")}
@@ -1826,7 +1826,7 @@ export function Composer({
                 ) : (
                   <BranchPicker
                     cwd={executionCwd}
-                    branch={branch}
+                    branch={currentBranch}
                     enabled={gitEnabled}
                     initialOpen
                     menuAnchor={anchor}
@@ -1875,7 +1875,7 @@ export function Composer({
             />
             </div>
           ) : null}
-          {hideBranchPicker || foldGit || needsEnvironmentProject ? null : draftWorkspace &&
+          {hideBranchPicker || foldGit || needsEnvironmentProject || !hasGitRepository ? null : draftWorkspace &&
             onWorkspaceModeChange &&
             onWorktreeBaseChange ? (
             <div className="composer-git-controls">
@@ -1896,7 +1896,7 @@ export function Composer({
               {(workspaceMode ?? "current") === "current" ? (
                 <div className="composer-current-branch"><BranchPicker
                   cwd={executionCwd}
-                  branch={branch}
+                  branch={currentBranch}
                   enabled={enabled && !busy}
                   onChange={onBranchChange}
                   onClose={() => ref.current?.focus()}
@@ -1924,7 +1924,7 @@ export function Composer({
               ) : null}
               <BranchPicker
                 cwd={executionCwd}
-                branch={branch}
+                branch={currentBranch}
                 enabled={enabled && !busy}
                 onChange={onBranchChange}
                 onClose={() => ref.current?.focus()}
@@ -1936,7 +1936,8 @@ export function Composer({
       );
     },
     [
-      branch,
+      currentBranch,
+      hasGitRepository,
       busy,
       compact,
       draftBranches,
