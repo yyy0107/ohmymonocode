@@ -221,7 +221,6 @@ type Shared = {
   onMovePane: (fromId: string, toId: string, edge: PaneEdge) => void;
   /** Return a split terminal pane to the project's terminal dock. */
   onMovePaneToDock?: (paneId: string) => void;
-  onNewTerminal: (sessionId: string) => void;
   onTerminalMetaChange?: (fileId: string, patch: TerminalMetaPatch) => void;
   transcriptPool?: TranscriptPool;
 };
@@ -327,7 +326,6 @@ function PaneTreeComponent({
   onHandoff,
   onMovePane,
   onMovePaneToDock,
-  onNewTerminal,
   onTerminalMetaChange,
   transcriptPool,
 }: Props) {
@@ -1168,7 +1166,6 @@ function PaneTreeComponent({
                     onBtwDelete={onBtwDelete}
                     onBtwStop={onBtwStop}
                     onBtwModelChange={onBtwModelChange}
-                    onNewTerminal={onNewTerminal}
                     onPaneDragStart={onPaneDragStart}
                     transcriptPool={transcriptPool}
                   />

@@ -334,6 +334,21 @@ html[data-skin] .branch-menu-search:focus-within {
 }
 html[data-skin] .branch-menu-search > svg { width: 12px; height: 12px; }
 html[data-skin] .branch-menu-search > input { padding: 0; font-size: 13px; line-height: 19px; }
+/* Submenus opened beside a row lead with a plain search field, like menu rows. */
+html[data-skin] .branch-menu[data-popover-side="right"] .branch-menu-search {
+  order: 0;
+  height: 36px;
+  margin: 0;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 1px solid var(--color-hairline);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+html[data-skin] .branch-menu[data-popover-side="right"] .branch-menu-search > svg { display: none; }
+html[data-skin] .branch-menu[data-popover-side="right"] .branch-menu-create[data-create-blank] { display: none; }
+html[data-skin] .branch-menu[data-popover-side="right"] [data-code-label] { font-family: var(--font-sans); }
 html[data-skin] .desktop-modal-close { --icon-size: 32px; border-radius: 8px; }
 html[data-skin] :is(.modal-frame, [data-slot="dialog-content"]) { border-radius: var(--desktop-radius-dialog); border-width: var(--desktop-border); }
 html[data-skin] :is([data-slot="card"], .settings-card) { border-radius: var(--desktop-radius-card); border-color: var(--color-hairline); }

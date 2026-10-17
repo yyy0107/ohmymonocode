@@ -88,7 +88,6 @@ function render(layout: LayoutNode, ids: string[]) {
     onUpdatePlan: noop,
     onBuildPlan: noop,
     onMovePane: noop,
-    onNewTerminal: noop,
   };
   act(() => root.render(createElement(PaneTree, props)));
 }

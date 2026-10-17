@@ -96,7 +96,6 @@ async function render(session: Session, extra: Partial<SessionPaneProps> = {}) {
           onOpenDiff: noop,
           onOpenPlan: noop,
           onBuildPlan: noop,
-          onNewTerminal: noop,
           ...extra,
         }),
         extra.transcriptPool ? createElement(TranscriptPoolOutlet, { pool: extra.transcriptPool }) : null,

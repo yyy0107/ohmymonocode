@@ -674,7 +674,6 @@ describe("orchestration composer and card", () => {
             onOpenDiff: noop,
             onOpenPlan: noop,
             onBuildPlan: noop,
-            onNewTerminal: noop,
           }),
         ),
       );

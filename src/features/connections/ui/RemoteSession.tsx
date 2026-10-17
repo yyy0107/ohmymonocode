@@ -1894,7 +1894,6 @@ function ConnectedRemoteSession({
     onBtwRetry: undefined,
     onBtwDelete: undefined,
     onBtwModelChange: undefined,
-    onNewTerminal: noop,
     onArchiveSession: undefined,
     onDeleteSession: undefined,
     // The Host reports conversations running in the same checkout.

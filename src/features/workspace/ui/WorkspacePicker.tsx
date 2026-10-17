@@ -585,7 +585,7 @@ export function WorktreeBasePicker({
   onClose?: () => void;
   initialOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
-  popoverSide?: "top" | "bottom";
+  popoverSide?: "top" | "bottom" | "right";
   className?: string;
   compactLabel?: boolean;
 }) {

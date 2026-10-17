@@ -38,7 +38,7 @@ type Props = {
   onChange?: () => void;
   onClose?: () => void;
   onOpenChange?: (open: boolean) => void;
-  popoverSide?: "top" | "bottom";
+  popoverSide?: "top" | "bottom" | "right";
 };
 
 type CreateRow = { kind: "create"; name: string };
@@ -327,7 +327,10 @@ export function BranchPicker({
     />
   );
   const createAction = createRow ? (
-    <div className="branch-menu-create shrink-0 border-t border-stroke p-1 px-1.5">
+    <div
+      data-create-blank={!createRow.name || undefined}
+      className="branch-menu-create shrink-0 border-t border-stroke p-1 px-1.5"
+    >
       <button
         type="button"
         disabled={busy}

@@ -180,7 +180,6 @@ beforeEach(() => {
     onUpdatePlan: noop,
     onBuildPlan: noop,
     onMovePane: noop,
-    onNewTerminal: noop,
   };
 });
 afterEach(() => {

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, createElement } from "react";
+import { act, createElement, StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -1718,16 +1718,19 @@ describe("Composer question focus", () => {
       ),
     );
 
-    const workspace = container.querySelector(
-      '[aria-label="Workspace mc-greeting"]',
-    );
-    expect(workspace?.tagName).toBe("DIV");
     expect(
       container.querySelector('[aria-label="Choose working copy"]'),
     ).toBeNull();
-    expect(
-      container.querySelector('[aria-label="Branch mc/greeting"]'),
-    ).not.toBeNull();
+    // Desktop shows the started working copy in the folder menu, locked.
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('.composer-project-picker button[aria-label^="Project"]')!.click(),
+    );
+    const worktree = document.querySelector<HTMLButtonElement>('[role="switch"][aria-label="Worktree"]')!;
+    expect(worktree.getAttribute("aria-checked")).toBe("true");
+    expect(worktree.disabled).toBe(true);
+    expect(worktree.closest("label")?.textContent).toContain("mc-greeting");
+    const branch = document.querySelector<HTMLButtonElement>('[aria-label="Branch mc/greeting"]');
+    expect(branch?.disabled).toBe(false);
   });
 
   it("defaults draft worktrees to main while keeping chosen sources and the current checkout", async () => {
@@ -1760,22 +1763,29 @@ describe("Composer question focus", () => {
       ),
     );
     const textarea = container.querySelector("textarea")!;
-    const workspace = container.querySelector<HTMLButtonElement>(
-      '[aria-label="Workspace Current checkout"]',
+    // Desktop drafts keep branch and worktree choices in the folder menu.
+    const project = container.querySelector<HTMLButtonElement>(
+      '.composer-project-picker button[aria-label^="Project"]',
     )!;
+    await act(async () => project.click());
     expect(
-      container.querySelector('[aria-label="Branch mc/greeting"]'),
+      document.querySelector('[aria-label="Project picker"] [aria-label="Branch mc/greeting"]'),
     ).not.toBeNull();
-    await act(async () => container.querySelector<HTMLInputElement>(".composer-worktree-checkbox-input")!.click());
+    await act(async () =>
+      document.querySelector<HTMLButtonElement>('[role="switch"][aria-label="Worktree"]')!.click(),
+    );
     expect(onWorkspaceModeChange).toHaveBeenLastCalledWith("worktree", "main");
     expect(container.querySelector("textarea")).toBe(textarea);
     expect(textarea.value).toBe("Keep this draft");
-    await act(async () => workspace.click());
-    expect(document.body.textContent).toContain("Existing worktree…");
-    expect(
-      container.querySelector('[aria-label="Branch mc/greeting"]'),
-    ).not.toBeNull();
-    await act(async () => workspace.click());
+    // Hovering opens the branch list beside its row while the folder menu stays open.
+    await act(async () =>
+      document
+        .querySelector<HTMLButtonElement>('[aria-label="Branch mc/greeting"]')!
+        .dispatchEvent(new MouseEvent("mouseover", { bubbles: true })),
+    );
+    expect(document.querySelector("[data-branch-picker]")).not.toBeNull();
+    expect(document.querySelector('[aria-label="Project picker"]')).not.toBeNull();
+    await act(async () => project.click());
 
     await act(async () =>
       textarea.dispatchEvent(
@@ -1852,7 +1862,10 @@ describe("Composer question focus", () => {
     await act(async () => root.render(createElement(Composer, {
       ...props, workspaceMode: "worktree", worktreeBase: "release",
     })));
-    expect(container.querySelector('[aria-label="Create worktree from release"]')).not.toBeNull();
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('.composer-project-picker button[aria-label^="Project"]')!.click(),
+    );
+    expect(document.querySelector('[aria-label="Base branch release"]')).not.toBeNull();
     expect(onWorktreeBaseChange).not.toHaveBeenCalled();
   });
 
@@ -1879,15 +1892,58 @@ describe("Composer question focus", () => {
         }),
       ),
     );
-    expect(
-      container.querySelector('[aria-label="Workspace mc-3f2a1b7c"]'),
-    ).not.toBeNull();
-    expect(
-      container.querySelector('[aria-label="Workspace Worktree"]'),
-    ).toBeNull();
+    // Desktop folds the working copy into the folder menu instead of the bar.
+    expect(container.querySelector('[aria-label^="Workspace"]')).toBeNull();
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('.composer-project-picker button[aria-label^="Project"]')!.click(),
+    );
+    const worktree = document.querySelector("[data-workspace-menu-worktree]");
+    expect(worktree?.textContent).toContain("mc-3f2a1b7c");
+    expect(document.querySelector('[aria-label="Branch mc/fix-login"]')).not.toBeNull();
   });
 
-  it("shows a creating marker while the first send makes its worktree", async () => {
+  it("keeps the hovered branch list open under StrictMode effect replays", async () => {
+    await act(async () =>
+      root.render(
+        createElement(
+          StrictMode,
+          null,
+          createElement(Composer, {
+            focused: true,
+            harness: "claude" as const,
+            model: "claude-sonnet",
+            runtimeMode: "supervised" as const,
+            cwd: "/repo",
+            executionCwd: "/repo",
+            branch: "mc/greeting",
+            draftWorkspace: true,
+            workspaceMode: "current" as const,
+            onFocus: vi.fn(),
+            onCwdChange: vi.fn(),
+            onBranchChange: vi.fn(async () => {}),
+            onWorktreeChange: vi.fn(async () => {}),
+            onWorkspaceModeChange: vi.fn(),
+            onWorktreeBaseChange: vi.fn(),
+            onModelChange: vi.fn(),
+            onRuntimeModeChange: vi.fn(),
+            onSubmit: vi.fn(),
+          }),
+        ),
+      ),
+    );
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('.composer-project-picker button[aria-label^="Project"]')!.click(),
+    );
+    await act(async () =>
+      document
+        .querySelector<HTMLButtonElement>('[aria-label="Branch mc/greeting"]')!
+        .dispatchEvent(new MouseEvent("mouseover", { bubbles: true })),
+    );
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    expect(document.querySelector("[data-branch-picker]")).not.toBeNull();
+  });
+
+  it("locks the worktree switch while the first send makes its worktree", async () => {
     await act(async () =>
       root.render(
         createElement(Composer, {
@@ -1915,9 +1971,12 @@ describe("Composer question focus", () => {
         }),
       ),
     );
-    expect(
-      container.querySelector('[aria-label="Workspace Creating worktree…"]'),
-    ).not.toBeNull();
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('.composer-project-picker button[aria-label^="Project"]')!.click(),
+    );
+    const worktree = document.querySelector<HTMLButtonElement>('[role="switch"][aria-label="Worktree"]')!;
+    expect(worktree.getAttribute("aria-checked")).toBe("true");
+    expect(worktree.disabled).toBe(true);
   });
 
   it("returns focus to the composer textarea once a question is answered", async () => {

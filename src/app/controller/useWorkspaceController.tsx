@@ -2052,7 +2052,6 @@ export function useWorkspaceController({
     onNewTerminal,
     onToggleProjectTerminal,
     onNewTerminalTab,
-    onNewTerminalInSession,
     onCloseOtherProjectTerminals,
     onCloseProjectTerminal,
     onHideProjectTerminal,
@@ -3995,7 +3994,6 @@ export function useWorkspaceController({
     onBtwDelete,
     onBtwStop,
     onBtwModelChange,
-    onNewTerminal: onNewTerminalInSession,
   };
 
   const changesPaneFiles = useMemo(() => {

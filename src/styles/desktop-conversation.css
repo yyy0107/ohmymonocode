@@ -566,8 +566,8 @@ html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] :is(.compose
 }
 
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-plus > svg {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
 }
 
 html[data-skin][data-desktop-mode] .desktop-empty-content {
@@ -814,8 +814,6 @@ html[data-skin][data-desktop-mode] [data-surface-tab-strip] .surface-tab[data-cl
 }
 
 html[data-skin][data-desktop-mode] [data-session-surface-tabs] :is([data-session-tool-toggle], [data-session-overflow-menu]) {
-  width: 26px;
-  height: 26px;
   border-radius: 6px;
 }
 
@@ -831,97 +829,89 @@ html[data-skin][data-desktop-mode] .user-message-bubble :is(pre[data-selectable-
   line-height: 22px;
 }
 
+/* One input row (+, field, send) with every environment and model control in
+ * a single row below it. Keeping the retained nodes in place makes mode
+ * changes preserve drafts and menus. */
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] [data-ui="message-input"] {
-  grid-row: 2;
-  grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: end;
-  gap: 6px;
-  padding: 4px 12px;
-  border-radius: 10px;
+  column-gap: 6px;
+  padding: 3px 4px;
+  border-radius: 12px;
   box-shadow: var(--desktop-shadow-composer);
-  min-height: 42px;
+  /* The row sets the height, so + and send share the text line's center. */
+  min-height: 0;
 }
 
-/* Environment above the input; one independent action row below it. Keeping
- * the retained nodes in place makes mode changes preserve drafts and menus. */
-html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-surface {
-  /* Share the action row's minimum size, including scaled 16px text and padding. */
-  --composer-action-row-height: max(30px, calc(16px * var(--font-scale, 1) + 10px));
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-}
-
-html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] :is(.composer-attachments-collapse, .composer-paste-error) {
+/* Attachments, notices and handoff cards span the box above the input row. */
+html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] [data-ui="message-input"] > :not(.composer-editor, .composer-footer) {
   grid-column: 1 / -1;
+}
+
+html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-footer {
+  display: contents;
+}
+
+html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-plus-container {
+  order: 1;
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  height: 26px;
 }
 
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-editor {
+  order: 2;
+  grid-column: 2;
   min-width: 0;
-  flex: 1 1 auto;
   align-self: center;
 }
 
+html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-submit-controls {
+  order: 3;
+  grid-column: 3;
+  height: 26px;
+}
+
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] :is(.composer-field, .composer-highlight) {
-  min-height: 22px;
+  min-height: 26px;
   max-height: 160px;
-  padding: 0;
+  /* CJK fallback glyphs sit high in the 22px line; lower the line by 1px so
+   * Chinese text centers in the row. Latin text then sits slightly low. */
+  padding: 3px 2px 1px;
   font-size: var(--text-desktop-label);
   line-height: 22px;
 }
 
-html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-footer {
-  position: static;
-  min-height: 32px;
-  align-items: center;
-  padding: 0;
-}
-
-html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-plus-container {
-  position: absolute;
-  left: 12px;
-  /* Account for the input border and the action row's 2px downward offset. */
-  top: calc(100% + 3px);
-  display: flex;
-  align-items: center;
-  height: var(--composer-action-row-height);
-}
-
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-meta {
-  display: contents;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  /* Column-align the first and last icons with + and send above. */
+  padding: 8px 9px 0 4px;
 }
 
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-workspace-bar {
-  grid-row: 1;
-  grid-column: 1 / -1;
-  flex: none;
+  flex: 0 1 auto;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 0 8px;
-  min-height: 32px;
+  gap: 2px;
+  min-height: 24px;
+  padding: 0;
 }
 
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-toolbar {
-  position: relative;
-  top: 2px;
-  grid-row: 3;
-  grid-column: 1;
-  flex: none;
+  flex: 1 1 auto;
   flex-wrap: nowrap;
-  min-height: var(--composer-action-row-height);
-  margin-left: 36px;
-  padding: 2px 4px;
+  min-height: 24px;
+  margin: 0;
+  padding: 0;
   justify-content: space-between;
 }
 
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-context-controls {
-  position: relative;
-  top: 2px;
-  grid-row: 3;
-  grid-column: 2;
-  margin: 0 6px 0 4px;
+  margin: 0 2px 0 4px;
 }
 
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-environment-badge {
@@ -931,13 +921,13 @@ html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-en
   gap: 6px;
   min-height: 24px;
   padding: 2px 6px;
-  border: 1px solid var(--color-hairline);
+  border: 1px solid transparent;
   border-radius: 6px;
-  background: var(--color-app);
+  background: transparent;
   color: var(--color-ink-secondary);
   font-size: 13px;
   line-height: 1.4;
-  box-shadow: 0 1px 2px #0000000a;
+  box-shadow: none;
 }
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-environment-badge svg { width: 14px; height: 14px; }
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-project-picker[data-picker-hidden] { display: block; }
@@ -956,13 +946,13 @@ html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-wo
   max-width: 240px;
   margin: 0;
   padding: 2px 6px;
-  border: 1px solid var(--color-hairline);
+  border: 1px solid transparent;
   border-radius: 6px;
-  background: var(--color-app);
+  background: transparent;
   color: var(--color-ink-secondary);
   font-size: 13px;
   line-height: 1.4;
-  box-shadow: 0 1px 2px #0000000a;
+  box-shadow: none;
 }
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-git-controls { display: flex; min-width: 0; align-items: center; }
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-current-branch { display: block; min-width: 0; order: 0; }
@@ -976,10 +966,10 @@ html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-wo
   gap: 4px;
   min-height: 24px;
   padding: 2px 6px;
-  border: 1px solid var(--color-hairline);
+  border: 1px solid transparent;
   border-left: 0;
   border-radius: 0 6px 6px 0;
-  background: var(--color-app);
+  background: transparent;
   color: var(--color-ink-secondary);
   font-size: 13px;
   line-height: 1.4;
@@ -1014,10 +1004,10 @@ html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-wo
   height: 24px;
   margin-left: 6px;
   padding: 0;
-  border: 1px solid var(--color-hairline);
+  border: 1px solid transparent;
   border-radius: 6px;
   color: var(--color-ink-secondary);
-  background: var(--color-app);
+  background: transparent;
 }
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-worktree-menu-trigger svg { width: 14px; height: 14px; }
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-model-controls { margin-left: auto; }
@@ -1044,10 +1034,13 @@ html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] :is(.compose
 }
 
 html[data-skin][data-desktop-mode] [data-composer-layout="desktop"] .composer-footer > div:first-child > button {
-  height: 22px;
+  /* Matches the send button so both hover fills are the same size. */
+  height: 26px;
+  min-height: 26px;
   padding: 0;
-  width: 20px;
-  min-width: 20px;
+  width: 26px;
+  min-width: 26px;
+  border-radius: 8px;
 }
 
 /* The action row sits 2px below its grid track; align it with sibling cards. */

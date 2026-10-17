@@ -1,7 +1,8 @@
 import { PresenceBoundary } from "../../../shared/ui/PresenceBoundary";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
-import { ChevronDown, ChevronRight, X } from "../../../shared/ui/icons";
+import { Check, ChevronDown, ChevronRight, X } from "../../../shared/ui/icons";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -9,8 +10,8 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
-import { basename } from "../../../platform/tauri/fs";
-import { prettyCwd, prettyParent } from "../../../shared/lib/paths";
+import { basename, pickFolders } from "../../../platform/tauri/fs";
+import { prettyCwd } from "../../../shared/lib/paths";
 import {
   looksLikeProject,
   projectRailItems,
@@ -23,7 +24,6 @@ import { LAYER } from "../../../shared/lib/layers";
 import { Popover } from "../../../shared/ui/Popover";
 import { MenuHover } from "../../../shared/ui/MenuHover";
 import { ProjectLogoIcon } from "./ProjectLogoIcon";
-import { MOD } from "../../../platform/tauri/platform";
 
 type Props = {
   cwd: string;
@@ -46,12 +46,18 @@ type Props = {
   onCwdChange: (path: string) => void;
   /** Leaves the project; the next message starts a projectless chat. */
   onClear?: () => void;
-  onNewTerminal?: () => void;
+  /** Offers the system folder picker below the recent projects. */
+  openFolder?: boolean;
+  /**
+   * Extra rows below the project list. `close` dismisses the menu; `hold`
+   * keeps it open while a submenu or dialog of those rows takes clicks.
+   */
+  menuFooter?: (menu: { close: () => void; hold: (held: boolean) => void }) => ReactNode;
   onClose?: () => void;
 };
 
 const MENU_WIDTH = 288;
-const MENU_MAX_HEIGHT = 360;
+const MENU_MAX_HEIGHT = 440;
 const SUBMENU_MAX_HEIGHT = 320;
 const PREVIEW = 5;
 const SUBMENU_GAP = 4;
@@ -60,9 +66,10 @@ const HOVER_CLOSE_MS = 100;
 const SELF = "[data-cwd-picker],[data-cwd-submenu]";
 
 type Row =
+  | { kind: "none" }
   | { kind: "recent"; path: string }
   | { kind: "more" }
-  | { kind: "new-terminal" };
+  | { kind: "open-folder" };
 
 export function CwdPicker({
   cwd,
@@ -80,7 +87,8 @@ export function CwdPicker({
   children,
   onCwdChange,
   onClear,
-  onNewTerminal,
+  openFolder = false,
+  menuFooter,
   onClose,
 }: Props) {
   const { t: uiT } = useTranslation();
@@ -103,9 +111,13 @@ export function CwdPicker({
   // Read the saved rail order on opening, including changes made while Notes is open.
   const projects =
     mode === "move" ? projectRailItems(recents, activeCwd ?? "") : recents;
-  const otherRecents = projects.filter(
-    (item) => !inProject || !sameProjectPath(item.path, cwd),
-  );
+  // Switching lists the current project too, marked with a check.
+  const otherRecents =
+    mode === "move"
+      ? projects.filter((item) => !inProject || !sameProjectPath(item.path, cwd))
+      : inProject && !projects.some((item) => sameProjectPath(item.path, cwd))
+        ? [{ path: cwd }, ...projects]
+        : projects;
   const previewRecents =
     mode === "move" ? otherRecents : otherRecents.slice(0, PREVIEW);
   const overflowRecents = mode === "move" ? [] : otherRecents.slice(PREVIEW);
@@ -116,17 +128,22 @@ export function CwdPicker({
       activeRef.current?.scrollIntoView({ block: "nearest" });
   }, [active, open, mode]);
 
+  const offerNone = mode === "switch" && !!onClear;
   const rows = useMemo((): Row[] => {
-    const out: Row[] = previewRecents.map((item) => ({
-      kind: "recent",
-      path: item.path,
-    }));
+    const out: Row[] = offerNone ? [{ kind: "none" }] : [];
+    for (const item of previewRecents) out.push({ kind: "recent", path: item.path });
     if (hasMore) out.push({ kind: "more" });
-    if (onNewTerminal) out.push({ kind: "new-terminal" });
+    if (openFolder) out.push({ kind: "open-folder" });
     return out;
-  }, [hasMore, onNewTerminal, previewRecents]);
+  }, [hasMore, offerNone, openFolder, previewRecents]);
+
+  const held = useRef(false);
+  const hold = useCallback((next: boolean) => {
+    held.current = next;
+  }, []);
 
   const dismiss = (restore = false) => {
+    held.current = false;
     setOpen(false);
     setMoreOpen(false);
     setActive(0);
@@ -157,8 +174,14 @@ export function CwdPicker({
   const pick = (row: Row) => {
     if (row.kind === "more") return;
     dismiss(true);
-    if (row.kind === "new-terminal") {
-      onNewTerminal?.();
+    if (row.kind === "none") {
+      onClear?.();
+      return;
+    }
+    if (row.kind === "open-folder") {
+      void pickFolders(uiT("Open folder…")).then((paths) => {
+        if (paths[0]) onCwdChange(paths[0]);
+      });
       return;
     }
     onCwdChange(row.path);
@@ -207,10 +230,13 @@ export function CwdPicker({
     }
   };
 
-  const newTerminalIndex = onNewTerminal
-    ? previewRecents.length + (hasMore ? 1 : 0)
-    : -1;
-  const moreIndex = hasMore ? previewRecents.length : -1;
+  const recentOffset = offerNone ? 1 : 0;
+  const moreIndex = rows.findIndex((row) => row.kind === "more");
+  const openFolderIndex = rows.findIndex((row) => row.kind === "open-folder");
+  const rowClass = (highlighted: boolean) =>
+    `flex h-8 w-full items-center justify-between gap-3 px-2.5 text-left ${
+      highlighted ? "bg-selection text-content" : "text-content/80 hover:bg-content/3"
+    }`;
 
   return (
     <div
@@ -291,7 +317,10 @@ export function CwdPicker({
           width={MENU_WIDTH}
           maxHeight={MENU_MAX_HEIGHT}
           ignore={SELF}
-          onDismiss={(reason) => dismiss(reason === "escape")}
+          onDismiss={(reason) => {
+            if (held.current && reason !== "escape") return;
+            dismiss(reason === "escape");
+          }}
           role="menu"
           aria-label={uiT("Project picker")}
           data-cwd-picker
@@ -301,62 +330,67 @@ export function CwdPicker({
             ref={lockOverscroll}
             className="min-h-0 flex-1 overflow-y-auto overscroll-none py-1"
           >
-            {inProject ? (
+            {offerNone ? (
               <>
-                <p className="px-2.5 pb-1 pt-2 text-[10px] uppercase tracking-widest text-content/50">
-                  {uiT("Current project")}
-                </p>
-                <div className="px-2.5 py-1.5 text-content/50">
-                  <p className="truncate text-[13px] text-content">
-                    {renderProjectLabel?.(cwd) ?? basename(cwd)}
-                  </p>
-                  <p className="truncate font-mono text-[11px]">
-                    {prettyParent(cwd)}
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={!inProject}
+                  data-highlighted={active === 0 || undefined}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onMouseEnter={() => {
+                    setMoreOpen(false);
+                    setActive(0);
+                  }}
+                  onClick={() => pick({ kind: "none" })}
+                  className={rowClass(active === 0)}
+                >
+                  <MenuHover />
+                  <span data-menu-title className="text-[13px]">{uiT("No folder")}</span>
+                  {!inProject ? <Check className="size-3.5 shrink-0 text-accent" /> : null}
+                </button>
+                <div role="separator" className="my-1 h-px bg-stroke" />
               </>
             ) : null}
             {previewRecents.length > 0 || mode === "move" ? (
               <>
-                <p className="px-2.5 pb-1 pt-2 text-[10px] uppercase tracking-widest text-content/50">
-                  {mode === "move"
-                    ? uiT("Move to project")
-                    : uiT("Recent projects")}
+                <p className="px-2.5 pb-1 pt-1.5 text-[12px] text-content/50">
+                  {mode === "move" ? uiT("Move to project") : uiT("Recent")}
                 </p>
                 {mode === "move" && previewRecents.length === 0 ? (
                   <p className="px-2.5 py-2 text-[13px] text-content/50">
                     {uiT("No other projects")}
                   </p>
                 ) : null}
-                {previewRecents.map((item, index) => (
-                  <button
-                    key={item.path}
-                    ref={active === index ? activeRef : undefined}
-                    type="button"
-                    role="menuitem"
-                    data-highlighted={active === index || undefined}
-                    title={item.path}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onMouseEnter={() => {
-                      setMoreOpen(false);
-                      setActive(index);
-                    }}
-                    onClick={() => pick({ kind: "recent", path: item.path })}
-                    className={`flex w-full items-center justify-between gap-3 px-2.5 py-2 text-left ${
-                      active === index
-                        ? "bg-selection text-content"
-                        : "text-content/80 hover:bg-content/3"
-                    }`}
-                  >
-                    <MenuHover />
-                    <span data-menu-title className="min-w-0 truncate text-[13px]">
-                      {renderProjectLabel?.(item.path) ?? basename(item.path)}
-                    </span>
-                    <span className="max-w-28 shrink-0 truncate font-mono text-[11px] text-content/45">
-                      {prettyParent(item.path)}
-                    </span>
-                  </button>
-                ))}
+                {previewRecents.map((item, offset) => {
+                  const index = offset + recentOffset;
+                  const current =
+                    mode === "switch" && inProject && sameProjectPath(item.path, cwd);
+                  return (
+                    <button
+                      key={item.path}
+                      ref={active === index ? activeRef : undefined}
+                      type="button"
+                      role={mode === "switch" ? "menuitemradio" : "menuitem"}
+                      aria-checked={mode === "switch" ? current : undefined}
+                      data-highlighted={active === index || undefined}
+                      title={item.path}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onMouseEnter={() => {
+                        setMoreOpen(false);
+                        setActive(index);
+                      }}
+                      onClick={() => pick({ kind: "recent", path: item.path })}
+                      className={rowClass(active === index)}
+                    >
+                      <MenuHover />
+                      <span data-menu-title className="min-w-0 truncate text-[13px]">
+                        {renderProjectLabel?.(item.path) ?? basename(item.path)}
+                      </span>
+                      {current ? <Check className="size-3.5 shrink-0 text-accent" /> : null}
+                    </button>
+                  );
+                })}
               </>
             ) : null}
             {hasMore ? (
@@ -377,11 +411,7 @@ export function CwdPicker({
                   setActive(moreIndex);
                   openMore();
                 }}
-                className={`flex w-full items-center justify-between gap-3 px-2.5 py-2 text-left ${
-                  active === moreIndex || moreOpen
-                    ? "bg-selection text-content"
-                    : "text-content/80 hover:bg-content/3"
-                }`}
+                className={rowClass(active === moreIndex || moreOpen)}
               >
                 <MenuHover />
                 <span data-menu-title className="text-[13px]">{uiT("More Projects")}</span>
@@ -391,30 +421,35 @@ export function CwdPicker({
               </button>
             ) : null}
           </div>
-          {onNewTerminal ? (
+          {openFolder ? (
             <div className="shrink-0 border-t border-stroke py-1">
               <button
                 type="button"
                 role="menuitem"
-                data-highlighted={active === newTerminalIndex || undefined}
+                data-highlighted={active === openFolderIndex || undefined}
                 onMouseDown={(e) => e.stopPropagation()}
                 onMouseEnter={() => {
                   setMoreOpen(false);
-                  setActive(newTerminalIndex);
+                  setActive(openFolderIndex);
                 }}
-                onClick={() => pick({ kind: "new-terminal" })}
-                className={`flex w-full items-center justify-between gap-3 px-2.5 py-2 text-left ${
-                  active === newTerminalIndex
-                    ? "bg-selection text-content"
-                    : "text-content/80 hover:bg-content/3"
-                }`}
+                onClick={() => pick({ kind: "open-folder" })}
+                className={rowClass(active === openFolderIndex)}
               >
                 <MenuHover />
-                <span data-menu-title className="text-[13px]">{uiT("New terminal")}</span>
-                <span className="shrink-0 font-mono text-[11px] text-content/45">
-                  {MOD}`
-                </span>
+                <span data-menu-title className="text-[13px]">{uiT("Open folder…")}</span>
               </button>
+            </div>
+          ) : null}
+          {menuFooter ? (
+            <div
+              className="shrink-0 border-t border-stroke py-1"
+              // Footer rows own their hover state; clear the list highlight.
+              onMouseEnter={() => {
+                setMoreOpen(false);
+                setActive(-1);
+              }}
+            >
+              {menuFooter({ close: () => dismiss(true), hold })}
             </div>
           ) : null}
         </Popover>
@@ -442,14 +477,11 @@ export function CwdPicker({
               title={item.path}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => pick({ kind: "recent", path: item.path })}
-              className="flex w-full items-center justify-between gap-3 px-2.5 py-2 text-left text-content/80 hover:bg-content/3 hover:text-content"
+              className="flex h-8 w-full items-center justify-between gap-3 px-2.5 text-left text-content/80 hover:bg-content/3 hover:text-content"
             >
               <MenuHover />
               <span data-menu-title className="min-w-0 truncate text-[13px]">
                 {renderProjectLabel?.(item.path) ?? basename(item.path)}
-              </span>
-              <span className="max-w-28 shrink-0 truncate font-mono text-[11px] text-content/45">
-                {prettyParent(item.path)}
               </span>
             </button>
           ))}

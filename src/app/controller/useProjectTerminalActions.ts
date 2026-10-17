@@ -18,10 +18,7 @@ import {
   type DockSide,
 } from "../../features/projects/model/projectTerminal";
 import { isLocalProject } from "../../features/projects/model/recents";
-import {
-  sessionWorkCwd,
-  type Session,
-} from "../../features/sessions/model/session";
+import type { Session } from "../../features/sessions/model/session";
 import {
   confirmCloseTerminal,
   confirmCloseTerminals,
@@ -169,20 +166,6 @@ export function useProjectTerminalActions({
     onOpenTerminal(terminalCwd);
   }, [terminalCwd, onOpenTerminal]);
 
-  const onNewTerminalInSession = useCallback(
-    (sessionId: string) => {
-      const session = sessionsRef.current.find(
-        (entry) => entry.id === sessionId,
-      );
-      if (session?.worktreeRemoved) return;
-      onOpenTerminal(
-        session ? sessionWorkCwd(session) : projectCwd,
-        false,
-        sessionId,
-      );
-    },
-    [onOpenTerminal, projectCwd],
-  );
 
   const onToggleProjectTerminal = useCallback(() => {
     if (!isLocalProject(projectCwd)) return;
@@ -315,7 +298,6 @@ export function useProjectTerminalActions({
     onNewTerminal,
     onToggleProjectTerminal,
     onNewTerminalTab,
-    onNewTerminalInSession,
     onCloseOtherProjectTerminals,
     onCloseProjectTerminal,
     onHideProjectTerminal,

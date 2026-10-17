@@ -137,7 +137,6 @@ function render(
     onUpdatePlan: noop,
     onBuildPlan: noop,
     onMovePane: noop,
-    onNewTerminal: noop,
     ...patch,
   };
   act(() => root.render(createElement(PaneTree, props)));

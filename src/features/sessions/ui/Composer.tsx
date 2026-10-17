@@ -119,7 +119,9 @@ import {
   isWorkspaceModeShortcut,
   WorkspaceIdentity,
   WorkspacePicker,
+  WorktreeBasePicker,
 } from "../../workspace/ui/WorkspacePicker";
+import { WorkspaceMenuRows } from "./WorkspaceMenuRows";
 import type { Worktree } from "../../source-control/model/worktrees";
 import { resolveWorktreeBase } from "../../source-control/model/worktreeBase";
 import { CwdPicker } from "../../projects/ui/CwdPicker";
@@ -266,7 +268,6 @@ type Props = {
   onWorktreeBaseChange?: (base: string) => void;
   worktreeRemoved?: boolean;
   onManageWorktrees?: () => void;
-  onNewTerminal?: () => void;
   onModelChange: (harness: HarnessId, model: string) => void;
   onModelSettingsChange?: (settings: Record<string, string>) => void;
   onRuntimeModeChange: (mode: RuntimeMode) => void;
@@ -366,7 +367,6 @@ export function Composer({
   onWorktreeBaseChange,
   worktreeRemoved = false,
   onManageWorktrees,
-  onNewTerminal,
   onModelChange,
   onModelSettingsChange,
   onRuntimeModeChange,
@@ -432,9 +432,10 @@ export function Composer({
   // re-render with the latest draft (remote sessions on every poll), so keep
   // the mount-time value; the effect below applies later changes.
   const [mountDraft] = useState(initialDraft);
+  // Desktop folder menus also name a started session's branch, even mid-turn.
   const { branches: draftBranches, settled: draftBranchesSettled } = useProjectBranchesState(
     executionCwd,
-    draftWorkspace && enabled && !busy,
+    enabled && (draftWorkspace ? !busy : !compact),
   );
   const resolvedWorktreeBase = resolveWorktreeBase(worktreeBase, draftBranches, branch);
   // A worktree is named by its folder, which keeps its name when the branch is renamed.
@@ -1753,13 +1754,90 @@ export function Composer({
     </div>
   ), [hideTopBar, context, compactSupported, worktreeRemoved, disabled, onCompactContext, busy]);
   const workspaceBar = useMemo(
-    () =>
-      hideTopBar ? null : (
+    () => {
+      if (hideTopBar) return null;
+      const projectPicker = !remote && (!hideProjectPicker || !compact);
+      const draftGit =
+        draftWorkspace && !!onWorkspaceModeChange && !!onWorktreeBaseChange;
+      // A removed worktree keeps its recovery picker in the bar.
+      const recoveringWorktree = !draftGit && !!worktreeRemoved && !!onWorktreeChange;
+      // Desktop keeps branch and worktree choices inside the folder menu; a
+      // started session can still switch branches but not its working copy.
+      const foldGit =
+        projectPicker && !compact && !hideBranchPicker && !recoveringWorktree;
+      const worktreeMode = draftGit && (workspaceMode ?? "current") === "worktree";
+      const inWorktree = pathKey(cwd) !== pathKey(executionCwd);
+      const currentBranch = branch || draftBranches?.current;
+      const gitEnabled = enabled && !busy;
+      const gitMenuRows = foldGit
+        ? ({ close, hold }: { close: () => void; hold: (held: boolean) => void }) => (
+            <WorkspaceMenuRows
+              branchTitle={worktreeMode ? uiT("Base branch") : uiT("Branch")}
+              branchLabel={
+                worktreeMode
+                  ? resolvedWorktreeBase || "HEAD"
+                  : (currentBranch ?? uiT("No repo"))
+              }
+              branchDisabled={
+                !gitEnabled || (worktreeMode ? !draftBranches : !currentBranch)
+              }
+              worktree={
+                draftGit ? worktreeMode : onWorktreeChange ? inWorktree : null
+              }
+              worktreeName={!draftGit && inWorktree ? workingName : undefined}
+              worktreeDisabled={
+                !draftGit ||
+                !gitEnabled ||
+                (!draftBranches && !draftBranchesSettled) ||
+                !resolvedWorktreeBase ||
+                creating
+              }
+              onHold={hold}
+              onClose={close}
+              renderPicker={({ onOpenChange, onFinish }) =>
+                worktreeMode ? (
+                  <WorktreeBasePicker
+                    branches={draftBranches?.branches ?? []}
+                    selected={resolvedWorktreeBase || "HEAD"}
+                    loading={!draftBranchesSettled}
+                    enabled={gitEnabled && !!draftBranches}
+                    initialOpen
+                    popoverSide="right"
+                    onChange={(base) => onWorktreeBaseChange?.(base)}
+                    onOpenChange={onOpenChange}
+                    onClose={onFinish}
+                  />
+                ) : (
+                  <BranchPicker
+                    cwd={executionCwd}
+                    branch={branch}
+                    enabled={gitEnabled}
+                    initialOpen
+                    popoverSide="right"
+                    onChange={onBranchChange}
+                    onOpenChange={onOpenChange}
+                    onClose={onFinish}
+                  />
+                )
+              }
+              onWorktreeChange={
+                draftGit
+                  ? (next) =>
+                      onWorkspaceModeChange?.(
+                        next ? "worktree" : "current",
+                        next ? resolvedWorktreeBase || "HEAD" : undefined,
+                      )
+                  : undefined
+              }
+            />
+          )
+        : undefined;
+      return (
         <div className="composer-workspace-bar flex min-w-0 items-center gap-2.5 px-3 pt-2.5">
           {!compact ? <span className="composer-environment-badge hidden" title={uiT(remote ? "Remote connection" : "Local")}>
             {remote ? <Internet /> : <Laptop />}<span>{uiT(remote ? "Remote" : "Local")}</span>
           </span> : null}
-          {!remote && (!hideProjectPicker || !compact) ? (
+          {projectPicker ? (
             <div className="composer-project-picker" data-picker-hidden={hideProjectPicker || undefined}>
             <CwdPicker
               cwd={cwd}
@@ -1771,14 +1849,15 @@ export function Composer({
               }
               chevron={!compact}
               shortLabel={!compact ? projectName(cwd ?? executionCwd) : undefined}
+              openFolder={!compact}
+              menuFooter={gitMenuRows}
               onCwdChange={onCwdChange}
               onClear={() => onCwdChange("~")}
-              onNewTerminal={worktreeRemoved ? undefined : onNewTerminal}
               onClose={() => ref.current?.focus()}
             />
             </div>
           ) : null}
-          {hideBranchPicker ? null : draftWorkspace &&
+          {hideBranchPicker || foldGit ? null : draftWorkspace &&
             onWorkspaceModeChange &&
             onWorktreeBaseChange ? (
             <div className="composer-git-controls">
@@ -1836,11 +1915,14 @@ export function Composer({
           )}
           {compact ? contextControls : null}
         </div>
-      ),
+      );
+    },
     [
       branch,
       busy,
       compact,
+      draftBranches,
+      draftBranchesSettled,
       compactSupported,
       context,
       contextControls,
@@ -1857,7 +1939,6 @@ export function Composer({
       onCompactContext,
       onCwdChange,
       onManageWorktrees,
-      onNewTerminal,
       onWorkspaceModeChange,
       onWorktreeBaseChange,
       onWorktreeChange,

@@ -242,7 +242,6 @@ export type SessionPaneProps = {
     model: string,
     modelSettings: Record<string, string>,
   ) => void;
-  onNewTerminal: (sessionId: string) => void;
 
   onPaneDragStart?: (event: ReactPointerEvent<HTMLElement>) => void;
   /** Keeps this transcript mounted after the pane closes. */
@@ -280,7 +279,7 @@ export const SessionPane = memo(function SessionPane(props: SessionPaneProps) {
         onOpenPlan={props.onOpenPlan}
         unavailableHeader={props.renderHeader?.(props.session)}
         render={(remote) => <LocalSessionPane {...props} {...remote}
-          {...(project?.local ? { onNewTerminal: props.onNewTerminal,
+          {...(project?.local ? {
             onManageWorktrees: props.onManageWorktrees, onCwdChange: props.onCwdChange } : {})} />}
       />
     );
@@ -353,7 +352,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
   onBtwDelete,
   onBtwStop,
   onBtwModelChange,
-  onNewTerminal,
   onPaneDragStart,
   transcriptPool,
   transcriptHistory,
@@ -813,7 +811,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
       onWorktreeBaseChange={(base) => onWorktreeBaseChange(session.id, base)}
       worktreeRemoved={session.worktreeRemoved}
       onManageWorktrees={onManageWorktrees}
-      onNewTerminal={() => onNewTerminal(session.id)}
       onModelChange={(harness, model) => {
         onModelChange(session.id, harness, model);
         const selected = resolveModel(harness, model);
