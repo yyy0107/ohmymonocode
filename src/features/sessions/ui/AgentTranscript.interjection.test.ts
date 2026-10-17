@@ -55,24 +55,25 @@ function render(text: string, severity: "blocker" | "concern" = "concern") {
 
 const note = "Check the fallback.\n```ts\nconst result = read();\nif (!result) throw new Error('missing');\n```";
 
+// A live turn also renders its work fold line as a button; target the body toggle.
 describe("AgentTranscript interjection preview", () => {
   it("clamps long blocker bodies by default while retaining the label and full text", () => {
     render(note, "blocker");
     expect(container.querySelector("pre")?.classList.contains("line-clamp-2")).toBe(true);
     expect(container.querySelector("pre")?.textContent).toBe(note);
     expect(container.querySelector('[aria-label="Interjection: Advisor"]')?.textContent).toContain("Blocker");
-    expect(container.querySelector("button")?.getAttribute("aria-expanded")).toBe("false");
+    expect(container.querySelector("pre + button")?.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("expands and reclamps without losing the collapse control", () => {
     render(note);
-    const button = container.querySelector<HTMLButtonElement>("button")!;
+    const button = container.querySelector<HTMLButtonElement>("pre + button")!;
     act(() => button.click());
     expect(button.getAttribute("aria-expanded")).toBe("true");
     expect(container.querySelector("pre")?.classList.contains("line-clamp-2")).toBe(false);
     expect(container.querySelector("pre")?.textContent).toBe(note);
     act(() => resize());
-    expect(container.querySelector("button")).toBe(button);
+    expect(container.querySelector("pre + button")).toBe(button);
     act(() => button.click());
     expect(button.getAttribute("aria-expanded")).toBe("false");
     expect(container.querySelector("pre")?.classList.contains("line-clamp-2")).toBe(true);
@@ -81,13 +82,13 @@ describe("AgentTranscript interjection preview", () => {
   it("omits the toggle for fitting text and remeasures when the transcript reflows", () => {
     bodyHeight = 20;
     render("Check this.");
-    expect(container.querySelector("button")).toBeNull();
+    expect(container.querySelector("pre + button")).toBeNull();
     bodyHeight = 60;
     act(() => resize());
-    expect(container.querySelector("button")?.getAttribute("aria-expanded")).toBe("false");
+    expect(container.querySelector("pre + button")?.getAttribute("aria-expanded")).toBe("false");
     bodyHeight = 40;
     act(() => resize());
-    expect(container.querySelector("button")).toBeNull();
+    expect(container.querySelector("pre + button")).toBeNull();
   });
 
   it("settles into the work trail as one compact line that opens to the full note", () => {

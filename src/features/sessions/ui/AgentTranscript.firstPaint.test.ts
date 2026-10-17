@@ -150,6 +150,12 @@ describe("transcript first paint", () => {
     expect(renderedTurns()).toBe(20);
     expect(top).toBe(200);
     act(() => vi.advanceTimersByTime(150));
+    // Releasing the hold follows the grown window with a glide, not a snap.
+    for (let frame = 0; frame < 120 && top !== 1900; frame++)
+      await act(async () => {
+        vi.advanceTimersByTime(16);
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      });
     expect(top).toBe(1900);
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", false);
   });
