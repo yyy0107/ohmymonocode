@@ -98,6 +98,18 @@ export function useTranscriptFollow({
     [rememberScroll],
   );
 
+  const pauseFollowing = useCallback(() => {
+    stickToBottom.current = false;
+    scrollDirection.current = undefined;
+    const el = scroller.current;
+    if (!el) return;
+    // Manual disclosure is reading intent. Stop any pending glide before the
+    // fold changes height, and retain this position through its resize frames.
+    rememberScroll(el);
+    jumpingScrollers.get(el)?.(false);
+    syncJumpVisibility(el);
+  }, [rememberScroll, syncJumpVisibility]);
+
   const syncPinned = useCallback(
     (el: HTMLElement) => {
       // The jump animation owns the offset until it lands or is interrupted.
@@ -340,5 +352,6 @@ export function useTranscriptFollow({
     rememberScroll,
     pinTranscript,
     followTranscript,
+    pauseFollowing,
   };
 }

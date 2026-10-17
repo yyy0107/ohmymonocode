@@ -241,9 +241,6 @@ function AgentTranscriptComponent({
   const [searchCurrent, setSearchCurrent] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const highlightOwner = useRef(Symbol("transcript-search"));
-  const toggleWork = useCallback((turnId: string, currentlyOpen: boolean) => {
-    setOpenWork((open) => ({ ...open, [turnId]: !currentlyOpen }));
-  }, []);
   // Stretch the last turn after a send while this tab stays open. Closing
   // the tab is a new visit: the remount uses the true transcript height so
   // the latest reply sits near the composer instead of a hole of empty space.
@@ -278,6 +275,7 @@ function AgentTranscriptComponent({
     rememberScroll,
     pinTranscript,
     followTranscript,
+    pauseFollowing,
   } = useTranscriptFollow({
     scroller,
     transcriptEnd,
@@ -288,6 +286,10 @@ function AgentTranscriptComponent({
     onJumpToBottomChange,
     onJumpToBottomReady,
   });
+  const toggleWork = useCallback((turnId: string, currentlyOpen: boolean) => {
+    pauseFollowing();
+    setOpenWork((open) => ({ ...open, [turnId]: !currentlyOpen }));
+  }, [pauseFollowing]);
   const lastUser = turnUserBlock(blocks, managed);
   const lastUserId = lastUser?.id;
   const lastUserSending = !!lastUser?.sending;

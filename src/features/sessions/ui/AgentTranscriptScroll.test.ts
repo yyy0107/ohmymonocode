@@ -191,6 +191,102 @@ describe("subagent scrolling", () => {
 });
 
 describe("transcript scrolling", () => {
+  it.each([false, true].flatMap(touchScroll => [false, true].map(reduced => ({ touchScroll, reduced }))))(
+    "holds the reading position when toggling settled work (touch=$touchScroll, reduced=$reduced)",
+    ({ touchScroll, reduced }) => {
+      const blocks: Block[] = [
+        { id: "user", role: "user", text: "Run checks" },
+        ...["one", "two"].map((id): Block => ({
+          id, role: "tool", text: `Run ${id}`,
+          tool: { callId: id, kind: "shell", status: "completed" },
+        })),
+        { id: "reply", role: "assistant", text: "Checks passed." },
+      ];
+      let jump: () => void = () => {};
+      const showJump = vi.fn();
+      act(() => root.render(createElement(AgentTranscript, {
+        blocks, busy: false, touchScroll,
+        onJumpToBottomReady: value => { jump = value; },
+        onJumpToBottomChange: showJump,
+      })));
+      const scroller = container.querySelector<HTMLDivElement>(".agent-transcript")!;
+      const end = scroller.querySelector<HTMLElement>("[data-transcript-end]")!;
+      let height = 1000;
+      let top = 0;
+      Object.defineProperties(scroller, {
+        scrollHeight: { get: () => height },
+        clientHeight: { get: () => 400 },
+        scrollTop: {
+          get: () => top,
+          set: (value: number) => { top = Math.max(0, Math.min(value, height - 400)); },
+        },
+      });
+      scroller.getBoundingClientRect = () => ({ top: 0 }) as DOMRect;
+      end.getBoundingClientRect = () => ({ top: height - top }) as DOMRect;
+      const resize = () => {
+        for (const observer of [...observers])
+          if (observer.targets.includes(scroller)) observer.resize();
+      };
+      act(resize);
+      expect(top).toBe(600);
+      act(() => applyReducedMotion(reduced ? "on" : "off"));
+
+      // Late layout can already be gliding when the reader opens the work.
+      height = 1040;
+      act(resize);
+      const readingTop = top;
+      const fold = container.querySelector<HTMLButtonElement>(".desktop-work-fold-line")!;
+      expect(fold.textContent).toContain("Ran 2 commands");
+      act(() => fold.click());
+      expect(fold.getAttribute("aria-expanded")).toBe("true");
+      expect(scroller.dataset.followLatest).toBe("false");
+      // Repeated animation and late-content resize frames must not repin.
+      for (let frame = 0; frame < 40; frame++) {
+        height += 10;
+        act(resize);
+        motionFrame();
+        expect(top).toBe(readingTop);
+      }
+      expect(showJump).toHaveBeenLastCalledWith(true);
+
+      // Rapid close/open keeps the same reading intent.
+      act(() => fold.click());
+      height -= 100;
+      act(resize);
+      act(() => fold.click());
+      height += 100;
+      act(resize);
+      expect(top).toBe(readingTop);
+
+      // Explicit return to the bottom restores normal following.
+      act(() => applyReducedMotion("on"));
+      act(() => jump());
+      expect(top).toBe(height - 400);
+      height += 100;
+      act(resize);
+      expect(top).toBe(height - 400);
+      expect(scroller.dataset.followLatest).toBe("true");
+
+      // Closing from the bottom may clamp, but must not resume on its own.
+      act(() => fold.click());
+      height = 1040;
+      top = height - 400;
+      act(() => { resize(); scroller.dispatchEvent(new Event("scroll")); });
+      height += 100;
+      act(resize);
+      expect(top).toBe(640);
+      expect(scroller.dataset.followLatest).toBe("false");
+      act(() => {
+        top = height - 400;
+        scroller.dispatchEvent(new Event("scroll"));
+      });
+      height += 100;
+      act(resize);
+      expect(top).toBe(height - 400);
+      expect(scroller.dataset.followLatest).toBe("true");
+    },
+  );
+
   it.each([false, true])("uses a bounded main-agent activity window only for sheet clients (sheet=%s)", (sheet) => {
     const blocks: Block[] = [
       { id: "user", role: "user", text: "Investigate auth" },
