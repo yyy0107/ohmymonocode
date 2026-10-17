@@ -164,6 +164,8 @@ export type WorkspaceTab = {
   diffFocused?: boolean;
   /** Show documents beside chat, or use one tab strip for chat and documents. */
   surfaceMode?: "split" | "unified";
+  /** Explicit panel placement keeps its split directions during width fitting. */
+  autoArrangeTools?: boolean;
   /** Explicit tab group; absent means ungrouped. */
   groupId?: string;
 };
@@ -190,7 +192,7 @@ export function resetTabToSession(
   tab: WorkspaceTab,
   sessionId: string,
 ): WorkspaceTab {
-  const { surfaceMode: _surfaceMode, ...rest } = tab;
+  const { surfaceMode: _surfaceMode, autoArrangeTools: _autoArrangeTools, ...rest } = tab;
   return {
     ...rest,
     layout: leaf(sessionId),
@@ -1649,6 +1651,24 @@ export function movePane(
     return insertBeside(extracted.tree, toId, extracted.leaf, place);
   }
   return wrapBeside(extracted.tree, toId, extracted.leaf, dir, place);
+}
+
+/** A manual drop owns placement; subsequent fitting may only adjust sizes. */
+export function moveTabPane(
+  tab: WorkspaceTab,
+  fromId: string,
+  toId: string,
+  edge: PaneEdge,
+): WorkspaceTab {
+  const ids = leafIds(tab.layout);
+  if (fromId === toId || !ids.includes(fromId) || !ids.includes(toId)) return tab;
+  const layout = movePane(tab.layout, fromId, toId, edge);
+  return layout === tab.layout && tab.autoArrangeTools === false && tab.focusedId === fromId ? tab : {
+    ...tab,
+    layout,
+    focusedId: fromId,
+    autoArrangeTools: false,
+  };
 }
 
 /**

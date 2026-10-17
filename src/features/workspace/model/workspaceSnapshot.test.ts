@@ -195,12 +195,14 @@ describe("app view snapshots", () => {
       const tab = {
         ...openEditorTab(openEditorTab(newTab(session.id), first, { pin: true }), second, { pin: true }),
         surfaceMode,
+        autoArrangeTools: false,
       };
       const snapshot = collectWorkspaceSnapshot(
         [tab], [session], tab.id, "/repo", new Map(),
       );
       const restored = hydrateWorkspaceSnapshot(snapshot, new Map())!.tabs[0];
       expect(restored.surfaceMode).toBe(surfaceMode);
+      expect(restored.autoArrangeTools).toBe(false);
       expect(restored.focusedId).toBe(tab.focusedId);
       expect(restored.editorPanes[0].activeFileId).toBe(second.id);
       expect(restored.editorPanes[0].files.map((file) => file.id))

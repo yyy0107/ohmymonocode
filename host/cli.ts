@@ -132,7 +132,8 @@ Connect another computer using an SSH forward to the loopback port.`);
     const desktopDirectory = option("desktop-data-dir", "");
     if (!desktopDirectory) throw new Error("Provide --desktop-data-dir");
     console.log(JSON.stringify(await prepareDesktopHost(directory, resolve(desktopDirectory),
-      fileURLToPath(import.meta.url), port, option("legacy-orchestration-manifest", "") || undefined)));
+      fileURLToPath(import.meta.url), port, option("legacy-orchestration-manifest", "") || undefined,
+      JSON.parse(process.env.MONOCODE_DESKTOP_BINARY_PATHS ?? "{}"))));
     return;
   }
   if (command === "connection-info") {

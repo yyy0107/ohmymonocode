@@ -193,21 +193,17 @@ try {
         await ready('.composer-field:visible');
         const field = await measure('.composer-field:visible');
         const card = await measure('[data-composer-layout="desktop"]:visible [data-ui="message-input"]');
-        const sidebar = await measure('[data-desktop-sidebar]');
+        const sidebar = await measure('[data-sidebar-transition]');
         near(sidebar.width, 256);
-        if (mode === 'chat') {
-          near(card.width, 752); expect(card.radius).toBe('16px');
-          expect(field.fontSize).toBe('16px'); expect(field.lineHeight).toBe('23px');
-        } else {
-          const header = await measure('[data-session-surface-tabs]:visible');
-          near(header.height, 32);
-          expect(field.fontSize).toBe('16px'); expect(field.lineHeight).toBe('22px');
-          if (state === 'conversation') {
-            const prose = await measure('.agent-markdown:visible');
-            const user = await measure('.user-message-bubble:visible');
-            expect(prose.fontSize).toBe('16px'); near(parseFloat(prose.lineHeight), 25.6);
-            expect(user.fontSize).toBe('16px'); expect(user.lineHeight).toBe('22px');
-          }
+        expect(card.radius).toBe('10px');
+        const header = await measure('[data-session-surface-tabs]:visible');
+        near(header.height, 32);
+        expect(field.fontSize).toBe('13px'); expect(field.lineHeight).toBe('22px');
+        if (state === 'conversation') {
+          const prose = await measure('.agent-markdown:visible');
+          const user = await measure('.user-message-bubble:visible');
+          expect(prose.fontSize).toBe('16px'); near(parseFloat(prose.lineHeight), 25.6);
+          expect(user.fontSize).toBe('16px'); expect(user.lineHeight).toBe('22px');
         }
         results.geometry[`${mode}-${state}-${theme}`] = { field, card, sidebar };
         await capture(`${mode}-${state}-${theme}-1280`);
@@ -215,10 +211,19 @@ try {
           await page.locator('[data-model-picker-trigger]:visible').click();
           await ready('[data-model-picker]');
           const modelMenu = await measure('[data-model-picker]:visible');
-          near(modelMenu.width, mode === 'chat' ? 416 : 242, 1);
+          near(modelMenu.width, 242, 1);
           results.geometry[`${mode}-model-${theme}`] = modelMenu;
           await capture(`${mode}-model-${theme}-1280`);
           await page.keyboard.press('Escape');
+        }
+      }
+    }
+    for (const state of ['empty', 'conversation']) {
+      const chat = results.geometry[`chat-${state}-${theme}`];
+      const code = results.geometry[`code-${state}-${theme}`];
+      for (const surface of ['field', 'card', 'sidebar']) {
+        for (const property of ['width', 'height', 'fontSize', 'lineHeight', 'radius']) {
+          expect(chat[surface][property], `${state}/${surface}/${property}`).toEqual(code[surface][property]);
         }
       }
     }
@@ -231,7 +236,7 @@ try {
     await ready('.composer-field:visible');
     await capture(`${mode}-${state}-light-1280`);
   }
-  results.checks.push('real Chat/Code empty and conversation panes in both themes; sidebar256, Chat card752/radius16/input16/23, Code header32/prose16/25.6/user16/22; model widths416/242');
+  results.checks.push('real Chat/Code empty and conversation panes share sidebar, input and menu geometry in both themes; sidebar256, input13/22, header32, model menus242');
   results.checks.push('real Code split panes in both themes; running, question and attachment fixture states captured with inert native/provider IO');
 
   for (const theme of ['light', 'dark']) {

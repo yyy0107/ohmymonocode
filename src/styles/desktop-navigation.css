@@ -1,4 +1,9 @@
 /* Measured shell geometry; desktop-only so shared controls retain mobile sizing. */
+html[data-skin] [data-sidebar-rail] [data-activity-bar="rail"] {
+  width: 52px;
+  padding-inline: 8px;
+}
+
 html[data-skin][data-desktop-mode] .desktop-navigation {
   padding: 8px var(--desktop-sidebar-inset) 8px 0;
   display: flex;
@@ -330,6 +335,7 @@ html[data-skin][data-desktop-mode] .drag-ghost > .desktop-tools-heading {
 }
 html[data-skin][data-desktop-mode] .desktop-projects-page {
   padding: 24px 40px 40px;
+  flex: 1;
   width: 100%;
   min-height: 0;
   overflow: auto;

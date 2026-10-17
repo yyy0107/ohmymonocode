@@ -131,6 +131,8 @@ export type HostWorktree = {
   log?: string[];
 };
 export type HostSession = {
+  /** A paired device created or sent a message in this conversation. */
+  remoteControl?: boolean;
   /** Client-only estimate: Host time minus local time; never changes stored timestamps. */
   clockOffsetMs?: number;
   session: Session;

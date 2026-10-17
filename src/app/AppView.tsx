@@ -551,6 +551,7 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
                                           tab.id === activeTabId
                                         }
                                         surfaceMode={tab.surfaceMode ?? "split"}
+                                        autoArrangeTools={tab.autoArrangeTools}
                                         onOpenSessionFile={onOpenSessionFile}
                                         onOpenFileTerminal={onOpenTerminal}
                                         onFileMoved={onFileMoved}

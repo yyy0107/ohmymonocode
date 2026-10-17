@@ -51,6 +51,8 @@ import { restoreOrchestrationProposal } from "../../orchestration/model/orchestr
 import type { OrchestrationSummary } from "../../orchestration/model/orchestrationSummary";
 
 export type SessionSummary = {
+  /** Host-owned attribution for conversations controlled by a paired device. */
+  remoteControl?: boolean;
   titleState?: Session["titleState"];
   orchestrationLeadId?: string;
   workflowParentId?: string;

@@ -24,6 +24,7 @@ it("recovers defaults from corrupt storage and fills missing sections without du
     "pinned",
     "workflows",
     "groups",
+    "remote-control",
   ]);
 });
 
@@ -32,7 +33,7 @@ it("preserves hidden sections while saving a reordered visible subset", () => {
     [...DEFAULT_SIDEBAR_SECTION_ORDER],
     ["projects", "workflows", "chats"],
   );
-  expect(next).toEqual(["pinned", "projects", "workflows", "groups", "chats"]);
+  expect(next).toEqual(["pinned", "projects", "workflows", "groups", "chats", "remote-control"]);
   saveSidebarSectionOrder(next);
   expect(loadSidebarSectionOrder()).toEqual(next);
 });

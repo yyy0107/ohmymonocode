@@ -84,6 +84,14 @@ pub fn shared_host_prepare(
         .arg(&desktop)
         .arg("--legacy-orchestration-manifest")
         .arg(&manifest_path);
+    // Publish the startup snapshot, not pending path edits that require restart.
+    let binary_paths = app
+        .state::<crate::harness::HarnessHost>()
+        .runtime_binary_paths();
+    command.env(
+        "MONOCODE_DESKTOP_BINARY_PATHS",
+        serde_json::to_string(&binary_paths).map_err(|e| e.to_string())?,
+    );
     crate::hide_window_console(&mut command);
     let output = command
         .output()

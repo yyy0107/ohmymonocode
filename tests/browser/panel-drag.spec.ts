@@ -55,13 +55,14 @@ for (const split of ["right", "down"] as const) {
       const workspaceBox = (await page.locator("[data-pane-tree-layout]").boundingBox())!;
       expect(Math.abs((horizontal ? lineBox.width : lineBox.height) - (horizontal ? workspaceBox.width : workspaceBox.height))).toBeLessThan(1);
       await checkSizes();
-      // Along the existing axis, only position changes, including during the transition.
+      // Same-axis reordering keeps its insertion marker throughout the transition.
       await page.mouse.move(
-        horizontal ? chatBox.x + 20 : chatBox.x + chatBox.width / 2,
+        horizontal ? chatBox.x + 4 : chatBox.x + chatBox.width / 2,
         horizontal ? chatBox.y + chatBox.height / 2 : chatBox.y + 20,
         { steps: 4 },
       );
-      await expect(line).toHaveCount(0);
+      await expect(line).toHaveAttribute("data-pane-insertion", horizontal ? "left" : "top");
+      await expect(line).toBeVisible();
       await checkSizes();
       await expect.poll(async () => Math.abs((await editor.boundingBox())![horizontal ? "x" : "y"] - chatBox[horizontal ? "x" : "y"])).toBeLessThan(1);
       await checkSizes();
@@ -83,6 +84,73 @@ for (const split of ["right", "down"] as const) {
   }
 }
 
+for (const reducedMotion of ["no-preference", "reduce"] as const) {
+  test(`insertion stays visible while approaching and crossing the target edge (${reducedMotion})`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion });
+    const { chat, editor } = await openPanels(page);
+    const target = (await chat.boundingBox())!;
+    const handle = (await editor.locator("[data-surface-pane-drag]").first().boundingBox())!;
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    const line = page.locator("[data-pane-insertion]");
+    // The center initially chooses bottom. Moving closer to the left must
+    // expose the new left insertion, including a little past the pane edge.
+    for (const fraction of [0.5, 0.25, 0.1, 0.01, -0.01]) {
+      await page.mouse.move(target.x + target.width * fraction, target.y + target.height / 2, { steps: 4 });
+      await expect(line).toBeVisible();
+    }
+    await expect(line).toHaveAttribute("data-pane-insertion", "left");
+    expect(await line.evaluate(el => Number(getComputedStyle(el).zIndex))).toBeGreaterThan(
+      await page.locator(".pane-drag-ghost").evaluate(el => Number(getComputedStyle(el).zIndex)),
+    );
+    await page.mouse.move(target.x + target.width / 4, 990, { steps: 4 });
+    await expect(line).toHaveCount(0);
+    await page.mouse.move(target.x - target.width * 0.01, target.y + target.height / 2, { steps: 4 });
+    await expect(line).toHaveAttribute("data-pane-insertion", "left");
+    await page.mouse.up();
+    await expect(line).toHaveCount(0);
+    await expect.poll(async () => (await editor.boundingBox())!.x - (await chat.boundingBox())!.x).toBeLessThan(-100);
+    await expect(editor.locator(".cm-editor")).toHaveAttribute("data-retained-editor", "true");
+    await expect(page.locator(".xterm")).toHaveAttribute("data-retained-terminal", "true");
+  });
+
+  test(`the closer card center or grab point controls the committed edge (${reducedMotion})`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion });
+    const { chat, editor } = await openPanels(page);
+    const target = (await chat.boundingBox())!;
+    const original = (await editor.boundingBox())!;
+    const card = (await editor.locator("[data-pane-card-frame]").boundingBox())!;
+    const handle = (await editor.locator("[data-surface-pane-drag]").first().boundingBox())!;
+    const start = { x: handle.x + handle.width / 2, y: handle.y + handle.height / 2 };
+    // Put the visible card center 6px from the bottom while the grab point
+    // remains well inside the target. A grab-point-only test chooses left.
+    const centerDrop = {
+      x: target.x + target.width / 2 - (card.x + card.width / 2 - start.x),
+      y: target.y + target.height - 6 - (card.y + card.height / 2 - start.y),
+    };
+    expect(Math.min(centerDrop.x - target.x, target.x + target.width - centerDrop.x,
+      centerDrop.y - target.y, target.y + target.height - centerDrop.y)).toBeGreaterThan(6);
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(centerDrop.x, centerDrop.y, { steps: 8 });
+    const line = page.locator("[data-pane-insertion]");
+    await expect(line).toHaveAttribute("data-pane-insertion", "bottom");
+    // The grab point wins again when it is closer than the card center.
+    await page.mouse.move(target.x + target.width / 2, target.y + 4, { steps: 4 });
+    await expect(line).toHaveAttribute("data-pane-insertion", "top");
+    await page.mouse.move(centerDrop.x, centerDrop.y, { steps: 4 });
+    await expect(line).toHaveAttribute("data-pane-insertion", "bottom");
+    const floating = (await page.locator(".pane-drag-ghost > .drag-ghost-card").boundingBox())!;
+    expect(Math.abs(floating.width - original.width)).toBeLessThan(1);
+    expect(Math.abs(floating.height - original.height)).toBeLessThan(1);
+    await page.mouse.up();
+    await expect(line).toHaveCount(0);
+    await expect.poll(async () => (await editor.boundingBox())!.y - (await chat.boundingBox())!.y).toBeGreaterThan(100);
+    await expect(editor.locator(".cm-editor")).toHaveAttribute("data-retained-editor", "true");
+    await expect(page.locator(".xterm")).toHaveAttribute("data-retained-terminal", "true");
+  });
+}
+
 for (const cancel of ["escape", "pointercancel", "blur"] as const) {
   test(`${cancel} restores the panel layout and clears drag state`, async ({ page }) => {
     const { chat, editor } = await openPanels(page);
@@ -91,7 +159,7 @@ for (const cancel of ["escape", "pointercancel", "blur"] as const) {
     const handle = (await editor.locator("[data-surface-pane-drag]").first().boundingBox())!;
     await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
     await page.mouse.down();
-    await page.mouse.move(chatBox.x + 20, chatBox.y + chatBox.height / 2, { steps: 8 });
+    await page.mouse.move(chatBox.x + 4, chatBox.y + chatBox.height / 2, { steps: 8 });
     await expect(page.locator(".pane-drag-ghost")).toHaveCount(1);
     await expect.poll(async () => (await editor.boundingBox())!.x).toBeLessThan(chatBox.x + 40);
     if (cancel === "escape") await page.keyboard.press("Escape");
@@ -106,6 +174,42 @@ for (const cancel of ["escape", "pointercancel", "blur"] as const) {
   });
 }
 
+
+for (const reducedMotion of ["no-preference", "reduce"] as const) {
+  test(`manual horizontal tools survive fitting and window resizing (${reducedMotion})`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion });
+    await page.setViewportSize({ width: 1200, height: 1000 });
+    await page.goto("/tests/browser/desktop-tools.html?editor=source&stackedTools");
+    const files = page.locator('[data-pane-id="tools-editor"]');
+    const terminalPane = page.locator('[data-pane-id="tools-stacked-terminal"]');
+    const terminal = terminalPane.locator(".xterm");
+    await expect(files.locator(".cm-editor")).toBeVisible();
+    await expect(terminal).toBeVisible();
+    await expect.poll(() => page.evaluate(async () => (await import("/src/shared/lib/paneResize.ts")).isPaneResizing())).toBe(false);
+    await terminal.evaluate(el => el.setAttribute("data-retained-terminal", "true"));
+    const target = (await files.boundingBox())!;
+    const handle = (await terminalPane.locator("[data-surface-pane-drag]").first().boundingBox())!;
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(target.x + target.width - 4, target.y + target.height / 2, { steps: 8 });
+    await expect(page.locator("[data-pane-insertion]")).toHaveAttribute("data-pane-insertion", "right");
+    await page.mouse.up();
+    await expect(page.locator(".pane-drag-ghost")).toHaveCount(0);
+    await expect.poll(() => page.evaluate(async () => (await import("/src/shared/lib/paneResize.ts")).isPaneResizing())).toBe(false);
+    const checkHorizontal = async () => {
+      const left = (await files.boundingBox())!, right = (await terminalPane.boundingBox())!;
+      expect(Math.abs(left.y - right.y)).toBeLessThan(1);
+      expect(right.x - left.x).toBeGreaterThan(100);
+      await expect(terminal).toHaveAttribute("data-retained-terminal", "true");
+    };
+    await checkHorizontal();
+    for (const width of [1100, 1400]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await expect.poll(() => page.evaluate(async () => (await import("/src/shared/lib/paneResize.ts")).isPaneResizing())).toBe(false);
+      await checkHorizontal();
+    }
+  });
+}
 
 test("dragging a terminal pane keeps its PTY mounted and defers resizing", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 1000 });

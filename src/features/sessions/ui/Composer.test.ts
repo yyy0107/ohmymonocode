@@ -291,19 +291,22 @@ describe("Composer question focus", () => {
     expect(container.querySelector("[data-access-picker-trigger]")).toBe(permission);
   });
 
-  it("re-measures a retained draft when desktop mode changes its typography", async () => {
+  it("retains the draft and model controls when switching desktop modes", async () => {
     const rootElement = document.documentElement;
     rootElement.dataset.desktopMode = "chat";
     const height = vi.spyOn(HTMLTextAreaElement.prototype, "scrollHeight", "get")
-      .mockImplementation(() => rootElement.dataset.desktopMode === "chat" ? 53 : 20);
+      .mockReturnValue(22);
     try {
       await renderComposer(undefined, vi.fn(), false, 0, "Retained across modes");
       const field = container.querySelector("textarea")!;
-      expect(field.style.height).toBe("53px");
+      const model = container.querySelector("[data-model-picker-trigger]")!;
+      expect(model.closest(".composer-meta")).not.toBeNull();
+      expect(model.closest('[data-ui="message-input"]')).toBeNull();
       await act(async () => { rootElement.dataset.desktopMode = "code"; });
       expect(container.querySelector("textarea")).toBe(field);
       expect(field.value).toBe("Retained across modes");
-      expect(field.style.height).toBe("20px");
+      expect(container.querySelector("[data-model-picker-trigger]")).toBe(model);
+      expect(field.style.height).toBe("22px");
     } finally {
       delete rootElement.dataset.desktopMode;
       height.mockRestore();

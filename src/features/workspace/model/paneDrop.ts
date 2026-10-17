@@ -61,6 +61,57 @@ export function paneDropFromPoint(
   return { id, edge: paneEdgeFromPoint(x, y, pane.getBoundingClientRect()) };
 }
 
+type PaneDragPoint = { x: number; y: number };
+type PaneDragCard = PaneDragPoint & { width: number; height: number };
+type PaneDragTarget = {
+  id: string;
+  rect: { left: number; top: number; width: number; height: number };
+};
+const PANE_EDGES: readonly PaneEdge[] = ["left", "right", "top", "bottom"];
+
+/** Both grab point and visible card center can nominate a target edge.
+ * Compare CSS-pixel distances; equal candidates retain the grab point. */
+export function paneDropFromDrag(
+  targets: readonly PaneDragTarget[],
+  pointer: PaneDragPoint,
+  card: PaneDragCard,
+  fromId: string,
+): { id: string; edge: PaneEdge } | null {
+  let result: { id: string; edge: PaneEdge } | null = null;
+  let closest = Infinity;
+  for (const point of [pointer, card]) {
+    for (const { id, rect } of targets) {
+      if (id === fromId || rect.width <= 0 || rect.height <= 0) continue;
+      const right = rect.left + rect.width;
+      const bottom = rect.top + rect.height;
+      const pointerInside = pointer.x >= rect.left && pointer.x <= right && pointer.y >= rect.top && pointer.y <= bottom;
+      const cardOverlaps = card.x + card.width / 2 > rect.left && card.x - card.width / 2 < right &&
+        card.y + card.height / 2 > rect.top && card.y - card.height / 2 < bottom;
+      if (!pointerInside && !cardOverlaps) continue;
+      // Distance to finite border segments also works just outside the pane.
+      // Do not discard a center that crossed an edge while its card overlaps.
+      const dx = Math.max(rect.left - point.x, 0, point.x - right);
+      const dy = Math.max(rect.top - point.y, 0, point.y - bottom);
+      const distances: Record<PaneEdge, number> = {
+        left: (point.x - rect.left) ** 2 + dy ** 2,
+        right: (right - point.x) ** 2 + dy ** 2,
+        top: (point.y - rect.top) ** 2 + dx ** 2,
+        bottom: (bottom - point.y) ** 2 + dx ** 2,
+      };
+      // Preserve the existing diagonal tie break, then compare actual distances.
+      let edge = paneEdgeFromPoint(point.x, point.y, rect);
+      for (const candidate of PANE_EDGES) {
+        if (distances[candidate] < distances[edge]) edge = candidate;
+      }
+      if (distances[edge] < closest) {
+        closest = distances[edge];
+        result = { id, edge };
+      }
+    }
+  }
+  return result;
+}
+
 /**
  * A split terminal dragged toward the project's terminal dock: over the open
  * dock, or over the bottom band where a closed dock would open.

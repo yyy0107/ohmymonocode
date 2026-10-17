@@ -51,6 +51,7 @@ export function mergeHistorySummary(
       summary.orchestrationLeadId ?? previous?.orchestrationLeadId,
     workflowParentId: summary.workflowParentId ?? previous?.workflowParentId,
     automationId: summary.automationId ?? previous?.automationId,
+    remoteControl: summary.remoteControl ?? previous?.remoteControl,
   };
   return [next, ...current.filter((entry) => entry.id !== summary.id)].sort(
     compareSessionSummaries,

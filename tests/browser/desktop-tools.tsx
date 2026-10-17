@@ -19,7 +19,7 @@ import { PaneTree } from "../../src/features/workspace/ui/PaneTree";
 import { newSession } from "../../src/features/sessions/model/session";
 import { TranscriptPool, TranscriptPoolOutlet } from "../../src/features/sessions/ui/TranscriptPool";
 import type { EditorPane, FilePaneTab, LayoutNode, PaneEdge } from "../../src/features/workspace/model/layout";
-import { movePane, setSplitRatio } from "../../src/features/workspace/model/layout";
+import { moveTabPane, newTab, setSplitRatio } from "../../src/features/workspace/model/layout";
 import type { ProjectTerminalDock } from "../../src/features/projects/model/projectTerminal";
 import type { FsEntry, GitDiffIndex, GitFileDiff, GitHistory } from "../../src/platform/tauri/fs";
 import { SurfaceVisibilityContext } from "../../src/shared/ui/SurfaceVisibility";
@@ -154,10 +154,12 @@ if (query.get("editor") === "terminal") {
   initialPane.activeFileId = "tools-pane-pty";
 }
 const initialDock: ProjectTerminalDock = { projectPath: cwd, side: "bottom", size: 220, open: true, pane: { id: "tools-terminal-pane", files: [{ id: "tools-pty", path: "monocode", cwd, terminal: true }], activeFileId: "tools-pty" } };
-const initialLayout: LayoutNode = { type: "split", id: "tools-split", dir: query.get("split") === "down" ? "down" : "right", children: [{ type: "leaf", id: session.id }, { type: "leaf", id: initialPane.id }], sizes: [0.54, 0.46] };
+const stackedTerminal: EditorPane = { id: "tools-stacked-terminal", files: [{ id: "tools-stacked-pty", path: "monocode", cwd, terminal: true }], activeFileId: "tools-stacked-pty" };
+const initialLayout: LayoutNode = { type: "split", id: "tools-split", dir: query.get("split") === "down" ? "down" : "right", children: [{ type: "leaf", id: session.id }, query.has("stackedTools") ? { type: "split", id: "stacked-tools", dir: "down", children: [{ type: "leaf", id: initialPane.id }, { type: "leaf", id: stackedTerminal.id }], sizes: [0.5, 0.5] } : { type: "leaf", id: initialPane.id }], sizes: [0.54, 0.46] };
 
 function DesktopToolsFixture() {
-  const [layout, setLayout] = useState(initialLayout);
+  const [workspaceTab, setWorkspaceTab] = useState(() => ({ ...newTab(session.id), layout: initialLayout }));
+  const layout = workspaceTab.layout;
   const [sessionHeaderHost, setSessionHeaderHost] = useState<HTMLDivElement | null>(null);
   const [tab, setTab] = useState<SidebarProps["tab"]>("files");
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -179,11 +181,11 @@ function DesktopToolsFixture() {
     onSteerQueuedMessage: noop, onResumeQueue: noop, onUsageLimitResume: noop,
     onUsageLimitResumeAtReset: noop, onUsageLimitDismiss: noop, onApproval: noop,
     onQuestionReply: noop, onOpenSessionFile: noop, onOpenPlan: noop, onUpdatePlan: noop,
-    onBuildPlan: noop, onMovePane: (from: string, to: string, edge: PaneEdge) => setLayout(value => movePane(value, from, to, edge)), onCloseFile: noop, onCloseOtherFiles: noop,
+    onBuildPlan: noop, onMovePane: (from: string, to: string, edge: PaneEdge) => setWorkspaceTab(value => moveTabPane(value, from, to, edge)), onCloseFile: noop, onCloseOtherFiles: noop,
     onReorderFiles: noop, onFileDirtyChange: noop, onFileErrorCountChange: noop,
-    onRatio: (splitId: string, index: number, ratio: number) => setLayout(value => setSplitRatio(value, splitId, index, ratio)),
+    onRatio: (splitId: string, index: number, ratio: number) => setWorkspaceTab(value => ({ ...value, layout: setSplitRatio(value.layout, splitId, index, ratio) })),
   };
-  const paneProps: ComponentProps<typeof PaneTree> = { ...handlers, visible: true, layout, sessions: [session], editorPanes: [pane], dirtyFileIds: new Set(), fileErrorCounts: new Map(), focusedId, surfaceMode: "split", composerFocused: false, recents: activity.recents, transcriptPool: pool, hideProjectPicker: false, onFocus: setFocusedId, onSubmit: () => true, onStop: noop, onCompactContext: () => true, onOpenFile: openFile, onOpenDiff: () => setPane(value => ({ ...value, activeFileId: review.id })), onNewTerminal: () => setDock(value => ({ ...value, open: true })), onSelectFile: (_pane: string, activeFileId: string) => setPane(value => ({ ...value, activeFileId })) };
+  const paneProps: ComponentProps<typeof PaneTree> = { ...handlers, visible: true, layout, sessions: [session], editorPanes: [pane, ...(query.has("stackedTools") ? [stackedTerminal] : [])], dirtyFileIds: new Set(), fileErrorCounts: new Map(), focusedId, surfaceMode: "split", composerFocused: false, recents: activity.recents, transcriptPool: pool, hideProjectPicker: false, onFocus: setFocusedId, onSubmit: () => true, onStop: noop, onCompactContext: () => true, onOpenFile: openFile, onOpenDiff: () => setPane(value => ({ ...value, activeFileId: review.id })), onNewTerminal: () => setDock(value => ({ ...value, open: true })), onSelectFile: (_pane: string, activeFileId: string) => setPane(value => ({ ...value, activeFileId })), autoArrangeTools: workspaceTab.autoArrangeTools, onFitLayout: (previous, next) => setWorkspaceTab(value => value.layout === previous ? { ...value, layout: next } : value) };
   const titlebar = <DesktopTitlebarNavigation menu={<WindowMenuButton handlers={{ "Tab: New": noop }} dispatch={() => true} />} modeToggle={<DesktopModeToggle mode="code" onChange={noop} />} canGoBack onGoBack={noop} panelActive={sidebarOpen} onTogglePanel={() => setSidebarOpen(value => !value)} />;
   const headerActions: SessionHeaderActions = {
     rename: noop, archive: noop, splitRight: noop,

@@ -23,7 +23,7 @@ import {
 } from "../../features/sessions/model/session";
 import {
   leafIds,
-  movePane,
+  moveTabPane,
   neighborLeafId,
   setSplitRatio,
   splitPane,
@@ -153,11 +153,7 @@ export function useWorkspacePaneActions({
       setTabs((prev) =>
         prev.map((tab) => {
           return leafIds(tab.layout).includes(fromId)
-            ? {
-                ...tab,
-                layout: movePane(tab.layout, fromId, toId, edge),
-                focusedId: fromId,
-              }
+            ? moveTabPane(tab, fromId, toId, edge)
             : tab;
         }),
       );
@@ -176,7 +172,7 @@ export function useWorkspacePaneActions({
     const moved = moveDockToPane(tab, dock, targetId, edge);
     if (!moved) return;
     const nextTabs = tabsRef.current.map((entry) =>
-      entry.id === tab.id ? moved : entry,
+      entry.id === tab.id ? { ...moved, autoArrangeTools: false } : entry,
     );
     const nextDocks = projectTerminalsRef.current.filter(
       (entry) => entry !== dock,

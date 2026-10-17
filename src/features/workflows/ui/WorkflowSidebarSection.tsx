@@ -1,20 +1,23 @@
 // The left sidebar's Workflows section: conversations with workflow runs (each
 // with run lines; a line opens the run's detail tab) and the saved
 // workflows hub.
-import { useContext } from "react";
+import { useContext, type ReactNode } from "react";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import { Workflow } from "../../../shared/ui/icons";
+import { projectName } from "../../../shared/lib/paths";
+import { sessionDisplayTitle } from "../../sessions/model/session";
 import { TooltipProvider } from "../../../shared/ui/primitives/Tooltip";
 import { TaskWorkflowRunLines } from "../kit/components/workflow-run-line/TaskWorkflowRunLines";
 import { useWorkflowIntl } from "../kit/i18n/IntlProvider";
-import { WorkflowActivityContext, workflowActivityEntries } from "../model/workflowActivity";
+import { WorkflowActivityContext, workflowActivityEntries, type WorkflowActivityEntry } from "../model/workflowActivity";
 import { useWorkflowApp } from "./workflowAppContext";
 
-export function WorkflowSidebarSection({ activeSessionId, onOpenSession, onOpenWorkflows, workflowsActive }: {
+export function WorkflowSidebarSection({ activeSessionId, onOpenSession, onOpenWorkflows, workflowsActive, renderHarnessIcon }: {
   activeSessionId?: string;
   onOpenSession: (sessionId: string) => void;
   onOpenWorkflows: () => void;
   workflowsActive?: boolean;
+  renderHarnessIcon: (harness: WorkflowActivityEntry["harness"]) => ReactNode;
 }) {
   const { t } = useTranslation();
   const { intl } = useWorkflowIntl();
@@ -26,14 +29,26 @@ export function WorkflowSidebarSection({ activeSessionId, onOpenSession, onOpenW
         {entries.map((entry) => (
           <div
             key={entry.sessionId}
+            data-workflow-conversation
             className={`flex min-w-0 flex-col rounded-lg px-2.5 py-1.5 hover:bg-surface-hover ${entry.sessionId === activeSessionId ? "bg-selection" : ""}`}
           >
             <button
               type="button"
+              data-workflow-conversation-select
               className="min-w-0 truncate text-left text-ui-base text-content"
               onClick={() => onOpenSession(entry.sessionId)}
             >
-              {entry.title}
+              <span className="flex min-w-0 items-center gap-2">
+                <span data-session-avatar className="shrink-0">
+                  {renderHarnessIcon(entry.harness)}
+                </span>
+                <span className="desktop-sidebar-session-title min-w-0 truncate">
+                  {sessionDisplayTitle(entry.title, entry.harness)}
+                </span>
+              </span>
+              <span data-session-project title={entry.cwd}>
+                {entry.cwd === "~" ? t("Chats") : projectName(entry.cwd)}
+              </span>
             </button>
             <TaskWorkflowRunLines
               activity={entry.activity}

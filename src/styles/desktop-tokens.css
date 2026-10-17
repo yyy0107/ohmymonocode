@@ -44,6 +44,7 @@
 }
 
 html[data-skin] {
+  --desktop-sidebar-session-row: 52px;
   --text-desktop-h1: var(--text-heading-xl);
   --text-desktop-h2: 22px;
   --text-desktop-h3: 15px;

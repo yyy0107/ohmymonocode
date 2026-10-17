@@ -255,6 +255,36 @@ describe("session surface layout", () => {
     expect(fit).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps manual tool directions while still repairing widths and retaining editors", () => {
+    render();
+    const editor = pane("tools").querySelector<HTMLInputElement>("input")!;
+    editor.value = "manual layout draft";
+    const width = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(900);
+    const fit = vi.fn();
+    const columns: LayoutNode = {
+      type: "split", id: "columns", dir: "right",
+      children: ["chat", "tools", "review"].map(id => ({ type: "leaf", id })),
+      sizes: [0.5, 0.25, 0.25],
+    };
+    render({ layout: columns, autoArrangeTools: false, onFitLayout: fit, editorPanes: [
+      ...props.editorPanes,
+      { id: "review", activeFileId: "diff", files: [{ id: "diff", path: "/project", cwd: "/project", changes: true, review: true }] },
+    ] });
+    expect(fit).toHaveBeenCalledTimes(1);
+    expect(layoutLeaves(fit.mock.calls[0][1]).every(pane => pane.rect.y === 0)).toBe(true);
+    fit.mockClear();
+    width.mockReturnValue(1200);
+    render({ layout: { ...columns, sizes: [0.8, 0.1, 0.1] } });
+    expect(fit).toHaveBeenCalledTimes(1);
+    const leaves = layoutLeaves(fit.mock.calls[0][1]);
+    expect(leaves.every(pane => pane.rect.y === 0)).toBe(true);
+    expect(leaves[2].rect.x).toBeGreaterThan(leaves[1].rect.x);
+    expect(leaves[1].rect.w * 1200).toBeGreaterThanOrEqual(280);
+    expect(pane("tools").querySelector("input")).toBe(editor);
+    expect(editor.value).toBe("manual layout draft");
+    expect(lifetime.unmounts).toBe(0);
+  });
+
   it("hides the owning top bar's menu when its workspace tab is hidden", () => {
     const actions = headerActions();
     props.sessions = [{ ...props.sessions[0], harness: "grok" }];

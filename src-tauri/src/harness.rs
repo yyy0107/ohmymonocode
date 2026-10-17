@@ -123,6 +123,14 @@ pub struct HarnessHost {
 }
 
 impl HarnessHost {
+    pub(crate) fn runtime_binary_paths(&self) -> HashMap<String, String> {
+        self.runtime_binary_paths
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+            .unwrap_or_default()
+    }
+
     pub(crate) fn runtime_binary_path(&self, provider: &str) -> Option<String> {
         self.runtime_binary_paths
             .lock()

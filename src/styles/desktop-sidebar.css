@@ -319,6 +319,13 @@ html[data-skin] .sidebar-transition:has([data-desktop-sidebar]) > .resize-handle
   left: 0;
 }
 
+.sidebar-transition:not([data-fold-state="open"]),
+.sidebar-rail {
+  /* Fixed-width children must stay inside the animated viewport. Once open,
+     allow the sidebar's resize target to extend into the trailing gutter. */
+  overflow: clip;
+}
+
 /* Pointer resizing owns the width until release; disclosure motion owns it otherwise. */
 .sidebar-transition[data-resizing] {
   width: var(--sidebar-resize-width) !important;
@@ -361,13 +368,6 @@ html[data-skin].is-mac [data-desktop-sidebar-header] {
   padding-top: 28px;
 }
 
-html[data-skin] [data-desktop-sidebar] > [data-project-header] {
-  height: 32px;
-  padding-inline: 2px;
-  padding-inline-end: var(--desktop-sidebar-action-inset);
-  margin-block-start: 12px;
-  margin-inline-end: var(--desktop-sidebar-inset);
-}
 /* Sidebar actions share one rounded rectangular hover surface. */
 html[data-skin] [data-desktop-sidebar] [data-ui="icon-button"][data-sidebar-toolbar-action] {
   width: var(--desktop-sidebar-toolbar-action);
@@ -387,31 +387,10 @@ html[data-skin] [data-desktop-sidebar] [data-ui="icon-button"][data-sidebar-row-
 html[data-skin] [data-desktop-sidebar] .group:is(:hover, :has(:focus-visible)) > [data-ui="icon-button"][data-sidebar-row-action] {
   display: inline-flex;
 }
-html[data-skin] [data-desktop-sidebar] [data-ui="icon-button"][data-sidebar-toolbar-action] > svg,
-html[data-skin] [data-desktop-sidebar] [data-sidebar-search] > div:first-child > svg {
+html[data-skin] [data-desktop-sidebar] [data-ui="icon-button"][data-sidebar-toolbar-action] > svg {
   width: var(--desktop-sidebar-icon);
   height: var(--desktop-sidebar-icon);
   flex-shrink: 0;
-}
-html[data-skin] [data-desktop-sidebar] [data-sidebar-search] {
-  height: 40px;
-  flex-shrink: 0;
-  padding: 4px 2px;
-  padding-inline-end: var(--desktop-sidebar-action-inset);
-  margin-inline-end: var(--desktop-sidebar-inset);
-  border-bottom: 0;
-  gap: 4px;
-}
-html[data-skin] [data-desktop-sidebar] [data-sidebar-search] > div:first-child {
-  height: 32px;
-}
-html[data-skin] [data-desktop-sidebar] [data-sidebar-search] input {
-  font-size: 13px;
-  line-height: 19px;
-  padding-inline: 32px 8px;
-}
-html[data-skin] [data-desktop-sidebar] [data-sidebar-search] > div:first-child > svg {
-  left: 8px;
 }
 html[data-skin] [data-desktop-sidebar] [data-project-list-scroll] {
   gap: .5px;
@@ -491,6 +470,52 @@ html[data-skin] [data-desktop-sidebar] .desktop-sidebar-session-title {
   font-size: var(--desktop-sidebar-title);
   font-weight: var(--font-weight-normal);
   line-height: var(--desktop-sidebar-title-line);
+}
+html[data-skin] [data-desktop-sidebar] [data-session-layout="two-line"] {
+  height: var(--desktop-sidebar-session-row);
+  min-height: var(--desktop-sidebar-session-row);
+  padding-block: 4px;
+}
+html[data-skin] [data-desktop-sidebar] [data-session-layout="two-line"] [data-session-select] {
+  padding-inline-end: var(--desktop-sidebar-toolbar-action);
+}
+html[data-skin] [data-desktop-sidebar] [data-session-project] {
+  display: block;
+  overflow: hidden;
+  margin-block-start: 2px;
+  padding-inline-start: calc(var(--desktop-sidebar-avatar) + var(--desktop-sidebar-gap));
+  color: var(--color-ink-tertiary);
+  font-size: 13px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-skin] [data-desktop-sidebar] [data-session-menu] {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: calc(var(--desktop-sidebar-action-inset) - 1px);
+}
+html[data-skin] [data-desktop-sidebar] [data-session-card]:is([data-session-active="true"], [data-session-selected="true"]) [data-session-menu] {
+  opacity: 1;
+  pointer-events: auto;
+}
+html[data-skin] [data-desktop-sidebar] [data-session-rename-row][data-session-layout="two-line"] {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+}
+html[data-skin] [data-desktop-sidebar] [data-session-rename-row] [data-session-project] {
+  padding-inline-start: 8px;
+}
+html[data-skin] [data-desktop-sidebar] [data-workflow-sidebar] {
+  padding-inline: 0;
+}
+html[data-skin] [data-desktop-sidebar] [data-workflow-conversation] {
+  padding: 0;
+}
+html[data-skin] [data-desktop-sidebar] [data-workflow-conversation-select] {
+  min-height: var(--desktop-sidebar-session-row);
+  padding: 4px var(--desktop-sidebar-action-inset) 4px var(--desktop-sidebar-row-inset);
 }
 html[data-skin] [data-desktop-sidebar] :is([data-session-group-row], [data-project-group-header]) {
   height: var(--desktop-sidebar-group-row);

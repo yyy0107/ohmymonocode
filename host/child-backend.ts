@@ -6,7 +6,7 @@ import {
 import { EventEmitter } from "node:events";
 import { readCursorSubagents } from "./cursor-subagents";
 import { promisify } from "node:util";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { readFile, stat } from "node:fs/promises";
 import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
@@ -124,6 +124,24 @@ export class HostChildBackend implements ChildBackend {
 
   async resolve(provider: RemoteProvider): Promise<string> {
     if (this.binaries[provider]) return this.binaries[provider]!;
+    if (this.desktopConfigPath) {
+      let owner;
+      try {
+        owner = JSON.parse(await readFile(this.desktopConfigPath, "utf8"));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+      const paths = owner?.providerBinaryPaths;
+      if (paths !== undefined && (!paths || typeof paths !== "object" || Array.isArray(paths)))
+        throw new Error("Invalid desktop CLI path configuration");
+      if (paths && Object.hasOwn(paths, provider)) {
+        const path = paths[provider];
+        if (typeof path !== "string" || !isAbsolute(path) || !(await stat(path)).isFile())
+          throw new Error(`Invalid configured ${provider} CLI path`);
+        await providerLaunch(path, []);
+        return path;
+      }
+    }
     return resolveProvider(provider);
   }
 

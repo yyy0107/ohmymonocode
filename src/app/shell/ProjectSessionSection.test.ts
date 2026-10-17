@@ -261,6 +261,86 @@ afterEach(() => {
 });
 
 describe("named project/session tree", () => {
+  it("places phone-controlled Shared Host conversations in Remote control while retaining pins and local projects", async () => {
+    // This test exercises routing and attribution, independently of disclosure interpolation.
+    document.documentElement.dataset.reducedMotion = "on";
+    try {
+      configureSharedHost("local-machine", [{ id: "host-project", cwd: A, name: "alpha" }]);
+      props.desktopMode = "code";
+      props.onSelectRemoteSession = vi.fn();
+      const phone = { ...hostRow("phone", "codex · Phone conversation"), remoteControl: true };
+      remoteState.rows.set(A, [
+        hostRow("desktop", "Desktop conversation"),
+        phone,
+        { ...hostRow("phone-pin"), remoteControl: true, pinned: true },
+        { ...hostRow("phone-archive"), remoteControl: true, archived: true },
+        hostRow("legacy", "Legacy conversation"),
+      ]);
+      props.openSessions = [summary("phone", A), summary("desktop", A)];
+      await act(async () => render());
+      const remoteSection = () => container.querySelector('[data-project-section="remote-control"]')!;
+      expect(remoteSection().querySelectorAll("[data-session-card]")).toHaveLength(1);
+      const phoneCard = remoteSection().querySelector<HTMLElement>('[data-session-card="phone"]')!;
+      expect(phoneCard.textContent).toContain("Phone conversation");
+      expect(phoneCard.textContent).not.toContain("codex ·");
+      expect(phoneCard.querySelector("[data-session-avatar] img")).not.toBeNull();
+      for (const section of ["pinned", "projects", "remote-control"]) {
+        const rows = container.querySelectorAll(`[data-project-section="${section}"] [data-session-card]`);
+        expect(rows.length).toBeGreaterThan(0);
+        for (const row of rows) {
+          expect(row.getAttribute("data-session-layout")).toBe("two-line");
+          expect(row.querySelector("[data-session-project]")?.textContent).toBe("alpha");
+        }
+      }
+      expect(project(A).querySelector('[data-session-card="phone"]')).toBeNull();
+      expect(project(A).querySelector('[data-session-card="desktop"]')).not.toBeNull();
+      expect(project(A).querySelector('[data-session-card="legacy"]')).not.toBeNull();
+      expect(container.querySelector('[data-project-section="pinned"] [data-session-card="phone-pin"]')).not.toBeNull();
+      act(() => phoneCard.click());
+      expect(props.onSelectSession).toHaveBeenCalledWith("phone", A);
+
+      // A phone can take over an existing session; the next history refresh moves it once.
+      remoteState.rows.set(A, [phone, { ...hostRow("legacy"), remoteControl: true }]);
+      await act(async () => { window.dispatchEvent(new Event(REMOTE_HISTORY_UPDATED)); });
+      expect(remoteSection().querySelectorAll("[data-session-card]")).toHaveLength(2);
+      expect(project(A).querySelector('[data-session-card="legacy"]')).toBeNull();
+    } finally {
+      delete document.documentElement.dataset.reducedMotion;
+    }
+  });
+
+  it("opens desktop row actions from the more button without selecting the conversation", async () => {
+    document.documentElement.dataset.reducedMotion = "on";
+    try {
+      props.desktopMode = "code";
+      props.onRenameSession = vi.fn();
+      props.onArchiveSession = vi.fn();
+      saveTabGroupLabel(A, "My project");
+      await act(async () => render());
+      const row = card("a");
+      expect(row.querySelector("[data-session-project]")?.textContent).toBe("My project");
+      const menuButton = row.querySelector<HTMLButtonElement>("[data-session-menu]")!;
+      menuButton.focus();
+      await act(async () => menuButton.click());
+      expect(props.onSelectSession).not.toHaveBeenCalled();
+      const menu = document.querySelector('[role="menu"][aria-label="Session actions"]')!;
+      expect(menu).not.toBeNull();
+      const rename = [...menu.querySelectorAll<HTMLElement>('[role="menuitem"]')]
+        .find(item => item.textContent?.startsWith("Rename"))!;
+      await act(async () => rename.click());
+      const editor = container.querySelector<HTMLElement>('[data-session-rename-row="a"]')!;
+      expect(editor.dataset.sessionLayout).toBe("two-line");
+      expect(editor.querySelector("[data-session-project]")?.textContent).toBe("My project");
+      await act(async () => editor.querySelector("input")!.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      ));
+      expect(props.onRenameSession).not.toHaveBeenCalled();
+      expect(card("a")).not.toBeNull();
+    } finally {
+      delete document.documentElement.dataset.reducedMotion;
+    }
+  });
+
   it("keeps project names visible, expands independently and routes inactive session selection with its project", () => {
     props.onSessionNavigationOrder = vi.fn();
     props.onNewInProject = vi.fn(() => "new-b");
@@ -1178,12 +1258,9 @@ describe("named project/session tree", () => {
     act(() => render());
     expect(card("a")).not.toBeNull();
     expect(card("b")).not.toBeNull();
-    query("Alpha");
-    expect(card("a")).not.toBeNull();
-    expect(card("b")).toBeNull();
-    query("");
-    expect(card("b")).not.toBeNull();
-    expect(input().placeholder).toBe("Search projects and conversations...");
+    expect(container.querySelector("aside > [data-project-header]")).toBeNull();
+    expect(container.querySelector("[data-sidebar-search]")).toBeNull();
+    expect(container.querySelector('button[aria-label="Filter sessions"]')).toBeNull();
   });
 
   it.each(["files", "changes"] as const)(

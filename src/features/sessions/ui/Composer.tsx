@@ -232,8 +232,6 @@ type Props = {
   focusToken?: number;
   shell?: boolean;
   compact?: boolean;
-  /** Put model controls beside Send in the desktop messaging composer. */
-  messagingLayout?: boolean;
   placeholder?: string;
   inputAriaLabel?: string;
   disabled?: boolean;
@@ -379,7 +377,6 @@ export function Composer({
   hotkeys = false,
   shell = false,
   compact = false,
-  messagingLayout = false,
   placeholder,
   inputAriaLabel,
   disabled = false,
@@ -1057,21 +1054,6 @@ export function Composer({
     });
     return () => cancelAnimationFrame(frame);
   }, [enabled]);
-
-  // The same retained composer can become visible while the desktop changes
-  // its chat/code typography. Re-measure after the root attribute changes so
-  // the textarea's inline height does not keep the previous mode's metrics.
-  useEffect(() => {
-    if (compact || !enabled) return;
-    const root = document.documentElement;
-    const measure = () => {
-      if (root.dataset.desktopMode && ref.current) resizeComposer(ref.current);
-    };
-    measure();
-    const observer = new MutationObserver(measure);
-    observer.observe(root, { attributes: true, attributeFilter: ["data-desktop-mode"] });
-    return () => observer.disconnect();
-  }, [compact, enabled]);
 
   useEffect(() => {
     onDraftChange?.(draft);
@@ -2320,7 +2302,6 @@ export function Composer({
     <div
       data-composer
       data-composer-layout={compact ? "compact" : "desktop"}
-      data-composer-messaging={(!compact && messagingLayout) || undefined}
       data-native-readonly={readOnlyReason ? "true" : undefined}
       className={`relative shrink-0 ${shell || compact ? "" : "p-1.5 pt-0"}`}
       onMouseDown={disabled ? undefined : onFocus}
@@ -2840,7 +2821,7 @@ export function Composer({
                   ) : null}
                 </ComposerPopover>
               </div>
-              {compact || messagingLayout ? footerControls : null}
+              {compact ? footerControls : null}
               <motion.div
                 data-send-kick={sendKick || undefined}
                 style={{ scale: sendScale }}
@@ -2861,7 +2842,7 @@ export function Composer({
           {!compact ? (
             <div className="composer-meta">
               {workspaceBar}
-              {!messagingLayout ? footerControls : null}
+              {footerControls}
               {contextControls}
             </div>
           ) : null}

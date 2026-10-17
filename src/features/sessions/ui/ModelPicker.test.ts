@@ -68,12 +68,12 @@ vi.mock("../../../shared/ui/Popover", () => ({
 import { composerModelMenuWidth, ModelControlPills, ModelPicker } from "./ModelPicker";
 import { SurfaceVisibilityContext } from "../../../shared/ui/SurfaceVisibility";
 
-it("uses desktop mode widths only for skinned composer model menus", () => {
+it("shares the desktop composer menu width across Chat and Code", () => {
   const root = document.documentElement;
   try {
     root.dataset.skin = "daylight";
     root.dataset.desktopMode = "chat";
-    expect(composerModelMenuWidth("composer", 280)).toBe(416);
+    expect(composerModelMenuWidth("composer", 280)).toBe(242);
     root.dataset.desktopMode = "code";
     expect(composerModelMenuWidth("composer", 320)).toBe(242);
     expect(composerModelMenuWidth(undefined, 320)).toBe(320);

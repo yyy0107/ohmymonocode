@@ -1345,6 +1345,7 @@ it("persists section moves, preserves mounted content and restores hidden sectio
     "chats",
     "groups",
     "workflows",
+    "remote-control",
   ]);
 
   act(() => saveProjectGroups([{ id: "team", name: "Team", collapsed: false }]));
@@ -1375,7 +1376,7 @@ it("persists section moves, preserves mounted content and restores hidden sectio
   expect(sectionIds()).toEqual(["workflows", "chats", "projects", "groups", "pinned"]);
 });
 
-it.each(["pinned", "chats", "workflows", "groups", "projects"])(
+it.each(["pinned", "chats", "workflows", "groups", "projects", "remote-control"])(
   "temporarily folds only the dragged %s section and reverses without changing its preference",
   async (id) => {
     saveProjectGroups([{ id: "team", name: "Team", collapsed: false }]);
@@ -1383,6 +1384,8 @@ it.each(["pinned", "chats", "workflows", "groups", "projects"])(
       pinnedEntries: [{ id: "pin", content: "Pinned" }],
       chatEntries: [{ id: "chat", content: "Chat" }],
       workflowsSection: "Workflows",
+      showRemoteControlSection: true,
+      remoteControlEntries: [{ id: "phone", content: "Phone conversation" }],
     });
     const section = container.querySelector(
       `[data-sidebar-reorder-section="${id}"]`,
@@ -1546,8 +1549,8 @@ it.each([false, true])(
       );
       expect(loadSidebarSectionOrder()).toEqual(
         cancel
-          ? ["pinned", "chats", "workflows", "groups", "projects"]
-          : ["pinned", "workflows", "projects", "groups", "chats"],
+          ? ["pinned", "chats", "workflows", "groups", "projects", "remote-control"]
+          : ["pinned", "workflows", "projects", "groups", "chats", "remote-control"],
       );
     } finally {
       delete document.documentElement.dataset.reducedMotion;

@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { HostStore } from "./store";
 import { importDesktopSessions } from "./desktop-import";
@@ -15,6 +15,7 @@ export async function prepareDesktopHost(
   entry: string,
   port: number,
   retirementManifestPath?: string,
+  providerBinaryPaths: unknown = {},
 ) {
   const retirement = retirementManifestPath
     ? readLegacyRetirementManifest(retirementManifestPath, desktopDirectory)
@@ -102,11 +103,15 @@ export async function prepareDesktopHost(
       old.close();
     }
   }
+  // Existing Hosts re-read this snapshot when discovering or launching a CLI.
+  const ownerPath = join(directory, "desktop-owner.json");
+  const temporaryOwner = `${ownerPath}.${randomUUID()}.tmp`;
   writeFileSync(
-    join(directory, "desktop-owner.json"),
-    JSON.stringify({ desktopDirectory }),
+    temporaryOwner,
+    JSON.stringify({ desktopDirectory, providerBinaryPaths }),
     { mode: 0o600 },
   );
+  renameSync(temporaryOwner, ownerPath);
   if (!(await alive())) {
     const started = spawnSync(
       process.execPath,

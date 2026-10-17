@@ -17,6 +17,8 @@ export const LAYER = {
   windowChrome: 95,
   /** Labels that follow the pointer during a drag. */
   dragLabel: 96,
+  /** Drop markers stay visible above the dragged card. */
+  dragHint: 97,
   /** Toasts, which outrank whatever they interrupt. */
   toast: 100,
   /** Transparent cursor surface during a captured divider gesture. */

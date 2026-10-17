@@ -34,6 +34,7 @@ import {
   resetTabToSession,
   isolateTerminalPanes,
   movePane,
+  moveTabPane,
   openChangesTab,
   openCommitTab,
   openEditorTab,
@@ -681,6 +682,7 @@ describe("resetTabToSession", () => {
       diffOpen: true,
       diffFocused: true,
       surfaceMode: "unified" as const,
+      autoArrangeTools: false,
     };
     const next = resetTabToSession(tab, "session-b");
     expect(next.id).toBe(tab.id);
@@ -692,6 +694,7 @@ describe("resetTabToSession", () => {
     expect(next.diffOpen).toBe(false);
     expect(next.diffFocused).toBe(false);
     expect(next.surfaceMode).toBeUndefined();
+    expect(next.autoArrangeTools).toBeUndefined();
   });
 });
 
@@ -803,6 +806,42 @@ describe("paneEdgeFromPoint", () => {
     expect(paneEdgeFromPoint(80, 50, rect)).toBe("right");
     expect(paneEdgeFromPoint(50, 20, rect)).toBe("top");
     expect(paneEdgeFromPoint(50, 80, rect)).toBe("bottom");
+  });
+});
+
+describe("moveTabPane", () => {
+  it("preserves an explicit horizontal tool placement during later fitting", () => {
+    const tab: WorkspaceTab = {
+      ...newTab("chat"),
+      layout: {
+        type: "split", id: "root", dir: "right", sizes: [0.6, 0.4],
+        children: [leaf("chat"), {
+          type: "split", id: "tools", dir: "down", sizes: [0.5, 0.5],
+          children: [leaf("files"), leaf("terminal")],
+        }],
+      },
+    };
+    const moved = moveTabPane(tab, "terminal", "files", "right");
+    const [, files, terminal] = layoutLeaves(moved.layout);
+    expect(files.rect.y).toBe(terminal.rect.y);
+    expect(terminal.rect.x).toBeGreaterThan(files.rect.x);
+    expect(moved.autoArrangeTools).toBe(false);
+    expect(moved.focusedId).toBe("terminal");
+    expect(moved.editorPanes).toBe(tab.editorPanes);
+  });
+
+  it("records a valid manual placement even when its order already matches", () => {
+    const tab = { ...newTab("chat"), layout: splitPane(leaf("chat"), "chat", "right", "files") };
+    const moved = moveTabPane(tab, "files", "chat", "right");
+    expect(moved.layout).toBe(tab.layout);
+    expect(moved.autoArrangeTools).toBe(false);
+    expect(moveTabPane(moved, "files", "chat", "right")).toBe(moved);
+  });
+
+  it("does not turn off automatic placement for an invalid drop", () => {
+    const tab = newTab("chat");
+    expect(moveTabPane(tab, "missing", "chat", "right")).toBe(tab);
+    expect(tab.autoArrangeTools).toBeUndefined();
   });
 });
 

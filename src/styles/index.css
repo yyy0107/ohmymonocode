@@ -11,7 +11,6 @@
 @import "./desktop-sidebar.css";
 @import "./desktop-navigation.css";
 @import "./desktop-conversation.css";
-@import "./desktop-messaging.css";
 @import "./controls/messaging.css";
 @import "../shared/styles/conversation.css";
 @source "../../node_modules/streamdown/dist/*.js";
@@ -1737,6 +1736,9 @@ header[data-tauri-drag-region] button {
 }
 
 .drag-ghost-card {
+  --drag-ghost-shadow:
+    0 10px 28px rgb(0 0 0 / 0.16),
+    0 2px 6px rgb(0 0 0 / 0.08);
   position: fixed;
   left: 0;
   top: 0;
@@ -1749,9 +1751,7 @@ header[data-tauri-drag-region] button {
     var(--color-content)
   );
   color: var(--color-content);
-  box-shadow:
-    0 10px 28px rgb(0 0 0 / 0.16),
-    0 2px 6px rgb(0 0 0 / 0.08);
+  box-shadow: var(--drag-ghost-shadow);
 }
 
 html.theme-light .drag-ghost-card {
@@ -1891,7 +1891,7 @@ html.theme-light .drag-ghost-card {
 
 .sidebar-transition,
 .sidebar-rail {
-  /* Commit available workspace width once. Only the surfaces move in between. */
+  /* Motion owns the width; do not add a second CSS transition. */
   transition: none;
   z-index: 1;
 }
@@ -1905,15 +1905,6 @@ html.theme-light .drag-ghost-card {
   pointer-events: none;
 }
 
-.sidebar-transition[data-expanded="false"] .sidebar-transition-clip {
-  /* Its right edge follows the workspace to the replacement rail's edge. */
-}
-
-/*
- * The rail does not slide. It stays at its final edge above the sidebar and
- * crossfades with it: the sidebar's trailing strip ends exactly under the
- * rail, so neither direction swaps surfaces on a single frame.
- */
 .sidebar-rail {
   z-index: 2;
 }

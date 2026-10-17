@@ -29,6 +29,7 @@ it("starts shared Host automatically, imports history and reuses the owner and d
   await new Promise<void>((done) => probe.listen(0, "127.0.0.1", done));
   const port = (probe.address() as AddressInfo).port;
   await new Promise<void>((done) => probe.close(() => done()));
+  let binaryPaths = { codex: process.execPath };
   const run = (...args: string[]) =>
     exec(
       process.execPath,
@@ -40,7 +41,7 @@ it("starts shared Host automatically, imports history and reuses the owner and d
         "--port",
         String(port),
       ],
-      { timeout: 30_000 },
+      { timeout: 30_000, env: { ...process.env, MONOCODE_DESKTOP_BINARY_PATHS: JSON.stringify(binaryPaths) } },
     );
   try {
     const first = JSON.parse(
@@ -51,10 +52,21 @@ it("starts shared Host automatically, imports history and reuses the owner and d
     );
     expect(first.sessions).toContainEqual({ id: "old", cwd: desktop });
     expect(first.token).toHaveLength(43);
+    const providers = async () => {
+      const response = await fetch(`${first.endpoint}/rpc`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${first.token}` },
+        body: JSON.stringify({ version: 1, method: "environment.describe", params: { supportedProviders: ["codex"] } }),
+      });
+      return (await response.json()).result.providers;
+    };
+    expect(await providers()).toContain("codex");
+    binaryPaths = { codex: join(directory, "missing-codex.exe") };
     const second = JSON.parse(
       (await run("desktop", "--desktop-data-dir", desktop)).stdout,
     );
     expect(second.token).toBe(first.token);
+    expect(await providers()).not.toContain("codex");
     expect(
       JSON.parse(readFileSync(join(directory, "running.json"), "utf8")).pid,
     ).toBe(state.pid);

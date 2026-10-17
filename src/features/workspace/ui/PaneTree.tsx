@@ -20,13 +20,14 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { createDragGhost, setGrabbing, suppressTextSelection } from "../../../shared/lib/drag";
+import { LAYER } from "../../../shared/lib/layers";
 import { ResizeHandle } from "../../../shared/ui/ResizeHandle";
 import { SurfaceVisibilityContext, useSurfaceVisibility } from "../../../shared/ui/SurfaceVisibility";
 import { Maximize2 } from "../../../shared/ui/icons";
 import { useTranslation } from "../../../shared/i18n/useTranslation";
 import {
   overOpenTerminalDock,
-  paneDropFromPoint,
+  paneDropFromDrag,
   setTerminalDockDrop,
   terminalDockOpen,
   TERMINAL_DOCK_BAND,
@@ -44,7 +45,6 @@ import {
   layoutLeaves,
   layoutSashes,
   movePane,
-  paneEdgeFromPoint,
   setSplitRatio,
   type EditorPane,
   type LayoutLeaf,
@@ -92,6 +92,7 @@ type Shared = {
   fileErrorCounts: Map<string, number>;
   focusedId: string;
   surfaceMode?: SessionSurfaceMode;
+  autoArrangeTools?: boolean;
   windowControls?: ReactNode;
   sessionHeaderHost?: HTMLElement | null;
   reserveWindowNavigationSpace?: boolean;
@@ -251,6 +252,7 @@ function PaneTreeComponent({
   fileErrorCounts,
   focusedId,
   surfaceMode = "split",
+  autoArrangeTools = true,
   windowControls,
   sessionHeaderHost,
   reserveWindowNavigationSpace = false,
@@ -559,10 +561,10 @@ function PaneTreeComponent({
       const width = measuredWidth;
       if (width <= 0) return;
       // Sash edits keep the user's ratios; refit for topology or available-width changes.
-      const key = `${Math.round(width)}:${sessionPaneIds}:${layoutLeaves(layout).map(pane => pane.id).join(",")}:${layoutSashes(layout).map(sash => `${sash.splitId}/${sash.dir}`).join(",")}`;
+      const key = `${autoArrangeTools}:${Math.round(width)}:${sessionPaneIds}:${layoutLeaves(layout).map(pane => pane.id).join(",")}:${layoutSashes(layout).map(sash => `${sash.splitId}/${sash.dir}`).join(",")}`;
       if (key === fittedSize.current) return;
       fittedSize.current = key;
-      const tools = ownerSession ? fitToolLayout(layout, ownerSession.id, width, chatMinimum, toolMinimum) : layout;
+      const tools = ownerSession && autoArrangeTools ? fitToolLayout(layout, ownerSession.id, width, chatMinimum, toolMinimum) : layout;
       const next = fitPaneWidths(tools, width, minimumWidth);
       if (next !== layout) fitCallback.current?.(layout, next);
     };
@@ -576,7 +578,7 @@ function PaneTreeComponent({
     observer.observe(container);
     const unsubscribe = onPaneResizeSettled(fit);
     return () => { observer.disconnect(); unsubscribe(); };
-  }, [layout, visible, ownerSession?.id, sessionPaneIds, unified, requestedUnified, maximized]);
+  }, [layout, visible, ownerSession?.id, sessionPaneIds, unified, requestedUnified, maximized, autoArrangeTools]);
 
   // The card that was maximized before full view was requested, if any.
   const fullViewTarget = useRef<string | undefined>(undefined);
@@ -720,6 +722,11 @@ function PaneTreeComponent({
       const targets = Array.from(container.children)
         .filter((element): element is HTMLElement => element instanceof HTMLElement && !!element.dataset.paneId)
         .map((element) => ({ id: element.dataset.paneId!, rect: element.getBoundingClientRect() }));
+      const cardBounds = (source.querySelector<HTMLElement>("[data-pane-card-frame]") ?? source).getBoundingClientRect();
+      const centerOffset = {
+        x: cardBounds.left + cardBounds.width / 2 - startX,
+        y: cardBounds.top + cardBounds.height / 2 - startY,
+      };
       let active = false;
       let ended = false;
       let ghost: ReturnType<typeof createDragGhost> | undefined;
@@ -734,21 +741,22 @@ function PaneTreeComponent({
       const dockTarget = (x: number, y: number): TerminalDockDrop => {
         if (!dockable) return null;
         if (overOpenTerminalDock(x, y)) return "dock";
-        const rect = treeRef.current?.getBoundingClientRect();
-        if (!rect || terminalDockOpen()) return null;
-        const inside = x >= rect.left && x <= rect.right && y <= rect.bottom;
-        return inside && y >= rect.bottom - TERMINAL_DOCK_BAND ? "band" : null;
+        if (!treeRef.current || terminalDockOpen()) return null;
+        const inside = x >= bounds.left && x <= bounds.right && y <= bounds.bottom;
+        return inside && y >= bounds.bottom - TERMINAL_DOCK_BAND ? "band" : null;
       };
       const update = (x: number, y: number) => {
         lastX = x;
         lastY = y;
-        ghost?.move(x, y);
         const toDock = dockTarget(x, y);
+        const over = toDock ? null : paneDropFromDrag(
+          targets,
+          { x, y },
+          { x: x + centerOffset.x, y: y + centerOffset.y, width: cardBounds.width, height: cardBounds.height },
+          fromId,
+        );
+        ghost?.move(x, y);
         setTerminalDockDrop(toDock);
-        const target = targets.find(({ rect }) => x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom);
-        const over = toDock ? null : target
-          ? { id: target.id, edge: paneEdgeFromPoint(x, y, target.rect) }
-          : paneDropFromPoint(x, y);
         const overId = over?.id ?? null;
         const edge = over?.edge ?? "left";
         if (current && current.overId === overId && current.edge === edge) return;
@@ -768,18 +776,18 @@ function PaneTreeComponent({
         }
         const next = nextRects.get(fromId)!;
         const horizontal = edge === "top" || edge === "bottom";
-        const insertion: CSSProperties | null = !changesSize ? null : horizontal
+        const insertion: CSSProperties | null = !over || over.id === fromId ? null : horizontal
           ? {
-              left: `${next.x * 100}%`,
-              top: edge === "top" ? `${next.y * 100}%` : `calc(${(next.y + next.h) * 100}% - 3px)`,
-              width: `${next.w * 100}%`,
+              left: bounds.left + next.x * bounds.width,
+              top: bounds.top + (edge === "top" ? next.y : next.y + next.h) * bounds.height - (edge === "top" ? 0 : 3),
+              width: next.w * bounds.width,
               height: 3,
             }
           : {
-              left: edge === "left" ? `${next.x * 100}%` : `calc(${(next.x + next.w) * 100}% - 3px)`,
-              top: `${next.y * 100}%`,
+              left: bounds.left + (edge === "left" ? next.x : next.x + next.w) * bounds.width - (edge === "left" ? 0 : 3),
+              top: bounds.top + next.y * bounds.height,
               width: 3,
-              height: `${next.h * 100}%`,
+              height: next.h * bounds.height,
             };
         current = { fromId, overId, edge, offsets, insertion };
         setPaneDrag(current);
@@ -1171,7 +1179,7 @@ function PaneTreeComponent({
           );
         })}
         {paneDrag?.insertion ? (
-          <div className="pane-insertion-line" data-pane-insertion={paneDrag.edge} style={paneDrag.insertion} aria-hidden="true" />
+          createPortal(<div className="pane-insertion-line" data-pane-insertion={paneDrag.edge} style={{ ...paneDrag.insertion, zIndex: LAYER.dragHint }} aria-hidden="true" />, document.body)
         ) : null}
         {!unified &&
           sashes.map((sash) => (

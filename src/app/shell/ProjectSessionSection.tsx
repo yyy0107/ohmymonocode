@@ -36,6 +36,7 @@ import {
   Folder,
   GitBranch,
   GitPullRequest,
+  MoreHorizontal,
   Pin,
   Share,
   Zap,
@@ -146,7 +147,9 @@ type ProjectSessionSectionProps = SidebarProps & {
   unreadSessionIds?: ReadonlySet<string>;
   searchQuery: string;
   shortcutId?: string;
+  projectLabel?: string;
   flatPins?: boolean;
+  excludeRemoteControl?: boolean;
   searchActive?: boolean;
   pollRemote?: boolean;
   sessionFilters: SessionSidebarFilters;
@@ -202,7 +205,9 @@ function ProjectSessionSectionComponent({
   activeProject = true,
   dense = true,
   shortcutId,
+  projectLabel,
   flatPins = false,
+  excludeRemoteControl = false,
   scrollRef,
   onRetry,
 }: ProjectSessionSectionProps) {
@@ -405,6 +410,7 @@ function ProjectSessionSectionComponent({
             activityAt: sessionRecencyAt(session),
             archived: session.archived,
             pinned: session.pinned,
+            remoteControl: session.remoteControl,
             linkedWorkItem: session.linkedWorkItem,
             draft: session.draft,
             repo: session.repo,
@@ -507,6 +513,7 @@ function ProjectSessionSectionComponent({
     (session) =>
       !session.orchestrationLeadId &&
       !session.workflowParentId &&
+      (!excludeRemoteControl || !session.remoteControl) &&
       (!flatPins || !!shortcutId || !session.pinned) &&
       (shortcutId || searchActive || inWorktreeFocus(session, focusedWorktree)),
   );
@@ -935,18 +942,21 @@ function ProjectSessionSectionComponent({
       : []),
   ];
 
+  const openSessionMenu = (sessionId: string, x: number, y: number) => {
+    announceProjectSelection();
+    contextSelectionRef.current = !selectedSessionIds.has(sessionId);
+    if (contextSelectionRef.current) {
+      setSelectedSessionIds(new Set([sessionId]));
+    }
+    setSessionMenu({ x, y, sessionId });
+  };
   const onSessionContextMenu = (
     sessionId: string,
     e: ReactMouseEvent<HTMLDivElement>,
   ) => {
     e.preventDefault();
     e.stopPropagation();
-    announceProjectSelection();
-    contextSelectionRef.current = !selectedSessionIds.has(sessionId);
-    if (contextSelectionRef.current) {
-      setSelectedSessionIds(new Set([sessionId]));
-    }
-    setSessionMenu({ x: e.clientX, y: e.clientY, sessionId });
+    openSessionMenu(sessionId, e.clientX, e.clientY);
   };
 
   const closeSessionMenu = () => {
@@ -1089,6 +1099,7 @@ function ProjectSessionSectionComponent({
     onPrefetchSession,
     onPlaceSessionOnPane,
     onSessionContextMenu,
+    openSessionMenu,
     onArchiveSession,
     onPinSession,
     onPinSessions,
@@ -1101,6 +1112,7 @@ function ProjectSessionSectionComponent({
     onPrefetchSession,
     onPlaceSessionOnPane,
     onSessionContextMenu,
+    openSessionMenu,
     onArchiveSession,
     onPinSession,
     onPinSessions,
@@ -1126,6 +1138,8 @@ function ProjectSessionSectionComponent({
         cardHandlers.current.onPlaceSessionOnPane?.(sessionId, targetId, edge),
       contextMenu: (sessionId: string, e: ReactMouseEvent<HTMLDivElement>) =>
         cardHandlers.current.onSessionContextMenu(sessionId, e),
+      openMenu: (sessionId: string, x: number, y: number) =>
+        cardHandlers.current.openSessionMenu(sessionId, x, y),
       archive: (sessionId: string, archived: boolean) =>
         cardHandlers.current.onArchiveSession?.(sessionId, archived),
       pin: (sessionId: string) => {
@@ -1157,6 +1171,7 @@ function ProjectSessionSectionComponent({
     renamingSessionId === session.id && onRenameSession ? (
       <SessionRenameRow
         session={session}
+        projectLabel={projectLabel}
         isActive={session.id === activeListedSessionId}
         needsApproval={listedApprovalSessionIds.has(session.id)}
         dense={dense}
@@ -1170,6 +1185,7 @@ function ProjectSessionSectionComponent({
     ) : (
       <SessionCard
         session={session}
+        projectLabel={projectLabel}
         isActive={session.id === activeListedSessionId}
         isSelected={selectedSessionIds.has(session.id)}
         busy={listedBusySessionIds.has(session.id)}
@@ -1199,6 +1215,7 @@ function ProjectSessionSectionComponent({
           onPlaceSessionOnPane ? cardActions.placeOnPane : undefined
         }
         onContextMenu={cardActions.contextMenu}
+        onOpenMenu={cardActions.openMenu}
         onArchive={onArchiveSession ? cardActions.archive : undefined}
         onPin={!session.pinned && (onPinSession || onPinSessions) ? cardActions.pin : undefined}
         onRename={onRenameSession ? cardActions.rename : undefined}
@@ -1645,6 +1662,7 @@ function SessionListItem({
 
 const SessionCard = memo(function SessionCard({
   session,
+  projectLabel,
   isActive,
   isSelected,
   busy,
@@ -1662,12 +1680,14 @@ const SessionCard = memo(function SessionCard({
   onPrefetch,
   onPlaceOnPane,
   onContextMenu,
+  onOpenMenu,
   onArchive,
   onPin,
   onRename,
   onDelete,
 }: {
   session: SessionSummary;
+  projectLabel?: string;
   isActive: boolean;
   isSelected: boolean;
   busy: boolean;
@@ -1697,6 +1717,7 @@ const SessionCard = memo(function SessionCard({
     e: ReactMouseEvent<HTMLDivElement>,
   ) => void;
   onArchive?: (sessionId: string, archived: boolean) => void;
+  onOpenMenu?: (sessionId: string, x: number, y: number) => void;
   onPin?: (sessionId: string) => void;
   onRename?: (sessionId: string) => void;
   onDelete?: (sessionId: string) => void;
@@ -1735,6 +1756,7 @@ const SessionCard = memo(function SessionCard({
     orchestration?.tasks.filter((task) => task.status === "completed").length ??
     0;
   const title = sessionDisplayTitle(session.title, session.harness);
+  const twoLine = dense && projectLabel !== undefined;
   const gitLabel = session.worktreeRemoved
     ? uiT(NO_BRANCH_LABEL)
     : formatGitLabel(session.repo, session.branch);
@@ -2019,6 +2041,7 @@ const SessionCard = memo(function SessionCard({
         data-session-waiting={waitingFor ? "true" : undefined}
         data-density={compact ? "compact" : "comfort"}
         data-session-dense={dense ? "" : undefined}
+        data-session-layout={twoLine ? "two-line" : undefined}
         data-session-shortcut={dense && shortcut ? "" : undefined}
         data-tauri-drag-region="false"
         onPointerDown={onPointerDown}
@@ -2139,7 +2162,7 @@ const SessionCard = memo(function SessionCard({
                 {linkedUpdateDot}
                 <SessionWorktreeIcon session={session} />
                 {dense ? denseStatus : status}
-                {dense && !denseStatus ? (
+                {dense && !denseStatus && !twoLine ? (
                   <time
                     data-session-time
                     dateTime={new Date(sessionRecencyAt(session)).toISOString()}
@@ -2151,6 +2174,9 @@ const SessionCard = memo(function SessionCard({
             ) : null}
             {!dense ? unreadDot : null}
           </span>
+          {twoLine ? (
+            <span data-session-project title={session.cwd}>{projectLabel}</span>
+          ) : null}
         </div>
         {orchestrationExpanded ? (
           <OrchestrationSidebarAgents
@@ -2182,7 +2208,26 @@ const SessionCard = memo(function SessionCard({
             <span className="min-w-0 flex-1" />
           )}
           <span data-session-action-buttons className="relative flex shrink-0 items-center gap-px">
-            {onArchive ? (
+            {twoLine && onOpenMenu ? (
+              <IconButton
+                size="sm"
+                data-sidebar-toolbar-action
+                data-no-drag
+                data-session-menu
+                label={uiT("More actions")}
+                aria-haspopup="menu"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  metadataHover.close();
+                  const anchor = event.currentTarget.getBoundingClientRect();
+                  onOpenMenu(session.id, anchor.right, anchor.bottom);
+                }}
+                className="pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"
+              >
+                <MoreHorizontal />
+              </IconButton>
+            ) : onArchive ? (
               <IconButton
                 size="sm"
                 data-sidebar-toolbar-action
@@ -2367,6 +2412,7 @@ const SessionCard = memo(function SessionCard({
 
 function SessionRenameRow({
   session,
+  projectLabel,
   isActive,
   needsApproval,
   dense = false,
@@ -2375,6 +2421,7 @@ function SessionRenameRow({
   onCancel,
 }: {
   session: SessionSummary;
+  projectLabel?: string;
   isActive: boolean;
   needsApproval: boolean;
   dense?: boolean;
@@ -2426,6 +2473,7 @@ function SessionRenameRow({
   return (
     <div
       data-session-rename-row={session.id}
+      data-session-layout={dense && projectLabel !== undefined ? "two-line" : undefined}
       className={`flex w-full rounded-lg ${dense ? `h-8 items-center ${compact ? "pl-[46px] pr-2" : "pl-6 pr-2"}` : "flex-col px-2.5 py-2"} ${
         needsApproval
           ? "bg-amber-400/10 text-content"
@@ -2442,6 +2490,9 @@ function SessionRenameRow({
         onKeyDown={onKeyDown}
         className="w-full rounded bg-content/10 px-2 py-1 text-ui-caption font-semibold leading-snug text-content outline-none ring-1 ring-accent/40"
       />
+      {dense && projectLabel !== undefined ? (
+        <span data-session-project>{projectLabel}</span>
+      ) : null}
     </div>
   );
 }

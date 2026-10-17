@@ -12,6 +12,53 @@ async function painted(page: Page) {
   await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
 }
 
+test("opening sidebar does not intercept the workspace beyond its animated width", async ({ page }) => {
+  await page.goto("/tests/browser/sidebar-transition.html");
+  const pane = page.locator("[data-sidebar-transition]");
+  await expect(pane).toHaveAttribute("data-fold-state", "open");
+  const result = await page.evaluate(async () => {
+    const fixture = (window as unknown as { desktopFixture: { setSidebar(open: boolean): void } }).desktopFixture;
+    const shell = document.querySelector<HTMLElement>("[data-sidebar-transition]")!;
+    fixture.setSidebar(false);
+    await new Promise(resolve => setTimeout(resolve, 400));
+    fixture.setSidebar(true);
+    const samples: { width: number; overlaps: boolean }[] = [];
+    const start = performance.now();
+    while (performance.now() - start < 350) {
+      await new Promise(requestAnimationFrame);
+      const rect = shell.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.right + 16, rect.top + 150);
+      samples.push({ width: rect.width, overlaps: !!hit?.closest(".sidebar-transition-content") });
+    }
+    return samples;
+  });
+  expect(result.some(sample => sample.width > 10 && sample.width < 200)).toBe(true);
+  expect(result.filter(sample => sample.overlaps)).toEqual([]);
+  await expect(pane).toHaveAttribute("data-fold-state", "open");
+});
+
+for (const reducedMotion of ["no-preference", "reduce"] as const) {
+  test(`sidebar settles after rapid reversal (${reducedMotion})`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion });
+    await page.goto("/tests/browser/sidebar-transition.html");
+    const pane = page.locator("[data-sidebar-transition]");
+    await expect(pane).toHaveAttribute("data-fold-state", "open");
+    await page.evaluate(async () => {
+      const fixture = (window as unknown as { desktopFixture: { setSidebar(open: boolean): void } }).desktopFixture;
+      for (const open of [false, true, false, true, false]) {
+        fixture.setSidebar(open);
+        await new Promise(resolve => setTimeout(resolve, 40));
+      }
+    });
+    await expect(pane).toHaveAttribute("data-fold-state", "closed");
+    await expect(pane).toHaveAttribute("inert", "");
+    await expect.poll(() => pane.evaluate(el => el.getBoundingClientRect().width)).toBe(0);
+    const rail = page.locator("[data-sidebar-rail]");
+    await expect(rail).toHaveAttribute("data-fold-state", "open");
+    await expect.poll(() => rail.evaluate(el => el.getBoundingClientRect().width)).toBe(52);
+  });
+}
+
 test("sidebar stays anchored through resize, release and a second drag", async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 800 });
   await page.addInitScript(() => localStorage.setItem("monocode.sidebarWidth", "360"));

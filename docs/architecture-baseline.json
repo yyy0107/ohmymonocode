@@ -180,7 +180,6 @@
       "src/features/projects/ui/ProjectsPage.tsx -> src/app/model/desktopMode.ts",
       "src/features/quick-composer/main.tsx -> src/app/desktopIconArtwork.tsx",
       "src/features/sessions/ui/SessionPane.tsx -> src/app/commands/useCommandShortcut.ts",
-      "src/features/sessions/ui/SessionPane.tsx -> src/app/model/desktopMode.ts",
       "src/features/settings/ui/SettingsView.tsx -> src/app/model/updater.ts",
       "src/features/settings/ui/SettingsView.tsx -> src/app/shell/SettingsRail.tsx",
       "src/features/settings/ui/SettingsView.tsx -> src/app/shell/startWindowDrag.ts",

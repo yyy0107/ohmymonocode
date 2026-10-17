@@ -8,6 +8,36 @@ import { join, resolve } from "node:path";
 import { HostChildBackend } from "./child-backend";
 import { REMOTE_PROVIDERS } from "../src/features/connections/model/protocol";
 
+it.each(["codex", "pi", "omp"] as const)(
+  "uses the desktop's configured %s CLI for discovery and execution without falling back",
+  async (provider) => {
+    const directory = mkdtempSync(join(tmpdir(), "monocode-desktop-cli-"));
+    const config = join(directory, "desktop-owner.json");
+    const file = join(directory, "custom-cli.cjs");
+    writeFileSync(file, "console.log('configured-cli 1.0');");
+    const publish = (path: string) => writeFileSync(config, JSON.stringify({
+      desktopDirectory: directory, providerBinaryPaths: { [provider]: path },
+    }));
+    publish(file);
+    const backend = new HostChildBackend({}, config);
+    try {
+      await expect(backend.invoke(`harness_resolve_${provider}`)).resolves.toEqual({ path: file });
+      await expect(backend.invoke("harness_exec", {
+        binaryProvider: provider, command: file, args: ["--version"],
+      })).resolves.toContain("configured-cli 1.0");
+      publish(join(directory, "missing.exe"));
+      await expect(backend.resolve(provider)).rejects.toThrow();
+      publish("relative.exe");
+      await expect(backend.resolve(provider)).rejects.toThrow("Invalid configured");
+      writeFileSync(config, JSON.stringify({ providerBinaryPaths: [] }));
+      await expect(backend.resolve(provider)).rejects.toThrow("Invalid desktop CLI");
+    } finally {
+      await backend.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  },
+);
+
 it.each(["codex", "claude"])(
   "uses the existing desktop named %s account without inherited API credentials",
   async (provider) => {

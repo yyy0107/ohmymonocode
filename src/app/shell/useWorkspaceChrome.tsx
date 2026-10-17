@@ -5,6 +5,7 @@ import type { RecentProject } from "../../features/projects/model/recents";
 import type { LiveAgent } from "../../features/sessions/model/liveAgents";
 import { type Session } from "../../features/sessions/model/session";
 import { WorkflowSidebarSection } from "../../features/workflows/ui/WorkflowSidebarSection";
+import { HarnessIcon } from "../../features/sessions/ui/HarnessIcon";
 import {
   leafIds,
   type WorkspaceTab,
@@ -235,6 +236,7 @@ export function useWorkspaceChrome({
   const sidebarWorkflows = useMemo(
     () => (
       <WorkflowSidebarSection
+        renderHarnessIcon={(harness) => <HarnessIcon harness={harness} />}
         activeSessionId={active?.id}
         onOpenSession={(sessionId) => void onSelectHistorySession(sessionId)}
         onOpenWorkflows={onOpenWorkflows}

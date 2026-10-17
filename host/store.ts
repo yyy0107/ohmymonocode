@@ -638,6 +638,7 @@ export function summary(value: HostSession): HostSessionSummary {
   );
   const sentAt = lastUserMessage?.sentAt ?? lastUserMessage?.startedAt;
   return {
+    ...(value.remoteControl ? { remoteControl: true } : {}),
     projectId: value.projectId,
     revision: value.revision,
     runId: value.runId,

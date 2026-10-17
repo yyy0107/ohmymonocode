@@ -826,7 +826,13 @@ function SidebarComponent(props: SidebarProps) {
         key={key}
         cwd={path}
         shortcutId={shortcutId}
+        projectLabel={props.desktopMode
+          ? path === "~" || isChatFolder(path)
+            ? t("Chats")
+            : resolveTabGroupLabel(projectKey(path), labels, basename(path))
+          : undefined}
         flatPins={props.recents !== undefined}
+        excludeRemoteControl={props.desktopMode === "code" && !shortcutId}
         sessions={historyByProject.get(key) ?? []}
         openSessions={props.openSessions && projectOpenSessions(path)}
         activeSessionId={current ? props.activeSessionId : undefined}
@@ -956,6 +962,7 @@ function SidebarComponent(props: SidebarProps) {
           })
           .sort(compareSessionSummaries);
   const pinnedSessions = shortcutSessions.filter((session) => session.pinned);
+  const remoteControlSessions = shortcutSessions.filter((session) => session.remoteControl && !session.pinned);
   const chatSessions = shortcutSessions
     .filter((session) => !session.pinned && (session.cwd === "~" || isChatFolder(session.cwd)))
     .sort(
@@ -1037,7 +1044,7 @@ function SidebarComponent(props: SidebarProps) {
             ) : null}
           </div>
         ) : null}
-        {props.desktopMode === "chat" ? null : <div
+        {props.desktopMode ? null : <div
           data-project-header
           className="flex h-8 min-w-0 shrink-0 items-center gap-1 pl-1.5 pr-2"
         >
@@ -1062,7 +1069,7 @@ function SidebarComponent(props: SidebarProps) {
           filesLabel={props.recents !== undefined ? t("Files") : undefined}
           resizing={resize.dragging}
         />}
-        {tab === "sessions" ? (
+        {!props.desktopMode && tab === "sessions" ? (
           <div
             data-sidebar-search
             className="desktop-toolbar flex h-9 shrink-0 items-center gap-1 border-b border-stroke px-2"
@@ -1136,6 +1143,11 @@ function SidebarComponent(props: SidebarProps) {
               recents={recents}
               visibleProjectPaths={props.desktopMode ? new Set(projects.map(({ path }) => pathKey(path))) : undefined}
               showProjectSections={props.desktopMode !== "chat"}
+              showRemoteControlSection={props.desktopMode === "code"}
+              remoteControlEntries={remoteControlSessions.map((session) => ({
+                id: JSON.stringify([pathKey(session.cwd), session.id]),
+                content: () => renderChildren(session.cwd, session.id),
+              }))}
               busyPaths={busyPaths}
               needsApprovalPaths={approvalPaths}
               projectSummaries={projectSummaries}

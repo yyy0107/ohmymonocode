@@ -150,6 +150,8 @@ export type ProjectListProps = {
   matchedProjectPaths?: ReadonlySet<string>;
   visibleProjectPaths?: ReadonlySet<string>;
   showProjectSections?: boolean;
+  showRemoteControlSection?: boolean;
+  remoteControlEntries?: ProjectListEntry[];
   searchActive?: boolean;
   /** Lists every row instead of the paged preview; defaults to `searchActive`. */
   previewAll?: boolean;
@@ -227,6 +229,8 @@ export function ProjectList({
   matchedProjectPaths,
   visibleProjectPaths,
   showProjectSections = true,
+  showRemoteControlSection = false,
+  remoteControlEntries = [],
   searchActive: searchActiveProp,
   previewAll: previewAllProp,
   previewKey = "",
@@ -608,6 +612,7 @@ export function ProjectList({
     workflows: !compact && !!workflowsSection,
     groups: showProjectSections && projectGroups.length > 0,
     projects: showProjectSections,
+    "remote-control": !compact && showRemoteControlSection,
   };
   const visibleSectionIds = (
     compact ? DEFAULT_SIDEBAR_SECTION_ORDER : sectionOrder
@@ -635,6 +640,36 @@ export function ProjectList({
   }, [sectionSortable.draggingId]);
 
   const sectionContent: Record<SidebarOrderedSectionId, ReactNode> = {
+    "remote-control": (
+      <ProjectSection
+        sectionId="remote-control"
+        compact={compact}
+        label={uiT("Remote control")}
+        expanded={sectionExpanded("remote-control")}
+        onToggleExpanded={() => toggleSection("remote-control")}
+        leadingEntries={remoteControlEntries}
+        items={[]}
+        muteStatuses={muteStatuses}
+        cwd={cwd}
+        busy={busy}
+        statsEnabled={false}
+        tree={tree}
+        onReorder={onReorderProjects}
+        pinned={false}
+        searchActive={searchActive}
+        previewAll={previewAll}
+        previewKey={previewKey}
+        onSelect={onSelectProject}
+        onTogglePin={toggleProjectPin}
+        onContextMenu={onProjectContextMenu}
+        onOpenMenu={projectMenu.open}
+        groupLabels={groupLabels}
+        groupColors={groupColors}
+        groupCustomColors={groupCustomColors}
+        groupLogos={groupLogos}
+        groupMascots={groupMascots}
+      />
+    ),
     pinned: (
       <ProjectSection
         compact={compact}
@@ -881,6 +916,7 @@ type ProjectTree = {
 };
 
 function ProjectSection({
+  sectionId,
   compact,
   hideHeader = false,
   label,
@@ -911,6 +947,7 @@ function ProjectSection({
   groupLogos,
   groupMascots,
 }: {
+  sectionId?: "remote-control";
   compact: boolean;
   hideHeader?: boolean;
   label: string;
@@ -989,7 +1026,7 @@ function ProjectSection({
   return (
     <div
       className={compact ? "shrink-0" : `shrink-0 ${tree ? "mb-1" : "mb-2"}`}
-      data-project-section={pinned ? "pinned" : "projects"}
+      data-project-section={sectionId ?? (pinned ? "pinned" : "projects")}
     >
       {compact || hideHeader ? null : (
         <ProjectSectionHeader

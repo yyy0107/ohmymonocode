@@ -126,6 +126,56 @@ async function setup(providers: RemoteProvider[] = ["codex"], discoverProviders?
   };
 }
 
+it("attributes remote-control conversations to the authenticated device and keeps the attribution in history", async () => {
+  const s = await setup();
+  s.store.markAdminDevice(s.first.id);
+  const command = {
+    type: "create", commandId: "desktop-create", projectId: s.project.id,
+    harness: "codex", model: "codex:test", runtimeMode: "supervised",
+  };
+  const desktop = await s.call("commands.dispatch", { ...command, remoteControl: true });
+  expect(desktop.status).toBe(200);
+  const desktopId = desktop.value.result.sessionId;
+  expect(s.store.session(desktopId).remoteControl).toBeUndefined();
+  await s.call("sessions.get", { sessionId: desktopId }, s.second.token);
+  expect(s.store.session(desktopId).remoteControl).toBeUndefined();
+
+  const remoteCommand = { ...command, commandId: "phone-create", remoteControl: false };
+  const phone = await s.call("commands.dispatch", remoteCommand, s.second.token);
+  expect(phone.status).toBe(200);
+  const id = phone.value.result.sessionId;
+  expect(s.store.session(id).remoteControl).toBe(true);
+  expect((await s.call("commands.dispatch", remoteCommand, s.second.token)).value.result)
+    .toEqual(phone.value.result);
+  expect((await s.call("sessions.update", { projectId: s.project.id, sessionId: id, pinned: true, archived: true })).status).toBe(200);
+  s.store.invalidateSession(id);
+  expect(s.store.session(id).remoteControl).toBe(true);
+  expect((await s.call("sessions.list", { projectId: s.project.id })).value.result)
+    .toEqual(expect.arrayContaining([
+      expect.objectContaining({ id, remoteControl: true, pinned: true, archived: true }),
+      expect.objectContaining({ id: desktopId }),
+    ]));
+});
+
+it("marks an existing conversation after a paired device sends without duplicating a retried command", async () => {
+  const s = await setup();
+  const { sessionId } = s.engine.command({
+    type: "create", commandId: "legacy-create", projectId: s.project.id,
+    harness: "codex", model: "codex:test", runtimeMode: "supervised",
+  });
+  const command = { type: "send", commandId: "phone-send", sessionId, text: "Continue from my phone" };
+  const sent = await s.call("commands.dispatch", command, s.second.token);
+  expect(sent.status).toBe(200);
+  expect(s.store.session(sessionId).remoteControl).toBe(true);
+  expect((await s.call("commands.dispatch", command, s.second.token)).value.result).toEqual(sent.value.result);
+  await vi.waitFor(() => expect(s.send).toHaveBeenCalledOnce());
+  s.finish();
+  await vi.waitFor(() => expect(s.store.session(sessionId).status).toBe("idle"));
+  expect(s.store.summaries(s.project.id)).toEqual([
+    expect.objectContaining({ id: sessionId, remoteControl: true }),
+  ]);
+});
+
 it("shares Host client state across devices and rejects a revoked client's writes and asset reads", async () => {
   const s = await setup();
   expect((await s.call("environment.describe")).value.result.capabilities).toContain("clientState.v1");

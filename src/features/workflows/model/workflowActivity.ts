@@ -39,6 +39,7 @@ export type WorkflowActivityEntry = {
   sessionId: string;
   cwd: string;
   title: string;
+  harness: Session["harness"];
   activity: SessionWorkflowActivity;
 };
 
@@ -48,7 +49,7 @@ export function workflowActivityIndex(sessions: readonly Session[]): ReadonlyMap
   for (const session of sessions) {
     const activity = sessionWorkflowActivity(session);
     if (!activity) continue;
-    const entry = { sessionId: session.id, cwd: session.cwd, title: session.title, activity };
+    const entry = { sessionId: session.id, cwd: session.cwd, title: session.title, harness: session.harness, activity };
     index.set(session.id, entry);
     const hostId = remoteSessionFor(session.id);
     if (hostId) index.set(hostId, entry);

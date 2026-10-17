@@ -685,7 +685,7 @@ export function createHostServer(
             break;
           }
           case "commands.dispatch":
-            result = engine.command(params);
+            result = engine.command(params, { remoteControl: !engine.store.adminToken(token) });
             break;
           case "workflows.request":
             result = await engine.workflows.rpc(params, (projectId) => engine.store.project(projectId).cwd, (path) => {

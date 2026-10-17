@@ -994,14 +994,14 @@ export class HostEngine {
     this.retryTimers.set(id, timer);
   }
 
-  command(raw: unknown): CommandReceipt {
+  command(raw: unknown, client?: { remoteControl: boolean }): CommandReceipt {
     if (raw && typeof raw === "object") {
       const input = raw as Record<string, unknown>;
       if (["origin", "author", "assistantOwnerId", "botContext", "systemInstructions", "contextFingerprint"].some(key => key in input) || String(input.commandId).startsWith("assistant:")) throw new Error("Assistant identity is reserved for Host");
       if (input.projectId && this.store.project(String(input.projectId)).kind === "assistant") throw new Error("Assistant project is private");
       if (input.sessionId && this.store.session(String(input.sessionId)).session.assistantOwnerId) throw new Error("Use the assistant control API");
     }
-    return this.applyCommand(raw, false);
+    return this.applyCommand(raw, false, undefined, undefined, undefined, client?.remoteControl);
   }
 
   botCapabilities(harness: string, context?: Pick<HarnessBotContext, "agentsMcp">): HarnessBotCapabilities {
@@ -1211,7 +1211,7 @@ export class HostEngine {
     void this.cleanPreviousProviders(sessionId).catch(() => undefined);
   }
 
-  private applyCommand(raw: unknown, managed: boolean, controlReceipt?: ControlReceiptContext, origin?: import("../src/features/sessions/model/session").TurnOrigin, botContext?: HarnessBotContext): CommandReceipt {
+  private applyCommand(raw: unknown, managed: boolean, controlReceipt?: ControlReceiptContext, origin?: import("../src/features/sessions/model/session").TurnOrigin, botContext?: HarnessBotContext, remoteControl = false): CommandReceipt {
     if (this.closing) throw new Error("Host is stopping");
     const command = parseCommand(raw);
     if (command.type === "orchestration") {
@@ -1646,6 +1646,8 @@ export class HostEngine {
       const saved = this.store.save(
         {
           ...value,
+          ...(remoteControl && (command.type === "create" || command.type === "send" || command.type === "draft")
+            ? { remoteControl: true } : {}),
           revision: value.revision + 1,
           // Creation already initialized both timestamps from the same clock read.
           updatedAt: command.type === "create" ? value.updatedAt : Date.now(),

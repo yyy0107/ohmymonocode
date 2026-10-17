@@ -600,6 +600,9 @@ function sanitizeTab(raw: unknown): WorkspaceTab | null {
     ...(value.surfaceMode === "split" || value.surfaceMode === "unified"
       ? { surfaceMode: value.surfaceMode }
       : {}),
+    ...(typeof value.autoArrangeTools === "boolean"
+      ? { autoArrangeTools: value.autoArrangeTools }
+      : {}),
     ...(typeof value.groupId === "string" && value.groupId
       ? { groupId: value.groupId }
       : {}),
