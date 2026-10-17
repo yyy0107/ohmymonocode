@@ -6,7 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearInboxCache, type GithubWorkItem } from "../model/githubTasks";
 import type { LinkedWorkItem } from "../../sessions/model/session";
-import { LinkedWorkItemPanel } from "./InboxView";
+import { LinkedWorkItemPanel } from "./LinkedWorkItemPanel";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));

@@ -13,7 +13,7 @@ import {
   type GithubWorkItem,
   type InboxItem,
 } from "../../inbox/model/githubTasks";
-import { GithubPrActions } from "../../inbox/ui/InboxView";
+import { GithubPrActions } from "../../inbox/ui/GithubPrActions";
 
 let container: HTMLDivElement;
 let root: Root;

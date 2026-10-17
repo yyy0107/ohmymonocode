@@ -29,7 +29,7 @@ export const InboxView = lazySurface(
 );
 
 export const LinkedWorkItemPanel = lazySurface(async () => {
-  const module = await import("../../features/inbox/ui/InboxView");
+  const module = await import("../../features/inbox/ui/LinkedWorkItemPanel");
   return { default: module.LinkedWorkItemPanel };
 });
 

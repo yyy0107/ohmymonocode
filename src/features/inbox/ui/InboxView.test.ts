@@ -9,12 +9,9 @@ import {
 } from "../model/githubTasks";
 import type { LinkedWorkItem } from "../../sessions/model/session";
 import type { SessionSummary } from "../../sessions/data/sessionStore";
-import {
-  InboxDetail,
-  inboxStatusMark,
-  inboxShowsFullFileDiff,
-  LinkedWorkItemPanel,
-} from "./InboxView";
+import { InboxDetail, inboxShowsFullFileDiff } from "./InboxDetail";
+import { inboxStatusMark } from "./InboxCard";
+import { LinkedWorkItemPanel } from "./LinkedWorkItemPanel";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 

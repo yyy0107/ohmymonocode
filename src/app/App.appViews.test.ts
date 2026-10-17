@@ -755,9 +755,11 @@ vi.mock("../features/inbox/ui/InboxView", async () => {
         }),
       );
     },
-    LinkedWorkItemPanel: () => null,
   };
 });
+vi.mock("../features/inbox/ui/LinkedWorkItemPanel", () => ({
+  LinkedWorkItemPanel: () => null,
+}));
 vi.mock("../features/notes/ui/NotesView", async () => {
   const { createElement: el, useEffect, useState } = await import("react");
   const { AppPageHeader } = await import("../features/workspace/ui/AppPageHeader");
