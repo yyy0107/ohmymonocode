@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { connectWslDistribution } from "../../../platform/tauri/wsl";
 import { useEffect, useMemo, useState } from "react";
 import {
   applySessionSync,
@@ -40,6 +41,7 @@ let machineRequest: Promise<RemoteMachine[]> | undefined;
 let machineRevision = 0;
 export const OPEN_CONNECTIONS_EVENT = "monocode:open-connections";
 export const OPEN_REMOTE_PROJECT_EVENT = "monocode:open-remote-project";
+export type OpenRemoteProjectDetail = { environment?: "wsl"; distribution?: string };
 export const refreshRemoteMachines = () =>
   window.dispatchEvent(new Event(CHANGE));
 const TAB_KEY = "monocode.remote-tabs.v2";
@@ -435,6 +437,15 @@ export async function connectMachine(
   window.dispatchEvent(new Event(CHANGE));
   const { publishHostConnection } = await import("./hostConnections");
   await publishHostConnection(machine);
+  return machine;
+}
+
+export async function connectWslMachine(distribution: string): Promise<RemoteMachine> {
+  const machine = await connectWslDistribution(distribution);
+  machineRevision++;
+  cachedMachines = [...cachedMachines.filter((entry) => entry.id !== machine.id), machine];
+  machinesLoaded = true;
+  window.dispatchEvent(new Event(CHANGE));
   return machine;
 }
 

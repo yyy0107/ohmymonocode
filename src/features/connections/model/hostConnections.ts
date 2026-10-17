@@ -142,7 +142,7 @@ export async function initializeHostConnections(options?: {
   };
   if (!options && !import.meta.env.DEV) {
     const machines = await invoke<RemoteMachine[]>("remote_machines");
-    const definitions = machines.filter((machine) => machine.environmentId !== environmentId).map(connectionDefinition);
+    const definitions = machines.filter((machine) => !machine.wsl && machine.environmentId !== environmentId).map(connectionDefinition);
     await next.patch(Object.fromEntries(definitions.map((entry) => [entry.id, entry])), true);
   }
   await next.sync().catch((error) => { initialError = String(error); });
@@ -162,7 +162,7 @@ export async function initializeHostConnections(options?: {
 }
 
 export async function publishHostConnection(machine: RemoteMachine): Promise<void> {
-  if (!directory || machine.environmentId === directory.environmentId) return;
+  if (!directory || machine.wsl || machine.environmentId === directory.environmentId) return;
   const definition = connectionDefinition(machine);
   await directory.patch({ [definition.id]: definition });
   publish();

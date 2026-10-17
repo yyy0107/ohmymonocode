@@ -4,6 +4,52 @@ MonoCode can run Claude Code, Codex, Cursor, Grok Build, OpenCode, Pi, OMP, fx, 
 
 A folder on a connected machine is a project in the rail, marked with a globe. Every session in it runs on that machine, in the same session view and composer as a local session. The Sessions sidebar lists that machine's sessions for the project.
 
+## Connect to WSL from Windows
+
+In the composer's environment menu, choose **WSL**, select an installed Linux
+distribution, and continue to the native Windows folder dialog at
+`\\wsl.localhost\<distribution>\`. Choose a folder within that distribution;
+the selected UNC path is converted to a Linux path (legacy `\\wsl$` paths also
+work). Cancelling leaves the distribution dialog open for another selection.
+Opening a folder creates a Host
+project whose sessions, files, Git operations, provider installations, and sign-ins
+belong to that distribution. The composer shows `WSL · <distribution>` for it.
+
+WSL setup uses `wsl.exe` and the distribution's default user. It needs Bash,
+`wslpath`, `flock`, and `sha256sum`. Windows releases include the Linux Host
+runtime (Node and the Host) for the distribution's architecture. Setup copies it
+into an immutable, checksum-verified version directory; no download, system package,
+SSH, systemd, or administrator privileges are needed. Install and sign in to the
+desired provider CLI inside the distribution separately.
+
+Everything lives under `~/.monocode/remote` in the distribution:
+
+- `host/<version>-<hash>/` — the runtime, named by release and manifest hash.
+  Versions that no running process uses are removed during setup.
+- `data/` — sessions, the Host identity, and this desktop's credential.
+- `run/rpc.sock` — the Host's private Unix socket (owner-only).
+
+The desktop keeps one `wsl.exe` process per distribution whose stdin/stdout
+carry requests to a bridge in WSL, which relays them to the socket. No TCP
+port is forwarded to Windows and the Host credential never leaves Linux; the
+Windows connection store keeps only the distribution name. WSL connections are
+device-local and are not advertised to other computers.
+
+Repeated connections reuse the running Host and credential. If the Host has
+stopped, the bridge reports the request as undelivered; MonoCode runs setup again,
+which restarts the Host with the same identity, and retries once. Closing the
+desktop ends only the bridge; the Host keeps running. Terminating WSL or shutting
+down Windows interrupts running turns, while saved session history remains on the
+Linux filesystem.
+
+Connections created by earlier versions used `~/.monocode-wsl` and localhost
+forwarding. The first connection after upgrading stops that Host, which
+interrupts its running turns, moves its data to `~/.monocode/remote/data` with the
+same identity, and removes the old runtime.
+
+For development, `npm run host:wsl-runtime` builds the runtime into
+`build/wsl-host`, which debug desktop builds use.
+
 ## Connect through SSH
 
 In **Settings → Connections → Add machine**, enter an SSH address (`user@my-mac-mini`) or an alias from your SSH config and click **Connect**. The machine picker also links to this Settings page. An optional name and SSH port are available.

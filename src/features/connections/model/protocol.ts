@@ -404,6 +404,7 @@ export type RemoteMachine = {
   endpoint: string;
   environmentId: string;
   ssh?: { target: string; port?: number | null; remotePort: number } | null;
+  wsl?: { distribution: string } | null;
 };
 
 export type SshSetup = {

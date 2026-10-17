@@ -215,6 +215,7 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
     refreshHistory,
     reminderNoticesHeight,
     remoteProjectDialogOpen,
+    remoteProjectDistribution,
     renderAppView,
     repairSessions,
     searchFocusToken,
@@ -775,6 +776,8 @@ export function AppView({ vm }: { vm: WorkspaceViewModel }) {
               ) : null}</PresenceBoundary>
               <PresenceBoundary>{remoteProjectDialogOpen ? (
                 <AddRemoteProjectDialog
+                  environment={remoteProjectDialogOpen === "wsl" ? "wsl" : undefined}
+                  initialDistribution={remoteProjectDistribution}
                   onCancel={() => setRemoteProjectDialogOpen(false)}
                   onOpen={(key) => {
                     setRemoteProjectDialogOpen(false);

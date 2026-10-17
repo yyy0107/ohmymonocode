@@ -58,17 +58,20 @@ const arch = desktopArch === "aarch64" ? "arm64" : desktopArch === "x86_64" ? "x
 const target = args.includes("--target")
   ? args[args.indexOf("--target") + 1]
   : `${platform}-${arch}`;
-const targets = args.includes("--all") ? Object.keys(runtimes) : [target];
+const targets = args.includes("--wsl-runtime") ? [] : args.includes("--all") ? Object.keys(runtimes) : [target];
 const output = resolve("build/host-packages");
 const cache = resolve("build/host-runtime-cache");
 await mkdir(output, { recursive: true });
 await mkdir(cache, { recursive: true });
 const { version } = JSON.parse(await readFile("package.json", "utf8"));
-for (const target of targets) {
+const hostFiles = [
+  ["build/host/monocode-host.mjs", "host.mjs"],
+  ["host/provider-guard.mjs", "provider-guard.mjs"],
+];
+async function runtimeArchive(target) {
   if (!(target in runtimes))
     throw new Error(`Unsupported host target: ${target}`);
-  const windows = target.startsWith("win32-");
-  const extension = windows ? "zip" : "tar.gz";
+  const extension = target.startsWith("win32-") ? "zip" : "tar.gz";
   const stem = `node-v${nodeVersion}-${target.replace("win32-", "win-")}`;
   const archive = join(cache, `${stem}.${extension}`);
   let bytes;
@@ -92,6 +95,33 @@ for (const target of targets) {
       throw new Error("Node runtime checksum mismatch");
     await writeFile(archive, bytes);
   }
+  return { archive, stem, extension };
+}
+// The immutable Linux runtime that a Windows desktop copies into WSL. Its
+// SHA256SUMS manifest names the version directory and verifies the copy.
+async function wslRuntime(arch, destination) {
+  const { archive, stem } = await runtimeArchive(`linux-${arch}`);
+  await rm(destination, { recursive: true, force: true });
+  await mkdir(join(destination, "bin"), { recursive: true });
+  // GNU tar from Git for Windows would read "C:" as a remote host.
+  const tar = process.platform === "win32" ? join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe") : "tar";
+  execFileSync(tar, ["-xzf", archive, "-C", destination, "--strip-components=1", `${stem}/bin/node`, `${stem}/LICENSE`]);
+  for (const [from, to] of [...hostFiles, ["host/wsl-bridge.mjs", "wsl-bridge.mjs"], ["LICENSE", "MONOCODE-LICENSE"]])
+    await copyFile(from, join(destination, to));
+  await writeFile(join(destination, "VERSION"), `${version}\n`);
+  await writeFile(join(destination, "ARCH"), `${arch}\n`);
+  const files = ["ARCH", "LICENSE", "MONOCODE-LICENSE", "VERSION", "bin/node", "host.mjs", "provider-guard.mjs", "wsl-bridge.mjs"];
+  const sums = [];
+  for (const file of files)
+    sums.push(`${createHash("sha256").update(await readFile(join(destination, file))).digest("hex")}  ${file}`);
+  await writeFile(join(destination, "SHA256SUMS"), `${sums.join("\n")}\n`);
+  console.log(`WSL runtime linux-${arch} (${version}, Node ${nodeVersion})`);
+}
+if (args.includes("--wsl-runtime"))
+  await wslRuntime(process.arch, resolve("build/wsl-host"));
+for (const target of targets) {
+  const windows = target.startsWith("win32-");
+  const { archive, stem, extension } = await runtimeArchive(target);
   const folder = join(output, target);
   await rm(folder, { recursive: true, force: true });
   await mkdir(folder, { recursive: true });
@@ -128,8 +158,7 @@ for (const target of targets) {
       `${stem}/bin/node`,
       `${stem}/LICENSE`,
     ]);
-  await copyFile("build/host/monocode-host.mjs", join(folder, "host.mjs"));
-  await copyFile("host/provider-guard.mjs", join(folder, "provider-guard.mjs"));
+  for (const [from, to] of hostFiles) await copyFile(from, join(folder, to));
   // The Rust provider supervisor is built for this machine or the desktop's
   // Tauri target. Other targets keep the Node provider guard.
   const triple = desktopPlatform ? process.env.TAURI_ENV_TARGET_TRIPLE : undefined;
@@ -183,6 +212,7 @@ for (const target of targets) {
     const destination = resolve("build/desktop-host");
     await rm(destination, { recursive: true, force: true });
     await cp(folder, destination, { recursive: true });
+    if (windows) await wslRuntime(target.split("-")[1], join(destination, "wsl"));
   }
   await rm(join(output, filename), { force: true });
   if (windows) {

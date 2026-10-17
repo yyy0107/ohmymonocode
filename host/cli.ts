@@ -12,6 +12,8 @@ import { homedir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
+import { createServer as createSocketServer } from "node:net";
+import type { AddressInfo } from "node:net";
 import { randomBytes } from "node:crypto";
 import {
   configureChildBackend,
@@ -55,6 +57,8 @@ const directory = resolve(
   option("data-dir", join(homedir(), ".monocode-host")),
 );
 const port = Number(option("port", "3774"));
+// A private Unix socket for the WSL stdio bridge; Windows never needs TCP.
+const socketPath = args.includes("--socket") ? resolve(option("socket", "")) : undefined;
 // Only the desktop's own Host is reachable from paired phones on the network.
 const listenAdapters = args.includes("--listen-adapters");
 const statePath = join(directory, "running.json");
@@ -118,13 +122,16 @@ async function main() {
   revoke <device-id>    Revoke a device credential
   agents ACTION         Call another Bot through the current run's control grant
   agents-mcp            Serve Bot collaboration over MCP stdio
-Options: --data-dir <directory> --port <port> (default 3774)
+Options: --data-dir <directory> --port <port> (default 3774; 0 picks a free port)
+         --socket <path>    Also accept clients on a private Unix socket
          --listen-adapters  Also listen on this computer's network adapters
 Connect another computer using an SSH forward to the loopback port.`);
     return;
   }
-  if (!Number.isInteger(port) || port < 1 || port > 65535)
+  if (!Number.isInteger(port) || port < 0 || port > 65535)
     throw new Error("Invalid port");
+  if (socketPath && process.platform === "win32")
+    throw new Error("--socket requires Linux or macOS");
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   if (process.platform === "win32") await protectWindowsDirectory(directory);
   else chmodSync(directory, 0o700);
@@ -200,6 +207,7 @@ Connect another computer using an SSH forward to the loopback port.`);
         directory,
         "--port",
         String(port),
+        ...(socketPath ? ["--socket", socketPath] : []),
         ...(listenAdapters ? ["--listen-adapters"] : []),
       ],
       {
@@ -296,6 +304,8 @@ Connect another computer using an SSH forward to the loopback port.`);
     let stopping = false;
     let stop: () => Promise<void>;
     let closeAdapters = () => {};
+    let closeSocket = () => {};
+    let boundPort = port;
     let adaptersListening = false;
     // A separate local administrative credential cannot be used as a paired
     // client credential, and is never sent to the desktop.
@@ -324,7 +334,7 @@ Connect another computer using an SSH forward to the loopback port.`);
           }
           if (action === "listenAdapters") {
             // A Host reused by the desktop may predate --listen-adapters.
-            if (!adaptersListening) closeAdapters = listenOnAdapters(server, port);
+            if (!adaptersListening) closeAdapters = listenOnAdapters(server, boundPort);
             adaptersListening = true;
             response.end(JSON.stringify({ listening: true }));
             return;
@@ -344,6 +354,7 @@ Connect another computer using an SSH forward to the loopback port.`);
       if (stopping) return;
       stopping = true;
       closeAdapters();
+      closeSocket();
       server.close();
       server.closeAllConnections();
       await engine.close();
@@ -355,13 +366,33 @@ Connect another computer using an SSH forward to the loopback port.`);
       server.once("error", reject);
       server.listen(port, "127.0.0.1", resolve);
     });
+    boundPort = (server.address() as AddressInfo).port;
+    if (socketPath) {
+      // The owner lock is held, so an existing socket file is stale. The
+      // private directory and 0600 mode restrict it to this Linux user.
+      mkdirSync(dirname(socketPath), { recursive: true, mode: 0o700 });
+      rmSync(socketPath, { force: true });
+      const socketServer = createSocketServer((socket) => server.emit("connection", socket));
+      await new Promise<void>((resolve, reject) => {
+        socketServer.once("error", reject);
+        socketServer.listen(socketPath, resolve);
+      }).catch((error) => {
+        server.close();
+        throw error;
+      });
+      chmodSync(socketPath, 0o600);
+      closeSocket = () => {
+        socketServer.close();
+        rmSync(socketPath, { force: true });
+      };
+    }
     if (listenAdapters) {
-      closeAdapters = listenOnAdapters(server, port);
+      closeAdapters = listenOnAdapters(server, boundPort);
       adaptersListening = true;
     }
     writeFileSync(
       statePath,
-      JSON.stringify({ pid: process.pid, port, secret }),
+      JSON.stringify({ pid: process.pid, port: boundPort, secret }),
       { mode: 0o600 },
     );
     process.once("SIGTERM", () => {
@@ -371,7 +402,7 @@ Connect another computer using an SSH forward to the loopback port.`);
       void stop();
     });
     console.log(
-      `MonoCode Host ${store.environmentId} listening on 127.0.0.1:${port}`,
+      `MonoCode Host ${store.environmentId} listening on 127.0.0.1:${boundPort}${socketPath ? ` and ${socketPath}` : ""}`,
     );
     console.log(
       `Providers: ${available.join(", ") || "none found; install and authenticate a supported provider on this host"}`,

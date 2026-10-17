@@ -13,6 +13,7 @@ use tauri::{AppHandle, Manager, State};
 #[derive(Default)]
 pub struct RemoteConnections {
     store: Mutex<()>,
+    wsl: crate::remote_wsl::WslBridges,
     tunnels: Tunnels,
     jobs: Mutex<HashMap<String, Arc<Job>>>,
 }
@@ -25,6 +26,7 @@ impl RemoteConnections {
             }
         }
         self.tunnels.clear();
+        self.wsl.shutdown();
     }
     fn job(&self, id: &str) -> Result<Arc<Job>, String> {
         self.jobs
@@ -46,6 +48,8 @@ struct StoredMachine {
     token: String,
     #[serde(default)]
     ssh: Option<SshTarget>,
+    #[serde(default)]
+    wsl: Option<crate::remote_wsl::WslTarget>,
 }
 
 #[derive(Clone, Serialize)]
@@ -56,6 +60,7 @@ pub struct Machine {
     endpoint: String,
     environment_id: String,
     ssh: Option<SshTarget>,
+    wsl: Option<crate::remote_wsl::WslTarget>,
 }
 
 impl StoredMachine {
@@ -66,6 +71,7 @@ impl StoredMachine {
             endpoint: self.endpoint.clone(),
             environment_id: self.environment_id.clone(),
             ssh: self.ssh.clone(),
+            wsl: self.wsl.clone(),
         }
     }
 }
@@ -131,13 +137,7 @@ fn write(path: &Path, machines: &[StoredMachine]) -> Result<(), String> {
 /// (`host/sync-transfer.ts`), so it bounds memory without limiting transcripts.
 const MAX_RESPONSE_BYTES: u64 = 16 * 1024 * 1024;
 
-fn rpc(
-    endpoint: &str,
-    token: &str,
-    environment_id: Option<&str>,
-    method: &str,
-    mut params: Value,
-) -> Result<Value, String> {
+fn rpc_payload(environment_id: Option<&str>, method: &str, mut params: Value) -> Value {
     if method == "environment.describe" {
         if !params.is_object() {
             params = json!({});
@@ -147,19 +147,61 @@ fn rpc(
             "hostname": remote_ssh::device_hostname(),
         });
     }
+    json!({ "version": 1, "environmentId": environment_id, "method": method, "params": params })
+}
+
+// Naming can try the configured API (20s), then a provider helper (90s).
+fn rpc_timeout(method: &str) -> std::time::Duration {
+    std::time::Duration::from_secs(if method == "git.worktreeName" {
+        150
+    } else {
+        30
+    })
+}
+
+fn rpc_result(status: u16, value: Value) -> Result<Value, String> {
+    if let Some(error) = value.get("error").and_then(Value::as_str) {
+        return Err(format!("Host rejected request: {error}"));
+    }
+    if status != 200 {
+        return Err(format!("Host returned HTTP {status}"));
+    }
+    value
+        .get("result")
+        .cloned()
+        .ok_or_else(|| "Invalid host response".into())
+}
+
+fn wsl_rpc(
+    app: &AppHandle,
+    state: &RemoteConnections,
+    distribution: &str,
+    environment_id: Option<&str>,
+    method: &str,
+    params: Value,
+) -> Result<Value, String> {
+    let (status, value) = state.wsl.request(
+        app,
+        distribution,
+        &rpc_payload(environment_id, method, params),
+        rpc_timeout(method),
+    )?;
+    rpc_result(status, value)
+}
+
+fn rpc(
+    endpoint: &str,
+    token: &str,
+    environment_id: Option<&str>,
+    method: &str,
+    params: Value,
+) -> Result<Value, String> {
     let agent = ureq::AgentBuilder::new()
         .redirects(0)
         .timeout_connect(std::time::Duration::from_secs(5))
-        // Naming can try the configured API (20s), then a provider helper (90s).
-        .timeout(std::time::Duration::from_secs(
-            if method == "git.worktreeName" {
-                150
-            } else {
-                30
-            },
-        ))
+        .timeout(rpc_timeout(method))
         .build();
-    let payload = json!({ "version": 1, "environmentId": environment_id, "method": method, "params": params });
+    let payload = rpc_payload(environment_id, method, params);
     let response = agent
         .post(&format!("{endpoint}/rpc"))
         .set("Authorization", &format!("Bearer {token}"))
@@ -188,16 +230,7 @@ fn rpc(
         return Err("Host response is too large".into());
     }
     let value: Value = serde_json::from_slice(&bytes).map_err(|_| "Invalid host response")?;
-    if let Some(error) = value.get("error").and_then(Value::as_str) {
-        return Err(format!("Host rejected request: {error}"));
-    }
-    if status != 200 {
-        return Err(format!("Host returned HTTP {status}"));
-    }
-    value
-        .get("result")
-        .cloned()
-        .ok_or_else(|| "Invalid host response".into())
+    rpc_result(status, value)
 }
 
 // Only a refused connection proves the local forwarding listener is gone.
@@ -292,6 +325,7 @@ pub fn remote_connect(
         environment_id,
         token,
         ssh: existing.and_then(|m| m.ssh.clone()),
+        wsl: existing.and_then(|m| m.wsl.clone()),
     };
     machines.retain(|m| m.id != id);
     machines.push(machine.clone());
@@ -311,9 +345,16 @@ pub fn remote_disconnect(
         .map_err(|_| "Connection store is locked")?;
     let path = store_path(&app)?;
     let mut machines = read(&path)?;
+    let removed = machines
+        .iter()
+        .find(|m| m.id == machine_id)
+        .and_then(|m| m.wsl.clone());
     machines.retain(|m| m.id != machine_id);
     write(&path, &machines)?;
     state.tunnels.remove(&machine_id);
+    if let Some(target) = removed {
+        state.wsl.close(&target.distribution);
+    }
     Ok(())
 }
 
@@ -338,32 +379,45 @@ pub fn remote_request(
             .find(|m| m.id == machine_id)
             .ok_or("Machine is no longer connected")?
     };
-    let tunnel_lease = if let Some(target) = &machine.ssh {
-        Some(state.tunnels.endpoint(&machine.id, target)?)
-    } else {
-        None
-    };
-    let endpoint = tunnel_lease
-        .as_ref()
-        .map(|lease| lease.endpoint.as_str())
-        .unwrap_or(&machine.endpoint);
-    let response = rpc(
-        endpoint,
-        &machine.token,
-        Some(&machine.environment_id),
-        &method,
-        params,
-    );
-    if response
-        .as_ref()
-        .err()
-        .is_some_and(|error| error.starts_with("Machine is unreachable"))
-    {
-        if let Some(lease) = &tunnel_lease {
-            state.tunnels.invalidate(&machine.id, lease);
+    let result = if let Some(target) = &machine.wsl {
+        // The bridge restarts setup and retries requests it never delivered.
+        // The Host rejects a request addressed to another environment.
+        let result = wsl_rpc(
+            &app,
+            &state,
+            &target.distribution,
+            Some(&machine.environment_id),
+            &method,
+            params,
+        )?;
+        if !machine.token.is_empty() {
+            forget_wsl_credential(&app, &state, &machine.id)?;
         }
-    }
-    let result = response?;
+        result
+    } else {
+        let tunnel_lease = if let Some(target) = &machine.ssh {
+            Some(state.tunnels.endpoint(&machine.id, target)?)
+        } else {
+            None
+        };
+        let endpoint = tunnel_lease
+            .as_ref()
+            .map(|lease| lease.endpoint.as_str())
+            .unwrap_or(&machine.endpoint);
+        let response = rpc(
+            endpoint,
+            &machine.token,
+            Some(&machine.environment_id),
+            &method,
+            params,
+        );
+        if let (Some(lease), Err(error)) = (&tunnel_lease, &response) {
+            if error.starts_with("Machine is unreachable") {
+                state.tunnels.invalidate(&machine.id, lease);
+            }
+        }
+        response?
+    };
     if method == "environment.describe"
         && result.get("environmentId").and_then(Value::as_str)
             != Some(machine.environment_id.as_str())
@@ -371,6 +425,97 @@ pub fn remote_request(
         return Err("Host identity changed. Add this machine again before continuing.".into());
     }
     Ok(result)
+}
+
+/// Connections saved before the stdio bridge kept a TCP endpoint and the Host
+/// credential on Windows. The bridge needs neither.
+fn forget_wsl_credential(
+    app: &AppHandle,
+    state: &RemoteConnections,
+    machine_id: &str,
+) -> Result<(), String> {
+    let _guard = state
+        .store
+        .lock()
+        .map_err(|_| "Connection store is locked")?;
+    let path = store_path(app)?;
+    let mut machines = read(&path)?;
+    for machine in machines.iter_mut().filter(|m| m.id == machine_id) {
+        if let Some(target) = &machine.wsl {
+            machine.endpoint = format!("wsl://{}", target.distribution);
+            machine.token.clear();
+        }
+    }
+    write(&path, &machines)
+}
+
+fn prepare_wsl_machine(
+    app: &AppHandle,
+    state: &RemoteConnections,
+    distribution: &str,
+) -> Result<StoredMachine, String> {
+    let descriptor = wsl_rpc(
+        app,
+        state,
+        distribution,
+        None,
+        "environment.describe",
+        json!({}),
+    )?;
+    let environment_id = descriptor
+        .get("environmentId")
+        .and_then(Value::as_str)
+        .filter(|id| !id.is_empty())
+        .map(String::from);
+    let Some(environment_id) = environment_id
+        .filter(|_| descriptor.get("protocolVersion").and_then(Value::as_u64) == Some(1))
+    else {
+        return Err("Could not verify the WSL Host identity.".into());
+    };
+    let _guard = state
+        .store
+        .lock()
+        .map_err(|_| "Connection store is locked")?;
+    let path = store_path(app)?;
+    let mut machines = read(&path)?;
+    let existing = machines.iter().find(|m| {
+        m.wsl
+            .as_ref()
+            .is_some_and(|wsl| wsl.distribution == distribution)
+    });
+    if existing.is_some_and(|m| m.environment_id != environment_id) {
+        return Err(
+            "WSL Host identity changed. Remove this connection before adding it again.".into(),
+        );
+    }
+    let machine = StoredMachine {
+        id: existing
+            .map(|m| m.id.clone())
+            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+        name: format!("WSL · {distribution}"),
+        // Device-local: requests go through the WSL bridge, which keeps the
+        // Host credential inside the distribution.
+        endpoint: format!("wsl://{distribution}"),
+        environment_id,
+        token: String::new(),
+        ssh: None,
+        wsl: Some(crate::remote_wsl::WslTarget {
+            distribution: distribution.into(),
+        }),
+    };
+    machines.retain(|m| m.id != machine.id);
+    machines.push(machine.clone());
+    write(&path, &machines)?;
+    Ok(machine)
+}
+
+#[tauri::command(async)]
+pub fn remote_wsl_connect(
+    app: AppHandle,
+    state: State<'_, RemoteConnections>,
+    distribution: String,
+) -> Result<Machine, String> {
+    prepare_wsl_machine(&app, &state, &distribution).map(|machine| machine.public())
 }
 
 fn supported_remote_method(method: &str) -> bool {
@@ -606,6 +751,7 @@ fn start_ssh_job(
                     environment_id,
                     token,
                     ssh: Some(target.clone()),
+                    wsl: None,
                 }
             };
             job.message("Opening the secure connection…");
@@ -904,9 +1050,23 @@ mod tests {
             environment_id: "env".into(),
             token: "secret".into(),
             ssh: None,
+            wsl: Some(crate::remote_wsl::WslTarget {
+                distribution: "Ubuntu".into(),
+            }),
         };
         let value = serde_json::to_string(&stored.public()).unwrap();
         assert!(!value.contains("secret"));
         assert!(!value.contains("token"));
+        assert!(value.contains("Ubuntu"));
+    }
+
+    #[test]
+    fn legacy_connections_remain_readable_without_wsl_metadata() {
+        let stored: StoredMachine = serde_json::from_value(json!({
+            "id": "old", "name": "SSH host", "endpoint": "http://127.0.0.1:3774",
+            "environmentId": "env", "token": "secret"
+        }))
+        .unwrap();
+        assert!(stored.wsl.is_none());
     }
 }

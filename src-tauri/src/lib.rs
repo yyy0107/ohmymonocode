@@ -44,6 +44,7 @@ mod rate_limits;
 mod reminders;
 mod remote;
 mod remote_ssh;
+mod remote_wsl;
 mod search;
 mod session_store;
 mod skills;
@@ -283,6 +284,8 @@ pub fn run() {
             local_host::shared_host_resource_release,
             fonts::list_system_fonts,
             remote::remote_machines,
+            remote_wsl::wsl_distributions,
+            remote::remote_wsl_connect,
             remote::remote_connect,
             remote::remote_disconnect,
             remote::remote_request,
