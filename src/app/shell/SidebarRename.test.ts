@@ -1430,7 +1430,7 @@ describe("single sidebar layout and width", () => {
     expect(container.querySelectorAll('button[aria-label^="Toggle Sidebar"]')).toHaveLength(1);
   });
 
-  it("keeps exactly one panel with Sessions, Explorer and Changes", () => {
+  it("keeps exactly one panel with Sessions, Explorer and Changes", async () => {
     act(render);
     expect(container.querySelectorAll("aside")).toHaveLength(1);
     expect([...container.querySelectorAll('[role="tablist"] [role="tab"]')].map(tab => tab.textContent)).toEqual(["Sessions", "Explorer", "Changes"]);
@@ -1439,7 +1439,8 @@ describe("single sidebar layout and width", () => {
     act(render);
     const shell = container.querySelector<HTMLElement>("[data-sidebar-transition]")!;
     expect(shell.hasAttribute("inert")).toBe(true);
-    act(() => completeMotionAnimation(shell));
+    // The width animation settles the fold when its playback promise resolves.
+    await act(async () => completeMotionAnimation(shell));
     expect(container.querySelector("aside")!.closest("[hidden]")).not.toBeNull();
     props.open = true;
     act(render);
@@ -1460,7 +1461,7 @@ describe("single sidebar layout and width", () => {
     expect(widthReads()).toBe(1);
   });
 
-  it("keeps content during collapse, hides its portal and reuses the list after reopening", () => {
+  it("keeps content during collapse, hides its portal and reuses the list after reopening", async () => {
     vi.useFakeTimers();
     localStorage.setItem("monocode.sidebarWidth", "390");
     act(render);
@@ -1480,7 +1481,7 @@ describe("single sidebar layout and width", () => {
     act(() => vi.advanceTimersByTime(100));
     expect(container.querySelector("aside")).toBe(aside);
     expect(aside!.closest("[hidden]")).toBeNull();
-    act(() => vi.advanceTimersByTime(1000));
+    await act(async () => vi.advanceTimersByTime(1000));
     expect(container.querySelector("aside")).toBe(aside);
     expect(aside!.closest("[hidden]")).not.toBeNull();
     expect(localStorage.getItem("monocode.sidebarWidth")).toBe("390");
@@ -1535,7 +1536,8 @@ describe("single sidebar layout and width", () => {
     });
     act(() => frame?.(0));
     const shell = container.querySelector<HTMLElement>("[data-sidebar-transition]")!;
-    expect(shell.style.width).toBe(`${resizedWidth}px`);
+    // While resizing, CSS reads the live width from this property; Motion owns the resting width.
+    expect(shell.style.getPropertyValue("--sidebar-resize-width")).toBe(`${resizedWidth}px`);
     expect(shell.dataset.resizing).toBe("true");
     props.open = false;
     act(render);
